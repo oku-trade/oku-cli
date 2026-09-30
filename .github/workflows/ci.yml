@@ -87,12 +87,19 @@ jobs:
           retention-days: 7
   nix:
     # Builds the user's flake package; catches a stale vendorHash after go.mod/go.sum changes.
-    # cachix/install-nix-action only installs Nix (no Cachix account/cache used).
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v31
-      - run: nix build .#default -L --print-out-paths
+      # Repo Actions policy allows only GitHub-owned/verified/allowlisted actions. Nix comes
+      # from Ubuntu's own archive (nix-bin + systemd daemon setup) on the ephemeral runner:
+      # no third-party action, no curl|sh installer. Independent job: never gates native jobs.
+      - name: install nix (Ubuntu archive)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends nix-bin nix-setup-systemd
+          sudo systemctl start nix-daemon.socket || true
+          nix --version
+      - run: sudo nix --extra-experimental-features 'nix-command flakes' build .#default -L --print-out-paths
       - run: ./result/bin/oku version
   protos:
     # Regenerates pkg/gen from the vendored proto/ closure (no private backend checkout)

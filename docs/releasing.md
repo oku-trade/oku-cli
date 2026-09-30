@@ -99,3 +99,9 @@ binary). The four-runner CI matrix, Nix CI job and release workflow have not bee
   `npm-pack.sh` refuses to pack a platform binary without it, and `release.yml` blocks
   publish unless every archive and platform tarball contains it. The launcher is dependency-free
   JS and carries no third-party code. Nobody has done a legal review of the notice contents.
+- **Nix CI job**: this repo's Actions policy allows only GitHub-owned, verified or allowlisted
+  actions, so the job installs `nix-bin` from Ubuntu 24.04's own archive (Nix 2.18.1) rather
+  than using a third-party action or a `curl | sh` installer. It runs independently and never
+  gates the native jobs. If Ubuntu's Nix can't build the pinned flake, treat the Nix gate as
+  blocked. Using a newer Nix installer means adding an action to the allowlist, which needs
+  operator approval.
