@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/oku-trade/oku-cli/pkg/api"
 	"github.com/oku-trade/oku-cli/pkg/auth"
@@ -71,7 +73,8 @@ func (a *App) cmdAuthSetup(e *env) (*result, error) {
 
 	name := e.cmd.String("device-name")
 	if name == "" {
-		name, _ = os.Hostname()
+		host, _ := os.Hostname()
+		name = defaultDeviceName(host)
 	}
 	name, err = signing.ValidateDeviceName(name)
 	if err != nil {
@@ -347,4 +350,28 @@ func (a *App) cmdAuthMigrateKeychain(e *env) (*result, error) {
 	return &result{data: map[string]any{"profile": p.Name, "migrated": true}, human: func(w io.Writer) {
 		fmt.Fprintf(w, "migrated %s credential to the macOS Keychain\n", p.Name)
 	}}, nil
+}
+
+// maxDeviceName matches signing.ValidateDeviceName.
+const maxDeviceName = 64
+
+// defaultDeviceName derives a valid device name from a hostname: control
+// characters are dropped, surrounding space trimmed, and the result is
+// truncated to 64 runes at a rune boundary. An empty result falls back to
+// "oku-cli". Explicit --device-name values are never altered, only validated.
+func defaultDeviceName(host string) string {
+	var b strings.Builder
+	for _, r := range host {
+		if !unicode.IsControl(r) && r != utf8.RuneError {
+			b.WriteRune(r)
+		}
+	}
+	r := []rune(strings.TrimSpace(b.String()))
+	if len(r) > maxDeviceName {
+		r = []rune(strings.TrimSpace(string(r[:maxDeviceName])))
+	}
+	if len(r) == 0 {
+		return "oku-cli"
+	}
+	return string(r)
 }
