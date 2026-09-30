@@ -67,3 +67,11 @@ func TestValidateRiskActions(t *testing.T) {
 		}
 	}
 }
+
+func TestRiskOutcome(t *testing.T) {
+	for s, want := range map[string]Outcome{"completed": OutcomeSuccess, "error": OutcomeRejected, "submitted": OutcomeUnknown, "unresolved": OutcomeUnknown, "": OutcomeUnknown, "filled": OutcomeUnknown} {
+		if got := RiskOutcome(s); got != want {
+			t.Errorf("%q: %s want %s", s, got, want)
+		}
+	}
+}
