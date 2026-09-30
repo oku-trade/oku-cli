@@ -13,6 +13,15 @@ Only what was actually executed is recorded here. **Status as of 2026-09-30: not
 | Deployed read API | `GetMarkets` over Connect JSON returns HTTP 200 with BTC data. | Verified. |
 | End-to-end enrollment/trading | Not run. Operator-only (see `deployment.md` acceptance checklist). | **Blocked on operator.** |
 
+## Kinds of evidence
+
+| Kind | What it covers | What it does not cover |
+|---|---|---|
+| **Synthetic** | CLI unit and safety tests (race, vet) against HTTP fixtures and fakes: unknown-outcome handling, the abandon limit, reconcile, digests, skills install. Backend pure unit tests. | Any real server behavior. |
+| **Real, read-only** | Live `GetMarkets` and live CLI `markets` reads against the deployed Oku API. Local `orders prepare`, which sends nothing. | Authenticated calls or writes. |
+| **Real, unauthenticated UI** | The actual Vite app `/cli` in Chromium (a temporary local server, since stopped), with no wallet and no mocks. | Wallet connection. |
+| **Not verified** | Wallet connection, enrollment (Verify/Approve), agent delegation, `orders submit`/cancel, revocation, deployed device routes, migration 137. | |
+
 ## Details
 
 ### CLI
