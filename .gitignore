@@ -1,4 +1,5 @@
 /oku
+/bin/
 /dist/
 *.test
 *.out
