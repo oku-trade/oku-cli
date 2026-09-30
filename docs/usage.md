@@ -163,7 +163,7 @@ Their source is the repository's `skills/` directory.
 
 - **Install locations:** jcode `~/.jcode/skills`, Claude Code `~/.claude/skills`, Codex `~/.agents/skills`, or any `--dir`.
 - `install` never overwrites files that differ unless you pass `--force`. `uninstall` only removes files that match the bundled version unless you pass `--force`.
-- `npx skills add https://github.com/oku-trade/oku-cli/tree/main` needs Git access to the private repository and explicitly selects the new `main` branch. The repository default branch is not changed by this push. `oku skills install` works from the binary alone.
+- `npx skills add https://github.com/oku-trade/oku-cli/tree/master` needs Git access to the private repository and selects the default `master` branch. `oku skills install` works from the binary alone.
 
 ## MCP server
 

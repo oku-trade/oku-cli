@@ -19,7 +19,7 @@ Building requires Go (the version is in `go.mod`).
 - **macOS** needs CGO and a native macOS host for the Keychain credential provider. Cross-compiling Darwin from Linux is refused by `scripts/build.sh`.
 
 ```sh
-git clone --branch main <this repository> && cd oku-cli
+git clone --branch master <this repository> && cd oku-cli
 make build          # bin/oku; or: make install (to $HOME/.local/bin/oku)
 ./bin/oku version
 ./bin/oku docs list # offline documentation bundled in the binary
@@ -30,7 +30,7 @@ make build          # bin/oku; or: make install (to $HOME/.local/bin/oku)
 The repo is a flake, so Nix builds the pinned Go toolchain and dependencies for you. Requires Nix with flakes enabled (`--extra-experimental-features 'nix-command flakes'` if they are not on by default).
 
 ```sh
-git clone --branch main <this repository> && cd oku-cli
+git clone --branch master <this repository> && cd oku-cli
 
 # run without installing
 nix run . -- version
@@ -51,10 +51,10 @@ Development shell with Go, `gopls`, and `make`:
 nix develop            # then: make build && go vet ./... && make docs-check
 ```
 
-Uninstall the profile install with `nix profile remove oku`. Installing the named `.#oku` attribute (rather than plain `.`) is what makes the profile entry match the binary name; `nix profile list` shows the current entries. Once this repository is reachable by URL you can skip the clone and use `nix run github:oku-trade/oku-cli/main -- version` or add it as a flake input:
+Uninstall the profile install with `nix profile remove oku`. Installing the named `.#oku` attribute (rather than plain `.`) is what makes the profile entry match the binary name; `nix profile list` shows the current entries. Once this repository is reachable by URL you can skip the clone and use `nix run github:oku-trade/oku-cli/master -- version` or add it as a flake input:
 
 ```nix
-inputs.oku-cli.url = "github:oku-trade/oku-cli/main";
+inputs.oku-cli.url = "github:oku-trade/oku-cli/master";
 # then: environment.systemPackages = [ inputs.oku-cli.packages.${system}.default ];
 ```
 
