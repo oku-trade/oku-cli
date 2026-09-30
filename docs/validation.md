@@ -41,3 +41,13 @@ Record only what was actually executed. Nothing here verifies the new CLI binary
 
 - All 7 package tests passed with `-race`, as reported by the CLI worker.
 - Review fixes are still pending. The final real `make dist` packaging run and the CLI smoke test have **not** been done yet.
+
+## Backend: commits `6b4bcbd5f` and L1 recovery `5eaed3ac4` (reported)
+
+- Pure tests, build and vet pass. Migration 137 exists as an artifact but has **not** been applied (operator-only).
+- The scoped trading-envelope signer binding is implemented (it is no longer deferred or fail-closed). Independent review is in progress.
+- **Not claimed:** live enrollment and live trading are untested.
+
+## Frontend full suite
+
+- 16 test-only fixture failures are being repaired in a separate commit. Final totals are pending, and none are recorded here yet.
