@@ -16,7 +16,7 @@ Only use this on a host you trust.
 
 These are independent. None implies another:
 
-1. **Oku session/token revocation**: stops the CLI using Oku APIs (website device list, or the CLI auth commands).
+1. **Oku session/token revocation**: stops the CLI using Oku APIs (website device list, or `oku auth revoke`, which also deletes local credentials).
 2. **Exchange agent-key revocation**: stops the key signing on Hyperliquid. Requires deregistering/replacing the agent from your main wallet. Revoking the Oku token alone does **not** do this.
 3. **Canceling open orders.**
 4. **Closing positions.**

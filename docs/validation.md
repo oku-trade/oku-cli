@@ -16,7 +16,6 @@ Record only what was actually executed. Nothing here verifies the new CLI binary
 - Backend device route deployment + DB, and authorized wallet end-to-end: not run.
 - Writes (`CreateAction`/`ConfirmAction`): no live writes authorized or performed.
 - Device enrollment and `/cli` page: in development.
-- Real `make dist` packaging of the CLI: pending until `./cmd/oku` builds. Script mechanics were verified on a stand-in module (4 archives, checksums verified and identical across two runs).
 
 ## Backend enrollment (reported by root agent)
 
@@ -51,3 +50,15 @@ Record only what was actually executed. Nothing here verifies the new CLI binary
 ## Frontend full suite
 
 - 16 test-only fixture failures are being repaired in a separate commit. Final totals are pending, and none are recorded here yet.
+
+## CLI packaging and help check (docs worker, commit `ca84dac`)
+
+- `go build ./cmd/oku` OK. `oku --help` and per-command `--help` were captured, and `docs/usage.md` and the skill were aligned to them. Codex skill path is `~/.agents/skills` (from `internal/skills/skills.go`).
+- `oku version --json` returns an `oku.cli/v1` envelope. `orders prepare` with no profile returns `PROFILE_NOT_FOUND` and exits 2.
+- `scripts/build.sh` ran twice: 4 archives (linux/darwin, amd64/arm64), `sha256sum -c` OK, identical checksums across runs. Local only, nothing published.
+  - darwin_amd64 `3609380edc5885a9731a6f63728c87be60c6a735dc4981f4e13a9be2d78c3556`
+  - darwin_arm64 `ac67a77868cd5779ca38138cd7ae84a7a8b3a0ecc8e6df13105423e7e3c41d57`
+  - linux_amd64 `65004691af9ffd7fd06ca9621480601901b79f6342844499c20cea97575f901d`
+  - linux_arm64 `43580905615407f9c31fc3a0412e9e17038405eb883370d1e6c99c54033370c1`
+- The darwin binaries were not executed (no macOS host), and they are unsigned and not notarized.
+- Not done here: authenticated or live CLI commands, e2e tests (in progress by the CLI worker).

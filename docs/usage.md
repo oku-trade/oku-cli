@@ -1,13 +1,13 @@
 # Usage
 
-> Grammar as finalized by the CLI worker. `oku --help` is authoritative if they differ.
+> Grammar verified against the built binary. `oku --help` is authoritative if they differ.
 
 ## Output contract
 
 - `--json`: exactly one JSON document on **stdout**. Diagnostics go to **stderr**.
-- `schema_version` is `oku.cli/v1`. Each response has `request_id` and either `data` or `error` (`code`, `message`, `retryable`).
+- Envelope: `schema_version` (`oku.cli/v1`), `request_id`, `command`, `ok`, `data`, `error` (`code`, `message`, `retryable`) or `null`.
 - Quantities and prices are decimal strings.
-- Account and network must be explicit (via profile or flags). Don't rely on an implicit default in automation.
+- Only Hyperliquid **mainnet** is supported. Trading requires a profile with an account. In automation, pass `--profile` explicitly.
 
 ### Exit codes
 
@@ -26,36 +26,56 @@
 
 Credentials are stored in an encrypted local file (no OS keyring). Unlock comes from an interactive TTY passphrase prompt or, for automation, `OKU_PASSPHRASE_FILE=<path>` pointing at a file readable only by you. Never pass the passphrase as an argument.
 
+## Global flags
+
+`--profile NAME` (default `$OKU_PROFILE` or config default), `--network NAME` (only `mainnet` is supported and is checked against the profile), `--account 0x..` (for read commands), `--json`, `--timeout DUR` (default 15s, max 2m).
+
 ## Commands
 
+Taken from `oku --help` at commit `ca84dac`:
+
 ```sh
-oku auth setup            # device enrollment (backend contract pending)
-oku auth status --json
+oku version
+oku doctor
+oku config path | config show          # no secrets printed
 
-oku profiles list
-oku profiles add ...
-oku profiles use <name>
-oku profiles remove <name>
+oku auth setup                          # enrollment code from the Oku website
+oku auth status [--verify]
+oku auth revoke                         # revokes the Oku API token + deletes local credentials only
 
-oku markets list --json
-oku account summary --json
-oku positions list --json
-oku orders list --json
+oku profiles add NAME --account 0x.. [--api-url URL] [--default]
+oku profiles list | use NAME | remove NAME
 
-oku orders prepare --market BTC --side buy --type limit --size <size> --price <price> --json
-#   local only: returns intent_id and digest, nothing sent
-oku orders submit --intent <intent_id> --digest <sha256> --json
-oku orders status ... --json
-oku orders cancel ... --json
-oku orders reconcile --json
+oku markets list
+oku markets quote COIN
+oku markets funding COIN [--since 24h]
+oku account summary
+oku positions list
+oku orders list
+oku fills list
+
+oku orders prepare --market BTC --side buy|sell --type limit|market --size <dec> \
+  [--price <dec>] [--tif gtc|ioc|alo] [--slippage-bps N] [--reduce-only] \
+  [--expires 5m] [--intent-id ID]
+#   local only, sends nothing. Returns intent_id and digest.
+#   --price for limit orders. --slippage-bps is required for market orders.
+oku orders submit --intent ID --digest SHA
+oku orders status --intent ID
+oku orders reconcile
+oku orders cancel --market COIN --order-id OID [--intent-id ID]
+oku orders abandon ...                  # cancel an unsigned server action so it can never execute
 
 oku skills list
-oku skills install   --target jcode|claude|codex [--dir <path>] [--force]
-oku skills uninstall --target jcode|claude|codex [--dir <path>]
+oku skills install   --target jcode|claude|codex | --dir PATH [--force]
+oku skills uninstall --target jcode|claude|codex | --dir PATH [--force]
 ```
+
+Skill install locations: jcode `~/.jcode/skills`, Claude Code `~/.claude/skills`, Codex `~/.agents/skills`. `uninstall` only removes files that match the bundled version unless `--force` is given.
+
+Example error (no profile configured): `orders prepare` prints `{"ok":false,"error":{"code":"PROFILE_NOT_FOUND",...}}` and exits 2.
 
 `--digest` binds submission to the exact prepared intent. If anything changes, prepare again. There is no per-order web approval: this is **trusted-host delegated mode** (see `security.md`).
 
 ## Order states
 
-HTTP success is not a fill. On timeout or connection loss after submit, exit 6 / `OUTCOME_UNKNOWN`: use `oku orders status` / `oku orders reconcile`. **Never place a replacement until the original is resolved.**
+HTTP success is not a fill. On timeout or connection loss after submit, exit 6 / `OUTCOME_UNKNOWN`: use `oku orders status --intent ID` / `oku orders reconcile`. **Never place a replacement until the original is resolved.**
