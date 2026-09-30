@@ -9,7 +9,7 @@ Only what was actually executed is recorded here. **Status as of 2026-09-30: not
 | CLI | Full `-race` + vet passed (root `BG722774rqmc`) **before** the latest UNKNOWN/abandon fixes. Live read smoke passed (`BG663998t7rz`). | **Not final.** Rerun of tests and packaging at the final commit is pending. |
 | CLI packaging | `scripts/build.sh` reproducible at `ca84dac` (below). | Must be rerun at the final commit. |
 | Frontend | HEAD `bbfb56930`: full suite 252 files / 3208 tests pass, `lint:check` exit 0 (`BG683551au6j`). Vite build exit 0. `/cli` renders in Chromium on desktop and mobile. | Passing. Wallet-connected flow untested. |
-| Backend | `405b4538a`: tests, vet and build pass (`BG692697b2l7`). Integration tests were compiled only. Two review fixes verified. | Passing pure checks. Migration 137 is **not applied**. Device routes are **not deployed**. |
+| Backend | `405b4538a`: tests, vet and build pass (`BG692697b2l7`). `go test -race` passes for `./src/connectapi`, `./src/connectapi/clidevice`, `./src/modules/features/clidevice` and `./src/pkg/hlsigning` (`BG8948497p4q`, no DB exercised). Integration tests were compiled only. Two review fixes verified. | Passing pure checks. Migration 137 is **not applied**. Device routes are **not deployed**. |
 | Deployed read API | `GetMarkets` over Connect JSON returns HTTP 200 with BTC data. | Verified. |
 | End-to-end enrollment/trading | Not run. Operator-only (see `deployment.md` acceptance checklist). | **Blocked on operator.** |
 
