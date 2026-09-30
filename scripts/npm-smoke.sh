@@ -18,7 +18,7 @@ oku="$t/app/node_modules/.bin/oku"
 [[ -x "$oku" ]] || fail "bin link missing"
 # other platform packages must not be installed
 n="$(ls "$t/app/node_modules/@oku-trade" | wc -l)"; [[ "$n" == 2 ]] || fail "unexpected packages: $(ls "$t/app/node_modules/@oku-trade")"
-"$oku" version >/dev/null || fail "version"
+"$(dirname "$0")/binary-smoke.sh" "$oku" || fail "binary smoke through launcher"
 (cd "$t/app" && npx --offline --no-install oku --help >/dev/null) || fail "npx"
 
 # 2. argv/stdin/exit preservation, using a stub binary via OKU_BINARY_PATH

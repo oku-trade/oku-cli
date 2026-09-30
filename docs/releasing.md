@@ -70,5 +70,32 @@ reveals the distributed software even though the source stays private.
 
 ## Status
 
-Validated locally on linux/amd64 only (pack + offline install smoke with the real binary). The
-four-runner CI matrix and the release workflow have not been run yet.
+Validated locally on linux/amd64 only (pack, offline install, binary and launcher smoke with the real
+binary). The four-runner CI matrix, Nix CI job and release workflow have not been run yet.
+
+## Hardening notes
+
+- **Smoke coverage** (`scripts/binary-smoke.sh`, run on the raw binary and through the npm
+  launcher): `--json version`, `--json` usage-error envelope with exit code 2, and, once
+  listed by `oku help`, `docs list`/`docs show`, `skills list`, and an MCP `initialize`
+  over stdio via `mcp serve`.
+- **macOS signing**: `build.sh` ad-hoc signs darwin binaries (`codesign --sign -`) and runs
+  `codesign --verify --strict`. That proves the signature is intact. It is not Developer ID
+  signing or notarization, so Gatekeeper still quarantines downloads.
+- **Release artifacts**: each platform uploads a separate directory with its own
+  `SHA256SUMS.<platform>`. Publish verifies all four manifests and requires the four
+  launcher tarballs to be byte-identical (`npm pack` output is deterministic), then publishes
+  the linux-x64 copy.
+- **Visibility**: `publishConfig.access: restricted` is the safe default only. Private source
+  does not require private binaries, so the owner may choose `public` explicitly.
+- **Nix**: CI builds `.#default`. After any `go.mod`/`go.sum` change, refresh `vendorHash`
+  (set `lib.fakeHash`, build, copy the `got:` hash). Without system Nix access, a scratch
+  store works: `nix --store "local?root=$DIR" build "path:$PWD#default"`.
+- **Third-party notices**: `UNLICENSED` covers only Oku's own code. `scripts/third-party-notices.sh`
+  walks the pinned module graph actually linked into `cmd/oku` for the exact
+  GOOS/GOARCH/CGO target (darwin includes `keybase/go-keychain`). It copies each module's
+  LICENSE/NOTICE files verbatim plus the Go standard library license, and fails if any
+  module has no license file. `build.sh` puts `THIRD_PARTY_NOTICES` in every archive,
+  `npm-pack.sh` refuses to pack a platform binary without it, and `release.yml` blocks
+  publish unless every archive and platform tarball contains it. The launcher is dependency-free
+  JS and carries no third-party code. Nobody has done a legal review of the notice contents.

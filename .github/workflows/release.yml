@@ -1,7 +1,7 @@
 name: release
 # Manual only. Disabled unless repository variable NPM_PUBLISH_ENABLED == 'true'.
-# Even then, the publish job defaults to --dry-run and requires the `npm-release`
-# environment (configure required reviewers there). Uses npm trusted publishing (OIDC).
+# Even then, publish defaults to --dry-run and requires the `npm-release` environment
+# (configure required reviewers there). Uses npm trusted publishing (OIDC).
 # The source repository is private: npm does NOT generate provenance for private
 # repositories, so no --provenance flag is passed and none is claimed.
 on:
@@ -23,37 +23,48 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - { runner: ubuntu-24.04,     goos: linux,  goarch: amd64, cgo: "0" }
-          - { runner: ubuntu-24.04-arm, goos: linux,  goarch: arm64, cgo: "0" }
-          - { runner: macos-15-intel,   goos: darwin, goarch: amd64, cgo: "1" }
-          - { runner: macos-15,         goos: darwin, goarch: arm64, cgo: "1" }
+          - { runner: ubuntu-24.04,     goos: linux,  goarch: amd64, npm: linux-x64,    cgo: "0" }
+          - { runner: ubuntu-24.04-arm, goos: linux,  goarch: arm64, npm: linux-arm64,  cgo: "0" }
+          - { runner: macos-15-intel,   goos: darwin, goarch: amd64, npm: darwin-x64,   cgo: "1" }
+          - { runner: macos-15,         goos: darwin, goarch: arm64, npm: darwin-arm64, cgo: "1" }
     runs-on: ${{ matrix.runner }}
     env:
       CGO_ENABLED: ${{ matrix.cgo }}
       VERSION: ${{ inputs.version }}
+      P: ${{ matrix.npm }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with: { go-version-file: go.mod }
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
-      - name: validate version
-        run: echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
-      - run: make test
+      - name: validate version and native host
+        run: |
+          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+          test "$(go env GOOS)/$(go env GOARCH)" = "${{ matrix.goos }}/${{ matrix.goarch }}"
+      - name: test (linux)
+        if: matrix.goos == 'linux'
+        run: make test
+      - name: test (darwin, disposable keychain; never the login keychain)
+        if: matrix.goos == 'darwin'
+        env: { OKU_KEYCHAIN_TEST_ACK: disposable-runner }
+        run: ./scripts/macos-keychain-test.sh make test
       - run: VERSION=v$VERSION PLATFORMS=${{ matrix.goos }}/${{ matrix.goarch }} ./scripts/build.sh
       - name: package + smoke
         run: |
           n=oku_v${VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}
           tar -xzf dist/$n.tar.gz -C dist
+          ./scripts/binary-smoke.sh dist/$n/oku
           ./scripts/npm-pack.sh "$VERSION" npm-dist "${{ matrix.goos }}/${{ matrix.goarch }}=dist/$n/oku"
           ./scripts/npm-smoke.sh npm-dist "$VERSION"
+          # unique per-platform output dir + manifest (no name collisions when merged)
+          mkdir -p out/$P
+          cp dist/$n.tar.gz npm-dist/*.tgz out/$P/
+          (cd out/$P && shasum -a 256 * > SHA256SUMS.$P)
       - uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: |
-            dist/*.tar.gz
-            dist/SHA256SUMS
-            npm-dist/*.tgz
+          name: release-${{ matrix.npm }}
+          path: out/${{ matrix.npm }}/
   publish:
     needs: build   # only after all four native builds and smoke tests pass
     if: vars.NPM_PUBLISH_ENABLED == 'true'
@@ -62,23 +73,35 @@ jobs:
     permissions:
       contents: read
       id-token: write   # npm trusted publishing (OIDC); no long-lived token
+    env:
+      VERSION: ${{ inputs.version }}
     steps:
       - uses: actions/setup-node@v4
         with: { node-version: "22", registry-url: "https://registry.npmjs.org" }
       - run: npm install -g npm@^11.5.1   # trusted publishing needs npm >= 11.5.1
       - uses: actions/download-artifact@v4
-        with: { path: artifacts, pattern: release-*, merge-multiple: true }
-      - name: publish platform packages, then launcher
+        with: { path: artifacts, pattern: release-* }   # one dir per platform, no merge
+      - name: verify all artifacts
+        run: |
+          set -euo pipefail
+          cd artifacts
+          for p in linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
+            (cd release-$p && sha256sum -c SHA256SUMS.$p)
+            test -f release-$p/oku-trade-cli-$p-$VERSION.tgz
+            # block publish unless bundled dependency notices are present in both artifacts
+            tar -tzf release-$p/oku-trade-cli-$p-$VERSION.tgz | grep -qx package/THIRD_PARTY_NOTICES
+            tar -tzf release-$p/oku_v${VERSION}_*.tar.gz | grep -q '/THIRD_PARTY_NOTICES$'
+          done
+          # launcher is pure JS + JSON: all four builds must be byte-identical
+          n=$(sha256sum release-*/oku-trade-cli-$VERSION.tgz | awk '{print $1}' | sort -u | wc -l)
+          test "$n" = 1 || { sha256sum release-*/oku-trade-cli-$VERSION.tgz; echo "launcher tarballs differ" >&2; exit 1; }
+      - name: publish platform packages, then launcher (from linux-x64)
         env:
-          VERSION: ${{ inputs.version }}
           DRY: ${{ inputs.dry_run && '--dry-run' || '' }}
         run: |
           set -euo pipefail
-          cd artifacts/npm-dist
+          cd artifacts
           for p in linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
-            test -f "oku-trade-cli-$p-$VERSION.tgz"
+            npm publish $DRY --access restricted "release-$p/oku-trade-cli-$p-$VERSION.tgz"
           done
-          for p in linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
-            npm publish $DRY --access restricted "oku-trade-cli-$p-$VERSION.tgz"
-          done
-          npm publish $DRY --access restricted "oku-trade-cli-$VERSION.tgz"
+          npm publish $DRY --access restricted "release-linux-x64/oku-trade-cli-$VERSION.tgz"
