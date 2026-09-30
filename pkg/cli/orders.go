@@ -197,10 +197,11 @@ func (a *App) cmdOrdersPrepare(e *env) (*result, error) {
 	now := e.app.Now().UTC()
 	in.CreatedAt = now.Format(time.RFC3339)
 	in.ExpiresAt = now.Add(ttl).Format(time.RFC3339)
-	j, err := journal.Open(p.Name)
+	j, err := openJournal(p)
 	if err != nil {
-		return nil, output.Wrap(output.CodeInternal, err, "opening journal")
+		return nil, err
 	}
+	defer j.Close()
 	unlock, err := j.Lock()
 	if err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "locking journal")
@@ -260,10 +261,11 @@ func (a *App) cmdOrdersSubmit(e *env) (*result, error) {
 // submit runs the state machine for one intent. Every state transition is
 // persisted before the corresponding network call.
 func (e *env) submit(p *resolved, id, digest string) (*result, error) {
-	j, err := journal.Open(p.Name)
+	j, err := openJournal(p)
 	if err != nil {
-		return nil, output.Wrap(output.CodeInternal, err, "opening journal")
+		return nil, err
 	}
+	defer j.Close()
 	unlock, err := j.Lock()
 	if err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "locking journal")
@@ -297,9 +299,11 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 	if in.Expired(e.app.Now()) {
 		return nil, output.Errorf(output.CodeIntentState, "intent %q expired at %s; prepare a new one", id, in.ExpiresAt)
 	}
-	if in.Kind == trading.KindOrder {
-		// Do not add exposure while any earlier submission is unresolved.
-		un, err := j.Unresolved()
+	if in.Kind != trading.KindCancel {
+		// Fast pre-check (the authoritative gate is BeginSubmission): do not
+		// add exposure while any submission for this account, from any
+		// profile or origin, is unresolved.
+		un, err := j.Blocking(in.Network, in.Account)
 		if err != nil {
 			return nil, output.Wrap(output.CodeInternal, err, "journal")
 		}
@@ -310,7 +314,7 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 			}
 		}
 	}
-	s, err := e.unlock(p, "trade")
+	s, err := e.unlock(p, requiredScope(in.Kind))
 	if err != nil {
 		return nil, err
 	}
@@ -351,17 +355,21 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 		return nil, output.Errorf(output.CodePayloadMismatch, "%v", verr).WithExec(output.ExecNone)
 	}
 
-	nonce, err := j.NextNonce(s.md.AgentAddress)
-	if err != nil {
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "allocating nonce")
+	// Nonce allocation, the account-wide unresolved gate and the
+	// "submitting" state commit in one transaction before anything is signed.
+	nonce, err := j.BeginSubmission(rec, s.md.AgentAddress)
+	switch {
+	case errors.Is(err, journal.ErrUnresolved):
+		return nil, output.Errorf(output.CodeOutcomeUnknown, "this account has an unresolved submission; run 'oku orders reconcile' before submitting").WithExec(output.ExecNone)
+	case errors.Is(err, journal.ErrConflict):
+		return nil, output.Errorf(output.CodeIntentState, "intent %q changed concurrently; re-run 'oku orders status'", id).WithExec(output.ExecNone)
+	case err != nil:
+		return nil, output.Wrap(output.CodeInternal, err, "journal (nothing sent)")
 	}
 	signed, err := signing.SignAction(s.signer, rec.ActionJSON, uint64(nonce))
 	if err != nil {
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "signing")
-	}
-	rec.State, rec.Nonce = journal.StateSubmitting, nonce
-	if err := j.Put(rec, ""); err != nil {
-		return nil, output.Wrap(output.CodeInternal, err, "journal (nothing sent)")
+		// Recorded as submitting (fail-safe unknown); nothing was sent.
+		return nil, output.Wrap(output.CodeSignerUnavailable, err, "signing (nothing sent; reconcile to clear)")
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
@@ -431,6 +439,10 @@ func createRequest(in *trading.Intent) api.CreateActionRequest {
 		}
 	case trading.KindCancel:
 		req.Params.Cancel = &api.CancelActionMetadata{Coin: in.Market, Oid: api.Int64(in.OrderID)}
+	case trading.KindLeverage:
+		req.Params.Leverage = &api.LeverageActionMetadata{Coin: in.Market, Leverage: in.Leverage, IsCross: in.IsCross}
+	case trading.KindMargin:
+		req.Params.Margin = &api.MarginActionMetadata{Coin: in.Market, Amount: in.MarginAmount}
 	}
 	return req
 }
@@ -522,10 +534,11 @@ func (a *App) cmdOrdersCancel(e *env) (*result, error) {
 		Market: coin, AssetID: m.AssetID, OrderID: oid,
 		CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(defaultIntentTTL).Format(time.RFC3339),
 	}
-	j, err := journal.Open(p.Name)
+	j, err := openJournal(p)
 	if err != nil {
-		return nil, output.Wrap(output.CodeInternal, err, "opening journal")
+		return nil, err
 	}
+	defer j.Close()
 	unlock, err := j.Lock()
 	if err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "locking journal")
@@ -542,7 +555,10 @@ func (a *App) cmdOrdersCancel(e *env) (*result, error) {
 }
 
 func (a *App) cmdOrdersStatus(e *env) (*result, error) {
-	_, rec, _, err := e.loadRecord()
+	_, rec, j, err := e.loadRecord()
+	if j != nil {
+		defer j.Close()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -561,10 +577,16 @@ func (e *env) loadRecord() (*resolved, *journal.Record, *journal.Journal, error)
 	if p.Name == "" {
 		return nil, nil, nil, output.Errorf(output.CodeProfileNotFound, "no profile selected")
 	}
-	j, err := journal.Open(p.Name)
+	j, err := openJournal(p)
 	if err != nil {
-		return nil, nil, nil, output.Wrap(output.CodeInternal, err, "opening journal")
+		return nil, nil, nil, err
 	}
+	closeOnErr := true
+	defer func() {
+		if closeOnErr {
+			j.Close()
+		}
+	}()
 	rec, err := j.Get(id)
 	if errors.Is(err, journal.ErrNotFound) {
 		return nil, nil, nil, output.Errorf(output.CodeNotFound, "intent %q not found", id)
@@ -572,6 +594,7 @@ func (e *env) loadRecord() (*resolved, *journal.Record, *journal.Journal, error)
 	if err != nil {
 		return nil, nil, nil, output.Wrap(output.CodeInternal, err, "journal")
 	}
+	closeOnErr = false
 	return p, rec, j, nil
 }
 
@@ -583,10 +606,11 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 	if p.Name == "" {
 		return nil, output.Errorf(output.CodeProfileNotFound, "no profile selected")
 	}
-	j, err := journal.Open(p.Name)
+	j, err := openJournal(p)
 	if err != nil {
-		return nil, output.Wrap(output.CodeInternal, err, "opening journal")
+		return nil, err
 	}
+	defer j.Close()
 	unlock, err := j.Lock()
 	if err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "locking journal")
@@ -671,6 +695,27 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 // keeps the record unknown, which blocks resends and new exposure.
 func applyServerState(r *journal.Record, state string, oid int64, errMsg string) {
 	r.ServerState = state
+	if r.Intent.Kind == trading.KindLeverage || r.Intent.Kind == trading.KindMargin {
+		// Risk actions carry no OID; only "completed" is success and only
+		// "error" is an authoritative rejection. Everything else is unknown.
+		if errMsg != "" {
+			r.LastError = errMsg
+		}
+		// A signature may have reached the venue once the record left the
+		// unsigned states; then "error" is not proof of rejection.
+		sent := r.State != journal.StatePrepared && r.State != journal.StateCreating && r.State != journal.StateCreated
+		switch trading.RiskOutcome(state, sent) {
+		case trading.OutcomeSuccess:
+			r.State = journal.StateSubmitted
+		case trading.OutcomeRejected:
+			r.State = journal.StateRejected
+		default:
+			if !(state == "pending" && r.State == journal.StateCreated) {
+				r.State = journal.StateUnknown
+			}
+		}
+		return
+	}
 	if oid > 0 {
 		r.OrderID = oid
 	}
@@ -698,6 +743,7 @@ func (a *App) cmdOrdersAbandon(e *env) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer j.Close()
 	unlock, err := j.Lock()
 	if err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "locking journal")

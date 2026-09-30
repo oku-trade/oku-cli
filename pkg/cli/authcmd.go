@@ -6,6 +6,7 @@ import (
 	urfave "github.com/urfave/cli/v3"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -181,7 +182,7 @@ func (e *env) finishEnrollment(p *resolved, md *auth.Metadata, sec *auth.Secrets
 			poll.AccountAddress, p.Name, md.AccountAddress)
 	}
 	for _, s := range poll.Scopes {
-		if s != "read" && s != "trade" {
+		if s != "read" && s != "trade" && s != "risk" {
 			return nil, output.Errorf(output.CodeUpstream, "unexpected scope %q", s)
 		}
 	}
@@ -316,5 +317,34 @@ func (a *App) cmdAuthRevoke(e *env) (*result, error) {
 	return &result{data: data, human: func(w io.Writer) {
 		fmt.Fprintf(w, "device %s: Oku API access %s; local credentials deleted\n", orDash(md.DeviceID), remote)
 		fmt.Fprintln(w, "note: "+boundaries["not_revoked"])
+	}}, nil
+}
+
+// cmdAuthMigrateKeychain explicitly moves a legacy encrypted-file credential
+// into the macOS Keychain. It never runs implicitly.
+func (a *App) cmdAuthMigrateKeychain(e *env) (*result, error) {
+	p, err := e.profile()
+	if err != nil {
+		return nil, err
+	}
+	if p.Name == "" {
+		return nil, output.Errorf(output.CodeProfileNotFound, "a profile is required").WithDetail("hint", "pass --profile NAME")
+	}
+	if runtime.GOOS != "darwin" {
+		return nil, output.Errorf(output.CodeUsage, "auth migrate-keychain is only available on macOS; %s keeps credentials in the encrypted file store", runtime.GOOS).
+			WithDetail("hint", "no migration is needed on this platform")
+	}
+	pass, err := e.legacyPassphrase(false)
+	if err != nil {
+		return nil, err
+	}
+	if err := auth.MigrateLegacy(p.Name, pass); err != nil {
+		if errors.Is(err, auth.ErrUnsupportedPlatform) {
+			return nil, output.Wrap(output.CodeUsage, err, "auth migrate-keychain").WithDetail("hint", "use an official macOS build (CGO enabled)")
+		}
+		return nil, output.Wrap(output.CodeSignerUnavailable, err, "migrating credential; the encrypted file was left in place unless the Keychain item was verified")
+	}
+	return &result{data: map[string]any{"profile": p.Name, "migrated": true}, human: func(w io.Writer) {
+		fmt.Fprintf(w, "migrated %s credential to the macOS Keychain\n", p.Name)
 	}}, nil
 }

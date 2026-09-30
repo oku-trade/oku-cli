@@ -118,6 +118,7 @@ func (a *App) cmdDoctor(e *env) (*result, error) {
 			}
 			if j, err := journal.Open(p.Name); err == nil {
 				un, err := j.Unresolved()
+				j.Close()
 				switch {
 				case err != nil:
 					add("journal", false, err.Error())
