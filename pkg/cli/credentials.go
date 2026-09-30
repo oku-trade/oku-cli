@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/oku-trade/oku-cli/pkg/auth"
@@ -18,6 +19,15 @@ import (
 // (must be mode 0600) or an interactive masked prompt. It never falls back
 // to plaintext storage and never reads the passphrase from argv.
 func (e *env) passphrase(confirm bool) ([]byte, error) {
+	if runtime.GOOS == "darwin" {
+		return nil, nil // Native Keychain handles authorization. No file-provider fallback.
+	}
+	return e.legacyPassphrase(confirm)
+}
+
+// legacyPassphrase is reserved for an explicitly requested encrypted-file
+// migration on macOS. Normal Keychain reads never request it.
+func (e *env) legacyPassphrase(confirm bool) ([]byte, error) {
 	if path := e.app.Getenv("OKU_PASSPHRASE_FILE"); path != "" {
 		fi, err := os.Stat(path)
 		if err != nil {
@@ -129,11 +139,16 @@ func (e *env) unlock(p *resolved, needScope string) (*session, error) {
 	if needScope != "" && !md.HasScope(needScope) {
 		return nil, output.Errorf(output.CodeAuthRequired, "device credential lacks %q scope; enroll with trading enabled on the Oku website", needScope)
 	}
-	pass, err := e.passphrase(false)
-	if err != nil {
-		return nil, err
+	var sec *auth.Secrets
+	if runtime.GOOS == "darwin" {
+		_, sec, err = auth.Unlock(p.Name, nil)
+	} else {
+		pass, passErr := e.passphrase(false)
+		if passErr != nil {
+			return nil, passErr
+		}
+		_, sec, err = auth.Unlock(p.Name, pass)
 	}
-	_, sec, err := auth.Unlock(p.Name, pass)
 	if err != nil {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "unlocking credentials")
 	}

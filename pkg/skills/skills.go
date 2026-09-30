@@ -1,14 +1,13 @@
 // Package skills bundles agent skill assets into the binary and installs
 // them without silently overwriting user files.
 //
-// Integration contract: skill content lives at assets/<skill-name>/SKILL.md
-// (plus optional reference files) and is owned by the docs worker. Every
-// top-level directory under assets containing SKILL.md is a skill.
+// Canonical skill content lives in the repository root skills/<name>/SKILL.md
+// (plus optional reference files), embedded by the root oku package. Every
+// top-level directory containing SKILL.md is a skill.
 package skills
 
 import (
 	"bytes"
-	"embed"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -17,10 +16,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	oku "github.com/oku-trade/oku-cli"
 )
 
-//go:embed all:assets
-var assets embed.FS
+var assets = oku.Skills()
 
 // Skill describes a bundled skill.
 type Skill struct {
@@ -42,7 +42,7 @@ var Targets = map[string]string{
 func List() ([]Skill, error) { return list(assets) }
 
 func list(fsys fs.FS) ([]Skill, error) {
-	entries, err := fs.ReadDir(fsys, "assets")
+	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func list(fsys fs.FS) ([]Skill, error) {
 		if !e.IsDir() {
 			continue
 		}
-		root := path.Join("assets", e.Name())
+		root := e.Name()
 		if _, err := fs.Stat(fsys, path.Join(root, "SKILL.md")); err != nil {
 			continue
 		}
@@ -118,7 +118,7 @@ func install(fsys fs.FS, root string, force bool) ([]FileResult, error) {
 	conflict := false
 	for _, s := range sk {
 		for _, f := range s.Files {
-			data, err := fs.ReadFile(fsys, path.Join("assets", s.Name, f))
+			data, err := fs.ReadFile(fsys, path.Join(s.Name, f))
 			if err != nil {
 				return nil, err
 			}
@@ -160,6 +160,14 @@ func install(fsys fs.FS, root string, force bool) ([]FileResult, error) {
 	return results, nil
 }
 
+// Read returns a bundled skill file, e.g. Read("learn-oku", "SKILL.md").
+func Read(name, file string) ([]byte, error) {
+	if strings.Contains(name, "/") || name == "" || name == "." || name == ".." {
+		return nil, fmt.Errorf("invalid skill name %q", name)
+	}
+	return fs.ReadFile(assets, path.Join(name, path.Clean("/" + file)[1:]))
+}
+
 // Uninstall removes only files whose content matches the bundled version,
 // unless force is set. Directories are removed only when empty.
 func Uninstall(root string, force bool) ([]FileResult, error) { return uninstall(assets, root, force) }
@@ -173,7 +181,7 @@ func uninstall(fsys fs.FS, root string, force bool) ([]FileResult, error) {
 	conflict := false
 	for _, s := range sk {
 		for _, f := range s.Files {
-			data, _ := fs.ReadFile(fsys, path.Join("assets", s.Name, f))
+			data, _ := fs.ReadFile(fsys, path.Join(s.Name, f))
 			dst := filepath.Join(root, s.Name, filepath.FromSlash(f))
 			existing, err := os.ReadFile(dst)
 			switch {

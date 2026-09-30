@@ -1,0 +1,104 @@
+syntax = "proto2";
+
+package gfxcafe.oku.account.v2;
+
+import "buf/validate/validate.proto";
+
+option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v2;accountv2";
+
+// Custom validation rules for v2 services
+
+extend buf.validate.StringRules {
+  // Validates bridge IDs
+  optional bool bridge_id = 2001 [
+    (buf.validate.predefined).cel = {
+      id: "string.bridge_id"
+      expression: "rule && this != '' && !(this in ['deswap', 'bungee', 'lifi', 'across', 'orbiter', 'wormhole', 'rhinofi', 'chainlink', 'squidrouter', 'wanbridge', 'stargate', 'mayan', 'relay', 'enso','layerzero', 'circleStandard', 'circleFast', 'bobGateway', 'aori']) ? 'invalid bridge ID: `%s`'.format([this]) : ''"
+    }
+  ];
+
+  // Validates router/market IDs
+  optional bool router_id = 2002 [
+    (buf.validate.predefined).cel = {
+      id: "string.router_id"
+      expression: "rule && this != '' && !(this in ['native', 'directwrap', 'directswap', 'airswap', 'enso', 'kyberswap', 'odos', 'okx', 'oneinch', 'oneinchfusion', 'openocean', 'paraswap', 'usor', 'zeroex', 'cowswap', 'icecreamswap', 'unizen', 'threeroute', 'fabric', 'fynd', 'binance', 'bitget']) ? 'invalid router ID: `%s`'.format([this]) : ''"
+    }
+  ];
+
+  // Validates hyperliquid onramp provider IDs
+  optional bool hyperliquid_onramp_id = 2008 [
+    (buf.validate.predefined).cel = {
+      id: "string.hyperliquid_onramp_id"
+      expression: "rule && !(this in ['enso']) ? 'invalid hyperliquid onramp ID: `%s`'.format([this]) : ''"
+    }
+  ];
+
+  // Validates hyperliquid offramp provider IDs
+  optional bool hyperliquid_offramp_id = 2011 [
+    (buf.validate.predefined).cel = {
+      id: "string.hyperliquid_offramp_id"
+      expression: "rule && !(this in ['mayan']) ? 'invalid hyperliquid offramp ID: `%s`'.format([this]) : ''"
+    }
+  ];
+
+  // Validates integer strings (used for BigInt values from TypeScript)
+  optional bool integer_string = 2003 [
+    (buf.validate.predefined).cel = {
+      id: "string.integer_string"
+      expression: "rule && this != '' && !this.matches(r'^\\d+$') ? 'not a valid integer string: %s'.format([this]) : ''"
+    }
+  ];
+
+  // Validates decimal strings (digits with optional decimal point)
+  optional bool decimal_string = 2004 [
+    (buf.validate.predefined).cel = {
+      id: "string.decimal_string"
+      expression: "rule && this != '' && !this.matches(r'^\\d+(\\.\\d+)?$') ? 'not a valid decimal string: %s'.format([this]) : ''"
+    }
+  ];
+
+  // Validates canonical decimal strings used in signed Hyperliquid wire values.
+  // Trailing zeroes change the signed payload and can recover as a different
+  // API wallet, so values like "0.0480" and "2.00" are rejected.
+  optional bool canonical_decimal_string = 2009 [
+    (buf.validate.predefined).cel = {
+      id: "string.canonical_decimal_string"
+      expression: "rule && this != '' && !this.matches(r'^(0|[1-9]\\d*)(\\.\\d*[1-9])?$') ? 'not a canonical decimal string: %s'.format([this]) : ''"
+    }
+  ];
+
+  // Validates canonical signed decimal strings used in signed Hyperliquid wire
+  // values. Allows a leading minus for fields like isolated margin amount.
+  optional bool canonical_signed_decimal_string = 2010 [
+    (buf.validate.predefined).cel = {
+      id: "string.canonical_signed_decimal_string"
+      expression: "rule && this != '' && !this.matches(r'^-?(0|[1-9]\\d*)(\\.\\d*[1-9])?$') ? 'not a canonical signed decimal string: %s'.format([this]) : ''"
+    }
+  ];
+
+  // Validates integration IDs
+  optional bool integration_id = 2005 [
+    (buf.validate.predefined).cel = {
+      id: "string.integration_id"
+      expression: "rule && this != '' && !(this in ['miniapp', 'retail']) ? 'invalid integration ID: `%s`'.format([this]) : ''"
+    }
+  ];
+
+  // Validates signed decimal strings (digits with optional leading minus and decimal point)
+  // Used for values that can be negative (e.g., margin adjustments)
+  optional bool signed_decimal_string = 2007 [
+    (buf.validate.predefined).cel = {
+      id: "string.signed_decimal_string"
+      expression: "rule && this != '' && !this.matches(r'^-?\\d+(\\.\\d+)?$') ? 'not a valid signed decimal string: %s'.format([this]) : ''"
+    }
+  ];
+
+  // Validates CAIP-2 chain identifiers (e.g. "eip155:1", "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp")
+  optional bool caip2 = 2006 [
+    (buf.validate.predefined).cel = {
+      id: "string.caip2"
+      expression: "rule && this != '' && !this.matches(r'^[a-zA-Z0-9][-a-zA-Z0-9]{2,}:[a-zA-Z0-9]{1,}[a-zA-Z0-9._-]*$') ? 'invalid CAIP-2 chain identifier: `%s`'.format([this]) : ''"
+    }
+  ];
+
+}

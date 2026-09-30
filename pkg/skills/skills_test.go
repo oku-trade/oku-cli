@@ -9,9 +9,9 @@ import (
 )
 
 var testFS = fstest.MapFS{
-	"assets/oku-perps/SKILL.md":          {Data: []byte("skill v1")},
-	"assets/oku-perps/reference/cmds.md": {Data: []byte("ref")},
-	"assets/not-a-skill/README.md":       {Data: []byte("x")},
+	"oku-perps/SKILL.md":          {Data: []byte("skill v1")},
+	"oku-perps/reference/cmds.md": {Data: []byte("ref")},
+	"not-a-skill/README.md":       {Data: []byte("x")},
 }
 
 func TestInstallNeverOverwritesWithoutForce(t *testing.T) {

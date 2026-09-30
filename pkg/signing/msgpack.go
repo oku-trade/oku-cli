@@ -2,7 +2,6 @@ package signing
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +9,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // maxSafeInteger mirrors JavaScript Number.MAX_SAFE_INTEGER. The reference
@@ -19,9 +20,12 @@ const maxSafeInteger = 1<<53 - 1
 
 // EncodeActionJSON msgpack-encodes a JSON document preserving object key
 // order, matching @msgpack/msgpack encode(JSON.parse(actionJSON)) as used by
-// trade/src/app/features/perps/lib/hyperliquidHash.ts. Non-integer numbers are
-// rejected (fail closed): no Oku action currently contains them and float
-// encoding differs across SDKs.
+// trade/src/app/features/perps/lib/hyperliquidHash.ts. The JSON is walked
+// token by token so key order is exactly the wire order; the msgpack wire
+// primitives come from github.com/vmihailenco/msgpack/v5, the library the
+// account backend uses for the same hash. Non-integer numbers are rejected
+// (fail closed): no Oku action currently contains them and float encoding
+// differs across SDKs.
 func EncodeActionJSON(actionJSON string) ([]byte, error) {
 	dec := json.NewDecoder(strings.NewReader(actionJSON))
 	dec.UseNumber()
@@ -35,11 +39,19 @@ func EncodeActionJSON(actionJSON string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func newEncoder(w io.Writer) *msgpack.Encoder {
+	enc := msgpack.NewEncoder(w)
+	// Smallest integer representation, as @msgpack/msgpack does.
+	enc.UseCompactInts(true)
+	return enc
+}
+
 func encodeValue(dec *json.Decoder, buf *bytes.Buffer) error {
 	tok, err := dec.Token()
 	if err != nil {
 		return fmt.Errorf("parse action json: %w", err)
 	}
+	enc := newEncoder(buf)
 	switch v := tok.(type) {
 	case json.Delim:
 		switch v {
@@ -50,25 +62,24 @@ func encodeValue(dec *json.Decoder, buf *bytes.Buffer) error {
 		}
 		return fmt.Errorf("unexpected delimiter %q", v)
 	case string:
-		writeString(buf, v)
+		return enc.EncodeString(v)
 	case bool:
-		if v {
-			buf.WriteByte(0xc3)
-		} else {
-			buf.WriteByte(0xc2)
-		}
+		return enc.EncodeBool(v)
 	case nil:
-		buf.WriteByte(0xc0)
+		return enc.EncodeNil()
 	case json.Number:
-		return writeNumber(buf, v)
-	default:
-		return fmt.Errorf("unsupported json token %T", tok)
+		i, err := safeInt(v)
+		if err != nil {
+			return err
+		}
+		return enc.EncodeInt(i)
 	}
-	return nil
+	return fmt.Errorf("unsupported json token %T", tok)
 }
 
 func encodeObject(dec *json.Decoder, buf *bytes.Buffer) error {
 	var body bytes.Buffer
+	enc := newEncoder(&body)
 	n := 0
 	seen := map[string]bool{}
 	for dec.More() {
@@ -91,7 +102,9 @@ func encodeObject(dec *json.Decoder, buf *bytes.Buffer) error {
 			return fmt.Errorf("duplicate key %q in action json", key)
 		}
 		seen[key] = true
-		writeString(&body, key)
+		if err := enc.EncodeString(key); err != nil {
+			return err
+		}
 		if err := encodeValue(dec, &body); err != nil {
 			return err
 		}
@@ -100,7 +113,9 @@ func encodeObject(dec *json.Decoder, buf *bytes.Buffer) error {
 	if _, err := dec.Token(); err != nil {
 		return err
 	}
-	writeHeader(buf, n, 0x80, 0xde, 0xdf)
+	if err := newEncoder(buf).EncodeMapLen(n); err != nil {
+		return err
+	}
 	buf.Write(body.Bytes())
 	return nil
 }
@@ -117,86 +132,23 @@ func encodeArray(dec *json.Decoder, buf *bytes.Buffer) error {
 	if _, err := dec.Token(); err != nil {
 		return err
 	}
-	writeHeader(buf, n, 0x90, 0xdc, 0xdd)
+	if err := newEncoder(buf).EncodeArrayLen(n); err != nil {
+		return err
+	}
 	buf.Write(body.Bytes())
 	return nil
 }
 
-func writeHeader(buf *bytes.Buffer, n int, fix, b16, b32 byte) {
-	switch {
-	case n < 16:
-		buf.WriteByte(fix | byte(n))
-	case n < 1<<16:
-		buf.WriteByte(b16)
-		_ = binary.Write(buf, binary.BigEndian, uint16(n))
-	default:
-		buf.WriteByte(b32)
-		_ = binary.Write(buf, binary.BigEndian, uint32(n))
-	}
-}
-
-func writeString(buf *bytes.Buffer, s string) {
-	n := len(s)
-	switch {
-	case n < 32:
-		buf.WriteByte(0xa0 | byte(n))
-	case n < 1<<8:
-		buf.WriteByte(0xd9)
-		buf.WriteByte(byte(n))
-	case n < 1<<16:
-		buf.WriteByte(0xda)
-		_ = binary.Write(buf, binary.BigEndian, uint16(n))
-	default:
-		buf.WriteByte(0xdb)
-		_ = binary.Write(buf, binary.BigEndian, uint32(n))
-	}
-	buf.WriteString(s)
-}
-
-func writeNumber(buf *bytes.Buffer, n json.Number) error {
+func safeInt(n json.Number) (int64, error) {
 	s := n.String()
 	if strings.ContainsAny(s, ".eE") {
-		return fmt.Errorf("non-integer number %s in action json is not supported", s)
+		return 0, fmt.Errorf("non-integer number %s in action json is not supported", s)
 	}
 	i, err := strconv.ParseInt(s, 10, 64)
 	if err != nil || i > maxSafeInteger || i < -maxSafeInteger {
-		return fmt.Errorf("integer %s outside JavaScript safe range", s)
+		return 0, fmt.Errorf("integer %s outside JavaScript safe range", s)
 	}
-	if i >= 0 {
-		u := uint64(i)
-		switch {
-		case u < 0x80:
-			buf.WriteByte(byte(u))
-		case u <= math.MaxUint8:
-			buf.Write([]byte{0xcc, byte(u)})
-		case u <= math.MaxUint16:
-			buf.WriteByte(0xcd)
-			_ = binary.Write(buf, binary.BigEndian, uint16(u))
-		case u <= math.MaxUint32:
-			buf.WriteByte(0xce)
-			_ = binary.Write(buf, binary.BigEndian, uint32(u))
-		default:
-			buf.WriteByte(0xcf)
-			_ = binary.Write(buf, binary.BigEndian, u)
-		}
-		return nil
-	}
-	switch {
-	case i >= -0x20:
-		buf.WriteByte(byte(int8(i)))
-	case i >= math.MinInt8:
-		buf.Write([]byte{0xd0, byte(int8(i))})
-	case i >= math.MinInt16:
-		buf.WriteByte(0xd1)
-		_ = binary.Write(buf, binary.BigEndian, int16(i))
-	case i >= math.MinInt32:
-		buf.WriteByte(0xd2)
-		_ = binary.Write(buf, binary.BigEndian, int32(i))
-	default:
-		buf.WriteByte(0xd3)
-		_ = binary.Write(buf, binary.BigEndian, i)
-	}
-	return nil
+	return i, nil
 }
 
 // isArrayIndexKey reports whether JS would treat k as an array index

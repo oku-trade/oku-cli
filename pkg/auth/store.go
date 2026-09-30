@@ -98,7 +98,7 @@ func Path(profile string) (string, error) {
 
 // Save seals and writes credentials. Metadata binds the ciphertext via AEAD
 // additional data so it cannot be swapped.
-func Save(profile string, md Metadata, s Secrets, passphrase []byte) error {
+func fileSave(profile string, md Metadata, s Secrets, passphrase []byte) error {
 	if len(passphrase) < 8 {
 		return errors.New("passphrase must be at least 8 bytes")
 	}
@@ -183,7 +183,7 @@ func read(profile string) (*sealed, error) {
 }
 
 // LoadMetadata returns non-secret metadata without unlocking.
-func LoadMetadata(profile string) (*Metadata, error) {
+func fileLoadMetadata(profile string) (*Metadata, error) {
 	doc, err := read(profile)
 	if err != nil {
 		return nil, err
@@ -192,7 +192,7 @@ func LoadMetadata(profile string) (*Metadata, error) {
 }
 
 // Unlock decrypts secrets.
-func Unlock(profile string, passphrase []byte) (*Metadata, *Secrets, error) {
+func fileUnlock(profile string, passphrase []byte) (*Metadata, *Secrets, error) {
 	doc, err := read(profile)
 	if err != nil {
 		return nil, nil, err
@@ -220,7 +220,7 @@ func Unlock(profile string, passphrase []byte) (*Metadata, *Secrets, error) {
 }
 
 // Delete removes stored credentials for a profile.
-func Delete(profile string) error {
+func fileDelete(profile string) error {
 	p, err := Path(profile)
 	if err != nil {
 		return err
@@ -232,7 +232,7 @@ func Delete(profile string) error {
 }
 
 // Has reports whether credentials exist for a profile.
-func Has(profile string) bool {
+func fileHas(profile string) bool {
 	_, err := read(profile)
 	return err == nil
 }

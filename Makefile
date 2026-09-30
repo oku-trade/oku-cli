@@ -10,9 +10,9 @@ uninstall:
 test:
 	go vet ./... && go test ./... && $(MAKE) docs-check
 docs:
-	go run ./cmd/oku-docs > docs/commands.md
+	go run ./cmd/oku docs commands --markdown > docs/commands.md
 docs-check:
-	@tmp=$$(mktemp); trap 'rm -f "$$tmp"' EXIT; go run ./cmd/oku-docs > "$$tmp" && cmp -s docs/commands.md "$$tmp" || { echo 'docs/commands.md is stale; run make docs' >&2; exit 1; }
+	@tmp=$$(mktemp); trap 'rm -f "$$tmp"' EXIT; go run ./cmd/oku docs commands --markdown > "$$tmp" && cmp -s docs/commands.md "$$tmp" || { echo 'docs/commands.md is stale; run make docs' >&2; exit 1; }
 dist:
 	VERSION=$(VERSION) ./scripts/build.sh
 checksums:

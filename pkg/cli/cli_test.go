@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -34,6 +35,10 @@ type fakeOku struct {
 	pollStatuses []string
 	redeemed     *struct{ Agent, Name, Sig, Code string }
 	approveAcct  string
+	// scopes granted at enrollment approval (default read, trade).
+	scopes []string
+	// riskAction overrides the leverage/margin action the server builds.
+	riskAction func(kind string, meta map[string]any) string
 
 	// actionJSON overrides the order action the server builds.
 	actionJSON func(meta map[string]any) string
@@ -101,7 +106,7 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		resp := map[string]any{"status": st}
 		if st == "approved" {
-			resp["deviceId"], resp["deviceToken"], resp["scopes"], resp["accountAddress"] = "dev1", token, []string{"read", "trade"}, f.approveAcct
+			resp["deviceId"], resp["deviceToken"], resp["scopes"], resp["accountAddress"] = "dev1", token, f.grantedScopes(), f.approveAcct
 		}
 		reply(resp)
 	case "GetCurrentDevice", "RevokeCurrentDevice":
@@ -121,6 +126,18 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				aj = f.actionJSON(o)
 			} else {
 				aj = defaultOrderAction(o)
+			}
+		} else if l, ok := params["leverage"].(map[string]any); ok {
+			// protojson omits zero values (isCross false).
+			isCross, _ := l["isCross"].(bool)
+			aj = fmt.Sprintf(`{"type":"updateLeverage","asset":0,"isCross":%v,"leverage":%v}`, isCross, l["leverage"])
+			if f.riskAction != nil {
+				aj = f.riskAction("leverage", l)
+			}
+		} else if m, ok := params["margin"].(map[string]any); ok {
+			aj = fmt.Sprintf(`{"type":"updateIsolatedMargin","asset":0,"isBuy":true,"ntli":%d}`, marginNtli(m["amount"].(string)))
+			if f.riskAction != nil {
+				aj = f.riskAction("margin", m)
 			}
 		} else {
 			c := params["cancel"].(map[string]any)
@@ -162,6 +179,24 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		fail(404, "unimplemented", method)
 	}
+}
+
+func (f *fakeOku) grantedScopes() []string {
+	if f.scopes != nil {
+		return f.scopes
+	}
+	return []string{"read", "trade"}
+}
+
+// marginNtli is the fake backend's independent USDC -> 6dp integer
+// conversion (not trading.MarginUnits, so the CLI check is exercised).
+func marginNtli(amount string) int64 {
+	r, ok := new(big.Rat).SetString(amount)
+	if !ok {
+		panic(amount)
+	}
+	r.Mul(r, big.NewRat(1_000_000, 1))
+	return r.Num().Int64()
 }
 
 func defaultOrderAction(o map[string]any) string {

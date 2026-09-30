@@ -1,26 +1,28 @@
-// Package api is a minimal Connect-protocol JSON client for the Oku account
-// API (proto: account/proto/gfxcafe/oku/account/v2/perps.proto).
+// Package api is the CLI's client for the Oku account API. Calls go through
+// connect-go clients generated from the vendored protos (pkg/gen), over an
+// HTTP client that refuses redirects, with a single attempt and no retries.
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"connectrpc.com/connect"
+	"google.golang.org/protobuf/encoding/protojson"
+
+	"github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2/accountv2connect"
 )
 
 const (
-	perpsPrefix  = "/connect/gfxcafe.oku.account.v2.PerpsService/"
-	devicePrefix = "/connect/gfxcafe.oku.account.v2.CliDeviceService/"
-	maxBody      = 16 << 20
+	maxBody = 16 << 20
 	// DeviceTokenHeader carries the scoped CLI device credential.
 	DeviceTokenHeader = "x-oku-device-token"
 )
@@ -61,19 +63,30 @@ func AsError(err error) (*Error, bool) {
 	return e, ok
 }
 
-// Perps calls a PerpsService method.
+// Perps calls a PerpsService method through the generated Connect client.
 func (c *Client) Perps(ctx context.Context, method string, req, resp any, authed bool) error {
-	return c.call(ctx, perpsPrefix+method, req, resp, authed, false)
+	h, ok := perpsMethods[method]
+	if !ok {
+		return &Error{Code: "unimplemented", Message: "PerpsService/" + method + " is not supported by this CLI"}
+	}
+	return c.call(ctx, h, req, resp, authed, false)
 }
 
-// Device calls a CliDeviceService method.
+// Device calls a CliDeviceService method through the generated Connect client.
 func (c *Client) Device(ctx context.Context, method string, req, resp any, authed bool) error {
+	h, ok := deviceMethods[method]
+	if !ok {
+		return &Error{Code: "unimplemented", Message: "CliDeviceService/" + method + " is not supported by this CLI"}
+	}
 	// Device enrollment requests and responses carry codes, poll secrets
 	// and tokens; server error text is never surfaced for them.
-	return c.call(ctx, devicePrefix+method, req, resp, authed, true)
+	return c.call(ctx, h, req, resp, authed, true)
 }
 
-func (c *Client) call(ctx context.Context, path string, reqBody, respBody any, authed, sensitive bool) error {
+// call performs exactly one HTTP attempt. There is no retry at any layer:
+// the HTTP client refuses redirects and connect-go does not retry unary
+// calls. Errors are classified from observed wire evidence.
+func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, authed, sensitive bool) error {
 	if _, ok := ctx.Deadline(); !ok {
 		return errors.New("api call requires a context deadline")
 	}
@@ -81,81 +94,99 @@ func (c *Client) call(ctx context.Context, path string, reqBody, respBody any, a
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+path, bytes.NewReader(body))
-	if err != nil {
-		return err
+	if c.HTTP == nil {
+		return errors.New("api client has no HTTP client")
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Connect-Protocol-Version", "1")
+	hdr := http.Header{}
 	if c.UserAgent != "" {
-		req.Header.Set("User-Agent", c.UserAgent)
+		hdr.Set("User-Agent", c.UserAgent)
 	}
 	if authed {
 		if c.Token == "" {
 			return &Error{Code: "unauthenticated", Message: "device credential required"}
 		}
-		req.Header.Set(DeviceTokenHeader, c.Token)
+		hdr.Set(DeviceTokenHeader, c.Token)
 	}
-	if dl, ok := ctx.Deadline(); ok {
-		if ms := time.Until(dl).Milliseconds(); ms > 0 {
-			req.Header.Set("Connect-Timeout-Ms", strconv.FormatInt(ms, 10))
+	st := &callState{}
+	doer := observingDoer{hc: c.HTTP, st: st}
+	base := strings.TrimRight(c.BaseURL, "/") + "/connect"
+	opts := []connect.ClientOption{connect.WithProtoJSON(), connect.WithReadMaxBytes(maxBody)}
+	msg, err := h(ctx,
+		accountv2connect.NewPerpsServiceClient(doer, base, opts...),
+		accountv2connect.NewCliDeviceServiceClient(doer, base, opts...),
+		body, hdr)
+	if err != nil {
+		return classify(ctx, st, err, sensitive)
+	}
+	if respBody == nil {
+		return nil
+	}
+	out, err := protojson.Marshal(msg)
+	if err == nil {
+		err = json.Unmarshal(out, respBody)
+	}
+	if err != nil {
+		// Success status but unreadable result: a mutation's effect is unknown.
+		return &Error{Code: "invalid_response", Message: "could not decode successful response", HTTP: st.status, Ambiguous: true, cause: err}
+	}
+	return nil
+}
+
+func classify(ctx context.Context, st *callState, err error, sensitive bool) error {
+	var re *requestEncodeError
+	switch {
+	case errors.As(err, &re):
+		// Nothing was sent. Schema errors may quote request values, which
+		// for device calls can be codes or secrets.
+		m := re.Error()
+		if sensitive {
+			m = "request does not match API schema"
 		}
-	}
-	hc := c.HTTP
-	if hc == nil {
-		return errors.New("api client has no HTTP client")
-	}
-	resp, err := hc.Do(req)
-	if err != nil {
-		return transportError(ctx, err)
-	}
-	defer resp.Body.Close()
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
-	if err == nil && len(raw) > maxBody {
-		err = errors.New("response exceeds size limit")
-	}
-	if err != nil {
-		return &Error{Code: "transport", Message: "reading response: " + err.Error(), Ambiguous: true, cause: err}
-	}
-	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		// Refused redirect. Not ambiguous: a redirect response means the
-		// request was not handled by the Connect handler.
-		return &Error{Code: "redirect_refused", Message: "server responded with a redirect; refusing to follow", HTTP: resp.StatusCode}
-	}
-	if resp.StatusCode != http.StatusOK {
+		return &Error{Code: "invalid_argument", Message: m}
+	case !st.doCalled:
+		// Nothing left the process.
+		code := "unavailable"
+		if ctx.Err() != nil {
+			code = "deadline_exceeded"
+		}
+		return &Error{Code: code, Message: "request not sent: " + err.Error(), cause: err}
+	case st.transportErr != nil:
+		return transportError(ctx, st.transportErr)
+	case st.readErr != nil:
+		return &Error{Code: "transport", Message: "reading response: " + st.readErr.Error(), Ambiguous: true, cause: st.readErr}
+	case st.oversized:
+		return &Error{Code: "transport", Message: "reading response: response exceeds size limit", Ambiguous: true, cause: err}
+	case st.status >= 300 && st.status < 400:
+		// Not ambiguous: a redirect response means the request was not
+		// handled by the Connect handler.
+		return &Error{Code: "redirect_refused", Message: "server responded with a redirect; refusing to follow", HTTP: st.status}
+	case st.status != http.StatusOK:
 		var ce struct {
 			Code    string `json:"code"`
 			Message string `json:"message"`
 		}
-		_ = json.Unmarshal(raw, &ce)
+		_ = json.Unmarshal(st.errBody, &ce)
 		if ce.Code == "" || !connectCodeRE.MatchString(ce.Code) {
-			ce.Code = codeFromHTTP(resp.StatusCode)
+			ce.Code = codeFromHTTP(st.status)
 			ce.Message = ""
 		}
 		switch {
 		case sensitive:
 			ce.Message = "request failed"
 		case ce.Message == "":
-			ce.Message = http.StatusText(resp.StatusCode)
+			ce.Message = http.StatusText(st.status)
 		default:
 			ce.Message = Redact(truncateString(ce.Message, 300))
 		}
-		return &Error{
-			Code:      ce.Code,
-			Message:   ce.Message,
-			HTTP:      resp.StatusCode,
-			Ambiguous: ambiguousCode(ce.Code),
-		}
+		return &Error{Code: ce.Code, Message: ce.Message, HTTP: st.status, Ambiguous: ambiguousCode(ce.Code)}
 	}
-	if respBody == nil {
-		return nil
+	// HTTP 200 whose body could not be read as the expected message, or a
+	// failure after the server accepted the request: effect unknown.
+	msg := "could not decode successful response"
+	if ctx.Err() != nil {
+		return &Error{Code: "deadline_exceeded", Message: msg, HTTP: st.status, Ambiguous: true, cause: err}
 	}
-	if err := json.Unmarshal(raw, respBody); err != nil {
-		// The server returned success but we cannot read the result. For a
-		// mutation the effect is unknown, so this is ambiguous.
-		return &Error{Code: "invalid_response", Message: "could not decode successful response", HTTP: resp.StatusCode, Ambiguous: true, cause: err}
-	}
-	return nil
+	return &Error{Code: "invalid_response", Message: msg, HTTP: st.status, Ambiguous: true, cause: err}
 }
 
 var (

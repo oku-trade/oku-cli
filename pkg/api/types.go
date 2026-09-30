@@ -71,23 +71,24 @@ type GetPerpPositionsResponse struct {
 }
 
 type Order struct {
-	Coin             string  `json:"coin"`
-	LimitPx          string  `json:"limitPx"`
-	Oid              Int64   `json:"oid"`
-	Side             string  `json:"side"`
-	Sz               string  `json:"sz"`
-	Timestamp        Int64   `json:"timestamp"`
-	OrigSz           string  `json:"origSz"`
-	Cloid            string  `json:"cloid,omitempty"`
-	OrderType        string  `json:"orderType"`
-	TriggerPx        string  `json:"triggerPx,omitempty"`
-	TriggerCondition string  `json:"triggerCondition,omitempty"`
-	IsTrigger        bool    `json:"isTrigger"`
-	ReduceOnly       bool    `json:"reduceOnly"`
-	IsPositionTpsl   bool    `json:"isPositionTpsl"`
-	AssetID          int     `json:"assetId"`
-	Tif              string  `json:"tif,omitempty"`
-	Children         []Order `json:"children,omitempty"`
+	Coin             string       `json:"coin"`
+	LimitPx          string       `json:"limitPx"`
+	Origin           *OrderOrigin `json:"origin,omitempty"`
+	Oid              Int64        `json:"oid"`
+	Side             string       `json:"side"`
+	Sz               string       `json:"sz"`
+	Timestamp        Int64        `json:"timestamp"`
+	OrigSz           string       `json:"origSz"`
+	Cloid            string       `json:"cloid,omitempty"`
+	OrderType        string       `json:"orderType"`
+	TriggerPx        string       `json:"triggerPx,omitempty"`
+	TriggerCondition string       `json:"triggerCondition,omitempty"`
+	IsTrigger        bool         `json:"isTrigger"`
+	ReduceOnly       bool         `json:"reduceOnly"`
+	IsPositionTpsl   bool         `json:"isPositionTpsl"`
+	AssetID          int          `json:"assetId"`
+	Tif              string       `json:"tif,omitempty"`
+	Children         []Order      `json:"children,omitempty"`
 }
 
 type GetOpenOrdersResponse struct {
@@ -132,23 +133,24 @@ type GetBuilderFeeStatusResponse struct {
 }
 
 type Fill struct {
-	Coin          string `json:"coin"`
-	Px            string `json:"px"`
-	Sz            string `json:"sz"`
-	Side          string `json:"side"`
-	Time          Int64  `json:"time"`
-	Dir           string `json:"dir"`
-	ClosedPnl     string `json:"closedPnl"`
-	Hash          string `json:"hash"`
-	Oid           Int64  `json:"oid"`
-	Crossed       bool   `json:"crossed"`
-	Fee           string `json:"fee"`
-	Tid           Int64  `json:"tid"`
-	FeeToken      string `json:"feeToken"`
-	StartPosition string `json:"startPosition"`
-	BuilderFee    string `json:"builderFee,omitempty"`
-	Kind          string `json:"kind,omitempty"`
-	TwapID        Int64  `json:"twapId,omitempty"`
+	Coin          string       `json:"coin"`
+	Px            string       `json:"px"`
+	Sz            string       `json:"sz"`
+	Side          string       `json:"side"`
+	Time          Int64        `json:"time"`
+	Dir           string       `json:"dir"`
+	ClosedPnl     string       `json:"closedPnl"`
+	Hash          string       `json:"hash"`
+	Oid           Int64        `json:"oid"`
+	Crossed       bool         `json:"crossed"`
+	Fee           string       `json:"fee"`
+	Tid           Int64        `json:"tid"`
+	FeeToken      string       `json:"feeToken"`
+	StartPosition string       `json:"startPosition"`
+	BuilderFee    string       `json:"builderFee,omitempty"`
+	Kind          string       `json:"kind,omitempty"`
+	TwapID        Int64        `json:"twapId,omitempty"`
+	Origin        *OrderOrigin `json:"origin,omitempty"`
 }
 
 type GetUserFillsResponse struct {
@@ -173,9 +175,25 @@ type CancelActionMetadata struct {
 	Oid  Int64  `json:"oid"`
 }
 
+// LeverageActionMetadata mirrors perps.proto LeverageActionMetadata.
+type LeverageActionMetadata struct {
+	Coin     string `json:"coin"`
+	Leverage int    `json:"leverage"`
+	IsCross  bool   `json:"isCross"`
+}
+
+// MarginActionMetadata mirrors perps.proto MarginActionMetadata. Amount is a
+// canonical signed decimal USDC string (negative removes margin).
+type MarginActionMetadata struct {
+	Coin   string `json:"coin"`
+	Amount string `json:"amount"`
+}
+
 type ActionParams struct {
-	Order  *OrderActionMetadata  `json:"order,omitempty"`
-	Cancel *CancelActionMetadata `json:"cancel,omitempty"`
+	Order    *OrderActionMetadata    `json:"order,omitempty"`
+	Cancel   *CancelActionMetadata   `json:"cancel,omitempty"`
+	Leverage *LeverageActionMetadata `json:"leverage,omitempty"`
+	Margin   *MarginActionMetadata   `json:"margin,omitempty"`
 }
 
 type CreateActionRequest struct {
@@ -215,7 +233,15 @@ type ConfirmActionResponse struct {
 	ErrorMessage string `json:"errorMessage"`
 }
 
+// OrderOrigin mirrors perps.proto OrderOrigin. It is stamped server-side
+// from device authentication; nil means external or unknown origin.
+type OrderOrigin struct {
+	CliDeviceID   string `json:"cliDeviceId,omitempty"`
+	CliDeviceName string `json:"cliDeviceName,omitempty"`
+}
+
 type GetActionResponse struct {
+	CliDeviceID  string `json:"cliDeviceId,omitempty"`
 	ActionID     string `json:"actionId"`
 	ActionType   string `json:"actionType"`
 	State        string `json:"state"`

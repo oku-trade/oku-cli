@@ -21,7 +21,16 @@ import (
 const (
 	KindOrder  = "order"
 	KindCancel = "cancel"
+	// KindLeverage changes a market's leverage and cross/isolated mode
+	// (Hyperliquid updateLeverage). It opens no position by itself.
+	KindLeverage = "leverage"
+	// KindMargin adds (positive) or removes (negative) isolated margin on an
+	// existing isolated position (Hyperliquid updateIsolatedMargin).
+	KindMargin = "margin"
 )
+
+// MarginDecimals is the fixed-point scale of updateIsolatedMargin ntli.
+const MarginDecimals = 6
 
 var intentIDRE = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{2,63}$`)
 
@@ -61,6 +70,13 @@ type Intent struct {
 
 	// Cancel fields.
 	OrderID int64 `json:"order_id,omitempty"`
+
+	// Leverage fields.
+	Leverage int  `json:"leverage,omitempty"`
+	IsCross  bool `json:"is_cross,omitempty"`
+
+	// Margin fields: canonical signed USDC decimal, at most 6 decimals.
+	MarginAmount string `json:"margin_amount,omitempty"`
 }
 
 // Digest is sha256 over the canonical JSON encoding of the intent.
@@ -182,8 +198,9 @@ func strictUnmarshal(actionJSON string, v any) error {
 }
 
 // ValidateAction checks a server-built actionJson against the intent. Only
-// the order and cancel families are ever accepted; anything else (transfers,
-// leverage, approvals, vault/subaccount routing) is rejected.
+// the order, cancel, updateLeverage and updateIsolatedMargin families are
+// accepted, each only for the matching intent kind; anything else
+// (transfers, approvals, vault/subaccount routing) is rejected.
 // It returns the client order id when present.
 func ValidateAction(in *Intent, actionJSON string) (string, error) {
 	// The exact bytes will be msgpack-encoded for signing. Reject anything
@@ -216,8 +233,106 @@ func ValidateAction(in *Intent, actionJSON string) (string, error) {
 			return "", mismatch("cancel target differs from intent")
 		}
 		return "", nil
+	case KindLeverage:
+		if head.Type != "updateLeverage" {
+			return "", mismatch("action type %q, want updateLeverage", head.Type)
+		}
+		var a wireLeverageAction
+		if err := strictUnmarshal(actionJSON, &a); err != nil {
+			return "", err
+		}
+		switch {
+		case a.Asset == nil || *a.Asset != in.AssetID:
+			return "", mismatch("leverage asset differs from intent")
+		case a.IsCross == nil || *a.IsCross != in.IsCross:
+			return "", mismatch("cross/isolated mode differs from intent")
+		case a.Leverage == nil || *a.Leverage != in.Leverage || in.Leverage < 1:
+			return "", mismatch("leverage differs from intent")
+		}
+		return "", nil
+	case KindMargin:
+		if head.Type != "updateIsolatedMargin" {
+			return "", mismatch("action type %q, want updateIsolatedMargin", head.Type)
+		}
+		var a wireMarginAction
+		if err := strictUnmarshal(actionJSON, &a); err != nil {
+			return "", err
+		}
+		want, err := MarginUnits(in.MarginAmount)
+		if err != nil {
+			return "", mismatch("intent margin amount: %v", err)
+		}
+		switch {
+		case a.Asset == nil || *a.Asset != in.AssetID:
+			return "", mismatch("margin asset differs from intent")
+		case a.IsBuy == nil || !*a.IsBuy:
+			// The backend always builds isBuy=true; Hyperliquid ignores it
+			// for isolated margin, but anything else is unexpected.
+			return "", mismatch("unexpected isBuy in margin action")
+		case a.Ntli == nil || *a.Ntli != want:
+			return "", mismatch("margin amount differs from intent")
+		}
+		return "", nil
 	}
 	return "", mismatch("unsupported intent kind %q", in.Kind)
+}
+
+// wire shapes; pointer fields make missing keys detectable.
+type wireLeverageAction struct {
+	Type     string `json:"type"`
+	Asset    *int   `json:"asset"`
+	IsCross  *bool  `json:"isCross"`
+	Leverage *int   `json:"leverage"`
+}
+
+type wireMarginAction struct {
+	Type  string `json:"type"`
+	Asset *int   `json:"asset"`
+	IsBuy *bool  `json:"isBuy"`
+	Ntli  *int64 `json:"ntli"`
+}
+
+// MarginUnits converts a canonical signed decimal USDC amount to exact
+// 6-decimal integer units. It refuses zero, non-canonical input, more than
+// six decimals (no rounding) and values outside the JS-safe integer range.
+func MarginUnits(amount string) (int64, error) {
+	neg := strings.HasPrefix(amount, "-")
+	abs := strings.TrimPrefix(amount, "-")
+	if !decimal.IsCanonical(abs) || (neg && abs == "0") {
+		return 0, fmt.Errorf("amount %q is not a canonical decimal", amount)
+	}
+	if decimal.IsZero(abs) {
+		return 0, errors.New("amount must be non-zero")
+	}
+	if decimal.Decimals(abs) > MarginDecimals {
+		return 0, fmt.Errorf("amount %q has more than %d decimals", amount, MarginDecimals)
+	}
+	r, _ := decimal.Rat(abs)
+	r.Mul(r, big.NewRat(1_000_000, 1))
+	if !r.IsInt() || !r.Num().IsInt64() || r.Num().Int64() > 1<<53-1 {
+		return 0, fmt.Errorf("amount %q out of range", amount)
+	}
+	v := r.Num().Int64()
+	if neg {
+		v = -v
+	}
+	return v, nil
+}
+
+// ValidateLeverage checks a leverage request against market metadata
+// before anything is sent: integer in [1, maxLeverage], and cross mode is
+// refused for isolated-only markets.
+func ValidateLeverage(leverage, maxLeverage int, isCross, onlyIsolated bool) error {
+	if maxLeverage < 1 {
+		return errors.New("market has no leverage limit; refusing")
+	}
+	if leverage < 1 || leverage > maxLeverage {
+		return fmt.Errorf("leverage %d outside [1, %d]", leverage, maxLeverage)
+	}
+	if isCross && onlyIsolated {
+		return errors.New("market is isolated-only; cross margin not allowed")
+	}
+	return nil
 }
 
 func validateOrder(in *Intent, actionJSON string) (string, error) {
