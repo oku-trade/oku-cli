@@ -17,7 +17,7 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/scrypt"
 
-	"github.com/oku-trade/oku-cli/internal/config"
+	"github.com/oku-trade/oku-cli/pkg/config"
 )
 
 // ErrNoCredentials means no enrollment is stored for the profile.

@@ -2,17 +2,17 @@ package cli
 
 import (
 	"errors"
-	"flag"
 	"fmt"
+	urfave "github.com/urfave/cli/v3"
 	"io"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/oku-trade/oku-cli/internal/api"
-	"github.com/oku-trade/oku-cli/internal/auth"
-	"github.com/oku-trade/oku-cli/internal/output"
-	"github.com/oku-trade/oku-cli/internal/signing"
+	"github.com/oku-trade/oku-cli/pkg/api"
+	"github.com/oku-trade/oku-cli/pkg/auth"
+	"github.com/oku-trade/oku-cli/pkg/output"
+	"github.com/oku-trade/oku-cli/pkg/signing"
 )
 
 const (
@@ -20,14 +20,16 @@ const (
 	maxEnrollWait   = 15 * time.Minute
 )
 
-func authSetupFlags(fs *flag.FlagSet) {
-	fs.String("device-name", "", "name shown on the Oku devices page (default: hostname)")
-	fs.Bool("code-stdin", false, "read the enrollment code from stdin instead of a prompt")
-	fs.Bool("resume", false, "resume polling an interrupted enrollment")
+func authSetupFlags() []urfave.Flag {
+	return []urfave.Flag{
+		&urfave.StringFlag{Name: "device-name", Usage: "name shown on the Oku devices page (default: hostname)"},
+		&urfave.BoolFlag{Name: "code-stdin", Usage: "read the enrollment code from stdin instead of a prompt"},
+		&urfave.BoolFlag{Name: "resume", Usage: "resume polling an interrupted enrollment"},
+	}
 }
 
-func authStatusFlags(fs *flag.FlagSet) {
-	fs.Bool("verify", false, "check the device credential with Oku (requires unlock)")
+func authStatusFlags() []urfave.Flag {
+	return []urfave.Flag{&urfave.BoolFlag{Name: "verify", Usage: "check the device credential with Oku (requires unlock)"}}
 }
 
 func (a *App) cmdAuthSetup(e *env) (*result, error) {
@@ -39,7 +41,7 @@ func (a *App) cmdAuthSetup(e *env) (*result, error) {
 		return nil, output.Errorf(output.CodeProfileNotFound, "auth setup needs a profile with an account").
 			WithDetail("hint", "oku profiles add NAME --account 0x... --default")
 	}
-	resume := e.fs.Lookup("resume").Value.String() == "true"
+	resume := e.cmd.Bool("resume")
 	md, err := auth.LoadMetadata(p.Name)
 	switch {
 	case err == nil && md.Status == "active":
@@ -66,7 +68,7 @@ func (a *App) cmdAuthSetup(e *env) (*result, error) {
 		return e.pollEnrollment(p, md, sec, pass)
 	}
 
-	name := e.fs.Lookup("device-name").Value.String()
+	name := e.cmd.String("device-name")
 	if name == "" {
 		name, _ = os.Hostname()
 	}
@@ -74,7 +76,7 @@ func (a *App) cmdAuthSetup(e *env) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeInvalidArgument, err, "device name")
 	}
-	code, err := e.enrollmentCode(e.fs.Lookup("code-stdin").Value.String() == "true")
+	code, err := e.enrollmentCode(e.cmd.Bool("code-stdin"))
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +252,7 @@ func (a *App) cmdAuthStatus(e *env) (*result, error) {
 	if err := checkBinding(md, p); err != nil {
 		return nil, err
 	}
-	if e.fs.Lookup("verify").Value.String() != "true" {
+	if !e.cmd.Bool("verify") {
 		return e.statusResult(md, nil), nil
 	}
 	s, err := e.unlock(p, "")

@@ -9,13 +9,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/oku-trade/oku-cli/internal/signing"
+	"github.com/oku-trade/oku-cli/pkg/signing"
 )
 
 const (
@@ -530,6 +531,103 @@ func TestJSONContractAndStderr(t *testing.T) {
 	r = h.run("orders", "prepare", "--market", "BTC", "--side", "buy", "--type", "limit", "--size", "1e-3", "--price", "50000", "--json")
 	if r.errCode() != "INVALID_DECIMAL" {
 		t.Fatalf("got %s", r.stdout)
+	}
+}
+
+func TestFrameworkUsageErrorsRemainSingleJSONEnvelope(t *testing.T) {
+	h := newHarness(t)
+	cases := [][]string{
+		{"--json", "--bogus", "version"},
+		{"version", "--bogus", "--json"},
+		{"--json", "--timeout", "bad", "version"},
+		{"--json", "markets", "quote", "BTC", "--timeout", "bad"},
+		{"orders", "prepare", "--json", "--slippage-bps", "notint"},
+		{"markets", "nosuch", "--json"},
+		{"--json", "markets"},
+		{"markets", "quote", "--", "-BTC", "--json"},
+	}
+	for _, args := range cases {
+		t.Run(strings.Join(args, "_"), func(t *testing.T) {
+			r := h.run(args...)
+			if r.code != 2 || r.errCode() != "USAGE" || r.stderr != "" {
+				t.Fatalf("exit=%d stdout=%q stderr=%q", r.code, r.stdout, r.stderr)
+			}
+			var single map[string]any
+			if err := json.Unmarshal([]byte(r.stdout), &single); err != nil || single["command"] == "" {
+				t.Fatalf("stdout is not one error envelope: %q (%v)", r.stdout, err)
+			}
+		})
+	}
+	if len(h.fake.calls) != 0 {
+		t.Fatalf("parse failures contacted API: %v", h.fake.calls)
+	}
+}
+
+func TestCompletionNeverRunsCommandHandlers(t *testing.T) {
+	h := newHarness(t)
+	for _, shell := range []string{"bash", "zsh", "fish"} {
+		r := h.run("completion", shell)
+		if r.code != 0 || !strings.Contains(r.stdout, "--generate-shell-completion") || r.stderr != "" {
+			t.Fatalf("%s script: exit=%d stdout=%q stderr=%q", shell, r.code, r.stdout, r.stderr)
+		}
+	}
+	for _, args := range [][]string{
+		{"orders", "submit", "--json", "--generate-shell-completion"},
+		{"auth", "setup", "--json", "--generate-shell-completion"},
+		{"orders", "cancel", "--generate-shell-completion"},
+		{"profiles", "remove", "--generate-shell-completion"},
+	} {
+		r := h.run(args...)
+		if r.code != 0 || strings.Contains(r.stdout, "schema_version") || r.stderr != "" {
+			t.Fatalf("completion %v: exit=%d stdout=%q stderr=%q", args, r.code, r.stdout, r.stderr)
+		}
+	}
+	if len(h.fake.calls) != 0 {
+		t.Fatalf("completion contacted API: %v", h.fake.calls)
+	}
+}
+
+func TestBashCompletionDoesNotEvaluateTypedWords(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash not available")
+	}
+	h := newHarness(t)
+	script := filepath.Join(t.TempDir(), "completion.sh")
+	if err := os.WriteFile(script, []byte(h.run("completion", "bash").stdout), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Use a spaced executable path to exercise argv quoting, not eval/string joins.
+	app := filepath.Join(t.TempDir(), "oku executable")
+	if err := os.WriteFile(app, []byte("#!/bin/sh\nprintf 'orders:order commands\\n'\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	sentinel := filepath.Join(t.TempDir(), "report.txt")
+	if err := os.WriteFile(sentinel, []byte("unchanged"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	created := filepath.Join(t.TempDir(), "created.txt")
+	for _, payload := range []string{
+		"> " + sentinel,
+		"$(touch " + created + ")",
+		"`touch " + created + "`",
+		"; touch " + created,
+	} {
+		cmd := exec.Command("bash", "--noprofile", "--norc", "-c", `source "$SCRIPT"; COMP_WORDS=("$APP" markets list "$PAYLOAD" ''); COMP_CWORD=4; __oku_bash_autocomplete`)
+		cmd.Env = append(os.Environ(), "SCRIPT="+script, "APP="+app, "PAYLOAD="+payload)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("completion %q: %s (%v)", payload, out, err)
+		}
+		if raw, err := os.ReadFile(sentinel); err != nil || string(raw) != "unchanged" {
+			t.Fatalf("completion changed sentinel for %q: %q (%v)", payload, raw, err)
+		}
+		if _, err := os.Stat(created); !os.IsNotExist(err) {
+			t.Fatalf("completion executed %q: %v", payload, err)
+		}
+	}
+	cmd := exec.Command("bash", "--noprofile", "--norc", "-c", `source "$SCRIPT"; COMP_WORDS=("$APP" ord); COMP_CWORD=1; __oku_bash_autocomplete; printf '%s' "${COMPREPLY[0]}"`)
+	cmd.Env = append(os.Environ(), "SCRIPT="+script, "APP="+app)
+	if out, err := cmd.CombinedOutput(); err != nil || string(out) != "orders" {
+		t.Fatalf("spaced path: %q (%v)", out, err)
 	}
 }
 

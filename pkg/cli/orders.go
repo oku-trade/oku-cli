@@ -4,19 +4,19 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"flag"
 	"fmt"
+	urfave "github.com/urfave/cli/v3"
 	"io"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/oku-trade/oku-cli/internal/api"
-	"github.com/oku-trade/oku-cli/internal/decimal"
-	"github.com/oku-trade/oku-cli/internal/journal"
-	"github.com/oku-trade/oku-cli/internal/output"
-	"github.com/oku-trade/oku-cli/internal/signing"
-	"github.com/oku-trade/oku-cli/internal/trading"
+	"github.com/oku-trade/oku-cli/pkg/api"
+	"github.com/oku-trade/oku-cli/pkg/decimal"
+	"github.com/oku-trade/oku-cli/pkg/journal"
+	"github.com/oku-trade/oku-cli/pkg/output"
+	"github.com/oku-trade/oku-cli/pkg/signing"
+	"github.com/oku-trade/oku-cli/pkg/trading"
 )
 
 const (
@@ -24,35 +24,41 @@ const (
 	maxIntentTTL     = time.Hour
 )
 
-func prepareFlags(fs *flag.FlagSet) {
-	fs.String("market", "", "market, e.g. BTC (required)")
-	fs.String("side", "", "buy or sell (required)")
-	fs.String("type", "", "limit or market (required)")
-	fs.String("size", "", "base size as a decimal string (required)")
-	fs.String("price", "", "limit price (limit orders)")
-	fs.String("tif", "gtc", "time in force for limit orders: gtc, ioc, alo")
-	fs.Int("slippage-bps", 0, "max slippage in basis points from the current mid (market orders, required)")
-	fs.Bool("reduce-only", false, "only reduce an existing position")
-	fs.String("intent-id", "", "caller-chosen idempotency id (default: random)")
-	fs.Duration("expires", defaultIntentTTL, "intent lifetime (max 1h)")
+func prepareFlags() []urfave.Flag {
+	return []urfave.Flag{
+		&urfave.StringFlag{Name: "market", Usage: "market, e.g. BTC (required)"},
+		&urfave.StringFlag{Name: "side", Usage: "buy or sell (required)"},
+		&urfave.StringFlag{Name: "type", Usage: "limit or market (required)"},
+		&urfave.StringFlag{Name: "size", Usage: "base size as a decimal string (required)"},
+		&urfave.StringFlag{Name: "price", Usage: "limit price (limit orders)"},
+		&urfave.StringFlag{Name: "tif", Value: "gtc", Usage: "time in force for limit orders: gtc, ioc, alo"},
+		&urfave.IntFlag{Name: "slippage-bps", Usage: "max slippage in basis points from the current mid (market orders, required)"},
+		&urfave.BoolFlag{Name: "reduce-only", Usage: "only reduce an existing position"},
+		&urfave.StringFlag{Name: "intent-id", Usage: "caller-chosen idempotency id (default: random)"},
+		&urfave.DurationFlag{Name: "expires", Value: defaultIntentTTL, Usage: "intent lifetime (max 1h)"},
+	}
 }
 
-func submitFlags(fs *flag.FlagSet) {
-	fs.String("intent", "", "intent id from 'orders prepare' (required)")
-	fs.String("digest", "", "intent digest from 'orders prepare' (required)")
+func submitFlags() []urfave.Flag {
+	return []urfave.Flag{
+		&urfave.StringFlag{Name: "intent", Usage: "intent id from 'orders prepare' (required)"},
+		&urfave.StringFlag{Name: "digest", Usage: "intent digest from 'orders prepare' (required)"},
+	}
 }
 
-func cancelFlags(fs *flag.FlagSet) {
-	fs.String("market", "", "market of the order (required)")
-	fs.Int64("order-id", 0, "exchange order id (oid) to cancel (required)")
-	fs.String("intent-id", "", "idempotency id (default: random)")
+func cancelFlags() []urfave.Flag {
+	return []urfave.Flag{
+		&urfave.StringFlag{Name: "market", Usage: "market of the order (required)"},
+		&urfave.Int64Flag{Name: "order-id", Usage: "exchange order id (oid) to cancel (required)"},
+		&urfave.StringFlag{Name: "intent-id", Usage: "idempotency id (default: random)"},
+	}
 }
 
-func statusFlags(fs *flag.FlagSet) {
-	fs.String("intent", "", "intent id (required)")
+func statusFlags() []urfave.Flag {
+	return []urfave.Flag{&urfave.StringFlag{Name: "intent", Usage: "intent id (required)"}}
 }
 
-func str(e *env, name string) string { return e.fs.Lookup(name).Value.String() }
+func str(e *env, name string) string { return e.cmd.String(name) }
 
 func randomID() string {
 	var b [8]byte
@@ -122,11 +128,11 @@ func (a *App) cmdOrdersPrepare(e *env) (*result, error) {
 	if !trading.ValidIntentID(id) {
 		return nil, output.Errorf(output.CodeInvalidArgument, "--intent-id must be 3-64 characters of [A-Za-z0-9_-]")
 	}
-	ttl := e.fs.Lookup("expires").Value.(flag.Getter).Get().(time.Duration)
+	ttl := e.cmd.Duration("expires")
 	if ttl <= 0 || ttl > maxIntentTTL {
 		return nil, output.Errorf(output.CodeInvalidArgument, "--expires must be between 1s and 1h")
 	}
-	slip := e.fs.Lookup("slippage-bps").Value.(flag.Getter).Get().(int)
+	slip := e.cmd.Int("slippage-bps")
 	in := trading.Intent{
 		Version: 1, ID: id, Kind: trading.KindOrder, Network: p.Network, Account: acct, APIURL: p.APIURL,
 		Market: coin, Side: side, OrderType: typ, Size: size,

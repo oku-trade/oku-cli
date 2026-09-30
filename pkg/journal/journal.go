@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/oku-trade/oku-cli/internal/config"
-	"github.com/oku-trade/oku-cli/internal/trading"
+	"github.com/oku-trade/oku-cli/pkg/config"
+	"github.com/oku-trade/oku-cli/pkg/trading"
 )
 
 // States.

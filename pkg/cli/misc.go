@@ -2,23 +2,24 @@ package cli
 
 import (
 	"errors"
-	"flag"
 	"fmt"
+	urfave "github.com/urfave/cli/v3"
 	"io"
-	"sort"
 
-	"github.com/oku-trade/oku-cli/internal/api"
-	"github.com/oku-trade/oku-cli/internal/auth"
-	"github.com/oku-trade/oku-cli/internal/config"
-	"github.com/oku-trade/oku-cli/internal/journal"
-	"github.com/oku-trade/oku-cli/internal/output"
-	"github.com/oku-trade/oku-cli/internal/skills"
+	"github.com/oku-trade/oku-cli/pkg/api"
+	"github.com/oku-trade/oku-cli/pkg/auth"
+	"github.com/oku-trade/oku-cli/pkg/config"
+	"github.com/oku-trade/oku-cli/pkg/journal"
+	"github.com/oku-trade/oku-cli/pkg/output"
+	"github.com/oku-trade/oku-cli/pkg/skills"
 )
 
-func skillFlags(fs *flag.FlagSet) {
-	fs.String("target", "", "agent: jcode, claude or codex")
-	fs.String("dir", "", "explicit skills directory (overrides --target)")
-	fs.Bool("force", false, "overwrite or remove files that differ from the bundled version")
+func skillFlags() []urfave.Flag {
+	return []urfave.Flag{
+		&urfave.StringFlag{Name: "target", Usage: "agent: jcode, claude or codex"},
+		&urfave.StringFlag{Name: "dir", Usage: "explicit skills directory (overrides --target)"},
+		&urfave.BoolFlag{Name: "force", Usage: "overwrite or remove files that differ from the bundled version"},
+	}
 }
 
 func (a *App) cmdSkillsList(e *env) (*result, error) {
@@ -141,43 +142,4 @@ func (a *App) cmdDoctor(e *env) (*result, error) {
 			fmt.Fprintf(w, "[%s] %-12s %s\n", mark, c.Name, c.Detail)
 		}
 	}}, nil
-}
-
-func (a *App) printHelp(cmds map[string]*handler) {
-	w := a.Stdout
-	fmt.Fprintln(w, "oku: Oku perps from your terminal and your agent (Hyperliquid mainnet)")
-	fmt.Fprintln(w, "\nUsage: oku <command> [flags]\n\nCommands:")
-	names := make([]string, 0, len(cmds))
-	for n := range cmds {
-		names = append(names, n)
-	}
-	sort.Strings(names)
-	for _, n := range names {
-		fmt.Fprintf(w, "  %-18s %s\n", n, cmds[n].summary)
-	}
-	fmt.Fprintln(w, `
-Global flags:
-  --profile NAME   profile (default $OKU_PROFILE or config default)
-  --network NAME   must be mainnet; checked against the profile
-  --account 0x..   account for read commands
-  --json           one JSON envelope on stdout; diagnostics on stderr
-  --timeout DUR    per-request timeout (default 15s, max 2m)
-
-Trading uses a local delegated agent key. It is trusted-host signing: anything
-that can unlock it on this machine can trade the account. Oku revocation does
-not remove the Hyperliquid agent, orders or positions.`)
-}
-
-func (a *App) printCommandHelp(path string, h *handler, fs *flag.FlagSet) {
-	fmt.Fprintf(a.Stdout, "oku %s: %s\n\nFlags:\n", path, h.summary)
-	fs.VisitAll(func(f *flag.Flag) {
-		if f.Name == "help" {
-			return
-		}
-		fmt.Fprintf(a.Stdout, "  --%-14s %s", f.Name, f.Usage)
-		if f.DefValue != "" && f.DefValue != "false" && f.DefValue != "0" {
-			fmt.Fprintf(a.Stdout, " (default %s)", f.DefValue)
-		}
-		fmt.Fprintln(a.Stdout)
-	})
 }

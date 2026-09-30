@@ -4,8 +4,8 @@ package main
 import (
 	"os"
 
-	"github.com/oku-trade/oku-cli/internal/buildinfo"
-	"github.com/oku-trade/oku-cli/internal/cli"
+	"github.com/oku-trade/oku-cli/pkg/buildinfo"
+	"github.com/oku-trade/oku-cli/pkg/cli"
 )
 
 // version may be set with -ldflags "-X main.version=v0.1.0".

@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/oku-trade/oku-cli/internal/decimal"
-	"github.com/oku-trade/oku-cli/internal/signing"
+	"github.com/oku-trade/oku-cli/pkg/decimal"
+	"github.com/oku-trade/oku-cli/pkg/signing"
 )
 
 // Kinds of intents.

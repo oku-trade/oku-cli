@@ -1,6 +1,6 @@
 # Usage
 
-> Grammar verified against the built binary. `oku --help` is authoritative if they differ.
+> `oku --help` and the [generated command reference](commands.md) describe the urfave/cli v3 command tree. Run `make docs-check` to detect reference drift.
 
 ## Output contract
 
@@ -28,11 +28,29 @@ Credentials are stored in an encrypted local file (no OS keyring). Unlock comes 
 
 ## Global flags
 
-`--profile NAME` (default `$OKU_PROFILE` or config default), `--network NAME` (only `mainnet` is supported and is checked against the profile), `--account 0x..` (for read commands), `--json`, `--timeout DUR` (default 15s, max 2m).
+`--profile NAME` (default `$OKU_PROFILE` or config default), `--network NAME` (only `mainnet` is supported and is checked against the profile), `--account 0x..` (for read commands), `--json`, `--timeout DUR` (default 15s, max 2m). Global flags work before or after a command. Use `--` to end flag parsing.
+
+## Shell completion
+
+Completion scripts are available without credentials or network access. Generate one with `oku completion bash`, `oku completion zsh`, or `oku completion fish`. Zsh/fish scripts use urfave/cli generation; bash uses a safe array-based wrapper around urfave/cli's candidate protocol (the stock bash template evaluates user input). The scripts invoke `oku --generate-shell-completion` when completing; these requests only enumerate command names and flags and never run auth, order, or read handlers. No installation command modifies your shell startup files automatically.
+
+For the current shell session (with `oku` on `$PATH`), enable zsh's `compinit` first:
+
+```sh
+# bash
+source <(oku completion bash)
+# zsh
+autoload -Uz compinit && compinit
+source <(oku completion zsh)
+# fish
+oku completion fish | source
+```
+
+For persistence, save the output and source it from a shell startup file yourself. For fish, place the script at `~/.config/fish/completions/oku.fish` if desired. Completion can be tested without installing: `oku --generate-shell-completion` prints static candidates.
 
 ## Commands
 
-Taken from `oku --help` at commit `ca84dac`:
+See [the generated reference](commands.md) for every command and flag. Common examples:
 
 ```sh
 oku version
@@ -57,7 +75,7 @@ oku fills list
 oku orders prepare --market BTC --side buy|sell --type limit|market --size <dec> \
   [--price <dec>] [--tif gtc|ioc|alo] [--slippage-bps N] [--reduce-only] \
   [--expires 5m] [--intent-id ID]
-#   local only, sends nothing. Returns intent_id and digest.
+#   no exchange submission; may read current market data. Returns intent_id and digest.
 #   --price for limit orders. --slippage-bps is required for market orders.
 oku orders submit --intent ID --digest SHA
 oku orders status --intent ID

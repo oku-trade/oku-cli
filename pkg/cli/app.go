@@ -3,22 +3,27 @@ package cli
 
 import (
 	"context"
+	_ "embed"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
-	"github.com/oku-trade/oku-cli/internal/api"
-	"github.com/oku-trade/oku-cli/internal/output"
+	"github.com/oku-trade/oku-cli/pkg/api"
+	"github.com/oku-trade/oku-cli/pkg/output"
+	urfave "github.com/urfave/cli/v3"
 )
 
 const (
 	defaultTimeout = 15 * time.Second
 	maxTimeout     = 2 * time.Minute
 )
+
+//go:embed bash_completion.sh
+var bashCompletion string
 
 // App holds process I/O so commands are testable end to end.
 type App struct {
@@ -76,7 +81,7 @@ type globals struct {
 type env struct {
 	app  *App
 	g    globals
-	fs   *flag.FlagSet
+	cmd  *urfave.Command
 	args []string // positional arguments after the command path
 	ctx  context.Context
 }
@@ -89,7 +94,7 @@ type result struct {
 
 type handler struct {
 	summary string
-	flags   func(fs *flag.FlagSet)
+	flags   func() []urfave.Flag
 	run     func(e *env) (*result, error)
 }
 
@@ -112,7 +117,7 @@ func (a *App) commands() map[string]*handler {
 		"account summary":  {summary: "Balances, margin and builder-fee status", run: a.cmdAccountSummary},
 		"positions list":   {summary: "Open positions", run: a.cmdPositionsList},
 		"orders list":      {summary: "Open orders", flags: fresh, run: a.cmdOrdersList},
-		"orders prepare":   {summary: "Prepare a local order intent (sends nothing)", flags: prepareFlags, run: a.cmdOrdersPrepare},
+		"orders prepare":   {summary: "Prepare a local order intent (no exchange submission; may read market data)", flags: prepareFlags, run: a.cmdOrdersPrepare},
 		"orders submit":    {summary: "Sign and submit a prepared intent: orders submit --intent ID --digest SHA", flags: submitFlags, run: a.cmdOrdersSubmit},
 		"orders cancel":    {summary: "Cancel an open order: orders cancel --market COIN --order-id OID", flags: cancelFlags, run: a.cmdOrdersCancel},
 		"orders status":    {summary: "Status of an intent: orders status --intent ID", flags: statusFlags, run: a.cmdOrdersStatus},
@@ -125,73 +130,156 @@ func (a *App) commands() map[string]*handler {
 	}
 }
 
-// valueFlags are global flags that consume the next argument.
-var valueFlags = map[string]bool{"profile": true, "network": true, "account": true, "timeout": true}
-
 // Run executes the CLI and returns the process exit code.
 func (a *App) Run(args []string) int {
-	cmds := a.commands()
-	path, rest := splitCommand(args, cmds)
-	jsonOut := hasJSONFlag(args)
 	reqID := output.NewRequestID()
-	name := strings.ReplaceAll(path, " ", ".")
+	jsonOut := hasJSONFlag(args)
+	root := a.commandTree(reqID, jsonOut)
+	var unknown string
+	unknownCommand := func(_ context.Context, cmd *urfave.Command, name string) {
+		unknown = strings.TrimPrefix(cmd.FullName()+" "+name, "oku ")
+	}
+	root.CommandNotFound = unknownCommand
+	for _, group := range root.Commands {
+		group.CommandNotFound = unknownCommand
+	}
+	err := root.Run(context.Background(), append([]string{"oku"}, args...))
+	if unknown != "" {
+		return a.fail(jsonOut, reqID, strings.ReplaceAll(unknown, " ", "."), output.Errorf(output.CodeUsage, "unknown command %q; run 'oku help'", unknown))
+	}
+	if err == nil {
+		return 0
+	}
+	var failure *commandFailure
+	if errors.As(err, &failure) {
+		if failure.name == "oku" {
+			failure.name = a.commandName(args)
+		}
+		return a.fail(failure.json, reqID, failure.name, failure.err)
+	}
+	return a.fail(jsonOut, reqID, a.commandName(args), output.Errorf(output.CodeUsage, "%v", err))
+}
 
-	if path == "" || path == "help" {
-		if len(rest) > 0 && !strings.HasPrefix(rest[0], "-") {
-			return a.fail(jsonOut, reqID, "help", output.Errorf(output.CodeUsage, "unknown command %q", strings.Join(rest, " ")))
+type commandFailure struct {
+	name string
+	json bool
+	err  error
+}
+
+func (f *commandFailure) Error() string { return f.err.Error() }
+
+func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
+	cmds := a.commands()
+	root := &urfave.Command{
+		Name: "oku", Usage: "Oku perps from your terminal and your agent (Hyperliquid mainnet)",
+		Writer: a.Stdout, ErrWriter: io.Discard, HideVersion: true,
+		OnUsageError: func(_ context.Context, cmd *urfave.Command, err error, _ bool) error {
+			return &commandFailure{name: strings.ReplaceAll(strings.TrimPrefix(cmd.FullName(), "oku "), " ", "."), json: jsonOut, err: output.Errorf(output.CodeUsage, "%v", err)}
+		},
+		EnableShellCompletion: true,
+		ConfigureShellCompletionCommand: func(c *urfave.Command) {
+			c.Hidden = false
+			c.Usage = "Print a shell completion script (bash, zsh or fish)"
+			c.Description = "Print a shell completion script. Source it in bash or zsh; fish can pipe it to source. Completion never contacts Oku or unlocks credentials."
+			for _, child := range c.Commands {
+				if child.Name == "bash" {
+					child.Action = func(_ context.Context, cmd *urfave.Command) error {
+						_, err := io.WriteString(cmd.Root().Writer, bashCompletion)
+						return err
+					}
+				}
+				if child.Name == "pwsh" {
+					child.Hidden = true
+				}
+			}
+		},
+		Flags: []urfave.Flag{
+			&urfave.StringFlag{Name: "profile", Usage: "profile name (default: $OKU_PROFILE or config default)"},
+			&urfave.StringFlag{Name: "network", Usage: "network (only mainnet is supported)"},
+			&urfave.StringFlag{Name: "account", Usage: "account address for read commands"},
+			&urfave.BoolFlag{Name: "json", Usage: "write a JSON envelope to stdout"},
+			&urfave.DurationFlag{Name: "timeout", Value: defaultTimeout, Usage: "per-request timeout (max 2m)"},
+		},
+	}
+	names := make([]string, 0, len(cmds))
+	for name := range cmds {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	groups := map[string]*urfave.Command{}
+	for _, path := range names {
+		h := cmds[path]
+		parts := strings.Split(path, " ")
+		leaf := &urfave.Command{Name: parts[len(parts)-1], Usage: h.summary, HideHelpCommand: true, OnUsageError: root.OnUsageError}
+		if h.flags != nil {
+			leaf.Flags = h.flags()
 		}
-		a.printHelp(cmds)
-		return 0
-	}
-	h := cmds[path]
-	if h == nil {
-		return a.fail(jsonOut, reqID, name, output.Errorf(output.CodeUsage, "unknown command %q; run 'oku help'", path))
-	}
-	e := &env{app: a}
-	fs := flag.NewFlagSet("oku "+path, flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	fs.StringVar(&e.g.profile, "profile", "", "profile name (default: $OKU_PROFILE or config default)")
-	fs.StringVar(&e.g.network, "network", "", "network (only mainnet is supported)")
-	fs.StringVar(&e.g.account, "account", "", "account address for read commands")
-	fs.BoolVar(&e.g.json, "json", false, "write a JSON envelope to stdout")
-	fs.DurationVar(&e.g.timeout, "timeout", defaultTimeout, "per-request timeout (max 2m)")
-	help := fs.Bool("help", false, "show help")
-	if h.flags != nil {
-		h.flags(fs)
-	}
-	pos, err := parseInterspersed(fs, rest)
-	if err != nil {
-		return a.fail(jsonOut, reqID, name, output.Errorf(output.CodeUsage, "%v", err))
-	}
-	if *help {
-		a.printCommandHelp(path, h, fs)
-		return 0
-	}
-	if e.g.timeout <= 0 || e.g.timeout > maxTimeout {
-		return a.fail(jsonOut, reqID, name, output.Errorf(output.CodeUsage, "--timeout must be between 1ns and %s", maxTimeout))
-	}
-	if e.g.network != "" && e.g.network != "mainnet" {
-		return a.fail(jsonOut, reqID, name, output.Errorf(output.CodeNetworkUnsupported,
-			"network %q is not supported: the Oku API currently serves Hyperliquid mainnet only", e.g.network))
-	}
-	e.fs, e.args = fs, pos
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	e.ctx = ctx
-	res, err := h.run(e)
-	if err != nil {
-		return a.fail(e.g.json, reqID, name, err)
-	}
-	if e.g.json {
-		if werr := output.Write(a.Stdout, output.Envelope{RequestID: reqID, Command: name, OK: true, Data: res.data}); werr != nil {
-			return 1
+		leaf.Action = func(ctx context.Context, cmd *urfave.Command) error {
+			name := strings.ReplaceAll(path, " ", ".")
+			e := &env{app: a, cmd: cmd, args: cmd.Args().Slice(), ctx: ctx}
+			e.g = globals{profile: cmd.String("profile"), network: cmd.String("network"), account: cmd.String("account"), json: cmd.Bool("json") || jsonOut, timeout: cmd.Duration("timeout")}
+			if e.g.timeout <= 0 || e.g.timeout > maxTimeout {
+				return &commandFailure{name, e.g.json, output.Errorf(output.CodeUsage, "--timeout must be between 1ns and %s", maxTimeout)}
+			}
+			if e.g.network != "" && e.g.network != "mainnet" {
+				return &commandFailure{name, e.g.json, output.Errorf(output.CodeNetworkUnsupported, "network %q is not supported: the Oku API currently serves Hyperliquid mainnet only", e.g.network)}
+			}
+			res, err := h.run(e)
+			if err != nil {
+				return &commandFailure{name, e.g.json, err}
+			}
+			if e.g.json {
+				return output.Write(a.Stdout, output.Envelope{RequestID: reqID, Command: name, OK: true, Data: res.data})
+			}
+			if res.human != nil {
+				res.human(a.Stdout)
+			}
+			return nil
 		}
-		return 0
+		if len(parts) == 1 {
+			root.Commands = append(root.Commands, leaf)
+			continue
+		}
+		group := groups[parts[0]]
+		if group == nil {
+			group = &urfave.Command{Name: parts[0], Usage: parts[0] + " commands", OnUsageError: root.OnUsageError}
+			group.Action = func(_ context.Context, cmd *urfave.Command) error {
+				name := strings.TrimPrefix(cmd.FullName(), "oku ")
+				if cmd.Args().Len() > 0 {
+					unknown := name + " " + cmd.Args().First()
+					return &commandFailure{name: strings.ReplaceAll(unknown, " ", "."), json: jsonOut, err: output.Errorf(output.CodeUsage, "unknown command %q; run 'oku help'", unknown)}
+				}
+				return &commandFailure{name: name, json: jsonOut, err: output.Errorf(output.CodeUsage, "missing subcommand for %s", cmd.FullName())}
+			}
+			groups[parts[0]] = group
+			root.Commands = append(root.Commands, group)
+		}
+		group.Commands = append(group.Commands, leaf)
 	}
-	if res.human != nil {
-		res.human(a.Stdout)
+	return root
+}
+
+func (a *App) commandName(args []string) string {
+	commands := a.commands()
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--profile" || arg == "--network" || arg == "--account" || arg == "--timeout" {
+			i++
+			continue
+		}
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+		if i+1 < len(args) {
+			if _, ok := commands[arg+" "+args[i+1]]; ok {
+				return arg + "." + args[i+1]
+			}
+		}
+		if _, ok := commands[arg]; ok {
+			return arg
+		}
 	}
-	return 0
+	return "oku"
 }
 
 func (a *App) fail(jsonOut bool, reqID, name string, err error) int {
@@ -207,45 +295,6 @@ func (a *App) fail(jsonOut bool, reqID, name string, err error) int {
 	return oe.Code.ExitCode()
 }
 
-// splitCommand extracts up to two command words, skipping flags.
-func splitCommand(args []string, cmds map[string]*handler) (string, []string) {
-	words := []int{}
-	for i := 0; i < len(args) && len(words) < 2; i++ {
-		a := args[i]
-		if strings.HasPrefix(a, "-") {
-			name := strings.TrimLeft(a, "-")
-			if valueFlags[name] && !strings.Contains(a, "=") {
-				i++
-			}
-			continue
-		}
-		if len(words) == 0 {
-			words = append(words, i)
-			continue
-		}
-		if _, ok := cmds[args[words[0]]+" "+a]; ok {
-			words = append(words, i)
-		}
-		break
-	}
-	if len(words) == 0 {
-		return "", args
-	}
-	parts := []string{}
-	rest := []string{}
-	skip := map[int]bool{}
-	for _, w := range words {
-		parts = append(parts, args[w])
-		skip[w] = true
-	}
-	for i, a := range args {
-		if !skip[i] {
-			rest = append(rest, a)
-		}
-	}
-	return strings.Join(parts, " "), rest
-}
-
 func hasJSONFlag(args []string) bool {
 	for _, a := range args {
 		if a == "--json" || a == "-json" || a == "--json=true" {
@@ -253,25 +302,6 @@ func hasJSONFlag(args []string) bool {
 		}
 	}
 	return false
-}
-
-// parseInterspersed allows flags after positional arguments.
-func parseInterspersed(fs *flag.FlagSet, args []string) ([]string, error) {
-	pos := []string{}
-	for {
-		if err := fs.Parse(args); err != nil {
-			return nil, err
-		}
-		args = fs.Args()
-		if len(args) == 0 {
-			return pos, nil
-		}
-		if args[0] == "--" {
-			return append(pos, args[1:]...), nil
-		}
-		pos = append(pos, args[0])
-		args = args[1:]
-	}
 }
 
 func (e *env) requestCtx() (context.Context, context.CancelFunc) {

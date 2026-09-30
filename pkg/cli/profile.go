@@ -2,17 +2,17 @@ package cli
 
 import (
 	"errors"
-	"flag"
 	"fmt"
+	urfave "github.com/urfave/cli/v3"
 	"io"
 	"runtime"
 	"strings"
 	"text/tabwriter"
 
-	"github.com/oku-trade/oku-cli/internal/api"
-	"github.com/oku-trade/oku-cli/internal/auth"
-	"github.com/oku-trade/oku-cli/internal/config"
-	"github.com/oku-trade/oku-cli/internal/output"
+	"github.com/oku-trade/oku-cli/pkg/api"
+	"github.com/oku-trade/oku-cli/pkg/auth"
+	"github.com/oku-trade/oku-cli/pkg/config"
+	"github.com/oku-trade/oku-cli/pkg/output"
 )
 
 // resolved is the effective profile for a command.
@@ -151,9 +151,11 @@ func printProfiles(w io.Writer, f *config.File) {
 	tw.Flush()
 }
 
-func profilesAddFlags(fs *flag.FlagSet) {
-	fs.String("api-url", config.DefaultAPIURL, "Oku account API origin")
-	fs.Bool("default", false, "make this the default profile")
+func profilesAddFlags() []urfave.Flag {
+	return []urfave.Flag{
+		&urfave.StringFlag{Name: "api-url", Value: config.DefaultAPIURL, Usage: "Oku account API origin"},
+		&urfave.BoolFlag{Name: "default", Usage: "make this the default profile"},
+	}
 }
 
 func (a *App) cmdProfilesAdd(e *env) (*result, error) {
@@ -171,7 +173,7 @@ func (a *App) cmdProfilesAdd(e *env) (*result, error) {
 	}
 	p := &config.Profile{
 		Network: network,
-		APIURL:  config.NormalizeAPIURL(e.fs.Lookup("api-url").Value.String()),
+		APIURL:  config.NormalizeAPIURL(e.cmd.String("api-url")),
 		Account: e.g.account,
 	}
 	if p.Account == "" {
@@ -190,7 +192,7 @@ func (a *App) cmdProfilesAdd(e *env) (*result, error) {
 		return nil, output.Errorf(output.CodeConflict, "profile %q already exists; remove it first", name)
 	}
 	f.Profiles[name] = p
-	if e.fs.Lookup("default").Value.String() == "true" || f.DefaultProfile == "" {
+	if e.cmd.Bool("default") || f.DefaultProfile == "" {
 		f.DefaultProfile = name
 	}
 	if err := f.Save(); err != nil {

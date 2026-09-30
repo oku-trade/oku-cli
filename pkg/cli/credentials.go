@@ -9,9 +9,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/oku-trade/oku-cli/internal/auth"
-	"github.com/oku-trade/oku-cli/internal/output"
-	"github.com/oku-trade/oku-cli/internal/signing"
+	"github.com/oku-trade/oku-cli/pkg/auth"
+	"github.com/oku-trade/oku-cli/pkg/output"
+	"github.com/oku-trade/oku-cli/pkg/signing"
 )
 
 // passphrase obtains the credential passphrase from OKU_PASSPHRASE_FILE

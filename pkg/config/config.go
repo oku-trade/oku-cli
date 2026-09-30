@@ -1,5 +1,5 @@
 // Package config manages profiles stored under the XDG config directory.
-// Credentials are stored separately (see internal/auth) and never here.
+// Credentials are stored separately (see pkg/auth) and never here.
 package config
 
 import (

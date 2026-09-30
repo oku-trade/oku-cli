@@ -24,6 +24,13 @@ Only what was actually executed is recorded here. **Status as of 2026-09-30: not
 
 ## Details
 
+### urfave/cli v3 migration (local, pending review)
+
+- `go test -race ./...`, `go vet ./...`, `make build`, and `make docs-check` passed locally after migration to urfave/cli v3.13.0 and moving Go packages from `internal/` to `pkg/`. The CLI test suite retains auth, account binding, signing, unknown-outcome, no-retry, and never-signed-abandon checks against fake HTTP services.
+- Real public read-only `markets quote BTC --json` and `markets list --json` returned successful JSON envelopes from `https://accounts.lat.gfx.town`. No enrollment, signing, or trading was attempted for this migration.
+- Generated bash, zsh, and fish completion scripts were sourced and invoked in the installed shells. A separate real Bash regression checks that redirection, command substitution, backticks, and semicolons in completion words do not execute or change sentinel files. Zsh/fish scripts use urfave generation; bash uses a safe array-based wrapper around its completion candidate protocol.
+- Framework parse error tests verify a single JSON envelope on stdout, usage exit code 2, and no network calls. `make docs-check` compares the committed generated reference against the command tree and runs in CI.
+
 ### CLI
 
 - Live smoke (`BG663998t7rz`), all exit 0:

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oku-trade/oku-cli/internal/trading"
+	"github.com/oku-trade/oku-cli/pkg/trading"
 )
 
 func open(t *testing.T) *Journal {

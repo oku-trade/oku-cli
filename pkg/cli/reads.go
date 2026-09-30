@@ -1,15 +1,15 @@
 package cli
 
 import (
-	"flag"
 	"fmt"
+	urfave "github.com/urfave/cli/v3"
 	"io"
 	"strings"
 	"text/tabwriter"
 	"time"
 
-	"github.com/oku-trade/oku-cli/internal/api"
-	"github.com/oku-trade/oku-cli/internal/output"
+	"github.com/oku-trade/oku-cli/pkg/api"
+	"github.com/oku-trade/oku-cli/pkg/output"
 )
 
 // meta accompanies every read result so agents can judge freshness.
@@ -52,7 +52,9 @@ func normCoin(c string) (string, error) {
 	return c, nil
 }
 
-func marketFilterFlags(fs *flag.FlagSet) { fs.String("market", "", "filter by market, e.g. BTC") }
+func marketFilterFlags() []urfave.Flag {
+	return []urfave.Flag{&urfave.StringFlag{Name: "market", Usage: "filter by market, e.g. BTC"}}
+}
 
 func (a *App) cmdMarketsList(e *env) (*result, error) {
 	p, err := e.profile()
@@ -60,7 +62,7 @@ func (a *App) cmdMarketsList(e *env) (*result, error) {
 		return nil, err
 	}
 	req := map[string]string{}
-	if m := e.fs.Lookup("market").Value.String(); m != "" {
+	if m := e.cmd.String("market"); m != "" {
 		if req["coin"], err = normCoin(m); err != nil {
 			return nil, err
 		}
@@ -109,8 +111,8 @@ func (a *App) cmdMarketsQuote(e *env) (*result, error) {
 	}}, nil
 }
 
-func fundingFlags(fs *flag.FlagSet) {
-	fs.Duration("since", 24*time.Hour, "history window (max 720h)")
+func fundingFlags() []urfave.Flag {
+	return []urfave.Flag{&urfave.DurationFlag{Name: "since", Value: 24 * time.Hour, Usage: "history window (max 720h)"}}
 }
 
 func (a *App) cmdMarketsFunding(e *env) (*result, error) {
@@ -122,7 +124,7 @@ func (a *App) cmdMarketsFunding(e *env) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	since := e.fs.Lookup("since").Value.(flag.Getter).Get().(time.Duration)
+	since := e.cmd.Duration("since")
 	if since <= 0 || since > 720*time.Hour {
 		return nil, output.Errorf(output.CodeInvalidArgument, "--since must be between 1s and 720h")
 	}
@@ -247,7 +249,9 @@ func (a *App) cmdPositionsList(e *env) (*result, error) {
 	}}, nil
 }
 
-func fresh(fs *flag.FlagSet) { fs.Bool("fresh", false, "bypass the Oku server cache") }
+func fresh() []urfave.Flag {
+	return []urfave.Flag{&urfave.BoolFlag{Name: "fresh", Usage: "bypass the Oku server cache"}}
+}
 
 func (a *App) cmdOrdersList(e *env) (*result, error) {
 	p, err := e.profile()
@@ -258,7 +262,7 @@ func (a *App) cmdOrdersList(e *env) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	req := map[string]any{"address": acct, "skipCache": e.fs.Lookup("fresh").Value.String() == "true"}
+	req := map[string]any{"address": acct, "skipCache": e.cmd.Bool("fresh")}
 	var resp api.GetOpenOrdersResponse
 	if err := e.perpsRead(p, "GetOpenOrders", req, &resp); err != nil {
 		return nil, err
@@ -291,7 +295,7 @@ func (a *App) cmdFillsList(e *env) (*result, error) {
 		return nil, err
 	}
 	req := map[string]string{"address": acct}
-	if m := e.fs.Lookup("market").Value.String(); m != "" {
+	if m := e.cmd.String("market"); m != "" {
 		if req["coin"], err = normCoin(m); err != nil {
 			return nil, err
 		}
