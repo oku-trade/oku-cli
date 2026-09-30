@@ -26,3 +26,9 @@ Uninstalling the binary does none of these. Never reuse a retired agent address.
 ## Reporting
 
 Report vulnerabilities privately to the Oku team. Do not open public issues with key material.
+
+## Enrollment flow (in development)
+
+- `VerifyEnrollment` checks the human-entered CLI code **before** the browser offers Hyperliquid agent delegation. No delegation happens for an unverified device.
+- Read-only devices never get a delegated Hyperliquid signer.
+- The CLI polls for `device_verified`. That status is still pending in the backend. These docs will be updated once the code is aligned.
