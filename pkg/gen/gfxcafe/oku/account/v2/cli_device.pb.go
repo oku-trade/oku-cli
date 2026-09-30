@@ -237,9 +237,11 @@ type StartCliEnrollmentRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	AccountAddress string                 `protobuf:"bytes,1,opt,name=account_address,json=accountAddress,proto3" json:"account_address,omitempty"`
 	Scopes         []string               `protobuf:"bytes,2,rep,name=scopes,proto3" json:"scopes,omitempty"`
-	// Must be "oku-cli-v1" when trade scope is requested.
+	// Must be "oku-cli-v1" when trade or risk scope is requested.
 	DisclosuresVersion string `protobuf:"bytes,3,opt,name=disclosures_version,json=disclosuresVersion,proto3" json:"disclosures_version,omitempty"`
-	// Explicit browser risk acceptance, required for trade scope.
+	// Explicit browser risk acceptance, required for trade or risk scope.
+	// "risk" (leverage and isolated margin changes) is a separate opt-in: it
+	// does not imply "trade" and "trade" does not imply it.
 	AcceptedRisk  bool `protobuf:"varint,4,opt,name=accepted_risk,json=acceptedRisk,proto3" json:"accepted_risk,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1370,10 +1372,10 @@ const file_gfxcafe_oku_account_v2_cli_device_proto_rawDesc = "" +
 	"\ragent_address\x18\x06 \x01(\tR\fagentAddress\x129\n" +
 	"\n" +
 	"expires_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x1b\n" +
-	"\tdevice_id\x18\b \x01(\tR\bdeviceId\"\xd7\x01\n" +
+	"\tdevice_id\x18\b \x01(\tR\bdeviceId\"\xdd\x01\n" +
 	"\x19StartCliEnrollmentRequest\x121\n" +
-	"\x0faccount_address\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xd0H\x01R\x0eaccountAddress\x121\n" +
-	"\x06scopes\x18\x02 \x03(\tB\x19\xbaH\x16\x92\x01\x13\x10\x02\"\x0fr\rR\x04readR\x05tradeR\x06scopes\x12/\n" +
+	"\x0faccount_address\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xd0H\x01R\x0eaccountAddress\x127\n" +
+	"\x06scopes\x18\x02 \x03(\tB\x1f\xbaH\x1c\x92\x01\x19\x10\x03\"\x15r\x13R\x04readR\x05tradeR\x04riskR\x06scopes\x12/\n" +
 	"\x13disclosures_version\x18\x03 \x01(\tR\x12disclosuresVersion\x12#\n" +
 	"\raccepted_risk\x18\x04 \x01(\bR\facceptedRisk\"\xa5\x01\n" +
 	"\x1aStartCliEnrollmentResponse\x12#\n" +

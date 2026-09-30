@@ -323,6 +323,17 @@ message PerpOrder {
   int32 asset_id = 15;            // exchange asset id when known
   string tif = 16;                // time-in-force: "Gtc", "Ioc", "Alo"
   repeated PerpOrder children = 17; // nested TP/SL orders attached to this order
+  // Server-verified origin. Unset when the order was not placed through an
+  // authenticated Oku CLI device (external or unknown).
+  OrderOrigin origin = 18;
+}
+
+// OrderOrigin is authenticated order attribution, derived only from the
+// server-side device credential that created the action, never from client
+// headers. It survives device revocation.
+message OrderOrigin {
+  string cli_device_id = 1;
+  string cli_device_name = 2;
 }
 
 // PerpTwap represents a Hyperliquid TWAP lifecycle entry.
@@ -384,6 +395,9 @@ message PerpTrade {
   PerpTradeKind kind = 16;
   PerpLiquidation liquidation = 17;
   int64 twap_id = 18;         // HL TWAP id this fill belongs to; 0 when not a TWAP fill
+  // Server-verified origin of the order this fill belongs to; unset when
+  // external or unknown.
+  OrderOrigin origin = 19;
 }
 
 enum PerpTradeKind {
@@ -998,6 +1012,8 @@ message GetActionResponse {
   string state = 3;           // "pending", "submitted", "completed", "filled", "cancelled", "error"
   int64 hl_oid = 4;           // Hyperliquid order ID (if applicable)
   string error_message = 5;   // error details (if state == "error")
+  // Authenticated CLI device that created the action; empty otherwise.
+  string cli_device_id = 6;
 }
 
 message GetOrderStatusesRequest {

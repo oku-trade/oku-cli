@@ -63,12 +63,14 @@ message CliEnrollment {
 message StartCliEnrollmentRequest {
   string account_address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
   repeated string scopes = 2 [(buf.validate.field).repeated = {
-    max_items: 2
-    items: {string: {in: ["read", "trade"]}}
+    max_items: 3
+    items: {string: {in: ["read", "trade", "risk"]}}
   }];
-  // Must be "oku-cli-v1" when trade scope is requested.
+  // Must be "oku-cli-v1" when trade or risk scope is requested.
   string disclosures_version = 3;
-  // Explicit browser risk acceptance, required for trade scope.
+  // Explicit browser risk acceptance, required for trade or risk scope.
+  // "risk" (leverage and isolated margin changes) is a separate opt-in: it
+  // does not imply "trade" and "trade" does not imply it.
   bool accepted_risk = 4;
 }
 

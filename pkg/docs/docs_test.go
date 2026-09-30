@@ -41,3 +41,13 @@ func TestBundledDocsPresent(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestBundledDocsExcludeInternalNotes(t *testing.T) {
+	if _, err := Bundled().Show("validation"); err == nil {
+		t.Fatal("internal validation evidence is embedded in the binary")
+	}
+	l, _ := Bundled().List()
+	if len(l) != 7 {
+		t.Fatalf("unexpected bundled docs %+v", l)
+	}
+}

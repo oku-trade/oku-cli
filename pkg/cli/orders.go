@@ -773,7 +773,11 @@ func (a *App) cmdOrdersAbandon(e *env) (*result, error) {
 	// for an abandoned intent. Server cleanup (which deletes the pending
 	// row) is best effort.
 	cleanup := "not_attempted"
-	if s, err := e.unlock(p, "trade"); err == nil {
+	s, uerr := e.unlock(p, requiredScope(rec.Intent.Kind))
+	if uerr != nil {
+		cleanup = "not_attempted: " + output.As(uerr).Message
+	}
+	if uerr == nil {
 		c := e.client(p)
 		c.Token = s.token
 		ctx, cancel := e.requestCtx()
@@ -788,5 +792,9 @@ func (a *App) cmdOrdersAbandon(e *env) (*result, error) {
 	if err := j.Put(rec, "abandoned locally, never signed; server cleanup "+cleanup); err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "journal")
 	}
-	return recordResult(rec), nil
+	res := recordResult(rec)
+	if m, ok := res.data.(map[string]any); ok {
+		m["server_cleanup"] = cleanup
+	}
+	return res, nil
 }
