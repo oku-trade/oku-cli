@@ -67,3 +67,30 @@ The extracted linux/amd64 binary prints `oku eaad4ba (unknown, linux/amd64)`. Th
 ### Deployed read API
 
 `POST https://accounts.lat.gfx.town/connect/gfxcafe.oku.account.v2.PerpsService/GetMarkets` with `Content-Type: application/json`, `Connect-Protocol-Version: 1`, body `{"coin":"BTC"}`. Returned HTTP 200, `markets[0].coin == "BTC"`, and decimal-string prices.
+
+## Requirement → evidence matrix (v1)
+
+Evidence kinds: **S** = synthetic (unit tests with fixtures or fakes, `go test -race ./...` at `eaad4ba`, root `BG991879haiq`). **R** = real read-only run. **UI** = real unauthenticated UI. **NOT RUN** = no evidence. Synthetic tests do not show live integration.
+
+| Requirement | Evidence | Kind |
+|---|---|---|
+| v1 command set matches the docs | Every `--help` captured at `ca84dac` and docs aligned. Final `eaad4ba` build passes `version --json`. | R (local binary) |
+| JSON on stdout, diagnostics on stderr, error codes | `TestJSONContractAndStderr`, `TestErrorClassification` | S |
+| Market data reads | Live `markets quote/list/funding BTC` (`BG663998t7rz`), `markets quote BTC` at `eaad4ba` (`BG991879haiq`), `GetMarkets` over Connect | R |
+| Account/positions/orders/fills reads (authenticated) | Not exercised live | NOT RUN |
+| Enrollment: read vs trade | `TestEnrollmentFlow`, `TestEnrollmentRefusesDifferentApprovedAccount`, `TestEnrollmentSignatureVector`, `TestCodeNeverAcceptedWithoutStdinOrTTY`. Backend clidevice `-race` (`BG8948497p4q`). The `/cli` page hides enrollment controls without a wallet. | S, UI |
+| Live enrollment against deployed device routes | Routes not deployed. Root is probing `GetCurrentDevice` without credentials. | NOT RUN |
+| Authority/account/network/signer binding | `TestDigestBindsAccountAndNetwork`, `TestProfileBindingEnforced`, `TestBindingSensitivity`, `TestWrongDigestRejectedBeforeNetwork`, `TestServerPayloadMismatchNeverSigned`, `TestValidateActionRejectsDivergence`, `TestSameIntentIDDifferentPayloadRejected`. Backend hlsigning `-race`. | S |
+| Signing correctness and nonces | `TestReferenceVectors`, `TestBackendFrontendVectors`, `TestNonceUniqueUnderConcurrency`, `TestNonceMonotonicUnderClockRollback`, `TestCorruptNonceStateRefuses` | S |
+| Secret protection | `TestSealRoundTripAndNoPlaintext`, `TestNoPassphraseFailsClosed`, `TestCorruptCredentialFilesFailClosed`, `TestErrorMessagesDoNotReflectSecrets`, `TestRedirectNotFollowedAndTokenNotLeaked`. Trusted-host risk documented in `security.md`. | S |
+| Unknown outcome, no resend | `TestAmbiguousConfirmIsUnknownAndBlocksResend`, `TestTimeoutIsAmbiguous`, `TestSubmittedWithoutOrderIDStaysUnknown`, `TestUndecodableConfirmSuccessIsUnknown`, `TestUnknownPersistsAcrossReopen`, `TestAbandonOnlyNeverSigned`, `TestDefiniteRejectIsRejected` | S |
+| Order bounds (slippage, decimals, perp rules) | `TestMarketOrderSlippageBound`, `TestMarketWorstPriceBound`, `TestPerpRules`, `TestEncodeRejectsAmbiguousInput`, `TestCancelValidation`. `orders prepare` run live-locally (digest + fee warning). | S, R (local) |
+| Live submit/cancel/reconcile | No orders submitted | NOT RUN |
+| Shared history with the Oku UI (CLI order visible and cancellable in the UI) | Architecture only (CreateAction/ConfirmAction/GetAction) | NOT RUN |
+| Revocation boundaries (token vs agent vs orders vs positions) | `TestRevokeReportsBoundaries`. Wording in `security.md`. | S |
+| Live revocation | | NOT RUN |
+| Agent skills install/uninstall | `TestInstallNeverOverwritesWithoutForce`. Scratch install/uninstall run (`BG663998t7rz`). Codex path `~/.agents/skills` from source. | S, R (local) |
+| Packaging | `build.sh` run twice at `eaad4ba`, identical `SHA256SUMS`, linux/amd64 binary runs | R (local). darwin not executed. Unsigned. |
+| Wallet-agnostic claim | No wallet connected in any test. No wallet compatibility matrix. **Do not claim.** | NOT RUN |
+| Backend migration 137 / DB tests | Operator-only | NOT RUN |
+| Legal / eligibility / terms / release gates | No review performed. Deferred to Oku legal/compliance before any public release. | NOT RUN (deferred) |
