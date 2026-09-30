@@ -25,6 +25,7 @@ Local release archives: `make dist` builds linux/darwin × amd64/arm64 into `dis
 ## Docs
 
 - [docs/usage.md](docs/usage.md): commands, JSON contract, order lifecycle
+- [docs/local-testing.md](docs/local-testing.md): local API/UI read-only checks and operator-only enrollment/trade guidance
 - [docs/commands.md](docs/commands.md): generated command and flag reference (`make docs`, `make docs-check`)
 - [docs/architecture.md](docs/architecture.md): how the CLI talks to Oku
 - [docs/security.md](docs/security.md): signing modes, key risks, revocation
