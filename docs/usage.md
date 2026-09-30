@@ -63,7 +63,7 @@ oku orders submit --intent ID --digest SHA
 oku orders status --intent ID
 oku orders reconcile
 oku orders cancel --market COIN --order-id OID [--intent-id ID]
-oku orders abandon ...                  # cancel an unsigned server action so it can never execute
+oku orders abandon ...                  # only for never-signed intents: cancels the server action so it can never execute
 
 oku skills list
 oku skills install   --target jcode|claude|codex | --dir PATH [--force]

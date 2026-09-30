@@ -4,7 +4,7 @@
 
 Supports Hyperliquid **mainnet** only.
 
-> **Status: pre-release / private alpha development.** There are no public releases, no hosted install script, and no auto-update. Device enrollment (backend) and the Oku website `/cli` page are still being implemented and their contract is pending. Command grammar may change.
+> **Status: pre-release / private alpha development.** There are no public releases, no hosted install script, and no auto-update. Device enrollment (backend) and the Oku website `/cli` page are implemented but not deployed. Live enrollment and trading are untested (see docs/validation.md). Command grammar may change.
 
 ## Install (from source)
 

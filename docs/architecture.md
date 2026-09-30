@@ -25,4 +25,4 @@ Config under XDG config dir, credentials separate from config (encrypted file, u
 
 ## Pending
 
-- Device enrollment protocol (backend) and `/cli` website page: in development, contract not final.
+- Device enrollment protocol (backend) and `/cli` website page: implemented (backend `405b4538a`, frontend `bbfb56930`), not deployed. See validation.md.

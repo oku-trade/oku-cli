@@ -1,88 +1,60 @@
-# Validation log
+# Validation
 
-Record only what was actually executed. Nothing here verifies the new CLI binary unless stated.
+Only what was actually executed is recorded here. **Status as of 2026-09-30: not production-ready.** Live enrollment, signing and trading have not been tested.
 
-## 2026-09-30: deployed read contract (reported by root agent)
+## Current status
 
-- Request: unauthenticated `POST https://accounts.lat.gfx.town/connect/gfxcafe.oku.account.v2.PerpsService/GetMarkets`
-  - Headers: `Content-Type: application/json`, `Connect-Protocol-Version: 1`
-  - Body: `{"coin":"BTC"}`
-- Result: HTTP 200, `markets[0].coin == "BTC"`, price and funding fields returned as precise decimal strings.
-- Scope: verifies the deployed **read** contract only. It does not verify the new CLI, authentication, enrollment, or any write path.
+| Area | Latest evidence | Status |
+|---|---|---|
+| CLI | Full `-race` + vet passed (root `BG722774rqmc`) **before** the latest UNKNOWN/abandon fixes. Live read smoke passed (`BG663998t7rz`). | **Not final.** Rerun of tests and packaging at the final commit is pending. |
+| CLI packaging | `scripts/build.sh` reproducible at `ca84dac` (below). | Must be rerun at the final commit. |
+| Frontend | HEAD `bbfb56930`: full suite 252 files / 3208 tests pass, `lint:check` exit 0 (`BG683551au6j`). Vite build exit 0. `/cli` renders in Chromium on desktop and mobile. | Passing. Wallet-connected flow untested. |
+| Backend | `405b4538a`: tests, vet and build pass (`BG692697b2l7`). Integration tests were compiled only. Two review fixes verified. | Passing pure checks. Migration 137 is **not applied**. Device routes are **not deployed**. |
+| Deployed read API | `GetMarkets` over Connect JSON returns HTTP 200 with BTC data. | Verified. |
+| End-to-end enrollment/trading | Not run. Operator-only (see `deployment.md` acceptance checklist). | **Blocked on operator.** |
 
-## Not yet verified
+## Details
 
-- Wallet-connected browser flow (enrollment, signing, trades): not tested.
-- Backend device route deployment + DB, and authorized wallet end-to-end: not run.
-- Writes (`CreateAction`/`ConfirmAction`): no live writes authorized or performed.
-- Device enrollment and `/cli` page: in development.
+### CLI
 
-## Backend enrollment (reported by root agent)
+- Live smoke (`BG663998t7rz`), all exit 0:
+  - `version`
+  - **live** `markets quote BTC`, `markets list --market BTC`, `markets funding BTC --since 1h`
+  - scratch `profiles add` and `profiles list`
+  - local `orders prepare`, which returned a valid digest and a warning that the builder fee is not approved
+  - `skills install` and `skills uninstall` against a scratch target
 
-- Only pure tests and builds have run. DB tests and the migration were **not** run (operator-only). The device routes are not deployed.
-- The operator-run acceptance steps are in `deployment.md`. Not production-ready.
+  **No `orders submit`.**
+- Docs worker at `ca84dac`: `--help` for every command was captured and the docs aligned to it. `version --json` returns an `oku.cli/v1` envelope. `orders prepare` with no profile returns `PROFILE_NOT_FOUND` and exits 2.
+- Fixes made after the `-race` run: a `submitted` status without `hlOid` is treated as `OUTCOME_UNKNOWN`. `orders abandon` is limited to intents that were never signed. `reconcile` can no longer let an UNKNOWN intent escape through the 2-minute grace period.
 
-## 2026-09-30: frontend `/cli` page, local UI check (reported by root agent)
+### Packaging (`ca84dac`, to be redone at the final commit)
 
-- Setup: fresh local Chromium via Playwright against the real Vite dev app at `http://127.0.0.1:5177/cli`. This was a temporary local process, with no DB or managed-service changes and no mocks in the browser path.
-- Results: HTTP 200. Title `Oku CLI and Agents | Oku Trade`. Heading visible. "Connect wallet" visible. Enrollment controls absent without a wallet. Zero `pageerror` events. At a mobile 390x844 viewport the heading is visible with no horizontal overflow.
-- Screenshots: `scratch/oku-cli-validation/{desktop,mobile}.png` (local scratch, not committed).
-- Scope: unauthenticated page render only. No wallet connected, and no enrollment, signing or trades tested. This replaces the earlier "Firefox bridge unavailable" blocker.
+`VERSION=v0.0.0-local ./scripts/build.sh` was run twice. Both runs produced identical `SHA256SUMS` (Go 1.27.1, linux host) and `sha256sum -c` passed. Nothing was published.
 
-## 2026-09-30: frontend commit `e4c7845d1`, targeted checks (root agent)
+- darwin_amd64 `3609380edc5885a9731a6f63728c87be60c6a735dc4981f4e13a9be2d78c3556`
+- darwin_arm64 `ac67a77868cd5779ca38138cd7ae84a7a8b3a0ecc8e6df13105423e7e3c41d57`
+- linux_amd64 `65004691af9ffd7fd06ca9621480601901b79f6342844499c20cea97575f901d`
+- linux_arm64 `43580905615407f9c31fc3a0412e9e17038405eb883370d1e6c99c54033370c1`
 
-- `corepack yarn vitest run src/app/features/cli src/app/features/perps/state/approvals.test.ts src/app/lib/posthogNetworkMask.test.ts`: 4 files, 26 tests pass.
-- `corepack yarn lint:check`: exit 0 (one unrelated hooks warning).
-- `POSTHOG_PERSONAL_API_KEY= POSTHOG_PROJECT_ID= corepack yarn vite build --outDir <scratch>/ui-dist`: exit 0 in about 10s, external uploads disabled.
-- **Not claimed:** the full frontend test suite is not green. 16 other failures were reported elsewhere in the suite.
+The linux/amd64 binary runs. The darwin binaries were not run (no macOS host) and are unsigned.
 
-## CLI (status at this time)
+### Frontend
 
-- All 7 package tests passed with `-race`, as reported by the CLI worker.
-- Review fixes are still pending. The final real `make dist` packaging run and the CLI smoke test have **not** been done yet.
+- Targeted vitest (26 tests), lint, and `vite build` with PostHog uploads disabled all passed at `e4c7845d1`. Superseded by the full suite at `bbfb56930`.
+- Local Playwright Chromium against the Vite app at `/cli`:
+  - HTTP 200, title `Oku CLI and Agents | Oku Trade`, heading and "Connect wallet" visible
+  - enrollment controls hidden without a wallet, zero page errors
+  - mobile 390x844 has no horizontal overflow
 
-## Backend: commits `6b4bcbd5f` and L1 recovery `5eaed3ac4` (reported)
+  No wallet was connected and there were no mocks.
 
-- Pure tests, build and vet pass. Migration 137 exists as an artifact but has **not** been applied (operator-only).
-- The scoped trading-envelope signer binding is implemented (it is no longer deferred or fail-closed). Independent review is in progress.
-- **Not claimed:** live enrollment and live trading are untested.
+### Backend
 
-## Frontend full suite
+- Enrollment: `VerifyEnrollment` (agentAddress + confirmationCode) runs before HL delegation. `ApproveEnrollment` takes `{enrollmentId}`. Read-only devices never get a delegated signer.
+- Trading-envelope signer binding is implemented.
+- DB tests and migration 137 were intentionally not run (operator-only).
 
-- Superseded, see the frontend final-HEAD entry below.
+### Deployed read API
 
-## CLI packaging and help check (docs worker, commit `ca84dac`)
-
-- `go build ./cmd/oku` OK. `oku --help` and per-command `--help` were captured, and `docs/usage.md` and the skill were aligned to them. Codex skill path is `~/.agents/skills` (from `internal/skills/skills.go`).
-- `oku version --json` returns an `oku.cli/v1` envelope. `orders prepare` with no profile returns `PROFILE_NOT_FOUND` and exits 2.
-- `scripts/build.sh` ran twice: 4 archives (linux/darwin, amd64/arm64), `sha256sum -c` OK, identical checksums across runs. Local only, nothing published.
-  - darwin_amd64 `3609380edc5885a9731a6f63728c87be60c6a735dc4981f4e13a9be2d78c3556`
-  - darwin_arm64 `ac67a77868cd5779ca38138cd7ae84a7a8b3a0ecc8e6df13105423e7e3c41d57`
-  - linux_amd64 `65004691af9ffd7fd06ca9621480601901b79f6342844499c20cea97575f901d`
-  - linux_arm64 `43580905615407f9c31fc3a0412e9e17038405eb883370d1e6c99c54033370c1`
-- The darwin binaries were not executed (no macOS host), and they are unsigned and not notarized.
-- Not done here: authenticated or live CLI commands, e2e tests (in progress by the CLI worker).
-
-## 2026-09-30: root live CLI smoke (task `BG663998t7rz`)
-
-Binary built from `cmd/oku` (scratch `oku-cli-validation/oku`). All of these exited 0:
-- `version`
-- **Live** Oku reads: `markets quote BTC`, `markets list --market BTC`, `markets funding BTC --since 1h`
-- Scratch config: `profiles add`, `profiles list`
-- `orders prepare`: local only. It produced a valid digest and warned that the builder fee is not approved.
-- `skills install` and `skills uninstall` against a scratch target
-
-**No `orders submit` was attempted.** No live enrollment, signing or trading.
-
-## Frontend final HEAD `bbfb56930` (root task `BG683551au6j`)
-
-- Full suite: 252 files, 3208 tests pass. `lint:check` exit 0.
-- An earlier vite build (exit 0) and the desktop/mobile Chromium `/cli` check passed. See above.
-
-## Backend
-
-- Final `405b4538a`: root independently ran tests, vet and build (task `BG692697b2l7`), all pass. Integration tests were compiled only, not run. Two review fixes were independently verified. Migration 137 is still not applied. DB and enrollment end-to-end are still operator-blocked.
-
-## CLI: not final
-
-- An open P1 was found: a `submitted` action status without `hlOid` has an UNKNOWN backend outcome and must not be reported as accepted. A fix with regression tests is in progress. The CLI is not final until it lands and packaging is rerun.
+`POST https://accounts.lat.gfx.town/connect/gfxcafe.oku.account.v2.PerpsService/GetMarkets` with `Content-Type: application/json`, `Connect-Protocol-Version: 1`, body `{"coin":"BTC"}`. Returned HTTP 200, `markets[0].coin == "BTC"`, and decimal-string prices.
