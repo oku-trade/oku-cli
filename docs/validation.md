@@ -49,7 +49,7 @@ Record only what was actually executed. Nothing here verifies the new CLI binary
 
 ## Frontend full suite
 
-- 16 test-only fixture failures are being repaired in a separate commit. Final totals are pending, and none are recorded here yet.
+- Superseded, see the frontend final-HEAD entry below.
 
 ## CLI packaging and help check (docs worker, commit `ca84dac`)
 
@@ -62,3 +62,23 @@ Record only what was actually executed. Nothing here verifies the new CLI binary
   - linux_arm64 `43580905615407f9c31fc3a0412e9e17038405eb883370d1e6c99c54033370c1`
 - The darwin binaries were not executed (no macOS host), and they are unsigned and not notarized.
 - Not done here: authenticated or live CLI commands, e2e tests (in progress by the CLI worker).
+
+## 2026-09-30: root live CLI smoke (task `BG663998t7rz`)
+
+Binary built from `cmd/oku` (scratch `oku-cli-validation/oku`). All of these exited 0:
+- `version`
+- **Live** Oku reads: `markets quote BTC`, `markets list --market BTC`, `markets funding BTC --since 1h`
+- Scratch config: `profiles add`, `profiles list`
+- `orders prepare`: local only. It produced a valid digest and warned that the builder fee is not approved.
+- `skills install` and `skills uninstall` against a scratch target
+
+**No `orders submit` was attempted.** No live enrollment, signing or trading.
+
+## Frontend final HEAD `bbfb56930` (root task `BG683551au6j`)
+
+- Full suite: 252 files, 3208 tests pass. `lint:check` exit 0.
+- An earlier vite build (exit 0) and the desktop/mobile Chromium `/cli` check passed. See above.
+
+## Backend
+
+- Build, vet and tests passed for the initial feature. Review fixes `405b4538a` are being rerun and the result is pending. Migration 137 is still not applied. DB and enrollment end-to-end are still operator-blocked.
