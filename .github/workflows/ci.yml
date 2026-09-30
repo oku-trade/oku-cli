@@ -1,13 +1,50 @@
 name: ci
-on: [push, pull_request]
+# No branch filter: runs on every push/PR regardless of default branch name (master/main).
+on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  native:
+    name: native ${{ matrix.goos }}/${{ matrix.goarch }}
+    # Candidate GitHub-hosted labels; confirm org availability/budget before relying on them.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04,     goos: linux,  goarch: amd64, cgo: "0" }
+          - { runner: ubuntu-24.04-arm, goos: linux,  goarch: arm64, cgo: "0" }
+          - { runner: macos-15-intel,   goos: darwin, goarch: amd64, cgo: "1" }
+          - { runner: macos-15,         goos: darwin, goarch: arm64, cgo: "1" }
+    runs-on: ${{ matrix.runner }}
+    env:
+      CGO_ENABLED: ${{ matrix.cgo }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with: { go-version-file: go.mod }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: assert native host
+        run: test "$(go env GOOS)/$(go env GOARCH)" = "${{ matrix.goos }}/${{ matrix.goarch }}"
       - run: make test
-      - run: VERSION=ci ./scripts/build.sh   # local artifacts only, nothing published
+      - name: build archive (native)
+        run: VERSION=v0.0.0-ci PLATFORMS=${{ matrix.goos }}/${{ matrix.goarch }} ./scripts/build.sh
+      - name: run packaged binary
+        run: |
+          tar -xzf dist/oku_v0.0.0-ci_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz -C dist
+          bin=dist/oku_v0.0.0-ci_${{ matrix.goos }}_${{ matrix.goarch }}/oku
+          "$bin" version
+          file "$bin"
+          if [ "${{ matrix.goos }}" = darwin ]; then otool -L "$bin"; codesign -dv "$bin" || true; fi
+          echo "BIN=$bin" >> "$GITHUB_ENV"
+      - name: npm pack + local install smoke (no publish)
+        run: |
+          ./scripts/npm-pack.sh 0.0.0-ci npm-dist "${{ matrix.goos }}/${{ matrix.goarch }}=$BIN"
+          ./scripts/npm-smoke.sh npm-dist 0.0.0-ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oku-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            dist/*.tar.gz
+            npm-dist/*.tgz
+          retention-days: 7

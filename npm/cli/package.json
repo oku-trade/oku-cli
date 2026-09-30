@@ -1,0 +1,18 @@
+{
+  "name": "@oku-trade/cli",
+  "version": "0.0.0-dev",
+  "description": "Oku trading CLI (launcher for the native platform binary)",
+  "license": "UNLICENSED",
+  "bin": { "oku": "bin/oku.js" },
+  "files": ["bin/oku.js", "README.md"],
+  "engines": { "node": ">=18" },
+  "os": ["linux", "darwin"],
+  "cpu": ["x64", "arm64"],
+  "optionalDependencies": {
+    "@oku-trade/cli-linux-x64": "0.0.0-dev",
+    "@oku-trade/cli-linux-arm64": "0.0.0-dev",
+    "@oku-trade/cli-darwin-x64": "0.0.0-dev",
+    "@oku-trade/cli-darwin-arm64": "0.0.0-dev"
+  },
+  "publishConfig": { "access": "restricted" }
+}
