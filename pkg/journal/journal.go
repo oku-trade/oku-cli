@@ -1,36 +1,39 @@
-// Package journal persists order intents and their execution state so that
-// a crash or timeout never leads to a blind resend. It stores no secrets and
-// no signatures.
+// Package journal persists intent lifecycle and signer-global nonces without secrets.
 package journal
 
 import (
+	"context"
+	"database/sql"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
-	"sort"
+	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/oku-trade/oku-cli/pkg/config"
 	"github.com/oku-trade/oku-cli/pkg/trading"
+	"github.com/pressly/goose/v3"
+	_ "modernc.org/sqlite"
 )
 
-// States.
 const (
-	StatePrepared   = "prepared"   // local only, nothing sent
-	StateCreating   = "creating"   // CreateAction sent, response not yet recorded
-	StateCreated    = "created"    // server pending action exists, not signed
-	StateSubmitting = "submitting" // ConfirmAction sent, response not yet recorded
-	StateSubmitted  = "submitted"  // server accepted; see ServerState
-	StateUnknown    = "unknown"    // outcome ambiguous; reconcile required
-	StateRejected   = "rejected"   // definitively not executed
-	StateAbandoned  = "abandoned"  // pending server action cancelled before signing
+	StatePrepared   = "prepared"
+	StateCreating   = "creating"
+	StateCreated    = "created"
+	StateSubmitting = "submitting"
+	StateSubmitted  = "submitted"
+	StateUnknown    = "unknown"
+	StateRejected   = "rejected"
+	StateAbandoned  = "abandoned"
 )
 
-// Record is one intent and its lifecycle.
 type Record struct {
 	Intent      trading.Intent `json:"intent"`
 	Digest      string         `json:"digest"`
@@ -45,15 +48,12 @@ type Record struct {
 	UpdatedAt   string         `json:"updated_at"`
 	History     []Transition   `json:"history"`
 }
-
-// Transition is an audit entry.
 type Transition struct {
 	At    string `json:"at"`
 	State string `json:"state"`
 	Note  string `json:"note,omitempty"`
 }
 
-// Terminal reports whether no further action on the record is possible.
 func (r *Record) Terminal() bool {
 	switch r.State {
 	case StateRejected, StateAbandoned:
@@ -67,127 +67,398 @@ func (r *Record) Terminal() bool {
 	return false
 }
 
-// Journal is a per-profile directory of records guarded by an flock.
-type Journal struct {
-	dir string
-	now func() time.Time
+var ErrNotFound = errors.New("intent not found")
+var ErrConflict = errors.New("intent id already used with a different payload")
+var ErrMigrationRequired = errors.New("legacy journal requires explicit migration before signing")
+var ErrUnresolved = errors.New("account has unresolved submission")
+
+// Store is the durable journal interface. Operations are short transactions, never network-spanning.
+type Store interface {
+	Create(trading.Intent) (*Record, bool, error)
+	Get(string) (*Record, error)
+	Put(*Record, string) error
+	List() ([]*Record, error)
+	Unresolved() ([]*Record, error)
+	NextNonce(string) (int64, error)
+	BeginSubmission(*Record, string) (int64, error)
+	Blocking(string, string) ([]*Record, error)
+	Close() error
 }
 
-// Open opens the journal for a profile.
-func Open(profile string) (*Journal, error) {
+type Binding struct{ Profile, Network, Account, Origin, Signer string }
+type Journal struct {
+	db      *sql.DB
+	base    string
+	dir     string
+	binding Binding
+	now     func() time.Time
+}
+
+type writeTx struct {
+	conn *sql.Conn
+	ctx  context.Context
+}
+
+func (j *Journal) begin() (*writeTx, error) {
+	ctx := context.Background()
+	conn, err := j.db.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	return &writeTx{conn: conn, ctx: ctx}, nil
+}
+func (t *writeTx) QueryRow(q string, args ...any) *sql.Row {
+	return t.conn.QueryRowContext(t.ctx, q, args...)
+}
+func (t *writeTx) Query(q string, args ...any) (*sql.Rows, error) {
+	return t.conn.QueryContext(t.ctx, q, args...)
+}
+func (t *writeTx) Exec(q string, args ...any) (sql.Result, error) {
+	return t.conn.ExecContext(t.ctx, q, args...)
+}
+func (t *writeTx) Commit() error { _, err := t.conn.ExecContext(t.ctx, "COMMIT"); return err }
+func (t *writeTx) Rollback() error {
+	_, err := t.conn.ExecContext(t.ctx, "ROLLBACK")
+	closeErr := t.conn.Close()
+	if err != nil {
+		return err
+	}
+	return closeErr
+}
+
+//go:embed migrations/*.sql
+var migrations embed.FS
+
+func Open(profile string) (*Journal, error) { return OpenBinding(Binding{Profile: profile}) }
+func OpenBinding(b Binding) (*Journal, error) {
+	if !config.ValidName(b.Profile) {
+		return nil, fmt.Errorf("invalid profile %q", b.Profile)
+	}
 	base, err := config.StateDir()
 	if err != nil {
 		return nil, err
 	}
-	dir := filepath.Join(base, "journal", profile)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err = os.MkdirAll(base, 0700); err != nil {
 		return nil, err
 	}
-	return &Journal{dir: dir, now: time.Now}, nil
+	if err = os.Chmod(base, 0700); err != nil {
+		return nil, err
+	}
+	if _, e := os.Lstat(filepath.Join(base, "journal-migration-incomplete")); e == nil {
+		return nil, ErrMigrationRequired
+	} else if !errors.Is(e, os.ErrNotExist) {
+		return nil, e
+	}
+	// A regular file at the path used by old binaries makes their MkdirAll fail.
+	// Never create it over legacy data. MigrationLegacy installs it after verification.
+	legacy := filepath.Join(base, "journal")
+	info, err := os.Lstat(legacy)
+	if err == nil && !info.Mode().IsRegular() {
+		return nil, ErrMigrationRequired
+	}
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		f, e := os.OpenFile(legacy, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if e != nil {
+			if !errors.Is(e, os.ErrExist) {
+				return nil, e
+			}
+			info, e = os.Lstat(legacy)
+			if e != nil || !info.Mode().IsRegular() {
+				return nil, ErrMigrationRequired
+			}
+		} else {
+			if e = f.Sync(); e != nil {
+				f.Close()
+				return nil, e
+			}
+			if e = f.Close(); e != nil {
+				return nil, e
+			}
+			if e = syncDir(base); e != nil {
+				return nil, e
+			}
+		}
+	}
+	if err = os.Chmod(legacy, 0600); err != nil {
+		return nil, err
+	}
+	db, jerr := openDB(base)
+	if jerr != nil {
+		return nil, jerr
+	}
+	return &Journal{db: db, base: base, dir: legacy, binding: b, now: time.Now}, nil
 }
-
-// ErrNotFound means no record with that id.
-var ErrNotFound = errors.New("intent not found")
-
-// ErrConflict means the id exists with a different payload.
-var ErrConflict = errors.New("intent id already used with a different payload")
-
-// Lock takes an exclusive process lock on the journal; callers must hold it
-// across read-modify-write sequences, including the network send.
-func (j *Journal) Lock() (func(), error) {
-	f, err := os.OpenFile(filepath.Join(j.dir, ".lock"), os.O_CREATE|os.O_RDWR, 0o600)
+func openDB(base string) (*sql.DB, error) {
+	path := filepath.Join(base, "journal.sqlite")
+	if st, e := os.Lstat(path); e == nil && !st.Mode().IsRegular() {
+		return nil, fmt.Errorf("journal database path is not a regular file")
+	} else if e != nil && !errors.Is(e, os.ErrNotExist) {
+		return nil, e
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, err
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+	if err = f.Chmod(0600); err != nil {
 		f.Close()
 		return nil, err
 	}
-	return func() {
-		_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-		f.Close()
-	}, nil
+	if err = f.Close(); err != nil {
+		return nil, err
+	}
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(1)
+	pragmas := []string{"PRAGMA busy_timeout=5000", "PRAGMA foreign_keys=ON", "PRAGMA journal_mode=WAL", "PRAGMA synchronous=FULL"}
+	if runtime.GOOS == "darwin" {
+		pragmas = append(pragmas, "PRAGMA fullfsync=ON", "PRAGMA checkpoint_fullfsync=ON")
+	}
+	for _, pragma := range pragmas {
+		if _, err = db.Exec(pragma); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("%s: %w", pragma, err)
+		}
+	}
+	providerFS, err := fs.Sub(migrations, "migrations")
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	provider, err := goose.NewProvider(goose.DialectSQLite3, db, providerFS)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	if _, err = provider.Up(context.Background()); err != nil {
+		db.Close()
+		return nil, err
+	}
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		p := path + suffix
+		if _, e := os.Stat(p); e == nil {
+			if e = os.Chmod(p, 0600); e != nil {
+				db.Close()
+				return nil, e
+			}
+		}
+	}
+	if err = syncDir(base); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return db, nil
 }
+func syncDir(path string) error {
+	d, e := os.Open(path)
+	if e != nil {
+		return e
+	}
+	defer d.Close()
+	return d.Sync()
+}
+func (j *Journal) Close() error { return j.db.Close() }
 
-func (j *Journal) path(id string) string { return filepath.Join(j.dir, id+".json") }
-
-// Get loads a record.
+// Lock remains compatible with existing callers, but should not span network requests.
+func (j *Journal) Lock() (func(), error) {
+	f, err := os.OpenFile(filepath.Join(j.base, "journal.lock"), os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		return nil, err
+	}
+	if err = f.Chmod(0600); err != nil {
+		f.Close()
+		return nil, err
+	}
+	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		f.Close()
+		return nil, err
+	}
+	return func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); _ = f.Close() }, nil
+}
 func (j *Journal) Get(id string) (*Record, error) {
 	if !trading.ValidIntentID(id) {
 		return nil, fmt.Errorf("invalid intent id %q", id)
 	}
-	raw, err := os.ReadFile(j.path(id))
-	if errors.Is(err, os.ErrNotExist) {
+	return load(j.db, j.binding.Profile, id)
+}
+
+type querier interface {
+	QueryRow(string, ...any) *sql.Row
+	Query(string, ...any) (*sql.Rows, error)
+}
+
+func load(q querier, profile, id string) (*Record, error) {
+	var raw string
+	r := new(Record)
+	err := q.QueryRow(`SELECT intent_json,digest,state,action_id,action_json,cloid,nonce,server_state,order_id,last_error,updated_at FROM records WHERE profile=? AND intent_id=?`, profile, id).Scan(&raw, &r.Digest, &r.State, &r.ActionID, &r.ActionJSON, &r.Cloid, &r.Nonce, &r.ServerState, &r.OrderID, &r.LastError, &r.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	var r Record
-	if err := json.Unmarshal(raw, &r); err != nil {
-		return nil, fmt.Errorf("corrupt journal record %s: %w", id, err)
+	if err = json.Unmarshal([]byte(raw), &r.Intent); err != nil {
+		return nil, fmt.Errorf("corrupt intent %s: %w", id, err)
 	}
-	if r.Intent.Digest() != r.Digest {
-		return nil, fmt.Errorf("journal record %s digest mismatch (tampered?)", id)
+	if r.Intent.ID != id || r.Intent.Digest() != r.Digest {
+		return nil, fmt.Errorf("journal record %s digest mismatch", id)
 	}
-	return &r, nil
-}
-
-// Put writes a record, appending a transition when state changed.
-func (j *Journal) Put(r *Record, note string) error {
-	ts := j.now().UTC().Format(time.RFC3339Nano)
-	if n := len(r.History); n == 0 || r.History[n-1].State != r.State || note != "" {
-		r.History = append(r.History, Transition{At: ts, State: r.State, Note: note})
-	}
-	r.UpdatedAt = ts
-	raw, err := json.MarshalIndent(r, "", "  ")
-	if err != nil {
-		return err
-	}
-	return config.WriteFileAtomic(j.path(r.Intent.ID), raw, 0o600)
-}
-
-// Create stores a new prepared intent. Re-preparing the identical intent
-// returns the existing record; a different payload under the same id fails.
-func (j *Journal) Create(in trading.Intent) (*Record, bool, error) {
-	existing, err := j.Get(in.ID)
-	switch {
-	case err == nil:
-		if existing.Digest != in.Digest() {
-			return existing, false, ErrConflict
-		}
-		return existing, false, nil
-	case !errors.Is(err, ErrNotFound):
-		return nil, false, err
-	}
-	r := &Record{Intent: in, Digest: in.Digest(), State: StatePrepared}
-	return r, true, j.Put(r, "")
-}
-
-// List returns all records sorted by creation time.
-func (j *Journal) List() ([]*Record, error) {
-	entries, err := os.ReadDir(j.dir)
+	rows, err := q.Query(`SELECT at,state,note FROM transitions WHERE profile=? AND intent_id=? ORDER BY sequence`, profile, id)
 	if err != nil {
 		return nil, err
 	}
-	out := []*Record{}
-	for _, e := range entries {
-		name := e.Name()
-		if filepath.Ext(name) != ".json" {
-			continue
-		}
-		r, err := j.Get(name[:len(name)-5])
-		if err != nil {
+	defer rows.Close()
+	for rows.Next() {
+		var t Transition
+		if err = rows.Scan(&t.At, &t.State, &t.Note); err != nil {
 			return nil, err
+		}
+		r.History = append(r.History, t)
+	}
+	return r, rows.Err()
+}
+func (j *Journal) Create(in trading.Intent) (*Record, bool, error) {
+	if !trading.ValidIntentID(in.ID) {
+		return nil, false, fmt.Errorf("invalid intent id %q", in.ID)
+	}
+	if j.binding.Network != "" && (in.Network != j.binding.Network || !strings.EqualFold(in.Account, j.binding.Account) || in.APIURL != j.binding.Origin) {
+		return nil, false, errors.New("intent does not match journal binding")
+	}
+	r := &Record{Intent: in, Digest: in.Digest(), State: StatePrepared}
+	raw, _ := json.Marshal(in)
+	ts := j.now().UTC().Format(time.RFC3339Nano)
+	tx, err := j.begin()
+	if err != nil {
+		return nil, false, err
+	}
+	defer tx.Rollback()
+	res, err := tx.Exec(`INSERT INTO records(profile,intent_id,account,network,origin,signer,digest,intent_json,state,updated_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(profile,intent_id) DO NOTHING`, j.binding.Profile, in.ID, strings.ToLower(in.Account), in.Network, in.APIURL, strings.ToLower(j.binding.Signer), r.Digest, string(raw), r.State, ts, in.CreatedAt)
+	if err != nil {
+		return nil, false, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return nil, false, err
+	}
+	if n == 0 {
+		existing, e := load(tx, j.binding.Profile, in.ID)
+		if e != nil {
+			return nil, false, e
+		}
+		if existing.Digest != r.Digest {
+			return existing, false, ErrConflict
+		}
+		return existing, false, nil
+	}
+	r.UpdatedAt = ts
+	r.History = []Transition{{At: ts, State: r.State}}
+	if _, err = tx.Exec(`INSERT INTO transitions(profile,intent_id,sequence,at,state,note) VALUES(?,?,1,?,?,?)`, j.binding.Profile, in.ID, ts, r.State, ""); err != nil {
+		return nil, false, err
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, false, err
+	}
+	return r, true, nil
+}
+func (j *Journal) Put(r *Record, note string) error {
+	if !trading.ValidIntentID(r.Intent.ID) || r.Intent.Digest() != r.Digest {
+		return errors.New("invalid or modified intent digest")
+	}
+	tx, err := j.begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	prev, err := load(tx, j.binding.Profile, r.Intent.ID)
+	if err != nil {
+		return err
+	}
+	if prev.Digest != r.Digest {
+		return ErrConflict
+	}
+	if prev.Nonce > 0 && (r.Nonce != prev.Nonce || r.State == StatePrepared || r.State == StateCreated || r.State == StateCreating || r.State == StateAbandoned) {
+		return errors.New("signed or possibly sent action cannot be reset or abandoned")
+	}
+	if r.State == StateAbandoned && (prev.State == StateSubmitting || prev.State == StateUnknown || prev.State == StateSubmitted) {
+		return errors.New("possibly sent action cannot be abandoned")
+	}
+	if prev.State == StateSubmitting && r.State == StateRejected && r.ServerState == "" {
+		return errors.New("rejection requires authoritative server observation")
+	}
+	ts := j.now().UTC().Format(time.RFC3339Nano)
+	res, err := tx.Exec(`UPDATE records SET state=?,action_id=?,action_json=?,cloid=?,nonce=?,server_state=?,order_id=?,last_error=?,updated_at=? WHERE profile=? AND intent_id=? AND updated_at=?`, r.State, r.ActionID, r.ActionJSON, r.Cloid, r.Nonce, r.ServerState, r.OrderID, r.LastError, ts, j.binding.Profile, r.Intent.ID, prev.UpdatedAt)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return ErrConflict
+	}
+	history := prev.History
+	if len(history) == 0 || history[len(history)-1].State != r.State || note != "" {
+		t := Transition{At: ts, State: r.State, Note: note}
+		history = append(history, t)
+		_, err = tx.Exec(`INSERT INTO transitions(profile,intent_id,sequence,at,state,note) VALUES(?,?,?,?,?,?)`, j.binding.Profile, r.Intent.ID, len(history), ts, r.State, note)
+		if err != nil {
+			return err
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	r.UpdatedAt = ts
+	r.History = history
+	return nil
+}
+func (j *Journal) List() ([]*Record, error) {
+	rows, err := j.db.Query(`SELECT intent_id FROM records WHERE profile=? ORDER BY created_at,intent_id`, j.binding.Profile)
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*Record, 0, len(ids))
+	for _, id := range ids {
+		r, e := j.Get(id)
+		if e != nil {
+			return nil, e
 		}
 		out = append(out, r)
 	}
-	sort.Slice(out, func(a, b int) bool { return out[a].Intent.CreatedAt < out[b].Intent.CreatedAt })
 	return out, nil
 }
-
-// Unresolved returns records whose outcome is not final and that may have
-// reached the server.
+func unresolved(r *Record) bool {
+	switch r.State {
+	case StateCreating, StateSubmitting, StateUnknown:
+		return true
+	case StateSubmitted:
+		return !r.Terminal()
+	}
+	return false
+}
 func (j *Journal) Unresolved() ([]*Record, error) {
 	all, err := j.List()
 	if err != nil {
@@ -195,43 +466,166 @@ func (j *Journal) Unresolved() ([]*Record, error) {
 	}
 	out := []*Record{}
 	for _, r := range all {
-		switch r.State {
-		case StateCreating, StateSubmitting, StateUnknown:
+		if unresolved(r) {
 			out = append(out, r)
-		case StateSubmitted:
-			if !r.Terminal() {
-				out = append(out, r)
-			}
 		}
 	}
 	return out, nil
 }
 
-// NextNonce returns a strictly increasing millisecond nonce for an agent,
-// persisted so restarts and concurrent processes (under Lock) never reuse
-// one, matching getMonotonicNonce in the trade frontend.
-func (j *Journal) NextNonce(agent string) (int64, error) {
-	p := filepath.Join(j.dir, ".nonce-"+agent)
-	var last int64
-	raw, err := os.ReadFile(p)
-	switch {
-	case err == nil:
-		if err := json.Unmarshal(raw, &last); err != nil || last <= 0 {
-			return 0, fmt.Errorf("nonce state %s is corrupt; refusing to sign (inspect and remove it only if no signed action could reuse it)", p)
+// Blocking finds possible exposure for the same account across every profile and origin.
+func (j *Journal) Blocking(network, account string) ([]*Record, error) {
+	rows, err := j.db.Query(`SELECT profile,intent_id FROM records WHERE network=? AND account=? AND state IN ('submitting','unknown')`, network, strings.ToLower(account))
+	if err != nil {
+		return nil, err
+	}
+	type key struct{ profile, id string }
+	var keys []key
+	for rows.Next() {
+		var k key
+		if err = rows.Scan(&k.profile, &k.id); err != nil {
+			rows.Close()
+			return nil, err
 		}
-	case !errors.Is(err, os.ErrNotExist):
+		keys = append(keys, k)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	out := []*Record{}
+	for _, k := range keys {
+		r, e := load(j.db, k.profile, k.id)
+		if e != nil {
+			return nil, e
+		}
+		if r.State == StateSubmitting || r.State == StateUnknown {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+func (j *Journal) NextNonce(signer string) (int64, error) {
+	if signer == "" {
+		return 0, errors.New("signer required")
+	}
+	tx, err := j.begin()
+	if err != nil {
 		return 0, err
 	}
-	if last >= math.MaxInt64-1 {
-		return 0, errors.New("nonce state exhausted")
+	defer tx.Rollback()
+	n, err := j.nextNonce(tx, signer)
+	if err != nil {
+		return 0, err
+	}
+	return n, tx.Commit()
+}
+func (j *Journal) nextNonce(tx *writeTx, signer string) (int64, error) {
+	signer = strings.ToLower(signer)
+	var last int64
+	err := tx.QueryRow(`SELECT last_nonce FROM nonces WHERE signer=?`, signer).Scan(&last)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
+	}
+	var global int64
+	if e := tx.QueryRow(`SELECT last_nonce FROM nonces WHERE signer='*'`).Scan(&global); e != nil && !errors.Is(e, sql.ErrNoRows) {
+		return 0, e
+	}
+	if global > last {
+		last = global
+	}
+	if last < 0 || last >= math.MaxInt64-1 {
+		return 0, errors.New("nonce exhausted or corrupt")
 	}
 	n := j.now().UnixMilli()
 	if n <= last {
 		n = last + 1
 	}
-	out, _ := json.Marshal(n)
-	if err := config.WriteFileAtomic(p, out, 0o600); err != nil {
+	if n <= 0 {
+		return 0, errors.New("invalid nonce clock")
+	}
+	_, err = tx.Exec(`INSERT INTO nonces(signer,last_nonce) VALUES(?,?) ON CONFLICT(signer) DO UPDATE SET last_nonce=excluded.last_nonce`, signer, n)
+	return n, err
+}
+
+// BeginSubmission atomically commits signer-global nonce and submitting state before signing/sending.
+// The caller must sign only after this returns successfully, and must never retry the action.
+func (j *Journal) BeginSubmission(r *Record, signer string) (int64, error) {
+	if signer == "" {
+		return 0, errors.New("signer required")
+	}
+	tx, err := j.begin()
+	if err != nil {
 		return 0, err
+	}
+	defer tx.Rollback()
+	prev, err := load(tx, j.binding.Profile, r.Intent.ID)
+	if err != nil {
+		return 0, err
+	}
+	if prev.Digest != r.Digest || prev.State != StateCreated || prev.Nonce != 0 || r.ActionID != prev.ActionID || r.ActionJSON != prev.ActionJSON {
+		return 0, ErrConflict
+	}
+	// Gate the account in the same write transaction as nonce allocation.
+	rows, err := tx.Query(`SELECT profile,intent_id FROM records WHERE network=? AND account=? AND NOT(profile=? AND intent_id=?) AND state IN ('submitting','unknown')`, r.Intent.Network, strings.ToLower(r.Intent.Account), j.binding.Profile, r.Intent.ID)
+	if err != nil {
+		return 0, err
+	}
+	type key struct{ profile, id string }
+	var keys []key
+	for rows.Next() {
+		var k key
+		if err = rows.Scan(&k.profile, &k.id); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		keys = append(keys, k)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return 0, err
+	}
+	for _, k := range keys {
+		other, e := load(tx, k.profile, k.id)
+		if e != nil {
+			return 0, e
+		}
+		if other.State == StateSubmitting || other.State == StateUnknown {
+			return 0, ErrUnresolved
+		}
+	}
+	n, err := j.nextNonce(tx, signer)
+	if err != nil {
+		return 0, err
+	}
+	ts := j.now().UTC().Format(time.RFC3339Nano)
+	_, err = tx.Exec(`UPDATE records SET state=?,nonce=?,signer=?,updated_at=? WHERE profile=? AND intent_id=?`, StateSubmitting, n, strings.ToLower(signer), ts, j.binding.Profile, r.Intent.ID)
+	if err != nil {
+		return 0, err
+	}
+	_, err = tx.Exec(`INSERT INTO transitions(profile,intent_id,sequence,at,state,note) VALUES(?,?,?,?,?,?)`, j.binding.Profile, r.Intent.ID, len(prev.History)+1, ts, StateSubmitting, "")
+	if err != nil {
+		return 0, err
+	}
+	if err = tx.Commit(); err != nil {
+		return 0, err
+	}
+	r.State = StateSubmitting
+	r.Nonce = n
+	r.UpdatedAt = ts
+	r.History = append(prev.History, Transition{At: ts, State: StateSubmitting})
+	return n, nil
+}
+
+// Ensure old JSON nonce files cannot be ignored by new allocations before explicit import.
+func checkLegacyNonce(raw []byte) (int64, error) {
+	var n int64
+	if err := json.Unmarshal(raw, &n); err != nil || n <= 0 {
+		return 0, errors.New("corrupt legacy nonce")
 	}
 	return n, nil
 }
+
+var _ Store = (*Journal)(nil)
