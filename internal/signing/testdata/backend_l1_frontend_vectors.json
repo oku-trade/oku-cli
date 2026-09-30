@@ -1,0 +1,91 @@
+{
+  "key": "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "address": "0xfcad0b19bb29d4674531d6f115237e16afce377c",
+  "cases": [
+    {
+      "name": "order_builder_cloid",
+      "action_json": "{\"type\":\"order\",\"orders\":[{\"a\":0,\"b\":true,\"p\":\"50000\",\"s\":\"0.001\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}},\"c\":\"0x00000000000000000000000000000001\"}],\"grouping\":\"na\",\"builder\":{\"b\":\"0xd637f2a36c1a3b37d57ef4c7022cb183d8922f2c\",\"f\":10}}",
+      "nonce": "1727650000000",
+      "msgpack": "84a474797065a56f72646572a66f72646572739187a16100a162c3a170a53530303030a173a5302e303031a172c2a17481a56c696d697481a3746966a3477463a163d92230783030303030303030303030303030303030303030303030303030303030303031a867726f7570696e67a26e61a76275696c64657282a162d92a307864363337663261333663316133623337643537656634633730323263623138336438393232663263a1660a",
+      "connection_id": "0x08756548f8d09184d9d0d3c9bdc1173b26fd03521bc5f30e204354ab149c4e69",
+      "r": "0xfbaf7f6a9676cab6d80975209177704393cc542b40bb7c7e1a16624292d3f48f",
+      "s": "0x53892106b41fc9b0819d7389a3ec60029786ce360f7775998b1a40032704cf76",
+      "v": 27
+    },
+    {
+      "name": "cancel_uint32_uint64",
+      "action_json": "{\"type\":\"cancel\",\"cancels\":[{\"a\":110003,\"o\":123456789012}]}",
+      "nonce": "1727650000001",
+      "msgpack": "82a474797065a663616e63656ca763616e63656c739182a161ce0001adb3a16fcf0000001cbe991a14",
+      "connection_id": "0xd786ee0205170d81c570023efb6e56dffd9b1de0e0a08bef51b321d7e07b47e3",
+      "r": "0x94af0ae05b3d0c1bffb4b7596fbcb57a55089c94c21744854d09ac4a0b9d8645",
+      "s": "0x6dfb2bd97f564eac6fbc8e3aa10858a2d2b5b7d52364dbca24aa7ca2fa45448b",
+      "v": 28
+    },
+    {
+      "name": "int_widths_null_str8",
+      "action_json": "{\"type\":\"updateLeverage\",\"asset\":5,\"isCross\":true,\"leverage\":-300,\"y\":null,\"big\":4294967296,\"neg\":-40000,\"n1\":-1,\"n8\":-100,\"u8\":200,\"u16\":65535,\"max\":9007199254740991,\"min\":-9007199254740991,\"s\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+      "nonce": "42",
+      "msgpack": "8ea474797065ae7570646174654c65766572616765a5617373657405a7697343726f7373c3a86c65766572616765d1fed4a179c0a3626967cf0000000100000000a36e6567d2ffff63c0a26e31ffa26e38d09ca27538ccc8a3753136cdffffa36d6178cf001fffffffffffffa36d696ed3ffe0000000000001a173d92878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+      "connection_id": "0x6a6f7880bc1c06898dad26b2d8c1a9df0a1d681c236beb282e296b62535882a3",
+      "r": "0xa2a31337cbd88c337a00ae7f8471861bd257a419c279dbb73c3b96228c9d53fe",
+      "s": "0x27c77e474c6e03fed42a769d7a744a585546ddf39d16bf6ffb559cb9df9cdb3e",
+      "v": 27
+    },
+    {
+      "name": "map16_array16_unicode_escapes",
+      "action_json": "{\"type\":\"x\",\"m\":{\"ka\":0,\"kb\":1,\"kc\":2,\"kd\":3,\"ke\":4,\"kf\":5,\"kg\":6,\"kh\":7,\"ki\":8,\"kj\":9,\"kk\":10,\"kl\":11,\"km\":12,\"kn\":13,\"ko\":14,\"kp\":15},\"arr\":[0,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,11000,12000,13000,14000,15000],\"e\":{},\"ea\":[],\"u\":\"café 🚀 \\\"q\\\" \\\\ \\n\",\"z\":false}",
+      "nonce": "9223372036854775807",
+      "msgpack": "87a474797065a178a16dde0010a26b6100a26b6201a26b6302a26b6403a26b6504a26b6605a26b6706a26b6807a26b6908a26b6a09a26b6b0aa26b6c0ba26b6d0ca26b6e0da26b6f0ea26b700fa3617272dc001000cd03e8cd07d0cd0bb8cd0fa0cd1388cd1770cd1b58cd1f40cd2328cd2710cd2af8cd2ee0cd32c8cd36b0cd3a98a16580a2656190a175b2636166c3a920f09f9a8020227122205c200aa17ac2",
+      "connection_id": "0xb17b2f0b968137929c8ae2e7d766508cb1d475a5205cfff56c0f51c5ff2c853c",
+      "r": "0x270fb9bfa497bf59df6e86f1e99f4e114eac3fe0f5f8184465043cbe17035e35",
+      "s": "0x24c55450a34d267131809037a4c331380d0e4e8af250951297cfda91968f7100",
+      "v": 28
+    },
+    {
+      "name": "whitespace_negzero",
+      "action_json": "{ \"type\" : \"noop\",\n  \"v\": -0 }",
+      "nonce": "1",
+      "msgpack": "82a474797065a46e6f6f70a17600",
+      "connection_id": "0xfec05c7be1fab82df689841e6898b352a4866acea98ae138e1e50405e5ce0994",
+      "r": "0xeeca110b9521912f9d8f71b1c621c3c7ade91b523e7750e515a900c547e80d8b",
+      "s": "0x138b830aaeb8498108d31ab5a06e4daa727dab0e856fb43efa2a2bc21268283a",
+      "v": 27
+    }
+  ],
+  "mutations": {
+    "action_json": "{\"type\":\"order\",\"orders\":[{\"a\":0,\"b\":true,\"p\":\"50000\",\"s\":\"0.001\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}},\"c\":\"0x00000000000000000000000000000001\"}],\"grouping\":\"na\",\"builder\":{\"b\":\"0xd637f2a36c1a3b37d57ef4c7022cb183d8922f2c\",\"f\":10}}",
+    "nonce": "1727650000000",
+    "other_key": "0xabababababababababababababababababababababababababababababababab",
+    "signatures": [
+      {
+        "name": "testnet_source_b",
+        "r": "0x9d337cd7a3386339195b4dfdbde42e02a5da9e3dd912d048bb29e3866c68ab08",
+        "s": "0x41ec615ab0bf75fd17939a3e910af5b470257f78e9998fd6ef226ff6cdea04fb",
+        "v": 28
+      },
+      {
+        "name": "chain_id_42161",
+        "r": "0x4382eeeaa2d416d8deaf80519b2079653e977e6c0c9e2d2c7127184032d110c4",
+        "s": "0x70185740172d99325089b13e6282b0122deb8c42d0cb101ce8ba29d18866354e",
+        "v": 28
+      },
+      {
+        "name": "domain_name_other",
+        "r": "0x50745f2696a866812e51e76bb293234d75e8bc28d37ac368b3879bdd298f0418",
+        "s": "0x68d251a0cf83a566eeb530f24649ebb20817d32016469a819c206aeb56071fd0",
+        "v": 27
+      },
+      {
+        "name": "other_public_test_key",
+        "r": "0x292ab30aad90ea8b567a8cf1d4d514a5a8fa0d905f3a13109b959676997d88d8",
+        "s": "0x7b02f71500950836e2f138fa3be36b154b26180bb17978dbdc4b0c715422a661",
+        "v": 28
+      }
+    ]
+  },
+  "js_reorders_integer_keys": {
+    "action_json": "{\"type\":\"x\",\"1\":true}",
+    "msgpack": "82a131c3a474797065a178"
+  }
+}
