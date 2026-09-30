@@ -17,8 +17,11 @@ From this repository:
 ```sh
 make build
 ./bin/oku version
+./bin/oku docs list        # offline; no network or credentials
 ./bin/oku completion bash  # optional: see docs/usage.md for bash/zsh/fish installation
 ```
+
+Use a disposable state directory for testing, for example `XDG_STATE_HOME=$(mktemp -d)`, so you do not touch your real journal. A journal left by an older build must be migrated explicitly first (see [usage](usage.md#local-journal)). Nothing migrates it for you.
 
 To bind the local API, replace `YOUR_WALLET_ADDRESS` with your own `0x`-prefixed 20-byte address (never a private key). Adding a profile writes local configuration but neither enrolls a device nor places a trade. Without the profile, market reads use the default deployed API, so **pass `--profile local` on every local read**:
 
@@ -46,17 +49,28 @@ Open `http://127.0.0.1:15177/cli` in a browser and connect **the same wallet** a
 ./bin/oku auth setup --profile local --device-name local-test
 ```
 
-The CLI prompts for the enrollment code without echo and for a passphrase used to encrypt the local agent key. Do not put the code, passphrase, or private key in command arguments, logs, this guide, or source control. The CLI then prints a **six-digit confirmation code to stderr**. Enter that confirmation code on the Oku website. The UI must verify the enrollment **before** any Hyperliquid delegation prompt. Read-only devices must not request a trading delegation. If polling was interrupted, use `./bin/oku auth setup --profile local --resume` rather than starting another enrollment. Once approved, check:
+The CLI prompts for the enrollment code without echo.
+
+- **Linux:** it also asks for a passphrase used to encrypt the local agent key.
+- **macOS:** native CGO builds store the key in the login Keychain instead. Test with a dedicated macOS user or test keychain, never your everyday credential items.
+
+Do not put the code, passphrase, or private key in command arguments, logs, this guide, or source control. The CLI then prints a **six-digit confirmation code to stderr**. Enter that confirmation code on the Oku website. The UI must verify the enrollment **before** any Hyperliquid delegation prompt. Read-only devices must not request a trading delegation. If polling was interrupted, use `./bin/oku auth setup --profile local --resume` rather than starting another enrollment. Once approved, check:
 
 ```sh
 ./bin/oku auth status --profile local --json
 ```
 
-For automation, `OKU_PASSPHRASE_FILE` must point to a file readable only by you, but use an interactive masked prompt for this manual test. Do not assume an active local device is proof of a deployed production route.
+For automation on Linux, `OKU_PASSPHRASE_FILE` must point to a file readable only by you. Use an interactive masked prompt for this manual test. Do not assume an active local device is proof of a deployed production route.
+
+### MCP read smoke (optional)
+
+`./bin/oku mcp serve` exposes read tools over stdio. Mutation tools stay hidden without `--allow-mutations`. Start it with `./bin/oku --profile local mcp serve`, which pins the server to the `local` profile. Do **not** pass `--allow-mutations` during read testing.
 
 ## 3. Trading verification is a separate, explicit opt-in
 
-**Do not run this section unless an authorized human has deliberately approved a trading-scope agent for the same mainnet account, reviewed the [security risks](security.md), accepted real-money exposure, and confirmed the local backend is ready.** A CLI passphrase unlock grants same-host signing authority. Oku token revocation does not revoke the exchange agent, cancel orders, or close positions.
+**Do not run this section unless an authorized human has deliberately approved a trading-scope agent for the same mainnet account, reviewed the [security risks](security.md), accepted real-money exposure, and confirmed the local backend is ready.** A credential unlock (a Linux passphrase or macOS Keychain access) grants same-host signing authority. Oku token revocation does not revoke the exchange agent, cancel orders, or close positions.
+
+Leverage and isolated-margin changes (`positions leverage` / `positions margin`) additionally need a device enrolled with the separate `risk` scope and a backend that supports it. Treat them like orders: prepare, review, then submit only with explicit approval. They change real mainnet risk.
 
 The grammar below is illustrative only. Replace placeholders with an independently reviewed market, size, price, and returned identifiers. `prepare` may read market data and persists a local intent, but **does not submit an exchange action**. Review its exact JSON output and digest before running `submit`:
 

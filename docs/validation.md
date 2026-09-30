@@ -1,19 +1,41 @@
 # Validation
 
-Only what was actually executed is recorded here. **Status as of 2026-09-30: not production-ready.** Live enrollment, signing and trading have not been tested.
+Only what was actually executed is recorded here. **Status as of 2026-09-30: not production-ready.** Live enrollment, signing and trading have not been tested. **No real order, cancel, leverage or margin action has been submitted by any validation run.**
 
-## Current status
+## Current milestone (SQLite, Keychain, docs, skills, risk, drafts, MCP, npm): in progress
+
+Evidence from the milestone tree (commits up to `e495ce2` plus uncommitted docs, 2026-09-30). This is **not** a released state. Re-record it against the final commit. Backend PR https://github.com/oku-trade/account/pull/415 and frontend PR https://github.com/oku-trade/trade/pull/3343 are open, not merged, and not deployed. All binary runs used **Linux amd64 only**, with scratch `HOME`/XDG dirs.
+
+| Area | Actually executed | Not yet verified |
+|---|---|---|
+| Build and tests | Root full suite `722662p3xx`: `go vet ./...` and `go test -race ./...` passed for every package (api, auth, cli, decimal, docs, drafts, journal, signing, skills, trading; CLI 215.560s), against fakes and fixtures. The final journal change was then rerun independently. `make docs-check` passed (`oku docs commands --markdown` equals `docs/commands.md`). The Nix package build (`flake.nix`, updated `vendorHash`) passed, and the resulting binary passed `version` and `scripts/binary-smoke.sh`. Module checksums were unchanged after `go mod tidy`. | Linux arm64. |
+| Binary smoke | `scripts/binary-smoke.sh` passed: `version --json`, `--json` usage error with exit 2, `docs list`/`show`, `skills list`. `docs commands` lists every command in [usage](usage.md). `docs list` returns the 7 embedded documents (this file is intentionally not embedded). `drafts repair --stdin` turned a fenced, unquoted-key draft into `repaired:true` with `prepare_args`, exit 0, and made no network or journal writes. `auth migrate-keychain` with an unknown profile returned `PROFILE_NOT_FOUND`, exit 2. | |
+| MCP server (root, 16:30 UTC, rebuilt binary) | Over stdio, `initialize` listed 13 read tools and 15 resources. Mutation tools were hidden without `--allow-mutations`. `--profile local` kept the server pinned to `local` even though the default profile was different. An in-process SDK session test (`pkg/cli/agentux_test.go`) also covers pinning and refusing a conflicting profile. | Any mutation tool call, including with `--allow-mutations`. Cancellation. Authenticated tool calls. |
+| Local reads (root, 16:30 UTC) | Against the local accounts API `127.0.0.1:13000`: BTC quote and market list succeeded, `markets funding` returned 24 records, and `positions list` for a synthetic public address returned an empty list. | Authenticated reads. Parsing of non-empty positions. |
+| Skills | `skills list` returns 8 skills. `skills install --dir <scratch>` wrote all 8 `SKILL.md` files (root, 16:30 UTC). A pinned `npx skills@1.7.0 add <local repo> --list`, run with a scratch HOME/cache and `DO_NOT_TRACK=1`, found all 8 canonical skills and installed nothing. | Walking each skill command by command against the binary. Anonymous discovery from GitHub (the repo is private). |
+| SQLite journal | Unit tests: Goose migration, nonce/state transactions, legacy import plus barrier, the incomplete-migration marker, corrupt/active legacy data failing closed, and a symlinked database being rejected. A rerun on a fresh install, after a completed migration, or after new SQLite records is a no-op (`TestMigrateLegacyFreshSQLiteNoop`, `TestLegacyImportAndBarrier`). Nonce allocation across separate processes, and reopening a persisted `submitting` record, are tested (`TestMultiprocessNonceAndCrashState`). The repeat-migration fix is commit `e495ce2`, and a root targeted `-race` rerun passed. **Actual downgrade:** an independent reviewer ran the archived pre-SQLite baseline binary (`d154e35`) against an isolated new tree, and 15/15 tests passed. The old `orders status` and `orders submit` both failed while opening the journal, before credentials or signing (`TestBaselineBinaryDowngradeBarrier`). | Killing a real process between the durable commit and the network send. Resuming an import interrupted mid-way (implemented, not fault-injected). Disk-full. Import of a real user legacy journal. |
+| macOS Keychain | Provider boundary unit test with a fake keychain, run on Linux. | **Anything native on Darwin.** No macOS host or runner has built or run the CGO binary, touched a Keychain, or run `auth migrate-keychain`. |
+| Risk actions | Synthetic CLI tests against a fake Oku service (`pkg/cli/risk_test.go`) cover:<br>- leverage `completed` with a zero OID counts as success<br>- margin `completed` with exact 6-decimal units<br>- `submitted`/`unresolved`/`error`/`pending` after send stay `OUTCOME_UNKNOWN`: no resend, new risk intents blocked, reconcile keeps them unknown<br>- a divergent backend payload is refused before signing<br>- an error before send counts as rejected<br>- abandoning uses the risk scope | Backend `risk` scope (**not deployed**). **No live submission.** |
+| Native CI matrix / npm | Workflows define ubuntu-24.04, ubuntu-24.04-arm, macos-15-intel and macos-15 jobs plus local npm pack/smoke. | **No run of the native matrix is recorded yet.** Nothing packed on macOS. Nothing published. No provenance (private repo). |
+
+Financial acceptance for this milestone is **not run**: enrollment into Keychain or file storage, submit, cancel, risk actions, reconcile, MCP mutations. It remains operator-gated (see [deployment](deployment.md#operator-run-integration-acceptance-required-before-any-release)).
+
+## Historical v1 evidence (not the current release)
+
+Everything below was recorded for earlier commits (up to `eaad4ba`/`29bd173`). It is kept for traceability, and the current milestone above supersedes it where they differ. Migration 137 was later applied to a dedicated **local** database (see "Isolated local runtime" below). It has not been applied to any shared or deployed database.
+
+### v1 status (historical)
 
 | Area | Latest evidence | Status |
 |---|---|---|
 | CLI | Final `eaad4ba`: `go test -race ./...`, `go vet ./...`, `make build`, `./bin/oku version --json` and live `markets quote BTC` all exit 0 (root `BG991879haiq`). Review source-cleared the submitted-without-oid UNKNOWN handling, never-signed-only abandon, and journal error propagation. | Passing synthetic + real read-only checks. Submit/trading not live-tested. |
 | CLI packaging | `scripts/build.sh` at `eaad4ba`: 4 archives, reproducible (below). | Done locally. Not published or signed. |
 | Frontend | HEAD `bbfb56930`: full suite 252 files / 3208 tests pass, `lint:check` exit 0 (`BG683551au6j`). Vite build exit 0. `/cli` renders in Chromium on desktop and mobile. | Passing. Wallet-connected flow untested. |
-| Backend | `405b4538a`: tests, vet and build pass (`BG692697b2l7`). `go test -race` passes for `./src/connectapi`, `./src/connectapi/clidevice`, `./src/modules/features/clidevice` and `./src/pkg/hlsigning` (`BG8948497p4q`, no DB exercised). Integration tests were compiled only. Two review fixes verified. | Passing pure checks. Migration 137 is **not applied**. Device routes are **not deployed**. |
+| Backend | `405b4538a`: tests, vet and build pass (`BG692697b2l7`). `go test -race` passes for `./src/connectapi`, `./src/connectapi/clidevice`, `./src/modules/features/clidevice` and `./src/pkg/hlsigning` (`BG8948497p4q`, no DB exercised). Integration tests were compiled only. Two review fixes verified. | Passing pure checks. At the time, migration 137 was not applied anywhere. It was later applied only to a dedicated local database. Device routes are **not deployed**. |
 | Deployed read API | `GetMarkets` over Connect JSON returns HTTP 200 with BTC data. | Verified. |
 | End-to-end enrollment/trading | Not run. Operator-only (see `deployment.md` acceptance checklist). | **Blocked on operator.** |
 
-## Kinds of evidence
+### Kinds of evidence (v1)
 
 | Kind | What it covers | What it does not cover |
 |---|---|---|
@@ -22,9 +44,9 @@ Only what was actually executed is recorded here. **Status as of 2026-09-30: not
 | **Real, unauthenticated UI** | The actual Vite app `/cli` in Chromium (a temporary local server, since stopped), with no wallet and no mocks. | Wallet connection. |
 | **Not verified** | Wallet connection, enrollment (Verify/Approve), agent delegation, `orders submit`/cancel, revocation, deployed device routes, migration 137. | |
 
-## Details
+### v1 details
 
-### urfave/cli v3 migration (local, pending review)
+#### urfave/cli v3 migration (local, pending review)
 
 - `go test -race ./...`, `go vet ./...`, `make build`, and `make docs-check` passed locally after migration to urfave/cli v3.13.0 and moving Go packages from `internal/` to `pkg/`. The CLI test suite retains auth, account binding, signing, unknown-outcome, no-retry, and never-signed-abandon checks against fake HTTP services.
 - Real public read-only `markets quote BTC --json` and `markets list --json` returned successful JSON envelopes from `https://accounts.lat.gfx.town`. No enrollment, signing, or trading was attempted for this migration.
@@ -33,7 +55,7 @@ Only what was actually executed is recorded here. **Status as of 2026-09-30: not
 - Final CLI commit `29bd173`: root independently reran race, vet, docs-check and build; four local release archives (linux/darwin × amd64/arm64) were built with checksums independently verified. Nothing was published. Actual bash/fish completions returned expected command candidates; zsh `compinit` registered `_oku`. Bash redirection and command-substitution sentinels remained unchanged with the safe wrapper.
 - **Isolated local runtime, not deployed enrollment:** accounts API `127.0.0.1:13000` uses a dedicated local database at migration 137 and staging Hyperproxy configured for mainnet. Scratch-profile CLI quote/list against this loopback API succeeded. The local unauthenticated device endpoint returned 401 rather than the deployed endpoint's 404. Chromium loaded local UI `/cli` at `127.0.0.1:15177`, saw heading/HTTP 200 and runtime accounts URL on port 13000; observed Connect origins were local and page errors were empty. A local worker was observed running with schedules disabled, accounts/background queues active and metrics at `127.0.0.1:16061`. Schedule/workflow lists remained empty; `EvmChallenge` for a synthetic address returned HTTP 200, a SIWE challenge and local workflow ID. No challenge was signed or solved and no session created. These checks did **not** perform wallet login, enroll a device, approve delegation, sign, or trade. See [local testing](local-testing.md) for a cautious manual guide.
 
-### CLI
+#### CLI
 
 - Live smoke (`BG663998t7rz`), all exit 0:
   - `version`
@@ -46,7 +68,7 @@ Only what was actually executed is recorded here. **Status as of 2026-09-30: not
 - Docs worker at `ca84dac`: `--help` for every command was captured and the docs aligned to it. `version --json` returns an `oku.cli/v1` envelope. `orders prepare` with no profile returns `PROFILE_NOT_FOUND` and exits 2.
 - Fixed in `eaad4ba` and covered by the final run: a `submitted` status without `hlOid` is treated as `OUTCOME_UNKNOWN`. `orders abandon` is limited to intents that were never signed. `orders abandon` can no longer clear an UNKNOWN intent after a 2-minute grace period.
 
-### Packaging (final, `eaad4ba`)
+#### Packaging (final, `eaad4ba`)
 
 `VERSION=eaad4ba ./scripts/build.sh` was run twice into separate directories. Both runs produced identical `SHA256SUMS` (Go 1.27.1, linux/amd64 host) and `sha256sum -c` passed. Nothing was published.
 
@@ -57,7 +79,7 @@ Only what was actually executed is recorded here. **Status as of 2026-09-30: not
 
 The extracted linux/amd64 binary prints `oku eaad4ba (unknown, linux/amd64)`. The commit shows "unknown" because only `main.version` is injected. The darwin binaries were not run (no macOS host) and are unsigned. An earlier run at `ca84dac` is superseded.
 
-### Frontend
+#### Frontend
 
 - Targeted vitest (26 tests), lint, and `vite build` with PostHog uploads disabled all passed at `e4c7845d1`. Superseded by the full suite at `bbfb56930`.
 - Local Playwright Chromium against the Vite app at `/cli`:
@@ -67,17 +89,17 @@ The extracted linux/amd64 binary prints `oku eaad4ba (unknown, linux/amd64)`. Th
 
   No wallet was connected and there were no mocks.
 
-### Backend
+#### Backend
 
 - Enrollment: `VerifyEnrollment` (agentAddress + confirmationCode) runs before HL delegation. `ApproveEnrollment` takes `{enrollmentId}`. Read-only enrollment generates a local key for device proof but never requests Hyperliquid trading delegation.
 - Trading-envelope signer binding is implemented.
-- DB tests and migration 137 were intentionally not run (operator-only).
+- At `405b4538a`, DB tests and migration 137 were intentionally not run (operator-only). Migration 137 was later applied to a dedicated local database only.
 
-### Deployed read API
+#### Deployed read API
 
 `POST https://accounts.lat.gfx.town/connect/gfxcafe.oku.account.v2.PerpsService/GetMarkets` with `Content-Type: application/json`, `Connect-Protocol-Version: 1`, body `{"coin":"BTC"}`. Returned HTTP 200, `markets[0].coin == "BTC"`, and decimal-string prices.
 
-## Requirement → evidence matrix (v1)
+### Requirement → evidence matrix (v1, historical)
 
 Evidence kinds: **S** = synthetic (unit tests with fixtures or fakes, `go test -race ./...` at `eaad4ba`, root `BG991879haiq`). **R** = real read-only run. **UI** = real unauthenticated UI. **NOT RUN** = no evidence. Synthetic tests do not show live integration.
 
@@ -100,8 +122,8 @@ Evidence kinds: **S** = synthetic (unit tests with fixtures or fakes, `go test -
 | Shared history with the Oku UI (CLI order visible and cancellable in the UI) | Architecture only (CreateAction/ConfirmAction/GetAction) | NOT RUN |
 | Revocation boundaries (token vs agent vs orders vs positions) | `TestRevokeReportsBoundaries`. Wording in `security.md`. | S |
 | Live revocation | | NOT RUN |
-| Agent skills install/uninstall | `TestInstallNeverOverwritesWithoutForce`. Scratch install/uninstall run (`BG663998t7rz`). Codex path `~/.agents/skills` from source. | S, R (local) |
-| Packaging | `build.sh` run twice at `eaad4ba`, identical `SHA256SUMS`, linux/amd64 binary runs | R (local). darwin not executed. Unsigned. |
+| Agent skills install/uninstall | `TestInstallNeverOverwritesWithoutForce`. Scratch install/uninstall run (`BG663998t7rz`, earlier single `oku-perps` skill). Codex path `~/.agents/skills` from source. v1 only. For the current 8 skills see the current milestone table. | S, R (local) |
+| Packaging | `build.sh` run twice at `eaad4ba`, identical `SHA256SUMS`, linux/amd64 binary runs. That evidence predates CGO Darwin. `build.sh` now refuses to cross-build Darwin, so those darwin hashes no longer describe the release process. | R (local). darwin not executed. Ad-hoc signing only in the new flow, and not yet run natively. |
 | Wallet-agnostic claim | No wallet connected in any test. No wallet compatibility matrix. **Do not claim.** | NOT RUN |
-| Backend migration 137 / DB tests | Operator-only | NOT RUN |
+| Backend migration 137 / DB tests | Applied later to a dedicated local database only. Not applied to shared or deployed databases. Backend DB tests not recorded here. | R (local DB only) |
 | Legal / eligibility / terms / release gates | No review performed. Deferred to Oku legal/compliance before any public release. | NOT RUN (deferred) |

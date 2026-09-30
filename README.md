@@ -1,35 +1,66 @@
 # oku
 
-`oku` is a small Go command-line client for trading Hyperliquid perps through the Oku account service (`gfxcafe.oku.account.v2.PerpsService`). It is built for people and coding agents: human-readable tables by default, a versioned JSON contract (`oku.cli/v1`) with `--json`.
+`oku` is a Go command-line client for trading Hyperliquid perps through the Oku account service (`gfxcafe.oku.account.v2.PerpsService`). It is built for people and coding agents. It prints human-readable tables by default and offers a versioned JSON contract (`oku.cli/v1`) with `--json`. It also ships offline docs (`oku docs`), bundled task skills (`oku skills`) and a stdio MCP server (`oku mcp serve`).
 
-Supports Hyperliquid **mainnet** only.
+It supports Hyperliquid **mainnet** only.
 
-> **Status: pre-release / private alpha development.** There are no public releases, no hosted install script, and no auto-update. Device enrollment (backend) and the Oku website `/cli` page are implemented but not deployed. Live enrollment and trading are untested (see docs/validation.md). Command grammar may change.
+> **Status: pre-release / private alpha development.**
+> - The repository is private. There is no published npm package, no hosted install script and no auto-update.
+> - Device enrollment, the `risk` scope and authenticated order attribution are implemented in the backend and frontend but **not deployed**.
+> - Live enrollment, signing and trading have **not** been tested against deployed services. No real order has been submitted as part of validation.
+> - Native macOS execution has not yet been verified. See [docs/validation.md](docs/validation.md).
+> - The command grammar may change.
 
 ## Install (from source)
 
-Requires Go (version in `go.mod`).
+Building requires Go (the version is in `go.mod`).
+
+- **Linux** builds with `CGO_ENABLED=0`.
+- **macOS** needs CGO and a native macOS host for the Keychain credential provider. Cross-compiling Darwin from Linux is refused by `scripts/build.sh`.
 
 ```sh
 git clone <this repository> && cd oku-cli
-go build -trimpath -ldflags "-X main.version=$(git describe --tags --always --dirty)" -o bin/oku ./cmd/oku
-# check: ./bin/oku version
-# or: make build | make install   (installs to $HOME/.local/bin/oku)
-# or: go install -ldflags "-X main.version=<ver>" github.com/oku-trade/oku-cli/cmd/oku@<commit>   (only works once the repo is reachable by the Go toolchain)
+make build          # bin/oku; or: make install (to $HOME/.local/bin/oku)
+./bin/oku version
+./bin/oku docs list # offline documentation bundled in the binary
 ```
 
-Uninstall: `oku skills uninstall --target <agent>` for any installed skills, `oku auth revoke`, then `make uninstall` (or `rm "$(command -v oku)"`). Also revoke the Hyperliquid agent from your main wallet. Removing the binary does **not** revoke Oku sessions or the exchange delegated signer. See [docs/security.md](docs/security.md).
+A Nix flake (`flake.nix`) provides a package and a dev shell.
 
-Local release archives: `make dist` builds linux/darwin × amd64/arm64 into `dist/` with `SHA256SUMS`. See [docs/releasing.md](docs/releasing.md).
+## npm (not published)
+
+The release tooling packs a thin launcher `@oku-trade/cli` plus four exact-version platform packages `@oku-trade/cli-{linux,darwin}-{x64,arm64}`. There are no postinstall scripts or downloads.
+
+- Names, scope ownership, visibility and license (`UNLICENSED`) are pending owner decisions.
+- Publishing is manual and gated. See [docs/releasing.md](docs/releasing.md).
+- No provenance is produced, because the source repository is private.
+
+## Upgrading from an earlier build
+
+Nothing migrates automatically.
+
+- **macOS credentials:** `oku auth migrate-keychain --profile NAME` explicitly moves a legacy encrypted credential into the Keychain. See [docs/security.md](docs/security.md#explicit-legacy-credential-migration-macos).
+- **Journal:** `oku journal migrate` explicitly imports a legacy JSON journal into SQLite. Signing is blocked until you run it. See [docs/usage.md](docs/usage.md#local-journal).
+
+## Uninstall
+
+1. Run `oku skills uninstall --target <agent>` for any installed skills.
+2. Run `oku auth revoke`.
+3. Run `make uninstall` (or `rm "$(command -v oku)"`).
+4. Revoke the Hyperliquid agent from your main wallet.
+
+Removing the binary does **not** revoke Oku sessions or the exchange delegated signer. It also leaves the journal and any credential backups in place. See [docs/security.md](docs/security.md).
 
 ## Docs
 
-- [docs/usage.md](docs/usage.md): commands, JSON contract, order lifecycle
-- [docs/local-testing.md](docs/local-testing.md): local API/UI read-only checks and operator-only enrollment/trade guidance
+All of these except `validation.md` (repository-only evidence, not embedded) are also available offline via `oku docs show <name>`:
+
+- [docs/usage.md](docs/usage.md): commands, JSON contract, order lifecycle, risk actions, draft repair, skills, MCP, journal
 - [docs/commands.md](docs/commands.md): generated command and flag reference (`make docs`, `make docs-check`)
-- [docs/architecture.md](docs/architecture.md): how the CLI talks to Oku
-- [docs/security.md](docs/security.md): signing modes, key risks, revocation
-- [docs/deployment.md](docs/deployment.md): backend/frontend prerequisites
-- [docs/releasing.md](docs/releasing.md): local builds and checksum verification
+- [docs/security.md](docs/security.md): signing mode, credential storage per platform, scopes, migration, revocation
+- [docs/architecture.md](docs/architecture.md): code layout and how the CLI talks to Oku
+- [docs/deployment.md](docs/deployment.md): backend/frontend/release prerequisites
+- [docs/local-testing.md](docs/local-testing.md): local read-only checks and operator-led enrollment/trade guidance
+- [docs/releasing.md](docs/releasing.md): native builds, npm packaging, checksums
 - [docs/validation.md](docs/validation.md): what has actually been verified
-- Agent skill: [pkg/skills/assets/oku-perps/SKILL.md](pkg/skills/assets/oku-perps/SKILL.md)
+- Agent skills: [skills/](skills/)
