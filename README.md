@@ -1,6 +1,6 @@
 # oku
 
-`oku` is a small Go command-line client for trading Hyperliquid perps through the Oku account service (`gfxcafe.oku.account.v2.PerpsService`). It is built for people and coding agents: human-readable tables by default, a versioned JSON contract with `--json`.
+`oku` is a small Go command-line client for trading Hyperliquid perps through the Oku account service (`gfxcafe.oku.account.v2.PerpsService`). It is built for people and coding agents: human-readable tables by default, a versioned JSON contract (`oku.cli/v1`) with `--json`.
 
 > **Status: pre-release / private alpha development.** There are no public releases, no hosted install script, and no auto-update. Device enrollment (backend) and the Oku website `/cli` page are still being implemented and their contract is pending. Command grammar may change.
 
