@@ -18,7 +18,7 @@ Only what was actually executed is recorded here. **Status as of 2026-09-30: not
 | Kind | What it covers | What it does not cover |
 |---|---|---|
 | **Synthetic** | CLI unit and safety tests (race, vet) against HTTP fixtures and fakes: unknown-outcome handling, the abandon limit, reconcile, digests, skills install. Backend pure unit tests. | Any real server behavior. |
-| **Real, read-only** | Live `GetMarkets` and live CLI `markets` reads against the deployed Oku API. Local `orders prepare`, which sends nothing. | Authenticated calls or writes. |
+| **Real, read-only** | Live `GetMarkets` and live CLI `markets` reads against the deployed Oku API. Local `orders prepare`, which performs read API calls and persists an intent but submits no exchange action. | Authenticated calls or writes. |
 | **Real, unauthenticated UI** | The actual Vite app `/cli` in Chromium (a temporary local server, since stopped), with no wallet and no mocks. | Wallet connection. |
 | **Not verified** | Wallet connection, enrollment (Verify/Approve), agent delegation, `orders submit`/cancel, revocation, deployed device routes, migration 137. | |
 
@@ -35,7 +35,7 @@ Only what was actually executed is recorded here. **Status as of 2026-09-30: not
 
   **No `orders submit`.**
 - Docs worker at `ca84dac`: `--help` for every command was captured and the docs aligned to it. `version --json` returns an `oku.cli/v1` envelope. `orders prepare` with no profile returns `PROFILE_NOT_FOUND` and exits 2.
-- Fixed in `eaad4ba` and covered by the final run: a `submitted` status without `hlOid` is treated as `OUTCOME_UNKNOWN`. `orders abandon` is limited to intents that were never signed. `reconcile` can no longer let an UNKNOWN intent escape through the 2-minute grace period.
+- Fixed in `eaad4ba` and covered by the final run: a `submitted` status without `hlOid` is treated as `OUTCOME_UNKNOWN`. `orders abandon` is limited to intents that were never signed. `orders abandon` can no longer clear an UNKNOWN intent after a 2-minute grace period.
 
 ### Packaging (final, `eaad4ba`)
 
@@ -60,7 +60,7 @@ The extracted linux/amd64 binary prints `oku eaad4ba (unknown, linux/amd64)`. Th
 
 ### Backend
 
-- Enrollment: `VerifyEnrollment` (agentAddress + confirmationCode) runs before HL delegation. `ApproveEnrollment` takes `{enrollmentId}`. Read-only devices never get a delegated signer.
+- Enrollment: `VerifyEnrollment` (agentAddress + confirmationCode) runs before HL delegation. `ApproveEnrollment` takes `{enrollmentId}`. Read-only enrollment generates a local key for device proof but never requests Hyperliquid trading delegation.
 - Trading-envelope signer binding is implemented.
 - DB tests and migration 137 were intentionally not run (operator-only).
 
