@@ -16,3 +16,8 @@ Record only what was actually executed. Nothing here verifies the new CLI binary
 - Writes (`CreateAction`/`ConfirmAction`): no live writes authorized or performed.
 - Device enrollment and `/cli` page: in development.
 - Real `make dist` packaging of the CLI: pending until `./cmd/oku` builds. Script mechanics were verified on a stand-in module (4 archives, checksums verified and identical across two runs).
+
+## Backend enrollment (reported by root agent)
+
+- Only pure tests and builds have run. DB tests and the migration were **not** run (operator-only). The device routes are not deployed.
+- The operator-run acceptance steps are in `deployment.md`. Not production-ready.

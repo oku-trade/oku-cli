@@ -26,3 +26,23 @@ Agents and scripts in this repository must **not** run migrations or change serv
 3. The operator applies the migration and deploys backend, then frontend `/cli`.
 4. Read-only post-checks: `GetMarkets` read probe (see `validation.md`), then enrollment smoke test by a human.
 5. Rollback plan prepared before step 3.
+
+## Enrollment RPCs (implemented in backend, not deployed)
+
+- `VerifyEnrollment` carries `agentAddress` and the human-entered `confirmationCode`.
+- `ApproveEnrollment` request is only `{enrollmentId}`.
+- The new device routes are **not deployed**. Backend DB tests and the migration have intentionally **not** been run, because services and databases are operator-only. Only pure unit tests and builds have run.
+
+**Status: not production-ready.**
+
+## Operator-run integration acceptance (required before any release)
+
+A human operator runs these in a non-production environment and records results in `validation.md`:
+
+1. Apply the enrollment migration (operator only) and run backend DB/integration tests.
+2. Deploy backend device routes and frontend `/cli` to staging.
+3. `oku auth setup`: enter the code in the CLI, confirm the browser shows `VerifyEnrollment` succeeding before any HL delegation prompt.
+4. Read-only device: confirm no HL agent delegation is offered.
+5. Trading device: `ApproveEnrollment`, then `oku auth status --json` reports verified.
+6. Minimal order on a test account: prepare → submit → visible in Oku UI → cancel in UI → CLI sees cancel.
+7. Revoke the Oku token and separately revoke the HL agent. Confirm the CLI fails with exit 3 and the agent can no longer sign.
