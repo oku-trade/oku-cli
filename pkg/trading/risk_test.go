@@ -69,9 +69,18 @@ func TestValidateRiskActions(t *testing.T) {
 }
 
 func TestRiskOutcome(t *testing.T) {
-	for s, want := range map[string]Outcome{"completed": OutcomeSuccess, "error": OutcomeRejected, "submitted": OutcomeUnknown, "unresolved": OutcomeUnknown, "": OutcomeUnknown, "filled": OutcomeUnknown} {
-		if got := RiskOutcome(s); got != want {
-			t.Errorf("%q: %s want %s", s, got, want)
+	for _, c := range []struct {
+		s    string
+		sent bool
+		want Outcome
+	}{
+		{"completed", true, OutcomeSuccess}, {"completed", false, OutcomeSuccess},
+		{"error", false, OutcomeRejected}, {"error", true, OutcomeUnknown},
+		{"submitted", true, OutcomeUnknown}, {"unresolved", true, OutcomeUnknown},
+		{"unresolved", false, OutcomeUnknown}, {"", false, OutcomeUnknown}, {"filled", true, OutcomeUnknown},
+	} {
+		if got := RiskOutcome(c.s, c.sent); got != c.want {
+			t.Errorf("%q sent=%v: %s want %s", c.s, c.sent, got, c.want)
 		}
 	}
 }
