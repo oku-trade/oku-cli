@@ -81,4 +81,8 @@ Binary built from `cmd/oku` (scratch `oku-cli-validation/oku`). All of these exi
 
 ## Backend
 
-- Build, vet and tests passed for the initial feature. Review fixes `405b4538a` are being rerun and the result is pending. Migration 137 is still not applied. DB and enrollment end-to-end are still operator-blocked.
+- Final `405b4538a`: root independently ran tests, vet and build (task `BG692697b2l7`), all pass. Integration tests were compiled only, not run. Two review fixes were independently verified. Migration 137 is still not applied. DB and enrollment end-to-end are still operator-blocked.
+
+## CLI: not final
+
+- An open P1 was found: a `submitted` action status without `hlOid` has an UNKNOWN backend outcome and must not be reported as accepted. A fix with regression tests is in progress. The CLI is not final until it lands and packaging is rerun.
