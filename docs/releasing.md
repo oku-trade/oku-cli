@@ -13,4 +13,4 @@ Caveats: checksums only prove integrity against the `SHA256SUMS` file you trust.
 
 ## Verified run
 
-At commit `ca84dac`, `VERSION=v0.0.0-local ./scripts/build.sh` was run twice into separate directories. Both runs produced identical `SHA256SUMS` (Go 1.27.1, linux host). The linux/amd64 binary printed `oku v0.0.0-local (unknown, linux/amd64)`. `file` reported a static ELF for linux/amd64 and Mach-O arm64 for darwin/arm64. The commit shows "unknown" because only `main.version` is injected.
+At commit `eaad4ba` the script was run twice, with identical checksums. See `validation.md` for the hashes.
