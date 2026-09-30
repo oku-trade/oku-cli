@@ -39,6 +39,26 @@ func MigrateLegacy() error {
 		return fmt.Errorf("journal active: %w", err)
 	}
 	defer syscall.Flock(int(guard.Fd()), syscall.LOCK_UN)
+	// A fresh SQLite installation, or a completed import, has no legacy
+	// directory to move. In particular, do not leave an incomplete marker
+	// behind when the operator repeats the command after migration.
+	if _, e := os.Lstat(marker); errors.Is(e, os.ErrNotExist) {
+		st, e := os.Lstat(legacy)
+		if errors.Is(e, os.ErrNotExist) {
+			return nil
+		}
+		if e != nil {
+			return e
+		}
+		if st.Mode().IsRegular() {
+			return nil
+		}
+		if !st.IsDir() {
+			return ErrMigrationRequired
+		}
+	} else if e != nil {
+		return e
+	}
 	if _, e := os.Lstat(marker); errors.Is(e, os.ErrNotExist) {
 		f, e := os.OpenFile(marker, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 		if e != nil {

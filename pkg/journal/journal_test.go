@@ -198,11 +198,25 @@ func TestLegacyImportAndBarrier(t *testing.T) {
 	if e := MigrateLegacy(); e != nil {
 		t.Fatal(e)
 	}
+	if e := MigrateLegacy(); e != nil {
+		t.Fatalf("completed migration rerun: %v", e)
+	}
 	j, e := Open("p")
 	if e != nil {
 		t.Fatal(e)
 	}
 	defer j.Close()
+	if _, _, e = j.Create(intent("post-migration", "https://one.example")); e != nil {
+		t.Fatal(e)
+	}
+	if e = MigrateLegacy(); e != nil {
+		t.Fatalf("migration rerun with new records: %v", e)
+	}
+	if reopened, e := Open("p"); e != nil {
+		t.Fatalf("rerun blocked Open: %v", e)
+	} else {
+		_ = reopened.Close()
+	}
 	un, e := j.Unresolved()
 	if e != nil || len(un) != 1 || un[0].Nonce != 200 {
 		t.Fatalf("lost unresolved record %v %v", un, e)
@@ -228,6 +242,22 @@ func TestLegacyImportAndBarrier(t *testing.T) {
 			t.Errorf("%s permissions %o", name, st.Mode().Perm())
 		}
 	}
+}
+
+func TestMigrateLegacyFreshSQLiteNoop(t *testing.T) {
+	j := open(t)
+	defer j.Close()
+	if err := MigrateLegacy(); err != nil {
+		t.Fatalf("fresh migration: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(j.base, "journal-migration-incomplete")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("incomplete marker after no-op: %v", err)
+	}
+	again, err := OpenBinding(Binding{Profile: "other"})
+	if err != nil {
+		t.Fatalf("fresh migration bricked journal: %v", err)
+	}
+	defer again.Close()
 }
 func TestLegacyCorruptionAndActiveProcessFailClosed(t *testing.T) {
 	j := open(t)
@@ -311,17 +341,19 @@ func TestBaselineBinaryDowngradeBarrier(t *testing.T) {
 	}
 	j := open(t)
 	t.Setenv("OKU_CONFIG_DIR", filepath.Join(j.base, "config"))
-	f := &config.File{Version: 1, DefaultProfile: "p", Profiles: map[string]*config.Profile{"p": {Network: "mainnet", APIURL: "https://one.example"}}}
+	f := &config.File{Version: 1, DefaultProfile: "p", Profiles: map[string]*config.Profile{"p": {Network: "mainnet", APIURL: "https://one.example", Account: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}}
 	if e := f.Save(); e != nil {
 		t.Fatal(e)
 	}
-	cmd := exec.Command(binary, "--profile", "p", "orders", "status", "--intent", "abc")
-	cmd.Env = append(os.Environ(), "OKU_STATE_DIR="+j.base, "OKU_CONFIG_DIR="+filepath.Join(j.base, "config"))
-	output, e := cmd.CombinedOutput()
-	if e == nil || !strings.Contains(string(output), "opening journal") {
-		t.Fatalf("old binary did not fail at journal path: %v %s", e, output)
+	for _, args := range [][]string{{"--profile", "p", "orders", "status", "--intent", "abc"}, {"--profile", "p", "orders", "submit", "--intent", "abc", "--digest", "deadbeef"}} {
+		cmd := exec.Command(binary, args...)
+		cmd.Env = append(os.Environ(), "OKU_STATE_DIR="+j.base, "OKU_CONFIG_DIR="+filepath.Join(j.base, "config"))
+		output, e := cmd.CombinedOutput()
+		if e == nil || !strings.Contains(string(output), "opening journal") {
+			t.Fatalf("old binary %v did not fail at journal path: %v %s", args, e, output)
+		}
+		t.Logf("old binary %v refused journal: %s", args, strings.TrimSpace(string(output)))
 	}
-	t.Logf("old binary refused journal: %s", strings.TrimSpace(string(output)))
 }
 func TestMultiprocessNonceWorker(t *testing.T) {
 	if os.Getenv("JOURNAL_NONCE_CHILD") != "1" {
