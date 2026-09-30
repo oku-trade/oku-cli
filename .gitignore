@@ -3,3 +3,6 @@
 /dist/
 *.test
 *.out
+/result
+
+.envrc
