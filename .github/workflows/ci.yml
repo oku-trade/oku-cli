@@ -26,25 +26,94 @@ jobs:
         with: { node-version: "22" }
       - name: assert native host
         run: test "$(go env GOOS)/$(go env GOARCH)" = "${{ matrix.goos }}/${{ matrix.goarch }}"
-      - run: make test
+      # Linux: plain. Darwin: CLI fixtures write the native Keychain, so every Darwin test
+      # run happens inside the disposable default-keychain wrapper (never the login keychain).
+      - name: test (linux)
+        if: matrix.goos == 'linux'
+        run: make test
+      - name: race tests (linux, CGO=1, test only)
+        if: matrix.goos == 'linux'
+        env: { CGO_ENABLED: "1" }   # race needs CGO; shipped Linux binaries stay CGO_ENABLED=0
+        run: go test -race -count=1 ./...
+      - name: test (darwin, disposable keychain)
+        if: matrix.goos == 'darwin'
+        env: { OKU_KEYCHAIN_TEST_ACK: disposable-runner }
+        run: ./scripts/macos-keychain-test.sh make test
+      - name: race tests (darwin, disposable keychain)
+        if: matrix.goos == 'darwin'
+        env: { OKU_KEYCHAIN_TEST_ACK: disposable-runner }
+        run: ./scripts/macos-keychain-test.sh go test -race -count=1 ./...
+      # The dedicated lock/unlock test locks the keychain, so it runs alone with its own enable flag.
+      - name: dedicated native Keychain lock test (darwin)
+        if: matrix.goos == 'darwin'
+        env:
+          OKU_KEYCHAIN_TEST_ACK: disposable-runner
+          OKU_KEYCHAIN_LOCK_TEST: "1"
+        run: ./scripts/macos-keychain-test.sh go test -count=1 -p 1 -run '^TestDedicatedNativeKeychain$' -v ./pkg/auth/
       - name: build archive (native)
         run: VERSION=v0.0.0-ci PLATFORMS=${{ matrix.goos }}/${{ matrix.goarch }} ./scripts/build.sh
       - name: run packaged binary
         run: |
           tar -xzf dist/oku_v0.0.0-ci_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz -C dist
           bin=dist/oku_v0.0.0-ci_${{ matrix.goos }}_${{ matrix.goarch }}/oku
-          "$bin" version
           file "$bin"
-          if [ "${{ matrix.goos }}" = darwin ]; then otool -L "$bin"; codesign -dv "$bin" || true; fi
+          ./scripts/binary-smoke.sh "$bin"
+          if [ "${{ matrix.goos }}" = darwin ]; then
+            otool -L "$bin"
+            # CGO build must link Security.framework (keybase/go-keychain)
+            otool -L "$bin" | grep -q Security.framework || { echo "darwin binary lacks Security.framework (CGO off?)" >&2; exit 1; }
+            # ad-hoc signature applied by build.sh; this verifies it. Not Developer ID/notarization.
+            codesign --verify --strict --verbose=2 "$bin"
+          else
+            file "$bin" | grep -q 'statically linked' || { echo "linux binary not static (CGO on?)" >&2; exit 1; }
+          fi
+          # the npm platform package must carry this exact binary
+          shasum -a 256 "$bin" | tee native-bin.sha256
           echo "BIN=$bin" >> "$GITHUB_ENV"
       - name: npm pack + local install smoke (no publish)
         run: |
           ./scripts/npm-pack.sh 0.0.0-ci npm-dist "${{ matrix.goos }}/${{ matrix.goarch }}=$BIN"
           ./scripts/npm-smoke.sh npm-dist 0.0.0-ci
+          want=$(awk '{print $1}' native-bin.sha256)
+          got=$(tar -xOzf npm-dist/oku-trade-cli-*-*-0.0.0-ci.tgz package/bin/oku | shasum -a 256 | awk '{print $1}')
+          test "$want" = "$got" || { echo "npm platform binary != native build" >&2; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: oku-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
             dist/*.tar.gz
             npm-dist/*.tgz
+            native-bin.sha256
           retention-days: 7
+  nix:
+    # Builds the user's flake package; catches a stale vendorHash after go.mod/go.sum changes.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      # Repo Actions policy allows only GitHub-owned/verified/allowlisted actions. Nix comes
+      # from Ubuntu's own archive (nix-bin + systemd daemon setup) on the ephemeral runner:
+      # no third-party action, no curl|sh installer. Independent job: never gates native jobs.
+      - name: install nix (Ubuntu archive)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends nix-bin nix-setup-systemd
+          sudo systemctl start nix-daemon.socket || true
+          nix --version
+      - run: sudo nix --extra-experimental-features 'nix-command flakes' build .#default -L --print-out-paths
+      - run: ./result/bin/oku version
+  protos:
+    # Regenerates pkg/gen from the vendored proto/ closure (no private backend checkout)
+    # and fails on drift. Tool versions pinned: buf v1.73.0; protoc-gen-go via go.mod
+    # (go run); protoc-gen-connect-go v1.21.0, the generator that produced the committed
+    # pkg/gen. This generator pin is independent of the connectrpc.com/connect runtime in go.mod.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - name: install pinned generators
+        run: |
+          go install github.com/bufbuild/buf/cmd/buf@v1.73.0
+          go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.21.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - run: ./scripts/sync-protos.sh --check

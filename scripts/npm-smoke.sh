@@ -17,8 +17,9 @@ mkdir "$t/app"; (cd "$t/app" && npm init -y >/dev/null && npm install --offline 
 oku="$t/app/node_modules/.bin/oku"
 [[ -x "$oku" ]] || fail "bin link missing"
 # other platform packages must not be installed
-n="$(ls "$t/app/node_modules/@oku-trade" | wc -l)"; [[ "$n" == 2 ]] || fail "unexpected packages: $(ls "$t/app/node_modules/@oku-trade")"
-"$oku" version >/dev/null || fail "version"
+got_pkgs="$(cd "$t/app/node_modules/@oku-trade" && ls | LC_ALL=C sort | tr '\n' ' ')"
+[[ "$got_pkgs" == "cli cli-$os-$cpu " ]] || fail "unexpected packages: $got_pkgs (want cli cli-$os-$cpu)"
+"$(dirname "$0")/binary-smoke.sh" "$oku" || fail "binary smoke through launcher"
 (cd "$t/app" && npx --offline --no-install oku --help >/dev/null) || fail "npx"
 
 # 2. argv/stdin/exit preservation, using a stub binary via OKU_BINARY_PATH

@@ -1,13 +1,13 @@
 # Usage
 
-> `oku --help` and the [generated command reference](commands.md) describe the urfave/cli v3 command tree. Run `make docs-check` to detect reference drift.
+> `oku --help`, `oku docs commands` and the [generated command reference](commands.md) describe the urfave/cli v3 command tree of the binary you run. `make docs-check` detects drift between the committed reference and the tree.
 
 ## Output contract
 
-- `--json`: exactly one JSON document on **stdout**. Diagnostics go to **stderr**.
-- Envelope: `schema_version` (`oku.cli/v1`), `request_id`, `command`, `ok`, `data`, `error` (`code`, `message`, `retryable`) or `null`.
+- `--json` writes exactly one JSON document to **stdout**. Diagnostics go to **stderr**.
+- Envelope fields: `schema_version` (`oku.cli/v1`), `request_id`, `command`, `ok`, `data`, and `error` (`code`, `message`, `retryable`, optional `details`) or `null`.
 - Quantities and prices are decimal strings.
-- Only Hyperliquid **mainnet** is supported. Trading requires a profile with an account. In automation, pass `--profile` explicitly.
+- Only Hyperliquid **mainnet** is supported. Trading requires a profile with an account. In automation, always pass `--profile` explicitly.
 
 ### Exit codes
 
@@ -16,23 +16,48 @@
 | 0 | ok |
 | 1 | internal error |
 | 2 | usage error |
-| 3 | auth (missing/locked/revoked credentials) |
+| 3 | auth (missing/locked/revoked credentials, or missing scope) |
 | 4 | not found |
 | 5 | upstream (Oku/exchange) error |
-| 6 | `OUTCOME_UNKNOWN`, reconcile, do not resubmit |
+| 6 | `OUTCOME_UNKNOWN`: reconcile, do not resubmit |
 | 7 | conflict / rejected |
 
 ## Credentials
 
-Credentials are stored in an encrypted local file (no OS keyring). Unlock comes from an interactive TTY passphrase prompt or, for automation, `OKU_PASSPHRASE_FILE=<path>` pointing at a file readable only by you. Never pass the passphrase as an argument.
+- **Linux:** an encrypted local file. You unlock it with an interactive masked TTY prompt or, for automation, `OKU_PASSPHRASE_FILE=<path>` pointing at a file readable only by you (mode 0600). Never pass the passphrase as an argument.
+- **macOS:** the native Keychain. No passphrase is requested. Official macOS builds need CGO and are built natively.
+- Neither platform has a plaintext fallback. See [security](security.md#credential-storage-by-platform), including the explicit `oku auth migrate-keychain` step for older macOS credentials.
 
 ## Global flags
 
-`--profile NAME` (default `$OKU_PROFILE` or config default), `--network NAME` (only `mainnet` is supported and is checked against the profile), `--account 0x..` (for read commands), `--json`, `--timeout DUR` (default 15s, max 2m). Global flags work before or after a command. Use `--` to end flag parsing.
+- `--profile NAME`: defaults to `$OKU_PROFILE` or the config default.
+- `--network NAME`: only `mainnet` is supported, and it is checked against the profile.
+- `--account 0x..`: for read commands.
+- `--json`.
+- `--timeout DUR`: default 15s, max 2m.
+
+Global flags work before or after a command. Use `--` to end flag parsing.
+
+## Built-in documentation (offline)
+
+These documents are embedded in the binary. Commands and docs need no network access, credentials or config:
+
+```sh
+oku docs list                       # names: architecture, commands, deployment, local-testing, releasing, security, usage
+oku docs show security
+oku docs search leverage [--limit N]  # default 50, 0 = unlimited
+oku docs commands                   # one line per command of this binary
+oku docs commands --markdown        # full reference; identical to docs/commands.md
+```
 
 ## Shell completion
 
-Completion scripts are available without credentials or network access. Generate one with `oku completion bash`, `oku completion zsh`, or `oku completion fish`. Zsh/fish scripts use urfave/cli generation; bash uses a safe array-based wrapper around urfave/cli's candidate protocol (the stock bash template evaluates user input). The scripts invoke `oku --generate-shell-completion` when completing; these requests only enumerate command names and flags and never run auth, order, or read handlers. No installation command modifies your shell startup files automatically.
+Completion scripts are available without credentials or network access. Generate one with `oku completion bash`, `oku completion zsh`, or `oku completion fish`.
+
+- Zsh and fish scripts use urfave/cli generation.
+- Bash uses a safe array-based wrapper around urfave/cli's candidate protocol, because the stock bash template evaluates user input.
+- The scripts call `oku --generate-shell-completion` when completing. This only lists command names and flags, and never runs auth, order or read handlers.
+- Nothing edits your shell startup files automatically.
 
 For the current shell session (with `oku` on `$PATH`), enable zsh's `compinit` first:
 
@@ -46,7 +71,7 @@ source <(oku completion zsh)
 oku completion fish | source
 ```
 
-For persistence, save the output and source it from a shell startup file yourself. For fish, place the script at `~/.config/fish/completions/oku.fish` if desired. Completion can be tested without installing: `oku --generate-shell-completion` prints static candidates.
+To make completion persistent, save the output and source it from a shell startup file yourself.
 
 ## Commands
 
@@ -60,6 +85,7 @@ oku config path | config show          # no secrets printed
 oku auth setup                          # enrollment code from the Oku website
 oku auth status [--verify]
 oku auth revoke                         # revokes the Oku API token + deletes local credentials only
+oku auth migrate-keychain --profile P   # macOS only, explicit; see security.md
 
 oku profiles add NAME --account 0x.. [--api-url URL] [--default]
 oku profiles list | use NAME | remove NAME
@@ -81,19 +107,100 @@ oku orders submit --intent ID --digest SHA
 oku orders status --intent ID
 oku orders reconcile
 oku orders cancel --market COIN --order-id OID [--intent-id ID]
-oku orders abandon ...                  # only for never-signed intents: cancels the server action so it can never execute
+oku orders abandon --intent ID          # only for never-signed intents
 
 oku skills list
 oku skills install   --target jcode|claude|codex | --dir PATH [--force]
 oku skills uninstall --target jcode|claude|codex | --dir PATH [--force]
 ```
 
-Skill install locations: jcode `~/.jcode/skills`, Claude Code `~/.claude/skills`, Codex `~/.agents/skills`. `uninstall` only removes files that match the bundled version unless `--force` is given.
+Example error with no profile configured: `orders prepare` prints `{"ok":false,"error":{"code":"PROFILE_NOT_FOUND",...}}` and exits 2.
 
-Example error (no profile configured): `orders prepare` prints `{"ok":false,"error":{"code":"PROFILE_NOT_FOUND",...}}` and exits 2.
+`--digest` binds submission to the exact prepared intent. If anything changes, prepare again. There is no per-order web approval. This is **trusted-host delegated mode** (see `security.md`).
 
-`--digest` binds submission to the exact prepared intent. If anything changes, prepare again. There is no per-order web approval: this is **trusted-host delegated mode** (see `security.md`).
+## Leverage and isolated margin (`risk` scope)
+
+```sh
+oku positions leverage --market BTC --leverage N --mode cross|isolated [--intent-id ID] [--expires 5m]
+oku positions margin   --market BTC --amount <USDC, +add / -remove, ≤6 decimals> [--intent-id ID] [--expires 5m]
+oku orders submit --intent ID --digest SHA
+```
+
+Both commands only **prepare** an intent. Submission goes through `orders submit` like any other intent.
+
+- Submitting needs a device enrolled with the separate `risk` scope. A `trade`-only device is refused with exit 3.
+- The backend support for the `risk` scope is **not deployed yet** (see [deployment](deployment.md)).
+- Leverage must be an integer from 1 to the market maximum. Isolated-only markets refuse cross mode.
+- A leverage change and an order are two separate exchange actions, not one atomic trade. Only a server `completed` state counts as success.
+
+## Draft repair (local only)
+
+```sh
+oku drafts repair --stdin < draft.json
+```
+
+This turns malformed order-draft JSON (code fences, single quotes, unquoted keys) into a strictly validated candidate. The output includes `repaired`, `candidate` and `prepare_args`.
+
+- It does no networking, signing or journal writes, and it never prepares or submits.
+- Limits: 16 KiB input, nesting depth 4, one flat object.
+- It rejects duplicate keys, unknown fields, invalid decimals and missing required financial fields. It never fills in missing market, side, size, price or leverage.
+- Review the candidate, then run `orders prepare` yourself. The resulting digest is what gets approved.
+
+## Agent skills
+
+Eight task skills are bundled:
+
+- `learn-oku`
+- `ensure-hyperliquid-authentication`
+- `inspect-hyperliquid-account`
+- `open-hyperliquid-position`
+- `manage-hyperliquid-orders`
+- `close-hyperliquid-position`
+- `manage-hyperliquid-risk`
+- `reconcile-hyperliquid-actions`
+
+Their source is the repository's `skills/` directory.
+
+- **Install locations:** jcode `~/.jcode/skills`, Claude Code `~/.claude/skills`, Codex `~/.agents/skills`, or any `--dir`.
+- `install` never overwrites files that differ unless you pass `--force`. `uninstall` only removes files that match the bundled version unless you pass `--force`.
+- `npx skills add https://github.com/oku-trade/oku-cli/tree/master` needs Git access to the private repository and selects the default `master` branch. `oku skills install` works from the binary alone.
+
+## MCP server
+
+```sh
+oku mcp serve                     # read tools only
+oku mcp serve --allow-mutations   # also prepare/submit/cancel/reconcile/abandon and positions leverage/margin
+```
+
+The server runs over stdio. Stdout carries only MCP protocol frames, and logs go to stderr. `--json` is refused.
+
+- **Tools:** read-only by default. Mutation tools are exposed only with `--allow-mutations`, and device scopes are still enforced. `auth setup` and profile edits are never exposed.
+- **Resources:** bundled docs and skills are available as `oku://docs/...` and `oku://skills/...`. There is also a local `drafts_repair` tool.
+- **Profile:** `oku --profile NAME mcp serve` pins the server to that profile. Tools use it, and a tool call naming a different profile is refused. Start a separate server for another profile. Without a launch profile, tools use a per-call `profile`, then `$OKU_PROFILE`, then the config default.
+- **Pairing:** the server never prompts. Enroll first with `oku auth setup` in a terminal. On Linux, unlocking needs `OKU_PASSPHRASE_FILE`. Otherwise tools return an auth error.
+- **Approval:** a digest proves payload integrity, not human approval. Clients must get explicit user approval before calling `orders_submit`. Unknown outcomes follow the same reconcile-never-resend rules as the CLI.
+
+## Local journal
+
+Every intent's state is kept in `journal.sqlite` under the state directory (`oku config path`). Unknown outcomes survive restarts and block new exposure for the same account across all profiles and API origins until reconciled.
+
+Older binaries used a JSON journal directory. **Nothing migrates it automatically.** Until you run the migration, commands that touch the journal fail with `CONFIG_ERROR` and a hint to run it:
+
+```sh
+oku journal migrate   # explicit, offline; stop every older oku process first
+```
+
+Do not delete or edit the legacy directory by hand. The migration:
+
+1. Refuses while another `oku` holds the journal lock. Stop every older `oku` process first.
+2. Does nothing if there is no legacy journal: a fresh install, or one already migrated. Rerunning it is harmless.
+3. Otherwise it writes a `journal-migration-incomplete` marker. It then moves the old directory to `journal-legacy-backup` (mode 0700) and puts a regular file at the old path. Older binaries fail on that file instead of silently reopening stale state. While the marker exists, signing stays blocked.
+4. Imports every profile record and nonce from the backup, verifies the counts, and only then removes the marker.
+
+If it fails partway, the marker keeps signing blocked. Fix the reported cause, then run `oku journal migrate` again, which continues from the backup. Do not edit or delete the state directory by hand.
+
+The barrier protects only against accidental downgrade, not against deliberately restoring old state.
 
 ## Order states
 
-HTTP success is not a fill. On timeout or connection loss after submit, exit 6 / `OUTCOME_UNKNOWN`: use `oku orders status --intent ID` / `oku orders reconcile`. **Never place a replacement until the original is resolved.**
+HTTP success is not a fill. On a timeout or connection loss after submit, the CLI exits 6 with `OUTCOME_UNKNOWN`. Use `oku orders status --intent ID` or `oku orders reconcile`. **Never place a replacement until the original is resolved.**

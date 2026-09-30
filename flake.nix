@@ -19,7 +19,7 @@
           inherit version;
           src = ./.;
 
-          vendorHash = "sha256-9X043gd0r1Ge+0lZ9iivi+as6/Bi8QwDwQp2p4bfZ1o=";
+          vendorHash = "sha256-5vtLweW2q+RE4ApYsUADUpCdmZVTbsMTXeWiXbPM8cs=";
 
           subPackages = [ "cmd/oku" ];
 

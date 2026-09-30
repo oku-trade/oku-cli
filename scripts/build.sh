@@ -29,7 +29,14 @@ for p in $PLATFORMS; do
   CGO_ENABLED=$cgo GOOS="$os" GOARCH="$arch" go build -trimpath -buildvcs=false \
     -ldflags "-s -w -buildid= -X main.version=${VERSION}" \
     -o "$OUT/$name/oku" ./cmd/oku
+  if [[ "$os" == darwin ]]; then
+    # Ad-hoc signature only (integrity/arm64 launch requirement). NOT Developer ID, NOT notarized.
+    codesign --force --sign - "$OUT/$name/oku"
+    codesign --verify --strict --verbose=2 "$OUT/$name/oku"
+  fi
   cp README.md "$OUT/$name/" 2>/dev/null || true
+  # Required: license notices for bundled deps of this exact target (fails if incomplete).
+  CGO_ENABLED=$cgo GOOS="$os" GOARCH="$arch" "$(dirname "$0")/third-party-notices.sh" "$OUT/$name/THIRD_PARTY_NOTICES"
   # GNU tar flags for determinism; bsdtar on macOS lacks --sort, so fall back.
   if tar --version 2>/dev/null | grep -q GNU; then
     tar --sort=name --mtime="@${SOURCE_DATE_EPOCH}" --owner=0 --group=0 --numeric-owner \

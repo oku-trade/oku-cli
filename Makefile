@@ -4,7 +4,8 @@ PREFIX ?= $(HOME)/.local
 build:
 	go build -trimpath -ldflags "-X main.version=$(VERSION)" -o bin/oku ./cmd/oku
 install: build
-	install -Dm755 bin/oku $(PREFIX)/bin/oku
+	mkdir -p $(PREFIX)/bin
+	install -m755 bin/oku $(PREFIX)/bin/oku
 uninstall:
 	rm -f $(PREFIX)/bin/oku
 test:

@@ -2,6 +2,8 @@
 # Build npm tarballs locally. Never publishes.
 # Usage: scripts/npm-pack.sh <version> <out-dir> [os/arch=path/to/oku ...]
 #   Always packs the launcher. Packs one platform package per os/arch=binary argument.
+#   Each binary must have THIRD_PARTY_NOTICES beside it (as produced by build.sh);
+#   packing refuses without it so binaries never ship without dependency notices.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 VERSION="${1:?version (semver, no leading v)}"; OUT="${2:?out dir}"; shift 2
@@ -39,10 +41,13 @@ for spec in "$@"; do
   plat="${spec%%=*}"; bin="${spec#*=}"
   os="${plat%/*}"; cpu="$(npm_cpu "${plat#*/}")"
   d="$work/$os-$cpu"; mkdir -p "$d/bin"
-  install -m755 "$bin" "$d/bin/oku"; cp "$root/npm/README.md" "$d/README.md"
+  notices="$(dirname "$bin")/THIRD_PARTY_NOTICES"
+  [[ -s "$notices" ]] || { echo "missing $notices (run scripts/build.sh or third-party-notices.sh)" >&2; exit 1; }
+  grep -q "^Third-party notices for oku ($os/${plat#*/}," "$notices" || { echo "$notices is not for $plat" >&2; exit 1; }
+  install -m755 "$bin" "$d/bin/oku"; cp "$root/npm/README.md" "$d/README.md"; cp "$notices" "$d/THIRD_PARTY_NOTICES"
   sed -e "s/@OS@/$os/g" -e "s/@CPU@/$cpu/g" -e "s/@VERSION@/$VERSION/g" \
     "$root/npm/platform/package.json.tmpl" > "$d/package.json"
   tgz="$(cd "$d" && npm pack --silent --pack-destination "$OUT")"
-  check_allowlist "$OUT/$tgz" bin/oku README.md package.json
+  check_allowlist "$OUT/$tgz" bin/oku README.md THIRD_PARTY_NOTICES package.json
   echo "$OUT/$tgz"
 done
