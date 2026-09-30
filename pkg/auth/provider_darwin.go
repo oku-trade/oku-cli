@@ -2,6 +2,12 @@
 
 package auth
 
+/*
+#cgo LDFLAGS: -framework Security
+#include <Security/Security.h>
+*/
+import "C"
+
 import (
 	"crypto/sha256"
 	"encoding/hex"
@@ -19,6 +25,17 @@ import (
 const keychainService = "com.oku.trade.cli.credentials.v1"
 
 type systemKeychain struct{}
+
+// keybase/go-keychain does not expose kSecUseAuthenticationUIFail. The
+// legacy macOS Keychain API provides process-wide interaction suppression.
+// Never restore interaction implicitly: headless commands must fail closed
+// instead of displaying an authorization dialog or hanging behind one.
+func disallowKeychainInteraction() error {
+	if status := C.SecKeychainSetUserInteractionAllowed(C.Boolean(0)); status != 0 {
+		return fmt.Errorf("%w: cannot disable Keychain UI (status %d)", ErrKeychainUnavailable, int(status))
+	}
+	return nil
+}
 
 func keychainAccount(profile string) (string, error) {
 	dir, err := config.Dir()
@@ -56,6 +73,9 @@ func keychainError(err error) error {
 }
 
 func (systemKeychain) Get(profile string) ([]byte, error) {
+	if err := disallowKeychainInteraction(); err != nil {
+		return nil, err
+	}
 	if profile == "" {
 		return nil, errors.New("empty keychain profile")
 	}
@@ -78,6 +98,9 @@ func (systemKeychain) Get(profile string) ([]byte, error) {
 	return result[0].Data, nil
 }
 func (systemKeychain) Put(profile string, value []byte) error {
+	if err := disallowKeychainInteraction(); err != nil {
+		return err
+	}
 	if profile == "" {
 		return errors.New("empty keychain profile")
 	}
@@ -86,6 +109,9 @@ func (systemKeychain) Put(profile string, value []byte) error {
 		return err
 	}
 	item.SetData(value)
+	// The library documents kSecAttrAccessible support on macOS when
+	// kSecAttrSynchronizable is specified (set to false on this item).
+	item.SetAccessible(keychain.AccessibleWhenUnlockedThisDeviceOnly)
 	item.SetLabel("Oku CLI device credential")
 	err = keychain.AddItem(item)
 	if errors.Is(err, keychain.ErrorDuplicateItem) {
@@ -100,6 +126,9 @@ func (systemKeychain) Put(profile string, value []byte) error {
 	return keychainError(err)
 }
 func (systemKeychain) Remove(profile string) error {
+	if err := disallowKeychainInteraction(); err != nil {
+		return err
+	}
 	if profile == "" {
 		return errors.New("empty keychain profile")
 	}

@@ -15,7 +15,7 @@ import (
 // default Keychain on a fresh hosted runner. The wrapper owns restoration and
 // deletion, including when this test fails or leaves the Keychain locked.
 func TestDedicatedNativeKeychain(t *testing.T) {
-	if os.Getenv("GITHUB_ACTIONS") != "true" || os.Getenv("CI") != "true" || os.Getenv("OKU_KEYCHAIN_TEST_ACK") != "disposable-runner" {
+	if os.Getenv("GITHUB_ACTIONS") != "true" || os.Getenv("CI") != "true" || os.Getenv("OKU_KEYCHAIN_TEST_ACK") != "disposable-runner" || os.Getenv("OKU_KEYCHAIN_LOCK_TEST") != "1" {
 		t.Skip("requires hosted CI disposable default Keychain wrapper")
 	}
 	dedicated := os.Getenv("OKU_TEST_KEYCHAIN")

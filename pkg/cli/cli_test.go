@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -218,6 +219,19 @@ type harness struct {
 }
 
 func newHarness(t *testing.T) *harness {
+	if runtime.GOOS == "darwin" {
+		if os.Getenv("GITHUB_ACTIONS") != "true" || os.Getenv("CI") != "true" || os.Getenv("OKU_KEYCHAIN_TEST_ACK") != "disposable-runner" {
+			t.Skip("macOS auth tests require the disposable Keychain CI wrapper")
+		}
+		dedicated := os.Getenv("OKU_TEST_KEYCHAIN")
+		if dedicated == "" || !filepath.IsAbs(dedicated) || !strings.Contains(filepath.Base(dedicated), "oku-ci-") {
+			t.Fatal("missing dedicated Keychain path")
+		}
+		out, err := exec.Command("security", "default-keychain", "-d", "user").Output()
+		if err != nil || strings.Trim(strings.TrimSpace(string(out)), "\"") != dedicated {
+			t.Fatalf("disposable Keychain is not the user default: %v", err)
+		}
+	}
 	t.Setenv("OKU_CONFIG_DIR", filepath.Join(t.TempDir(), "cfg"))
 	t.Setenv("OKU_STATE_DIR", filepath.Join(t.TempDir(), "state"))
 	fake, srv := newFake(t)
@@ -302,10 +316,12 @@ func TestEnrollmentFlow(t *testing.T) {
 			t.Fatal("secret in output")
 		}
 	}
-	cred, _ := filepath.Glob(filepath.Join(os.Getenv("OKU_CONFIG_DIR"), "credentials", "*"))
-	raw, _ := os.ReadFile(cred[0])
-	if bytes.Contains(raw, []byte(token)) {
-		t.Fatal("token stored in plaintext")
+	if runtime.GOOS != "darwin" {
+		cred, _ := filepath.Glob(filepath.Join(os.Getenv("OKU_CONFIG_DIR"), "credentials", "*"))
+		raw, _ := os.ReadFile(cred[0])
+		if bytes.Contains(raw, []byte(token)) {
+			t.Fatal("token stored in plaintext")
+		}
 	}
 	if r := h.run("auth", "status", "--verify", "--json"); r.code != 0 {
 		t.Fatalf("verify: %s", r.stdout)
@@ -523,6 +539,9 @@ func TestProfileBindingEnforced(t *testing.T) {
 }
 
 func TestNoPassphraseFailsClosed(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("native Keychain uses OS authorization rather than a file passphrase")
+	}
 	h := newHarness(t)
 	h.enroll()
 	id, dg := prepare(t, h)
