@@ -1,0 +1,16 @@
+version: v2
+clean: true
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/oku-trade/oku-cli/pkg/gen
+inputs:
+  - directory: proto
+plugins:
+  - local: ["go", "run", "google.golang.org/protobuf/cmd/protoc-gen-go"]
+    out: pkg/gen
+    opt: [paths=source_relative]
+  - local: protoc-gen-connect-go
+    out: pkg/gen
+    opt: [paths=source_relative]

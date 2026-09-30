@@ -1,5 +1,8 @@
 package signing
 
+// Legacy handwritten encoder, kept only as a differential oracle for the
+// vmihailenco/msgpack-backed EncodeActionJSON.
+
 import (
 	"bytes"
 	"encoding/binary"
@@ -15,18 +18,18 @@ import (
 // maxSafeInteger mirrors JavaScript Number.MAX_SAFE_INTEGER. The reference
 // frontend parses action_json with JSON.parse, so integers outside this range
 // would be silently rounded there. We refuse them instead of guessing.
-const maxSafeInteger = 1<<53 - 1
+const legacyMaxSafeInteger = 1<<53 - 1
 
 // EncodeActionJSON msgpack-encodes a JSON document preserving object key
 // order, matching @msgpack/msgpack encode(JSON.parse(actionJSON)) as used by
 // trade/src/app/features/perps/lib/hyperliquidHash.ts. Non-integer numbers are
 // rejected (fail closed): no Oku action currently contains them and float
 // encoding differs across SDKs.
-func EncodeActionJSON(actionJSON string) ([]byte, error) {
+func legacyEncodeActionJSON(actionJSON string) ([]byte, error) {
 	dec := json.NewDecoder(strings.NewReader(actionJSON))
 	dec.UseNumber()
 	var buf bytes.Buffer
-	if err := encodeValue(dec, &buf); err != nil {
+	if err := legacyEncodeValue(dec, &buf); err != nil {
 		return nil, err
 	}
 	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
@@ -35,7 +38,7 @@ func EncodeActionJSON(actionJSON string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func encodeValue(dec *json.Decoder, buf *bytes.Buffer) error {
+func legacyEncodeValue(dec *json.Decoder, buf *bytes.Buffer) error {
 	tok, err := dec.Token()
 	if err != nil {
 		return fmt.Errorf("parse action json: %w", err)
@@ -44,13 +47,13 @@ func encodeValue(dec *json.Decoder, buf *bytes.Buffer) error {
 	case json.Delim:
 		switch v {
 		case '{':
-			return encodeObject(dec, buf)
+			return legacyEncodeObject(dec, buf)
 		case '[':
-			return encodeArray(dec, buf)
+			return legacyEncodeArray(dec, buf)
 		}
 		return fmt.Errorf("unexpected delimiter %q", v)
 	case string:
-		writeString(buf, v)
+		legacyWriteString(buf, v)
 	case bool:
 		if v {
 			buf.WriteByte(0xc3)
@@ -60,14 +63,14 @@ func encodeValue(dec *json.Decoder, buf *bytes.Buffer) error {
 	case nil:
 		buf.WriteByte(0xc0)
 	case json.Number:
-		return writeNumber(buf, v)
+		return legacyWriteNumber(buf, v)
 	default:
 		return fmt.Errorf("unsupported json token %T", tok)
 	}
 	return nil
 }
 
-func encodeObject(dec *json.Decoder, buf *bytes.Buffer) error {
+func legacyEncodeObject(dec *json.Decoder, buf *bytes.Buffer) error {
 	var body bytes.Buffer
 	n := 0
 	seen := map[string]bool{}
@@ -80,7 +83,7 @@ func encodeObject(dec *json.Decoder, buf *bytes.Buffer) error {
 		if !ok {
 			return errors.New("object key is not a string")
 		}
-		if isArrayIndexKey(key) {
+		if legacyIsArrayIndexKey(key) {
 			// JavaScript objects enumerate integer-like keys first, so
 			// JSON.parse would reorder them relative to the wire bytes.
 			return fmt.Errorf("integer-like key %q in action json is not supported", key)
@@ -91,8 +94,8 @@ func encodeObject(dec *json.Decoder, buf *bytes.Buffer) error {
 			return fmt.Errorf("duplicate key %q in action json", key)
 		}
 		seen[key] = true
-		writeString(&body, key)
-		if err := encodeValue(dec, &body); err != nil {
+		legacyWriteString(&body, key)
+		if err := legacyEncodeValue(dec, &body); err != nil {
 			return err
 		}
 		n++
@@ -100,16 +103,16 @@ func encodeObject(dec *json.Decoder, buf *bytes.Buffer) error {
 	if _, err := dec.Token(); err != nil {
 		return err
 	}
-	writeHeader(buf, n, 0x80, 0xde, 0xdf)
+	legacyWriteHeader(buf, n, 0x80, 0xde, 0xdf)
 	buf.Write(body.Bytes())
 	return nil
 }
 
-func encodeArray(dec *json.Decoder, buf *bytes.Buffer) error {
+func legacyEncodeArray(dec *json.Decoder, buf *bytes.Buffer) error {
 	var body bytes.Buffer
 	n := 0
 	for dec.More() {
-		if err := encodeValue(dec, &body); err != nil {
+		if err := legacyEncodeValue(dec, &body); err != nil {
 			return err
 		}
 		n++
@@ -117,12 +120,12 @@ func encodeArray(dec *json.Decoder, buf *bytes.Buffer) error {
 	if _, err := dec.Token(); err != nil {
 		return err
 	}
-	writeHeader(buf, n, 0x90, 0xdc, 0xdd)
+	legacyWriteHeader(buf, n, 0x90, 0xdc, 0xdd)
 	buf.Write(body.Bytes())
 	return nil
 }
 
-func writeHeader(buf *bytes.Buffer, n int, fix, b16, b32 byte) {
+func legacyWriteHeader(buf *bytes.Buffer, n int, fix, b16, b32 byte) {
 	switch {
 	case n < 16:
 		buf.WriteByte(fix | byte(n))
@@ -135,7 +138,7 @@ func writeHeader(buf *bytes.Buffer, n int, fix, b16, b32 byte) {
 	}
 }
 
-func writeString(buf *bytes.Buffer, s string) {
+func legacyWriteString(buf *bytes.Buffer, s string) {
 	n := len(s)
 	switch {
 	case n < 32:
@@ -153,13 +156,13 @@ func writeString(buf *bytes.Buffer, s string) {
 	buf.WriteString(s)
 }
 
-func writeNumber(buf *bytes.Buffer, n json.Number) error {
+func legacyWriteNumber(buf *bytes.Buffer, n json.Number) error {
 	s := n.String()
 	if strings.ContainsAny(s, ".eE") {
 		return fmt.Errorf("non-integer number %s in action json is not supported", s)
 	}
 	i, err := strconv.ParseInt(s, 10, 64)
-	if err != nil || i > maxSafeInteger || i < -maxSafeInteger {
+	if err != nil || i > legacyMaxSafeInteger || i < -legacyMaxSafeInteger {
 		return fmt.Errorf("integer %s outside JavaScript safe range", s)
 	}
 	if i >= 0 {
@@ -201,7 +204,7 @@ func writeNumber(buf *bytes.Buffer, n json.Number) error {
 
 // isArrayIndexKey reports whether JS would treat k as an array index
 // (canonical uint32 below 2^32-1), which changes property order.
-func isArrayIndexKey(k string) bool {
+func legacyIsArrayIndexKey(k string) bool {
 	if k == "" || (len(k) > 1 && k[0] == '0') {
 		return false
 	}

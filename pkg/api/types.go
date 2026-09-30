@@ -173,9 +173,25 @@ type CancelActionMetadata struct {
 	Oid  Int64  `json:"oid"`
 }
 
+// LeverageActionMetadata mirrors perps.proto LeverageActionMetadata.
+type LeverageActionMetadata struct {
+	Coin     string `json:"coin"`
+	Leverage int    `json:"leverage"`
+	IsCross  bool   `json:"isCross"`
+}
+
+// MarginActionMetadata mirrors perps.proto MarginActionMetadata. Amount is a
+// canonical signed decimal USDC string (negative removes margin).
+type MarginActionMetadata struct {
+	Coin   string `json:"coin"`
+	Amount string `json:"amount"`
+}
+
 type ActionParams struct {
-	Order  *OrderActionMetadata  `json:"order,omitempty"`
-	Cancel *CancelActionMetadata `json:"cancel,omitempty"`
+	Order    *OrderActionMetadata    `json:"order,omitempty"`
+	Cancel   *CancelActionMetadata   `json:"cancel,omitempty"`
+	Leverage *LeverageActionMetadata `json:"leverage,omitempty"`
+	Margin   *MarginActionMetadata   `json:"margin,omitempty"`
 }
 
 type CreateActionRequest struct {
