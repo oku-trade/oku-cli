@@ -97,7 +97,8 @@ jobs:
   protos:
     # Regenerates pkg/gen from the vendored proto/ closure (no private backend checkout)
     # and fails on drift. Tool versions pinned: buf v1.73.0; protoc-gen-go via go.mod
-    # (go run); protoc-gen-connect-go at the connectrpc.com/connect version in go.mod.
+    # (go run); protoc-gen-connect-go v1.21.0, the generator that produced the committed
+    # pkg/gen. This generator pin is independent of the connectrpc.com/connect runtime in go.mod.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -106,6 +107,6 @@ jobs:
       - name: install pinned generators
         run: |
           go install github.com/bufbuild/buf/cmd/buf@v1.73.0
-          go install connectrpc.com/connect/cmd/protoc-gen-connect-go@$(go list -m -f '{{.Version}}' connectrpc.com/connect)
+          go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.21.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - run: ./scripts/sync-protos.sh --check
