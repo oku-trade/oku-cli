@@ -26,4 +26,5 @@ Local release archives: `make dist` builds linux/darwin × amd64/arm64 into `dis
 - [docs/security.md](docs/security.md): signing modes, key risks, revocation
 - [docs/deployment.md](docs/deployment.md): backend/frontend prerequisites
 - [docs/releasing.md](docs/releasing.md): local builds and checksum verification
+- [docs/validation.md](docs/validation.md): what has actually been verified
 - Agent skill: [internal/skills/assets/oku-perps/SKILL.md](internal/skills/assets/oku-perps/SKILL.md)
