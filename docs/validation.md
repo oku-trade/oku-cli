@@ -29,3 +29,15 @@ Record only what was actually executed. Nothing here verifies the new CLI binary
 - Results: HTTP 200. Title `Oku CLI and Agents | Oku Trade`. Heading visible. "Connect wallet" visible. Enrollment controls absent without a wallet. Zero `pageerror` events. At a mobile 390x844 viewport the heading is visible with no horizontal overflow.
 - Screenshots: `scratch/oku-cli-validation/{desktop,mobile}.png` (local scratch, not committed).
 - Scope: unauthenticated page render only. No wallet connected, and no enrollment, signing or trades tested. This replaces the earlier "Firefox bridge unavailable" blocker.
+
+## 2026-09-30: frontend commit `e4c7845d1`, targeted checks (root agent)
+
+- `corepack yarn vitest run src/app/features/cli src/app/features/perps/state/approvals.test.ts src/app/lib/posthogNetworkMask.test.ts`: 4 files, 26 tests pass.
+- `corepack yarn lint:check`: exit 0 (one unrelated hooks warning).
+- `POSTHOG_PERSONAL_API_KEY= POSTHOG_PROJECT_ID= corepack yarn vite build --outDir <scratch>/ui-dist`: exit 0 in about 10s, external uploads disabled.
+- **Not claimed:** the full frontend test suite is not green. 16 other failures were reported elsewhere in the suite.
+
+## CLI (status at this time)
+
+- All 7 package tests passed with `-race`, as reported by the CLI worker.
+- Review fixes are still pending. The final real `make dist` packaging run and the CLI smoke test have **not** been done yet.
