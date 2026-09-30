@@ -38,6 +38,7 @@ type fakeOku struct {
 	actionJSON func(meta map[string]any) string
 	confirm    func() (int, string)
 	actions    map[string]string // id -> state
+	oids       map[string]string // id -> hl oid, when acknowledged
 	confirms   int
 	creates    int
 	lastSigned map[string]any
@@ -45,7 +46,7 @@ type fakeOku struct {
 }
 
 func newFake(t *testing.T) (*fakeOku, *httptest.Server) {
-	f := &fakeOku{t: t, actions: map[string]string{}, approveAcct: acct}
+	f := &fakeOku{t: t, actions: map[string]string{}, oids: map[string]string{}, approveAcct: acct}
 	srv := httptest.NewServer(f)
 	t.Cleanup(srv.Close)
 	return f, srv
@@ -139,7 +140,7 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			io.WriteString(w, resp)
 			return
 		}
-		f.actions[id] = "submitted"
+		f.actions[id], f.oids[id] = "submitted", "987654321"
 		reply(map[string]any{"status": "submitted", "hlOid": "987654321"})
 	case "CancelAction":
 		f.actions[body["actionId"].(string)] = "cancelled"
@@ -150,7 +151,11 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "ReconcileActions":
 		out := []map[string]any{}
 		for _, id := range body["actionIds"].([]any) {
-			out = append(out, map[string]any{"actionId": id, "state": f.actions[id.(string)], "hlOid": "987654321"})
+			a := map[string]any{"actionId": id, "state": f.actions[id.(string)]}
+			if f.oids[id.(string)] != "" {
+				a["hlOid"] = f.oids[id.(string)]
+			}
+			out = append(out, a)
 		}
 		reply(map[string]any{"actions": out})
 	default:
@@ -399,8 +404,8 @@ func TestAmbiguousConfirmIsUnknownAndBlocksResend(t *testing.T) {
 	if r.errCode() != "OUTCOME_UNKNOWN" || h.fake.confirms != 1 {
 		t.Fatalf("new order while unknown: %s", r.stdout)
 	}
-	// Server says the confirm actually landed.
-	h.fake.actions["act1"] = "submitted"
+	// Server says the confirm actually landed and the order rests.
+	h.fake.actions["act1"], h.fake.oids["act1"] = "submitted", "987654321"
 	r = h.run("orders", "reconcile", "--json")
 	if r.code != 0 || r.data()["still_unknown"].(float64) != 0 {
 		t.Fatalf("reconcile: %s", r.stdout)
@@ -525,5 +530,58 @@ func TestJSONContractAndStderr(t *testing.T) {
 	r = h.run("orders", "prepare", "--market", "BTC", "--side", "buy", "--type", "limit", "--size", "1e-3", "--price", "50000", "--json")
 	if r.errCode() != "INVALID_DECIMAL" {
 		t.Fatalf("got %s", r.stdout)
+	}
+}
+
+// Backend ConfirmAction returns {"status":"submitted"} with no hlOid when the
+// exchange outcome is unknown (workflow_main.go handleUnknownSubmission).
+// That must stay unknown through confirm and reconcile and block new orders.
+func TestSubmittedWithoutOrderIDStaysUnknown(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	h.fake.confirm = func() (int, string) {
+		h.fake.actions["act1"] = "submitted"
+		return 200, `{"status":"submitted"}`
+	}
+	id, dg := prepare(t, h)
+	r := h.run("orders", "submit", "--intent", id, "--digest", dg, "--json")
+	if r.code != 6 || r.errCode() != "OUTCOME_UNKNOWN" {
+		t.Fatalf("confirm submitted without oid: %d %s", r.code, r.stdout)
+	}
+	r = h.run("orders", "reconcile", "--json")
+	if r.code != 0 || r.data()["still_unknown"].(float64) != 1 {
+		t.Fatalf("reconcile cleared unknown without oid: %s", r.stdout)
+	}
+	id2, dg2 := prepare(t, h)
+	r = h.run("orders", "submit", "--intent", id2, "--digest", dg2, "--json")
+	if r.errCode() != "OUTCOME_UNKNOWN" || h.fake.confirms != 1 || h.fake.creates != 1 {
+		t.Fatalf("second exposure not blocked: %s confirms=%d creates=%d", r.stdout, h.fake.confirms, h.fake.creates)
+	}
+	// Terminal authoritative state resolves it.
+	h.fake.actions["act1"] = "cancelled"
+	r = h.run("orders", "reconcile", "--json")
+	if r.data()["still_unknown"].(float64) != 0 {
+		t.Fatalf("terminal state did not resolve: %s", r.stdout)
+	}
+}
+
+func TestAbandonOnlyNeverSigned(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	h.fake.confirm = func() (int, string) { return 503, "" }
+	id, dg := prepare(t, h)
+	h.run("orders", "submit", "--intent", id, "--digest", dg)
+	before := len(h.fake.calls)
+	if r := h.run("orders", "abandon", "--intent", id, "--json"); r.errCode() != "OUTCOME_UNKNOWN" {
+		t.Fatalf("abandoned a signed intent: %s", r.stdout)
+	}
+	for _, c := range h.fake.calls[before:] {
+		if c == "CancelAction" {
+			t.Fatal("unsigned CancelAction sent for a signed intent")
+		}
+	}
+	id2, _ := prepare(t, h)
+	if r := h.run("orders", "abandon", "--intent", id2, "--json"); r.code != 0 || r.data()["state"] != "abandoned" {
+		t.Fatalf("abandon prepared: %s", r.stdout)
 	}
 }

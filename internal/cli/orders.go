@@ -22,9 +22,6 @@ import (
 const (
 	defaultIntentTTL = 5 * time.Minute
 	maxIntentTTL     = time.Hour
-	// pendingGrace is how long after a submit attempt a still-"pending"
-	// server action is treated as possibly in flight.
-	pendingGrace = 2 * time.Minute
 )
 
 func prepareFlags(fs *flag.FlagSet) {
@@ -325,10 +322,10 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 		cancel()
 		if err != nil {
 			rec.State, rec.LastError = journal.StatePrepared, "create failed: "+err.Error()
-			_ = j.Put(rec, "create_failed")
+			jerr := j.Put(rec, "create_failed")
 			oe := apiError(err, "CreateAction")
 			oe.(*output.Error).ExecutionState = output.ExecNone
-			return nil, oe
+			return nil, withJournal(oe, jerr)
 		}
 		cloid, verr := trading.ValidateAction(in, pay.ActionJSON)
 		if verr != nil || pay.ActionID == "" {
@@ -336,9 +333,9 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 				verr = errors.New("missing action id")
 			}
 			rec.State, rec.ActionID, rec.LastError = journal.StateRejected, pay.ActionID, verr.Error()
-			_ = j.Put(rec, "server_payload_mismatch")
+			jerr := j.Put(rec, "server_payload_mismatch")
 			e.abandonServerAction(c, pay.ActionID)
-			return nil, output.Errorf(output.CodePayloadMismatch, "%v; nothing was signed", verr).WithExec(output.ExecNone)
+			return nil, withJournal(output.Errorf(output.CodePayloadMismatch, "%v; nothing was signed", verr).WithExec(output.ExecNone), jerr)
 		}
 		rec.State, rec.ActionID, rec.ActionJSON, rec.Cloid = journal.StateCreated, pay.ActionID, pay.ActionJSON, cloid
 		if err := j.Put(rec, ""); err != nil {
@@ -373,26 +370,49 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 	if err != nil {
 		ae, _ := api.AsError(err)
 		if ae == nil || ae.Ambiguous {
+			// On disk the record is already "submitting", which is treated
+			// as unknown, so a failed write here stays fail-safe.
 			rec.State, rec.LastError = journal.StateUnknown, err.Error()
-			_ = j.Put(rec, "confirm_ambiguous")
-			return nil, unknownErr(rec)
+			return nil, withJournal(unknownErr(rec), j.Put(rec, "confirm_ambiguous"))
 		}
 		rec.State, rec.LastError = journal.StateRejected, err.Error()
-		_ = j.Put(rec, "confirm_rejected")
+		jerr := j.Put(rec, "confirm_rejected")
 		oe := apiError(err, "ConfirmAction").(*output.Error)
 		oe.Code, oe.ExecutionState = output.CodeRejected, output.ExecRejected
-		return nil, oe
+		return nil, withJournal(oe, jerr)
 	}
-	rec.State, rec.ServerState, rec.OrderID = journal.StateSubmitted, conf.Status, int64(conf.HlOid)
-	rec.LastError = conf.ErrorMessage
-	if err := j.Put(rec, ""); err != nil {
-		e.diag("warning: submitted but journal update failed: %v", err)
+	applyServerState(rec, conf.Status, int64(conf.HlOid), conf.ErrorMessage)
+	if err := j.Put(rec, "confirm"); err != nil {
+		// Disk still says "submitting" (unknown). Report that, not success.
+		return nil, withJournal(unknownErr(rec), err)
 	}
-	if conf.Status == "error" {
+	switch rec.State {
+	case journal.StateRejected:
 		return nil, output.Errorf(output.CodeRejected, "exchange rejected the action: %s", api.Redact(conf.ErrorMessage)).
 			WithExec(output.ExecRejected).WithDetail("record", recordView(rec))
+	case journal.StateSubmitted:
+		return recordResult(rec), nil
 	}
-	return recordResult(rec), nil
+	return nil, unknownErr(rec)
+}
+
+// withJournal attaches a journal write failure to an error that is already
+// being returned, so the caller learns local state may be stale.
+func withJournal(err error, jerr error) error {
+	if jerr == nil {
+		return err
+	}
+	oe := output.As(err)
+	oe.Details = mergeDetail(oe.Details, "journal_error", jerr.Error())
+	return oe
+}
+
+func mergeDetail(m map[string]any, k string, v any) map[string]any {
+	if m == nil {
+		m = map[string]any{}
+	}
+	m[k] = v
+	return m
 }
 
 func createRequest(in *trading.Intent) api.CreateActionRequest {
@@ -576,7 +596,9 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 		if r.State == journal.StateCreating {
 			// Never signed; safe to return to prepared.
 			r.State = journal.StatePrepared
-			_ = j.Put(r, "reconcile: create outcome irrelevant, unsigned")
+			if err := j.Put(r, "reconcile: create outcome irrelevant, unsigned"); err != nil {
+				return nil, output.Wrap(output.CodeInternal, err, "journal")
+			}
 			continue
 		}
 		if r.ActionID != "" && len(ids) < 50 {
@@ -602,11 +624,16 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 			if r == nil {
 				continue
 			}
-			applyServerState(r, &act)
-			_ = j.Put(r, "reconcile")
+			applyServerState(r, act.State, int64(act.HlOid), act.ErrorMessage)
+			if err := j.Put(r, "reconcile"); err != nil {
+				return nil, output.Wrap(output.CodeInternal, err, "journal")
+			}
 		}
 	}
-	remaining, _ := j.Unresolved()
+	remaining, err := j.Unresolved()
+	if err != nil {
+		return nil, output.Wrap(output.CodeInternal, err, "journal")
+	}
 	views := []map[string]any{}
 	for _, r := range un {
 		views = append(views, recordView(r))
@@ -631,24 +658,32 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 }
 
 // applyServerState maps authoritative backend action state onto a record.
-func applyServerState(r *journal.Record, act *api.GetActionResponse) {
-	r.ServerState = act.State
-	if act.HlOid != 0 {
-		r.OrderID = int64(act.HlOid)
+//
+// The backend reports "submitted" with no order id when the exchange outcome
+// is unknown (account workflow_main.go handleUnknownSubmission), so only a
+// positive order id or a terminal state counts as acknowledged. Anything else
+// keeps the record unknown, which blocks resends and new exposure.
+func applyServerState(r *journal.Record, state string, oid int64, errMsg string) {
+	r.ServerState = state
+	if oid > 0 {
+		r.OrderID = oid
 	}
-	if act.ErrorMessage != "" {
-		r.LastError = act.ErrorMessage
+	if errMsg != "" {
+		r.LastError = errMsg
 	}
-	switch act.State {
-	case "submitted", "completed", "filled", "cancelled", "canceled", "error":
+	switch {
+	case state == "error":
+		r.State = journal.StateRejected
+	case state == "completed", state == "filled", state == "cancelled", state == "canceled":
 		r.State = journal.StateSubmitted
-	case "pending":
-		// Server has not recorded a confirmation. A confirm could still be
-		// in flight shortly after a timeout, so stay unknown; the user can
-		// explicitly abandon it after the grace period.
-		if r.State == journal.StateSubmitting {
-			r.State = journal.StateUnknown
-		}
+	case state == "submitted" && r.OrderID > 0:
+		r.State = journal.StateSubmitted
+	case state == "pending" && r.State == journal.StateCreated:
+		// Never confirmed by us; still unsigned from the server's view.
+	default:
+		// "submitted" without an order id, "pending" after a confirm
+		// attempt, or an unrecognized state.
+		r.State = journal.StateUnknown
 	}
 }
 
@@ -665,41 +700,41 @@ func (a *App) cmdOrdersAbandon(e *env) (*result, error) {
 	if rec, err = j.Get(rec.Intent.ID); err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "journal")
 	}
+	// Only never-signed intents can be abandoned. Once a signature has been
+	// produced the outcome must be resolved with 'orders reconcile'.
 	switch rec.State {
 	case journal.StatePrepared, journal.StateCreating:
 		rec.State = journal.StateAbandoned
-		_ = j.Put(rec, "abandoned locally, never signed")
+		if err := j.Put(rec, "abandoned locally, never signed"); err != nil {
+			return nil, output.Wrap(output.CodeInternal, err, "journal")
+		}
 		return recordResult(rec), nil
-	case journal.StateCreated, journal.StateUnknown, journal.StateSubmitting:
+	case journal.StateCreated:
+	case journal.StateSubmitting, journal.StateUnknown:
+		return nil, output.Errorf(output.CodeOutcomeUnknown, "intent %s was signed and its outcome is unknown; it cannot be abandoned. Run 'oku orders reconcile'", rec.Intent.ID).
+			WithExec(output.ExecUnknown)
 	default:
 		return nil, output.Errorf(output.CodeIntentState, "intent is %s and cannot be abandoned", rec.State)
 	}
-	if rec.State != journal.StateCreated {
-		if t, err := time.Parse(time.RFC3339Nano, rec.UpdatedAt); err == nil && e.app.Now().Sub(t) < pendingGrace {
-			return nil, output.Errorf(output.CodeOutcomeUnknown, "last submit attempt was under %s ago; wait and reconcile first", pendingGrace).WithExec(output.ExecUnknown)
+	// StateCreated: the server holds an unsigned pending action. It cannot
+	// execute without our signature, and the signature is never produced
+	// for an abandoned intent. Server cleanup (which deletes the pending
+	// row) is best effort.
+	cleanup := "not_attempted"
+	if s, err := e.unlock(p, "trade"); err == nil {
+		c := e.client(p)
+		c.Token = s.token
+		ctx, cancel := e.requestCtx()
+		err = c.Perps(ctx, "CancelAction", map[string]string{"actionId": rec.ActionID}, nil, true)
+		cancel()
+		cleanup = "requested"
+		if err != nil {
+			cleanup = "failed: " + api.Redact(err.Error())
 		}
 	}
-	s, err := e.unlock(p, "trade")
-	if err != nil {
-		return nil, err
+	rec.State = journal.StateAbandoned
+	if err := j.Put(rec, "abandoned locally, never signed; server cleanup "+cleanup); err != nil {
+		return nil, output.Wrap(output.CodeInternal, err, "journal")
 	}
-	c := e.client(p)
-	c.Token = s.token
-	ctx, cancel := e.requestCtx()
-	defer cancel()
-	if err := c.Perps(ctx, "CancelAction", map[string]string{"actionId": rec.ActionID}, nil, true); err != nil {
-		return nil, apiError(err, "CancelAction")
-	}
-	var act api.GetActionResponse
-	if err := c.Perps(ctx, "GetAction", map[string]string{"actionId": rec.ActionID}, &act, true); err != nil {
-		return nil, apiError(err, "GetAction")
-	}
-	if act.State != "cancelled" && act.State != "canceled" {
-		applyServerState(rec, &act)
-		_ = j.Put(rec, "abandon: server state "+act.State)
-		return nil, output.Errorf(output.CodeIntentState, "server reports action state %q; not abandoned", act.State).WithDetail("record", recordView(rec))
-	}
-	rec.State, rec.ServerState = journal.StateAbandoned, act.State
-	_ = j.Put(rec, "abandoned: server action cancelled before execution")
 	return recordResult(rec), nil
 }
