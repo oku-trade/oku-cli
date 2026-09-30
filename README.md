@@ -8,7 +8,7 @@ It supports Hyperliquid **mainnet** only.
 > - The repository is private. There is no published npm package, no hosted install script and no auto-update.
 > - Device enrollment, the `risk` scope and authenticated order attribution are implemented in the backend and frontend but **not deployed**.
 > - Live enrollment, signing and trading have **not** been tested against deployed services. No real order has been submitted as part of validation.
-> - Native macOS execution has not yet been verified. See [docs/validation.md](docs/validation.md).
+> - Native Linux/macOS tests pass on amd64 and arm64, including isolated macOS Keychain tests. Final package checks are recorded in [docs/validation.md](docs/validation.md).
 > - The command grammar may change.
 
 ## Install (from source)
@@ -19,13 +19,45 @@ Building requires Go (the version is in `go.mod`).
 - **macOS** needs CGO and a native macOS host for the Keychain credential provider. Cross-compiling Darwin from Linux is refused by `scripts/build.sh`.
 
 ```sh
-git clone <this repository> && cd oku-cli
+git clone --branch main <this repository> && cd oku-cli
 make build          # bin/oku; or: make install (to $HOME/.local/bin/oku)
 ./bin/oku version
 ./bin/oku docs list # offline documentation bundled in the binary
 ```
 
-A Nix flake (`flake.nix`) provides a package and a dev shell.
+## Install (Nix)
+
+The repo is a flake, so Nix builds the pinned Go toolchain and dependencies for you. Requires Nix with flakes enabled (`--extra-experimental-features 'nix-command flakes'` if they are not on by default).
+
+```sh
+git clone --branch main <this repository> && cd oku-cli
+
+# run without installing
+nix run . -- version
+
+# ephemeral shell with oku on $PATH
+nix shell . --command oku version
+
+# build a ./result symlink
+nix build .            # ./result/bin/oku version
+
+# install into your user profile
+nix profile add .#oku  # then: oku version   (older Nix: nix profile install .#oku)
+```
+
+Development shell with Go, `gopls`, and `make`:
+
+```sh
+nix develop            # then: make build && go vet ./... && make docs-check
+```
+
+Uninstall the profile install with `nix profile remove oku`. Installing the named `.#oku` attribute (rather than plain `.`) is what makes the profile entry match the binary name; `nix profile list` shows the current entries. Once this repository is reachable by URL you can skip the clone and use `nix run github:oku-trade/oku-cli/main -- version` or add it as a flake input:
+
+```nix
+inputs.oku-cli.url = "github:oku-trade/oku-cli/main";
+# then: environment.systemPackages = [ inputs.oku-cli.packages.${system}.default ];
+```
+
 
 ## npm (not published)
 
