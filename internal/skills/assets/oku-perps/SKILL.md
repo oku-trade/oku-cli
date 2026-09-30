@@ -16,7 +16,7 @@ description: Read Hyperliquid perps market/account data and prepare, submit, tra
    - Prepare is local only and returns `intent_id` and `digest`.
    - Submit only after the user approves that exact preview: `oku orders submit --intent <intent_id> --digest <digest> --json`. There is no web approval step, so the user's approval in chat is the only check.
    - Any change to parameters means a new prepare and new approval.
-6. **Unknown outcome ≠ failure.** If submit exits 6 / `OUTCOME_UNKNOWN`, a timeout, or a network error, do **not** resubmit or place a replacement. Run `oku orders status --client-id <id> --json` / `oku orders reconcile --json` until the state is known, and report to the user.
+6. **Unknown outcome ≠ failure.** If submit exits 6 / `OUTCOME_UNKNOWN`, a timeout, or a network error, do **not** resubmit or place a replacement. Run `oku orders status --intent <intent_id> --json` / `oku orders reconcile --json` until the state is known, and report to the user.
 7. **Errors:** honor `retryable`. Exit 3 (auth) means stop and ask the user. Never try to read, guess or create the passphrase or `OKU_PASSPHRASE_FILE`. Exit 7 (conflict/rejected) is not retried automatically. Stale or missing data is an error, not a zero balance.
 8. Market orders must have bounded slippage and fills are not guaranteed. Closing uses reduce-only.
 
