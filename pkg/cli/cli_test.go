@@ -737,3 +737,17 @@ func TestAbandonOnlyNeverSigned(t *testing.T) {
 		t.Fatalf("abandon prepared: %s", r.stdout)
 	}
 }
+
+// Regression for M-03: the executable must parse the Int64 --order-id flag.
+func TestCancelAcceptsOrderIDThroughExecutable(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	r := h.run("orders", "cancel", "--market", "BTC", "--order-id", "123", "--json")
+	if r.code != 0 {
+		t.Fatalf("valid --order-id refused: %s", r.stdout)
+	}
+	raw := h.fake.lastSigned["signedAction"].(map[string]any)["actionJson"].(string)
+	if !strings.Contains(raw, `"o":123`) {
+		t.Fatalf("signed cancel does not target oid 123: %s", raw)
+	}
+}

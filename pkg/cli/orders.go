@@ -7,7 +7,6 @@ import (
 	"fmt"
 	urfave "github.com/urfave/cli/v3"
 	"io"
-	"strconv"
 	"strings"
 	"time"
 
@@ -513,7 +512,7 @@ func (a *App) cmdOrdersCancel(e *env) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	oid, _ := strconv.ParseInt(str(e, "order-id"), 10, 64)
+	oid := e.cmd.Int64("order-id")
 	if oid <= 0 {
 		return nil, output.Errorf(output.CodeInvalidArgument, "--order-id is required")
 	}
