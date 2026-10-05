@@ -587,6 +587,18 @@ func (j *Journal) BeginSubmission(r *Record, signer string) (int64, error) {
 	if prev.Digest != r.Digest || prev.State != StateCreated || prev.Nonce != 0 || r.ActionID != prev.ActionID || r.ActionJSON != prev.ActionJSON {
 		return 0, ErrConflict
 	}
+	// Cancelling an existing order cannot add exposure, so a cancel whose
+	// stored action validates as exactly that cancel (one target, the
+	// intent's asset and oid, nothing else) is exempt from the unresolved
+	// gate. Every other kind is gated. Nonce allocation and the submitting
+	// transition stay in this one write transaction either way.
+	riskReducing := false
+	if prev.Intent.Kind == trading.KindCancel {
+		if _, verr := trading.ValidateAction(&prev.Intent, prev.ActionJSON); verr != nil {
+			return 0, ErrConflict
+		}
+		riskReducing = true
+	}
 	// Gate the account in the same write transaction as nonce allocation.
 	rows, err := tx.Query(`SELECT profile,intent_id FROM records WHERE network=? AND account=? AND NOT(profile=? AND intent_id=?) AND state IN ('submitting','unknown')`, r.Intent.Network, strings.ToLower(r.Intent.Account), j.binding.Profile, r.Intent.ID)
 	if err != nil {
@@ -612,7 +624,7 @@ func (j *Journal) BeginSubmission(r *Record, signer string) (int64, error) {
 		if e != nil {
 			return 0, e
 		}
-		if other.State == StateSubmitting || other.State == StateUnknown {
+		if (other.State == StateSubmitting || other.State == StateUnknown) && !riskReducing {
 			return 0, ErrUnresolved
 		}
 	}

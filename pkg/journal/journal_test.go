@@ -447,3 +447,44 @@ func TestRejectDefiniteOnlyFromSubmitting(t *testing.T) {
 		t.Fatalf("rejected record still blocks: %v %v", b, e)
 	}
 }
+func TestCancelAllowedWhileUnknownButOrdersBlocked(t *testing.T) {
+	j := open(t)
+	a := created(t, j, intent("one", "https://one.example"))
+	n1, e := j.BeginSubmission(a, "0xsigner")
+	if e != nil {
+		t.Fatal(e)
+	}
+	a.State = StateUnknown
+	if e = j.Put(a, "timeout"); e != nil {
+		t.Fatal(e)
+	}
+	b := created(t, j, intent("two", "https://one.example"))
+	if _, e = j.BeginSubmission(b, "0xsigner"); !errors.Is(e, ErrUnresolved) {
+		t.Fatalf("new exposure allowed while unknown: %v", e)
+	}
+	cin := intent("cxl", "https://one.example")
+	cin.Kind, cin.AssetID, cin.OrderID = trading.KindCancel, 3, 77
+	c, _, e := j.Create(cin)
+	if e != nil {
+		t.Fatal(e)
+	}
+	c.State, c.ActionID, c.ActionJSON = StateCreated, "act-cx", `{"type":"cancel","cancels":[{"a":3,"o":77}]}`
+	if e = j.Put(c, ""); e != nil {
+		t.Fatal(e)
+	}
+	n2, e := j.BeginSubmission(c, "0xsigner")
+	if e != nil || n2 <= n1 {
+		t.Fatalf("cancel blocked or nonce not monotonic: %d %v", n2, e)
+	}
+	// A "cancel" intent whose stored action is not that exact cancel is refused.
+	din := intent("dxl", "https://one.example")
+	din.Kind, din.AssetID, din.OrderID = trading.KindCancel, 3, 78
+	d, _, _ := j.Create(din)
+	d.State, d.ActionID, d.ActionJSON = StateCreated, "act-dx", `{"type":"order","orders":[],"grouping":"na"}`
+	if e = j.Put(d, ""); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = j.BeginSubmission(d, "0xsigner"); e == nil {
+		t.Fatal("non-cancel action exempted from gate")
+	}
+}

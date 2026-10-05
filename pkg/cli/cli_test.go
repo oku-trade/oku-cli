@@ -806,3 +806,29 @@ func TestAmbiguousCodeConfirmStaysUnknown(t *testing.T) {
 		t.Fatalf("state: %s", r.stdout)
 	}
 }
+
+// Regression for M-05: cancelling an existing order is allowed while an
+// unrelated submission is unknown, but a new order is still blocked.
+func TestCancelAllowedWhileOtherSubmissionUnknown(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	h.fake.confirm = func() (int, string) { return 503, "gateway" }
+	id, dg := prepare(t, h)
+	if r := h.run("orders", "submit", "--intent", id, "--digest", dg, "--json"); r.errCode() != "OUTCOME_UNKNOWN" {
+		t.Fatalf("setup: %s", r.stdout)
+	}
+	h.fake.confirm = nil
+	if r := h.run("orders", "cancel", "--market", "BTC", "--order-id", "123", "--json"); r.code != 0 {
+		t.Fatalf("cancel blocked by unrelated unknown: %s", r.stdout)
+	}
+	s := testService(h)
+	s.AllowMutations(true)
+	if _, err := s.Call(context.Background(), "orders cancel", Globals{}, map[string]any{"market": "BTC", "order-id": int64(124)}, nil); err != nil {
+		t.Fatalf("service cancel blocked: %v", err)
+	}
+	id2, dg2 := prepare(t, h)
+	confirms := h.fake.confirms
+	if r := h.run("orders", "submit", "--intent", id2, "--digest", dg2, "--json"); r.errCode() != "OUTCOME_UNKNOWN" || h.fake.confirms != confirms {
+		t.Fatalf("new exposure allowed while unknown: %s", r.stdout)
+	}
+}
