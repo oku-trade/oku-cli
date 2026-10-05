@@ -368,7 +368,24 @@ func (j *Journal) Create(in trading.Intent) (*Record, bool, error) {
 	}
 	return r, true, nil
 }
-func (j *Journal) Put(r *Record, note string) error {
+func (j *Journal) Put(r *Record, note string) error { return j.put(r, note, false) }
+
+// RejectDefinite persists a submitting record as rejected on the strength of
+// a definite, non-ambiguous RPC rejection (a Connect error code the API
+// client classifies as returned before the handler acted, e.g.
+// invalid_argument or permission_denied) rather than an observed server
+// state. It only applies to a record currently submitting with the same
+// nonce, and the reason is recorded in last_error and the transition note.
+// Ambiguous outcomes must instead be persisted as unknown.
+func (j *Journal) RejectDefinite(r *Record, reason string) error {
+	if strings.TrimSpace(reason) == "" {
+		return errors.New("definite rejection requires a reason")
+	}
+	r.State, r.LastError = StateRejected, reason
+	return j.put(r, "confirm_rejected: "+reason, true)
+}
+
+func (j *Journal) put(r *Record, note string, definiteReject bool) error {
 	if !trading.ValidIntentID(r.Intent.ID) || r.Intent.Digest() != r.Digest {
 		return errors.New("invalid or modified intent digest")
 	}
@@ -390,7 +407,10 @@ func (j *Journal) Put(r *Record, note string) error {
 	if r.State == StateAbandoned && (prev.State == StateSubmitting || prev.State == StateUnknown || prev.State == StateSubmitted) {
 		return errors.New("possibly sent action cannot be abandoned")
 	}
-	if prev.State == StateSubmitting && r.State == StateRejected && r.ServerState == "" {
+	if definiteReject && (prev.State != StateSubmitting || r.State != StateRejected) {
+		return errors.New("definite rejection applies only to a submitting record")
+	}
+	if prev.State == StateSubmitting && r.State == StateRejected && r.ServerState == "" && !definiteReject {
 		return errors.New("rejection requires authoritative server observation")
 	}
 	ts := j.now().UTC().Format(time.RFC3339Nano)

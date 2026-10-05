@@ -766,3 +766,43 @@ func TestCaseAliasActionNeverSigned(t *testing.T) {
 		t.Fatalf("aliased action signed/sent (confirms=%d): %s", h.fake.confirms, r.stdout)
 	}
 }
+
+// Regression for M-04: a definite rejection is persisted as rejected, so
+// durable state matches the REJECTED result and does not block the account.
+func TestDefiniteRejectPersisted(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	h.fake.confirm = func() (int, string) { return 400, `{"code":"invalid_argument","message":"bad signature"}` }
+	id, dg := prepare(t, h)
+	r := h.run("orders", "submit", "--intent", id, "--digest", dg, "--json")
+	if r.errCode() != "REJECTED" {
+		t.Fatalf("submit: %s", r.stdout)
+	}
+	if strings.Contains(r.stdout, "journal_error") {
+		t.Fatalf("journal write failed: %s", r.stdout)
+	}
+	r = h.run("orders", "status", "--intent", id, "--json")
+	if r.data()["state"] != "rejected" || !strings.Contains(fmt.Sprint(r.data()["last_error"]), "invalid_argument") {
+		t.Fatalf("definite rejection not persisted: %s", r.stdout)
+	}
+	h.fake.confirm = nil
+	id2, dg2 := prepare(t, h)
+	if r = h.run("orders", "submit", "--intent", id2, "--digest", dg2, "--json"); r.code != 0 {
+		t.Fatalf("account still blocked after definite rejection: %s", r.stdout)
+	}
+}
+
+// Ambiguous Connect codes stay unknown.
+func TestAmbiguousCodeConfirmStaysUnknown(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	h.fake.confirm = func() (int, string) { return 500, `{"code":"internal","message":"boom"}` }
+	id, dg := prepare(t, h)
+	r := h.run("orders", "submit", "--intent", id, "--digest", dg, "--json")
+	if r.errCode() != "OUTCOME_UNKNOWN" {
+		t.Fatalf("submit: %s", r.stdout)
+	}
+	if r = h.run("orders", "status", "--intent", id, "--json"); r.data()["state"] != "unknown" {
+		t.Fatalf("state: %s", r.stdout)
+	}
+}

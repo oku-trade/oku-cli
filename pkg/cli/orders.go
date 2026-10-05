@@ -388,8 +388,10 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 			rec.State, rec.LastError = journal.StateUnknown, err.Error()
 			return nil, withJournal(unknownErr(rec), j.Put(rec, "confirm_ambiguous"))
 		}
-		rec.State, rec.LastError = journal.StateRejected, err.Error()
-		jerr := j.Put(rec, "confirm_rejected")
+		// Definite (non-ambiguous) Connect rejection: the handler refused
+		// the request, so it was not executed. Persist that explicitly so
+		// durable state matches the REJECTED result.
+		jerr := j.RejectDefinite(rec, err.Error())
 		oe := apiError(err, "ConfirmAction").(*output.Error)
 		oe.Code, oe.ExecutionState = output.CodeRejected, output.ExecRejected
 		return nil, withJournal(oe, jerr)

@@ -421,3 +421,29 @@ func TestMultiprocessNonceAndCrashState(t *testing.T) {
 		t.Fatalf("crash recovery %v %v", un, e)
 	}
 }
+func TestRejectDefiniteOnlyFromSubmitting(t *testing.T) {
+	j := open(t)
+	a := created(t, j, intent("one", "https://one.example"))
+	if e := j.RejectDefinite(a, "invalid_argument: bad"); e == nil {
+		t.Fatal("definite rejection applied to an unsent record")
+	}
+	a = created(t, j, intent("two", "https://one.example"))
+	n, e := j.BeginSubmission(a, "0xsigner")
+	if e != nil {
+		t.Fatal(e)
+	}
+	a.Nonce = n
+	if e = j.RejectDefinite(a, ""); e == nil {
+		t.Fatal("rejection without a reason accepted")
+	}
+	if e = j.RejectDefinite(a, "invalid_argument (http 400): bad signature"); e != nil {
+		t.Fatal(e)
+	}
+	got, e := j.Get("two")
+	if e != nil || got.State != StateRejected || got.LastError == "" || !strings.Contains(got.History[len(got.History)-1].Note, "bad signature") {
+		t.Fatalf("not persisted: %+v %v", got, e)
+	}
+	if b, e := j.Blocking("mainnet", got.Intent.Account); e != nil || len(b) != 0 {
+		t.Fatalf("rejected record still blocks: %v %v", b, e)
+	}
+}
