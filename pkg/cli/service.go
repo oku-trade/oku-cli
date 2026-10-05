@@ -118,9 +118,13 @@ func (s *Service) Call(ctx context.Context, path string, g Globals, flags map[st
 	if args == nil {
 		args = []string{}
 	}
-	e := &env{app: s.app, cmd: src, args: args, ctx: ctx,
+	var declared []urfave.Flag
+	if h.flags != nil {
+		declared = h.flags()
+	}
+	e := &env{app: s.app, cmd: newCheckedFlags(src, declared), args: args, ctx: ctx,
 		g: globals{profile: g.Profile, network: g.Network, account: g.Account, json: true, timeout: g.Timeout}}
-	res, err := h.run(e)
+	res, err := runChecked(h, e)
 	if err != nil {
 		return nil, output.As(err)
 	}
@@ -226,11 +230,6 @@ func (m mapFlags) String(n string) string {
 	switch v := m[n].(type) {
 	case string:
 		return v
-	case int64:
-		// Int flags read through String (e.g. --order-id) keep exact text.
-		return strconv.FormatInt(v, 10)
-	case bool:
-		return strconv.FormatBool(v)
 	}
 	return ""
 }

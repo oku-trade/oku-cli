@@ -207,7 +207,8 @@ func defaultOrderAction(o map[string]any) string {
 	if o["orderType"] == "market" {
 		p, tif = "50500", "Ioc"
 	}
-	return fmt.Sprintf(`{"type":"order","orders":[{"a":0,"b":%v,"p":"%s","s":"%s","r":false,"t":{"limit":{"tif":"%s"}},"c":"0x0123456789abcdef0123456789abcdef"}],"grouping":"na","builder":{"b":"0xd637f2a36c1a3b37d57ef4c7022cb183d8922f2c","f":10}}`, b, p, o["sz"], tif)
+	r := o["reduceOnly"] == true
+	return fmt.Sprintf(`{"type":"order","orders":[{"a":0,"b":%v,"p":"%s","s":"%s","r":%v,"t":{"limit":{"tif":"%s"}},"c":"0x0123456789abcdef0123456789abcdef"}],"grouping":"na","builder":{"b":"0xd637f2a36c1a3b37d57ef4c7022cb183d8922f2c","f":10}}`, b, p, o["sz"], r, tif)
 }
 
 type harness struct {

@@ -135,7 +135,7 @@ func (a *App) cmdOrdersPrepare(e *env) (*result, error) {
 	in := trading.Intent{
 		Version: 1, ID: id, Kind: trading.KindOrder, Network: p.Network, Account: acct, APIURL: p.APIURL,
 		Market: coin, Side: side, OrderType: typ, Size: size,
-		ReduceOnly: str(e, "reduce-only") == "true",
+		ReduceOnly: e.cmd.Bool("reduce-only"),
 	}
 	m, err := e.market(p, coin)
 	if err != nil {

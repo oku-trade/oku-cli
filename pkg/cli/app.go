@@ -40,6 +40,10 @@ type App struct {
 	// Sleep waits between enrollment polls; overridable in tests.
 	Sleep   func(ctx context.Context, d time.Duration) error
 	Version string
+
+	// wrapHandlers, when set by tests, may replace handlers after the
+	// command table is built (flags are preserved by the caller).
+	wrapHandlers func(map[string]*handler)
 }
 
 // NewApp returns an App wired to the real process.
@@ -110,6 +114,14 @@ type handler struct {
 }
 
 func (a *App) commands() map[string]*handler {
+	m := a.commandTable()
+	if a.wrapHandlers != nil {
+		a.wrapHandlers(m)
+	}
+	return m
+}
+
+func (a *App) commandTable() map[string]*handler {
 	return map[string]*handler{
 		"version":               {summary: "Print version information", run: a.cmdVersion},
 		"doctor":                {summary: "Check configuration, connectivity and credentials", run: a.cmdDoctor},
@@ -140,7 +152,7 @@ func (a *App) commands() map[string]*handler {
 		"orders reconcile":      {summary: "Resolve unknown or in-flight intents with Oku", run: a.cmdOrdersReconcile},
 		"orders abandon":        {summary: "Cancel an unsigned server action so it can never execute", flags: statusFlags, run: a.cmdOrdersAbandon},
 		"fills list":            {summary: "Recent fills", flags: marketFilterFlags, run: a.cmdFillsList},
-		"journal migrate":  {summary: "Explicitly import the legacy JSON journal into SQLite (offline; stop older oku processes first)", run: a.cmdJournalMigrate},
+		"journal migrate":       {summary: "Explicitly import the legacy JSON journal into SQLite (offline; stop older oku processes first)", run: a.cmdJournalMigrate},
 		"docs list":             {summary: "List documentation bundled in this binary (offline)", run: a.cmdDocsList},
 		"docs show":             {summary: "Print a bundled document: docs show NAME", run: a.cmdDocsShow},
 		"docs search":           {summary: "Search bundled documentation: docs search TERMS... [--limit N]", flags: docsSearchFlags, run: a.cmdDocsSearch},
@@ -233,7 +245,7 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 		}
 		leaf.Action = func(ctx context.Context, cmd *urfave.Command) error {
 			name := strings.ReplaceAll(path, " ", ".")
-			e := &env{app: a, cmd: cmd, args: cmd.Args().Slice(), ctx: ctx}
+			e := &env{app: a, cmd: newCheckedFlags(cmd, leaf.Flags), args: cmd.Args().Slice(), ctx: ctx}
 			e.g = globals{profile: cmd.String("profile"), network: cmd.String("network"), account: cmd.String("account"), json: cmd.Bool("json") || jsonOut, timeout: cmd.Duration("timeout")}
 			if e.g.timeout <= 0 || e.g.timeout > maxTimeout {
 				return &commandFailure{name, e.g.json, output.Errorf(output.CodeUsage, "--timeout must be between 1ns and %s", maxTimeout)}
@@ -241,7 +253,7 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 			if e.g.network != "" && e.g.network != "mainnet" {
 				return &commandFailure{name, e.g.json, output.Errorf(output.CodeNetworkUnsupported, "network %q is not supported: the Oku API currently serves Hyperliquid mainnet only", e.g.network)}
 			}
-			res, err := h.run(e)
+			res, err := runChecked(h, e)
 			if err != nil {
 				return &commandFailure{name, e.g.json, err}
 			}
