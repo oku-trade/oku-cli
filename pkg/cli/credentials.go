@@ -116,6 +116,21 @@ func checkBinding(md *auth.Metadata, p *resolved) error {
 	return nil
 }
 
+// checkSession verifies profile binding, active status and scope.
+func checkSession(md *auth.Metadata, p *resolved, needScope string) error {
+	if err := checkBinding(md, p); err != nil {
+		return err
+	}
+	if md.Status != "active" {
+		return output.Errorf(output.CodeAuthRequired, "enrollment for %q is not complete (status %s)", p.Name, md.Status).
+			WithDetail("hint", "oku auth setup --resume --profile "+p.Name)
+	}
+	if needScope != "" && !md.HasScope(needScope) {
+		return output.Errorf(output.CodeAuthRequired, "device credential lacks %q scope; enroll with trading enabled on the Oku website", needScope)
+	}
+	return nil
+}
+
 func (e *env) unlock(p *resolved, needScope string) (*session, error) {
 	if p.Name == "" {
 		return nil, output.Errorf(output.CodeProfileNotFound, "a profile is required").
@@ -129,28 +144,31 @@ func (e *env) unlock(p *resolved, needScope string) (*session, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "loading credentials")
 	}
-	if err := checkBinding(md, p); err != nil {
+	// Pre-unlock metadata is unauthenticated and only used to fail fast.
+	if err := checkSession(md, p, needScope); err != nil {
 		return nil, err
-	}
-	if md.Status != "active" {
-		return nil, output.Errorf(output.CodeAuthRequired, "enrollment for %q is not complete (status %s)", p.Name, md.Status).
-			WithDetail("hint", "oku auth setup --resume --profile "+p.Name)
-	}
-	if needScope != "" && !md.HasScope(needScope) {
-		return nil, output.Errorf(output.CodeAuthRequired, "device credential lacks %q scope; enroll with trading enabled on the Oku website", needScope)
 	}
 	var sec *auth.Secrets
 	if runtime.GOOS == "darwin" {
-		_, sec, err = auth.Unlock(p.Name, nil)
+		md, sec, err = auth.Unlock(p.Name, nil)
 	} else {
 		pass, passErr := e.passphrase(false)
 		if passErr != nil {
 			return nil, passErr
 		}
-		_, sec, err = auth.Unlock(p.Name, pass)
+		md, sec, err = auth.Unlock(p.Name, pass)
 	}
 	if err != nil {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "unlocking credentials")
+	}
+	// Authoritative: recheck against the metadata authenticated together
+	// with the secrets (AEAD associated data / Keychain item), which may
+	// differ from the earlier snapshot if the file changed meanwhile.
+	if md == nil {
+		return nil, output.Errorf(output.CodeSignerUnavailable, "unlock returned no metadata")
+	}
+	if err := checkSession(md, p, needScope); err != nil {
+		return nil, err
 	}
 	signer, err := signing.NewKeySigner(sec.AgentKey)
 	if err != nil {
