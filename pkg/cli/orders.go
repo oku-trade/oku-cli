@@ -354,6 +354,16 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 		return nil, output.Errorf(output.CodePayloadMismatch, "%v", verr).WithExec(output.ExecNone)
 	}
 
+	// Recheck expiry at the signing boundary: unlock prompts and
+	// CreateAction can take arbitrarily long after the first check. The
+	// action is still unsigned here, so it can be abandoned safely.
+	if in.Expired(e.app.Now()) {
+		rec.State, rec.LastError = journal.StateAbandoned, "intent expired before signing"
+		jerr := j.Put(rec, "expired_before_sign")
+		e.abandonServerAction(c, rec.ActionID)
+		return nil, withJournal(output.Errorf(output.CodeIntentState, "intent %q expired at %s before signing; nothing was signed, prepare a new one", id, in.ExpiresAt).WithExec(output.ExecNone), jerr)
+	}
+
 	// Nonce allocation, the account-wide unresolved gate and the
 	// "submitting" state commit in one transaction before anything is signed.
 	nonce, err := j.BeginSubmission(rec, s.md.AgentAddress)

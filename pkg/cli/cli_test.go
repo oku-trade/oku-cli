@@ -832,3 +832,22 @@ func TestCancelAllowedWhileOtherSubmissionUnknown(t *testing.T) {
 		t.Fatalf("new exposure allowed while unknown: %s", r.stdout)
 	}
 }
+
+// Regression for M-06: expiry is rechecked after CreateAction, right before
+// the signing boundary, so a slow backend cannot get an expired intent signed.
+func TestExpiryRecheckedBeforeSigning(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	id, dg := prepare(t, h, "--expires", "1s")
+	h.fake.actionJSON = func(o map[string]any) string {
+		time.Sleep(1300 * time.Millisecond)
+		return defaultOrderAction(o)
+	}
+	r := h.run("orders", "submit", "--intent", id, "--digest", dg, "--json")
+	if h.fake.confirms != 0 || r.errCode() != "INTENT_STATE" {
+		t.Fatalf("expired intent signed/sent (confirms=%d): %s", h.fake.confirms, r.stdout)
+	}
+	if r = h.run("orders", "status", "--intent", id, "--json"); r.data()["state"] != "abandoned" {
+		t.Fatalf("expired intent not abandoned: %s", r.stdout)
+	}
+}
