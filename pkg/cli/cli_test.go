@@ -49,7 +49,9 @@ type fakeOku struct {
 	confirms   int
 	creates    int
 	lastSigned map[string]any
-	calls      []string
+	// maxReconcile is the largest ReconcileActions batch seen.
+	maxReconcile int
+	calls        []string
 }
 
 func newFake(t *testing.T) (*fakeOku, *httptest.Server) {
@@ -168,6 +170,9 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		id := body["actionId"].(string)
 		reply(map[string]any{"actionId": id, "state": f.actions[id]})
 	case "ReconcileActions":
+		if n := len(body["actionIds"].([]any)); n > f.maxReconcile {
+			f.maxReconcile = n
+		}
 		out := []map[string]any{}
 		for _, id := range body["actionIds"].([]any) {
 			a := map[string]any{"actionId": id, "state": f.actions[id.(string)]}
@@ -207,7 +212,8 @@ func defaultOrderAction(o map[string]any) string {
 	if o["orderType"] == "market" {
 		p, tif = "50500", "Ioc"
 	}
-	return fmt.Sprintf(`{"type":"order","orders":[{"a":0,"b":%v,"p":"%s","s":"%s","r":false,"t":{"limit":{"tif":"%s"}},"c":"0x0123456789abcdef0123456789abcdef"}],"grouping":"na","builder":{"b":"0xd637f2a36c1a3b37d57ef4c7022cb183d8922f2c","f":10}}`, b, p, o["sz"], tif)
+	r := o["reduceOnly"] == true
+	return fmt.Sprintf(`{"type":"order","orders":[{"a":0,"b":%v,"p":"%s","s":"%s","r":%v,"t":{"limit":{"tif":"%s"}},"c":"0x0123456789abcdef0123456789abcdef"}],"grouping":"na","builder":{"b":"0xd637f2a36c1a3b37d57ef4c7022cb183d8922f2c","f":10}}`, b, p, o["sz"], r, tif)
 }
 
 type harness struct {
@@ -735,5 +741,118 @@ func TestAbandonOnlyNeverSigned(t *testing.T) {
 	id2, _ := prepare(t, h)
 	if r := h.run("orders", "abandon", "--intent", id2, "--json"); r.code != 0 || r.data()["state"] != "abandoned" {
 		t.Fatalf("abandon prepared: %s", r.stdout)
+	}
+}
+
+// Regression for M-03: the executable must parse the Int64 --order-id flag.
+func TestCancelAcceptsOrderIDThroughExecutable(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	r := h.run("orders", "cancel", "--market", "BTC", "--order-id", "123", "--json")
+	if r.code != 0 {
+		t.Fatalf("valid --order-id refused: %s", r.stdout)
+	}
+	raw := h.fake.lastSigned["signedAction"].(map[string]any)["actionJson"].(string)
+	if !strings.Contains(raw, `"o":123`) {
+		t.Fatalf("signed cancel does not target oid 123: %s", raw)
+	}
+}
+
+// Regression for M-02: a case-aliased economic key is never signed or sent.
+func TestCaseAliasActionNeverSigned(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	h.fake.actionJSON = func(o map[string]any) string {
+		return strings.Replace(defaultOrderAction(o), `"s":"0.001"`, `"s":"100","S":"0.001"`, 1)
+	}
+	id, dg := prepare(t, h, "--size", "0.001")
+	r := h.run("orders", "submit", "--intent", id, "--digest", dg, "--json")
+	if h.fake.confirms != 0 || r.errCode() != "PAYLOAD_MISMATCH" {
+		t.Fatalf("aliased action signed/sent (confirms=%d): %s", h.fake.confirms, r.stdout)
+	}
+}
+
+// Regression for M-04: a definite rejection is persisted as rejected, so
+// durable state matches the REJECTED result and does not block the account.
+func TestDefiniteRejectPersisted(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	h.fake.confirm = func() (int, string) { return 400, `{"code":"invalid_argument","message":"bad signature"}` }
+	id, dg := prepare(t, h)
+	r := h.run("orders", "submit", "--intent", id, "--digest", dg, "--json")
+	if r.errCode() != "REJECTED" {
+		t.Fatalf("submit: %s", r.stdout)
+	}
+	if strings.Contains(r.stdout, "journal_error") {
+		t.Fatalf("journal write failed: %s", r.stdout)
+	}
+	r = h.run("orders", "status", "--intent", id, "--json")
+	if r.data()["state"] != "rejected" || !strings.Contains(fmt.Sprint(r.data()["last_error"]), "invalid_argument") {
+		t.Fatalf("definite rejection not persisted: %s", r.stdout)
+	}
+	h.fake.confirm = nil
+	id2, dg2 := prepare(t, h)
+	if r = h.run("orders", "submit", "--intent", id2, "--digest", dg2, "--json"); r.code != 0 {
+		t.Fatalf("account still blocked after definite rejection: %s", r.stdout)
+	}
+}
+
+// Ambiguous Connect codes stay unknown.
+func TestAmbiguousCodeConfirmStaysUnknown(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	h.fake.confirm = func() (int, string) { return 500, `{"code":"internal","message":"boom"}` }
+	id, dg := prepare(t, h)
+	r := h.run("orders", "submit", "--intent", id, "--digest", dg, "--json")
+	if r.errCode() != "OUTCOME_UNKNOWN" {
+		t.Fatalf("submit: %s", r.stdout)
+	}
+	if r = h.run("orders", "status", "--intent", id, "--json"); r.data()["state"] != "unknown" {
+		t.Fatalf("state: %s", r.stdout)
+	}
+}
+
+// Regression for M-05: cancelling an existing order is allowed while an
+// unrelated submission is unknown, but a new order is still blocked.
+func TestCancelAllowedWhileOtherSubmissionUnknown(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	h.fake.confirm = func() (int, string) { return 503, "gateway" }
+	id, dg := prepare(t, h)
+	if r := h.run("orders", "submit", "--intent", id, "--digest", dg, "--json"); r.errCode() != "OUTCOME_UNKNOWN" {
+		t.Fatalf("setup: %s", r.stdout)
+	}
+	h.fake.confirm = nil
+	if r := h.run("orders", "cancel", "--market", "BTC", "--order-id", "123", "--json"); r.code != 0 {
+		t.Fatalf("cancel blocked by unrelated unknown: %s", r.stdout)
+	}
+	s := testService(h)
+	s.AllowMutations(true)
+	if _, err := s.Call(context.Background(), "orders cancel", Globals{}, map[string]any{"market": "BTC", "order-id": int64(124)}, nil); err != nil {
+		t.Fatalf("service cancel blocked: %v", err)
+	}
+	id2, dg2 := prepare(t, h)
+	confirms := h.fake.confirms
+	if r := h.run("orders", "submit", "--intent", id2, "--digest", dg2, "--json"); r.errCode() != "OUTCOME_UNKNOWN" || h.fake.confirms != confirms {
+		t.Fatalf("new exposure allowed while unknown: %s", r.stdout)
+	}
+}
+
+// Regression for M-06: expiry is rechecked after CreateAction, right before
+// the signing boundary, so a slow backend cannot get an expired intent signed.
+func TestExpiryRecheckedBeforeSigning(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	id, dg := prepare(t, h, "--expires", "1s")
+	h.fake.actionJSON = func(o map[string]any) string {
+		time.Sleep(1300 * time.Millisecond)
+		return defaultOrderAction(o)
+	}
+	r := h.run("orders", "submit", "--intent", id, "--digest", dg, "--json")
+	if h.fake.confirms != 0 || r.errCode() != "INTENT_STATE" {
+		t.Fatalf("expired intent signed/sent (confirms=%d): %s", h.fake.confirms, r.stdout)
+	}
+	if r = h.run("orders", "status", "--intent", id, "--json"); r.data()["state"] != "abandoned" {
+		t.Fatalf("expired intent not abandoned: %s", r.stdout)
 	}
 }

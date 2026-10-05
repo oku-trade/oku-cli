@@ -7,7 +7,6 @@ import (
 	"fmt"
 	urfave "github.com/urfave/cli/v3"
 	"io"
-	"strconv"
 	"strings"
 	"time"
 
@@ -136,7 +135,7 @@ func (a *App) cmdOrdersPrepare(e *env) (*result, error) {
 	in := trading.Intent{
 		Version: 1, ID: id, Kind: trading.KindOrder, Network: p.Network, Account: acct, APIURL: p.APIURL,
 		Market: coin, Side: side, OrderType: typ, Size: size,
-		ReduceOnly: str(e, "reduce-only") == "true",
+		ReduceOnly: e.cmd.Bool("reduce-only"),
 	}
 	m, err := e.market(p, coin)
 	if err != nil {
@@ -355,6 +354,16 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 		return nil, output.Errorf(output.CodePayloadMismatch, "%v", verr).WithExec(output.ExecNone)
 	}
 
+	// Recheck expiry at the signing boundary: unlock prompts and
+	// CreateAction can take arbitrarily long after the first check. The
+	// action is still unsigned here, so it can be abandoned safely.
+	if in.Expired(e.app.Now()) {
+		rec.State, rec.LastError = journal.StateAbandoned, "intent expired before signing"
+		jerr := j.Put(rec, "expired_before_sign")
+		e.abandonServerAction(c, rec.ActionID)
+		return nil, withJournal(output.Errorf(output.CodeIntentState, "intent %q expired at %s before signing; nothing was signed, prepare a new one", id, in.ExpiresAt).WithExec(output.ExecNone), jerr)
+	}
+
 	// Nonce allocation, the account-wide unresolved gate and the
 	// "submitting" state commit in one transaction before anything is signed.
 	nonce, err := j.BeginSubmission(rec, s.md.AgentAddress)
@@ -389,8 +398,10 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 			rec.State, rec.LastError = journal.StateUnknown, err.Error()
 			return nil, withJournal(unknownErr(rec), j.Put(rec, "confirm_ambiguous"))
 		}
-		rec.State, rec.LastError = journal.StateRejected, err.Error()
-		jerr := j.Put(rec, "confirm_rejected")
+		// Definite (non-ambiguous) Connect rejection: the handler refused
+		// the request, so it was not executed. Persist that explicitly so
+		// durable state matches the REJECTED result.
+		jerr := j.RejectDefinite(rec, err.Error())
 		oe := apiError(err, "ConfirmAction").(*output.Error)
 		oe.Code, oe.ExecutionState = output.CodeRejected, output.ExecRejected
 		return nil, withJournal(oe, jerr)
@@ -513,7 +524,7 @@ func (a *App) cmdOrdersCancel(e *env) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	oid, _ := strconv.ParseInt(str(e, "order-id"), 10, 64)
+	oid := e.cmd.Int64("order-id")
 	if oid <= 0 {
 		return nil, output.Errorf(output.CodeInvalidArgument, "--order-id is required")
 	}
@@ -598,6 +609,9 @@ func (e *env) loadRecord() (*resolved, *journal.Record, *journal.Journal, error)
 	return p, rec, j, nil
 }
 
+// reconcileBatch bounds the action ids sent per ReconcileActions call.
+const reconcileBatch = 50
+
 func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 	p, err := e.profile()
 	if err != nil {
@@ -620,7 +634,10 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "journal")
 	}
-	ids := []string{}
+	// Every unresolved action is queried, in bounded batches, with the
+	// account-blocking submitting/unknown records first. A fixed cap on
+	// the oldest records starved everything beyond it.
+	var blockers, others []string
 	byAction := map[string]*journal.Record{}
 	for _, r := range un {
 		if r.State == journal.StateCreating {
@@ -631,11 +648,17 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 			}
 			continue
 		}
-		if r.ActionID != "" && len(ids) < 50 {
-			ids = append(ids, r.ActionID)
-			byAction[r.ActionID] = r
+		if r.ActionID == "" || byAction[r.ActionID] != nil {
+			continue
+		}
+		byAction[r.ActionID] = r
+		if r.State == journal.StateUnknown || r.State == journal.StateSubmitting {
+			blockers = append(blockers, r.ActionID)
+		} else {
+			others = append(others, r.ActionID)
 		}
 	}
+	ids := append(blockers, others...)
 	if len(ids) > 0 {
 		s, err := e.unlock(p, "read")
 		if err != nil {
@@ -643,20 +666,24 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 		}
 		c := e.client(p)
 		c.Token = s.token
-		ctx, cancel := e.requestCtx()
-		defer cancel()
-		var resp api.ReconcileActionsResponse
-		if err := c.Perps(ctx, "ReconcileActions", map[string]any{"actionIds": ids}, &resp, true); err != nil {
-			return nil, apiError(err, "ReconcileActions")
-		}
-		for _, act := range resp.Actions {
-			r := byAction[act.ActionID]
-			if r == nil {
-				continue
+		for start := 0; start < len(ids); start += reconcileBatch {
+			batch := ids[start:min(start+reconcileBatch, len(ids))]
+			ctx, cancel := e.requestCtx()
+			var resp api.ReconcileActionsResponse
+			err := c.Perps(ctx, "ReconcileActions", map[string]any{"actionIds": batch}, &resp, true)
+			cancel()
+			if err != nil {
+				return nil, apiError(err, "ReconcileActions")
 			}
-			applyServerState(r, act.State, int64(act.HlOid), act.ErrorMessage)
-			if err := j.Put(r, "reconcile"); err != nil {
-				return nil, output.Wrap(output.CodeInternal, err, "journal")
+			for _, act := range resp.Actions {
+				r := byAction[act.ActionID]
+				if r == nil {
+					continue
+				}
+				applyServerState(r, act.State, int64(act.HlOid), act.ErrorMessage)
+				if err := j.Put(r, "reconcile"); err != nil {
+					return nil, output.Wrap(output.CodeInternal, err, "journal")
+				}
 			}
 		}
 	}

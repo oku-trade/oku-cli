@@ -73,7 +73,7 @@ func (a *App) cmdSkillsInstall(e *env) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	res, err := skills.Install(root, str(e, "force") == "true")
+	res, err := skills.Install(root, e.cmd.Bool("force"))
 	return skillsResult(root, res, err, "written")
 }
 
@@ -82,7 +82,7 @@ func (a *App) cmdSkillsUninstall(e *env) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	res, err := skills.Uninstall(root, str(e, "force") == "true")
+	res, err := skills.Uninstall(root, e.cmd.Bool("force"))
 	return skillsResult(root, res, err, "removed")
 }
 

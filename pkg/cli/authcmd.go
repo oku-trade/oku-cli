@@ -64,11 +64,21 @@ func (a *App) cmdAuthSetup(e *env) (*result, error) {
 		if perr != nil {
 			return nil, perr
 		}
-		_, sec, uerr := auth.Unlock(p.Name, pass)
+		amd, sec, uerr := auth.Unlock(p.Name, pass)
 		if uerr != nil {
 			return nil, output.Wrap(output.CodeSignerUnavailable, uerr, "unlocking pending enrollment")
 		}
-		return e.pollEnrollment(p, md, sec, pass)
+		// Use only the metadata authenticated with the secrets from here on.
+		if amd == nil {
+			return nil, output.Errorf(output.CodeSignerUnavailable, "unlock returned no metadata")
+		}
+		if berr := checkBinding(amd, p); berr != nil {
+			return nil, berr
+		}
+		if amd.Status == "active" {
+			return nil, output.Errorf(output.CodeConflict, "profile %q is already enrolled as device %s; run 'oku auth revoke' first", p.Name, amd.DeviceID)
+		}
+		return e.pollEnrollment(p, amd, sec, pass)
 	}
 
 	name := e.cmd.String("device-name")
