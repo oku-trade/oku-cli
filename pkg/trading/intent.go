@@ -215,6 +215,11 @@ func ValidateAction(in *Intent, actionJSON string) (string, error) {
 	if err := json.Unmarshal([]byte(actionJSON), &head); err != nil {
 		return "", mismatch("action is not a JSON object")
 	}
+	// Exact, case-sensitive keys on the very bytes that get signed, before
+	// any case-insensitive struct decoding below.
+	if err := checkExactShape(head.Type, actionJSON); err != nil {
+		return "", err
+	}
 	switch in.Kind {
 	case KindOrder:
 		if head.Type != "order" {

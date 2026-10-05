@@ -752,3 +752,17 @@ func TestCancelAcceptsOrderIDThroughExecutable(t *testing.T) {
 		t.Fatalf("signed cancel does not target oid 123: %s", raw)
 	}
 }
+
+// Regression for M-02: a case-aliased economic key is never signed or sent.
+func TestCaseAliasActionNeverSigned(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	h.fake.actionJSON = func(o map[string]any) string {
+		return strings.Replace(defaultOrderAction(o), `"s":"0.001"`, `"s":"100","S":"0.001"`, 1)
+	}
+	id, dg := prepare(t, h, "--size", "0.001")
+	r := h.run("orders", "submit", "--intent", id, "--digest", dg, "--json")
+	if h.fake.confirms != 0 || r.errCode() != "PAYLOAD_MISMATCH" {
+		t.Fatalf("aliased action signed/sent (confirms=%d): %s", h.fake.confirms, r.stdout)
+	}
+}
