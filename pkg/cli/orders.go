@@ -609,6 +609,9 @@ func (e *env) loadRecord() (*resolved, *journal.Record, *journal.Journal, error)
 	return p, rec, j, nil
 }
 
+// reconcileBatch bounds the action ids sent per ReconcileActions call.
+const reconcileBatch = 50
+
 func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 	p, err := e.profile()
 	if err != nil {
@@ -631,7 +634,10 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "journal")
 	}
-	ids := []string{}
+	// Every unresolved action is queried, in bounded batches, with the
+	// account-blocking submitting/unknown records first. A fixed cap on
+	// the oldest records starved everything beyond it.
+	var blockers, others []string
 	byAction := map[string]*journal.Record{}
 	for _, r := range un {
 		if r.State == journal.StateCreating {
@@ -642,11 +648,17 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 			}
 			continue
 		}
-		if r.ActionID != "" && len(ids) < 50 {
-			ids = append(ids, r.ActionID)
-			byAction[r.ActionID] = r
+		if r.ActionID == "" || byAction[r.ActionID] != nil {
+			continue
+		}
+		byAction[r.ActionID] = r
+		if r.State == journal.StateUnknown || r.State == journal.StateSubmitting {
+			blockers = append(blockers, r.ActionID)
+		} else {
+			others = append(others, r.ActionID)
 		}
 	}
+	ids := append(blockers, others...)
 	if len(ids) > 0 {
 		s, err := e.unlock(p, "read")
 		if err != nil {
@@ -654,20 +666,24 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 		}
 		c := e.client(p)
 		c.Token = s.token
-		ctx, cancel := e.requestCtx()
-		defer cancel()
-		var resp api.ReconcileActionsResponse
-		if err := c.Perps(ctx, "ReconcileActions", map[string]any{"actionIds": ids}, &resp, true); err != nil {
-			return nil, apiError(err, "ReconcileActions")
-		}
-		for _, act := range resp.Actions {
-			r := byAction[act.ActionID]
-			if r == nil {
-				continue
+		for start := 0; start < len(ids); start += reconcileBatch {
+			batch := ids[start:min(start+reconcileBatch, len(ids))]
+			ctx, cancel := e.requestCtx()
+			var resp api.ReconcileActionsResponse
+			err := c.Perps(ctx, "ReconcileActions", map[string]any{"actionIds": batch}, &resp, true)
+			cancel()
+			if err != nil {
+				return nil, apiError(err, "ReconcileActions")
 			}
-			applyServerState(r, act.State, int64(act.HlOid), act.ErrorMessage)
-			if err := j.Put(r, "reconcile"); err != nil {
-				return nil, output.Wrap(output.CodeInternal, err, "journal")
+			for _, act := range resp.Actions {
+				r := byAction[act.ActionID]
+				if r == nil {
+					continue
+				}
+				applyServerState(r, act.State, int64(act.HlOid), act.ErrorMessage)
+				if err := j.Put(r, "reconcile"); err != nil {
+					return nil, output.Wrap(output.CodeInternal, err, "journal")
+				}
 			}
 		}
 	}

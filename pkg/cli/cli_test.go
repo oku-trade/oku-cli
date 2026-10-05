@@ -49,7 +49,9 @@ type fakeOku struct {
 	confirms   int
 	creates    int
 	lastSigned map[string]any
-	calls      []string
+	// maxReconcile is the largest ReconcileActions batch seen.
+	maxReconcile int
+	calls        []string
 }
 
 func newFake(t *testing.T) (*fakeOku, *httptest.Server) {
@@ -168,6 +170,9 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		id := body["actionId"].(string)
 		reply(map[string]any{"actionId": id, "state": f.actions[id]})
 	case "ReconcileActions":
+		if n := len(body["actionIds"].([]any)); n > f.maxReconcile {
+			f.maxReconcile = n
+		}
 		out := []map[string]any{}
 		for _, id := range body["actionIds"].([]any) {
 			a := map[string]any{"actionId": id, "state": f.actions[id.(string)]}
