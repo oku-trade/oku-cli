@@ -67,20 +67,13 @@ The release tooling packs a thin launcher `@oku-trade/cli` plus four exact-versi
 - Publishing is manual and gated. See [docs/releasing.md](docs/releasing.md).
 - No provenance is produced, because the source repository is private.
 
-## Upgrading from an earlier build
-
-Nothing migrates automatically.
-
-- **Credentials:** old device credentials cannot be reused; run `oku auth login` after configuring your external master account. `oku auth logout` deletes old credentials.
-- **Journal:** `oku journal migrate` explicitly imports a legacy JSON journal into SQLite. Signing is blocked until you run it. See [docs/usage.md](docs/usage.md#local-journal).
-
 ## Uninstall
 
 1. Run `oku skills uninstall --target <agent>` for any installed skills.
 2. Run `oku auth logout` (then separately revoke the Hyperliquid agent with the master wallet).
 3. Run `make uninstall` (or `rm "$(command -v oku)"`).
 
-Removing the binary does **not** revoke Oku sessions or the exchange delegated signer. It also leaves the journal and any credential backups in place. See [docs/security.md](docs/security.md).
+Removing the binary does **not** revoke Oku sessions or the exchange delegated signer. It also leaves the journal in place. See [docs/security.md](docs/security.md).
 
 ## Docs
 

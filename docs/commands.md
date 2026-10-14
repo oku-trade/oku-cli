@@ -106,10 +106,6 @@ Recent fills
 | --- | --- | --- |
 | `--market` | filter by market, e.g. BTC | `` |
 
-## `oku journal migrate`
-
-Explicitly import the legacy JSON journal into SQLite (offline; stop older oku processes first)
-
 ## `oku markets funding`
 
 Funding rate history: markets funding COIN [--since 24h]

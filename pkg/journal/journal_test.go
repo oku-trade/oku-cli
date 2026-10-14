@@ -1,7 +1,6 @@
 package journal
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -9,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
@@ -206,146 +204,6 @@ func TestSigningFailureBurnsNonceAndReleasesGate(t *testing.T) {
 		t.Fatalf("burned nonce reused: %d after %d: %v", n2, n, err)
 	}
 }
-func TestLegacyImportAndBarrier(t *testing.T) {
-	base := t.TempDir()
-	t.Setenv("OKU_STATE_DIR", base)
-	dir := filepath.Join(base, "journal", "p")
-	if e := os.MkdirAll(dir, 0700); e != nil {
-		t.Fatal(e)
-	}
-	in := intent("legacy", "https://one.example")
-	r := Record{Intent: in, Digest: in.Digest(), State: StateSubmitting, Nonce: 200, ActionID: "action", UpdatedAt: "2026-01-01T00:00:00Z", History: []Transition{{At: "2026-01-01T00:00:00Z", State: StateSubmitting}}}
-	raw, _ := json.Marshal(r)
-	if e := os.WriteFile(filepath.Join(dir, "legacy.json"), raw, 0600); e != nil {
-		t.Fatal(e)
-	}
-	if e := os.WriteFile(filepath.Join(dir, ".nonce-0xSIGNER"), []byte("100"), 0600); e != nil {
-		t.Fatal(e)
-	}
-	if _, e := Open("p"); !errors.Is(e, ErrMigrationRequired) {
-		t.Fatalf("automatic migration or missing barrier: %v", e)
-	}
-	if e := MigrateLegacy(); e != nil {
-		t.Fatal(e)
-	}
-	if e := MigrateLegacy(); e != nil {
-		t.Fatalf("completed migration rerun: %v", e)
-	}
-	j, e := Open("p")
-	if e != nil {
-		t.Fatal(e)
-	}
-	defer j.Close()
-	if _, _, e = j.Create(intent("post-migration", "https://one.example")); e != nil {
-		t.Fatal(e)
-	}
-	if e = MigrateLegacy(); e != nil {
-		t.Fatalf("migration rerun with new records: %v", e)
-	}
-	if reopened, e := Open("p"); e != nil {
-		t.Fatalf("rerun blocked Open: %v", e)
-	} else {
-		_ = reopened.Close()
-	}
-	un, e := j.Unresolved()
-	if e != nil || len(un) != 1 || un[0].Nonce != 200 {
-		t.Fatalf("lost unresolved record %v %v", un, e)
-	}
-	j.now = func() time.Time { return time.UnixMilli(1) }
-	n, e := j.NextNonce("0xsigner")
-	if e != nil || n != 201 {
-		t.Fatalf("lost legacy nonce %d %v", n, e)
-	}
-	if e = os.MkdirAll(filepath.Join(base, "journal", "new-profile"), 0700); e == nil {
-		t.Fatal("old binary directory creation did not fail")
-	}
-	for _, name := range []string{"journal.sqlite", "journal", "journal-legacy-backup"} {
-		st, e := os.Stat(filepath.Join(base, name))
-		if e != nil {
-			t.Fatal(e)
-		}
-		want := os.FileMode(0600)
-		if st.IsDir() {
-			want = 0700
-		}
-		if st.Mode().Perm() != want {
-			t.Errorf("%s permissions %o", name, st.Mode().Perm())
-		}
-	}
-}
-
-func TestMigrateLegacyFreshSQLiteNoop(t *testing.T) {
-	j := open(t)
-	defer j.Close()
-	if err := MigrateLegacy(); err != nil {
-		t.Fatalf("fresh migration: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(j.base, "journal-migration-incomplete")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("incomplete marker after no-op: %v", err)
-	}
-	again, err := OpenBinding(Binding{Profile: "other"})
-	if err != nil {
-		t.Fatalf("fresh migration bricked journal: %v", err)
-	}
-	defer again.Close()
-}
-func TestLegacyCorruptionAndActiveProcessFailClosed(t *testing.T) {
-	j := open(t)
-	base := j.base
-	_ = j.Close()
-	if e := os.Remove(filepath.Join(base, "journal")); e != nil {
-		t.Fatal(e)
-	}
-	dir := filepath.Join(base, "journal", "p")
-	if e := os.MkdirAll(dir, 0700); e != nil {
-		t.Fatal(e)
-	}
-	if e := os.WriteFile(filepath.Join(dir, "bad.json"), []byte("{}"), 0600); e != nil {
-		t.Fatal(e)
-	}
-	if e := MigrateLegacy(); e == nil {
-		t.Fatal("corrupt legacy record imported")
-	}
-	if _, e := os.Stat(filepath.Join(base, "journal-legacy-backup", "p", "bad.json")); e != nil {
-		t.Fatal("legacy data lost", e)
-	}
-}
-
-func TestLegacyActiveLockBlocksMigration(t *testing.T) {
-	base := t.TempDir()
-	t.Setenv("OKU_STATE_DIR", base)
-	dir := filepath.Join(base, "journal", "p")
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		t.Fatal(err)
-	}
-	f, err := os.OpenFile(filepath.Join(dir, ".lock"), os.O_CREATE|os.O_RDWR, 0600)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		t.Fatal(err)
-	}
-	if err = MigrateLegacy(); err == nil {
-		t.Fatal("migration accepted active legacy process")
-	}
-	if _, err = os.Stat(filepath.Join(base, "journal-legacy-backup", "p")); err != nil {
-		t.Fatal("legacy backup missing despite lock", err)
-	}
-	if _, err = Open("p"); !errors.Is(err, ErrMigrationRequired) {
-		t.Fatalf("incomplete migration opened: %v", err)
-	}
-	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); err != nil {
-		t.Fatal(err)
-	}
-	if err = MigrateLegacy(); err != nil {
-		t.Fatalf("resume after active process: %v", err)
-	}
-	if _, err = Open("p"); err != nil {
-		t.Fatalf("completed migration unavailable: %v", err)
-	}
-}
-
 func TestSymlinkJournalDatabaseRejected(t *testing.T) {
 	base := t.TempDir()
 	t.Setenv("OKU_STATE_DIR", base)

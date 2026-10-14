@@ -167,7 +167,7 @@ func TestMCPReadsByDefaultAndGatesMutations(t *testing.T) {
 	for _, tl := range tools.Tools {
 		names[tl.Name] = true
 	}
-	for _, bad := range []string{"orders_submit", "orders_prepare", "auth_setup", "auth_revoke", "profiles_add", "skills_install", "mcp_serve", "auth_migrate-keychain", "journal_migrate"} {
+	for _, bad := range []string{"orders_submit", "orders_prepare", "auth_setup", "auth_revoke", "profiles_add", "skills_install", "mcp_serve"} {
 		if names[bad] {
 			t.Errorf("%s exposed without --allow-mutations", bad)
 		}

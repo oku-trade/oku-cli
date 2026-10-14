@@ -26,7 +26,7 @@
 
 - **Linux:** an encrypted local file. You unlock it with an interactive masked TTY prompt or, for automation, `OKU_PASSPHRASE_FILE=<path>` pointing at a file readable only by you (mode 0600). Never pass the passphrase as an argument.
 - **macOS:** the native Keychain. No passphrase is requested. Official macOS builds need CGO and are built natively.
-- Neither platform has a plaintext fallback. See [security](security.md#credential-storage-by-platform), including the explicit `oku auth migrate-keychain` step for older macOS credentials.
+- Neither platform has a plaintext fallback. See [security](security.md#credential-storage-by-platform).
 
 ## Global flags
 
@@ -181,23 +181,6 @@ The server runs over stdio. Stdout carries only MCP protocol frames, and logs go
 ## Local journal
 
 Every intent's state is kept in `journal.sqlite` under the state directory (`oku config path`). Unknown outcomes survive restarts and block new exposure for the same account across all profiles and API origins until reconciled.
-
-Older binaries used a JSON journal directory. **Nothing migrates it automatically.** Until you run the migration, commands that touch the journal fail with `CONFIG_ERROR` and a hint to run it:
-
-```sh
-oku journal migrate   # explicit, offline; stop every older oku process first
-```
-
-Do not delete or edit the legacy directory by hand. The migration:
-
-1. Refuses while another `oku` holds the journal lock. Stop every older `oku` process first.
-2. Does nothing if there is no legacy journal: a fresh install, or one already migrated. Rerunning it is harmless.
-3. Otherwise it writes a `journal-migration-incomplete` marker. It then moves the old directory to `journal-legacy-backup` (mode 0700) and puts a regular file at the old path. Older binaries fail on that file instead of silently reopening stale state. While the marker exists, signing stays blocked.
-4. Imports every profile record and nonce from the backup, verifies the counts, and only then removes the marker.
-
-If it fails partway, the marker keeps signing blocked. Fix the reported cause, then run `oku journal migrate` again, which continues from the backup. Do not edit or delete the state directory by hand.
-
-The barrier protects only against accidental downgrade, not against deliberately restoring old state.
 
 ## Order states
 
