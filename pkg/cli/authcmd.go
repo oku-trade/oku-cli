@@ -206,10 +206,11 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 	defer release()
 	md, err := auth.LoadPrivyMetadata(p.Name)
 	if errors.Is(err, auth.ErrNoCredentials) {
-		if _, legacyErr := auth.LoadMetadata(p.Name); legacyErr == nil {
-			if err = auth.Delete(p.Name); err != nil {
-				return nil, err
-			}
+		present, retireErr := auth.RetireLegacy(p.Name)
+		if retireErr != nil {
+			return nil, output.Wrap(output.CodeSignerUnavailable, retireErr, "retiring legacy credential")
+		}
+		if present {
 			return &result{data: map[string]any{"local_credentials": "deleted", "legacy": true}, human: func(w io.Writer) { fmt.Fprintln(w, "Legacy device credential deleted. "+boundaries["not_revoked"]) }}, nil
 		}
 		return nil, output.Errorf(output.CodeNotFound, "no credential for profile")

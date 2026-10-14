@@ -10,7 +10,17 @@ func LoadMetadata(profile string) (*Metadata, error) { return fileLoadMetadata(d
 func Unlock(profile string, passphrase []byte) (*Metadata, *Secrets, error) {
 	return fileUnlock(deviceKey(profile), passphrase)
 }
-func Delete(profile string) error        { return fileDelete(deviceKey(profile)) }
+func Delete(profile string) error { return fileDelete(deviceKey(profile)) }
+func RetireLegacy(profile string) (bool, error) {
+	_, err := fileLoadMetadata(deviceKey(profile))
+	if err == ErrNoCredentials {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, fileDelete(deviceKey(profile))
+}
 func Has(profile string) bool            { return fileHas(deviceKey(profile)) }
 func MigrateLegacy(string, []byte) error { return ErrUnsupportedPlatform }
 

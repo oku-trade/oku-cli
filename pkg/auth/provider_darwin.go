@@ -195,6 +195,12 @@ func Delete(profile string) error {
 	}
 	return (systemKeychain{}).Remove(deviceKey(profile))
 }
+
+// RetireLegacy explicitly deletes legacy encrypted and Keychain device
+// credentials without decrypting or migrating either one.
+func RetireLegacy(profile string) (bool, error) {
+	return retireLegacy(profile, systemKeychain{})
+}
 func Has(profile string) bool { _, err := LoadMetadata(profile); return err == nil }
 
 // MigrateLegacy explicitly decrypts a legacy file, writes and independently

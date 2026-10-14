@@ -8,6 +8,7 @@ func Save(string, Metadata, Secrets, []byte) error       { return ErrUnsupported
 func LoadMetadata(string) (*Metadata, error)             { return nil, ErrUnsupportedPlatform }
 func Unlock(string, []byte) (*Metadata, *Secrets, error) { return nil, nil, ErrUnsupportedPlatform }
 func Delete(string) error                                { return ErrUnsupportedPlatform }
+func RetireLegacy(string) (bool, error)                  { return false, ErrUnsupportedPlatform }
 func Has(string) bool                                    { return false }
 func MigrateLegacy(string, []byte) error                 { return ErrUnsupportedPlatform }
 
