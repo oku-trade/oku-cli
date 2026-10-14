@@ -179,6 +179,33 @@ func TestBeginSubmissionGatesAcrossProfilesAndOrigins(t *testing.T) {
 		t.Fatalf("post reconciliation nonce %d <= %d: %v", n2, n, e)
 	}
 }
+func TestSigningFailureBurnsNonceAndReleasesGate(t *testing.T) {
+	j := open(t)
+	a := created(t, j, intent("failed-signature", "https://one.example"))
+	n, err := j.BeginSubmission(a, "0xsigner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	blocked, err := j.Blocking(a.Intent.Network, a.Intent.Account)
+	if err != nil || len(blocked) != 1 {
+		t.Fatalf("signing gate missing: %d %v", len(blocked), err)
+	}
+	if err = j.FinishSigning(a, false); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := j.Get(a.Intent.ID)
+	if err != nil || restored.State != StateCreated || restored.Nonce != 0 {
+		t.Fatalf("failed signature not retryable: %+v %v", restored, err)
+	}
+	blocked, err = j.Blocking(a.Intent.Network, a.Intent.Account)
+	if err != nil || len(blocked) != 0 {
+		t.Fatalf("signing gate retained: %d %v", len(blocked), err)
+	}
+	n2, err := j.BeginSubmission(restored, "0xsigner")
+	if err != nil || n2 <= n {
+		t.Fatalf("burned nonce reused: %d after %d: %v", n2, n, err)
+	}
+}
 func TestLegacyImportAndBarrier(t *testing.T) {
 	base := t.TempDir()
 	t.Setenv("OKU_STATE_DIR", base)

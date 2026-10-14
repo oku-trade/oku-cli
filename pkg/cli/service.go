@@ -40,8 +40,7 @@ var ServiceReads = map[string]bool{
 }
 
 // ServiceMutations are journal/exchange mutations a Service runs only when
-// constructed with AllowMutations. Device scopes are still enforced.
-// Pairing, revocation, profile, skills, migration and server commands are
+// constructed with AllowMutations. Login, logout, profile, skills and server commands are
 // never reachable through a Service.
 var ServiceMutations = map[string]bool{
 	"orders prepare": true, "positions leverage": true, "positions margin": true,
@@ -97,7 +96,7 @@ func (s *Service) Call(ctx context.Context, path string, g Globals, flags map[st
 		if ServiceMutations[path] {
 			return nil, output.Errorf(output.CodeUsage, "%q is a mutation and this server was not started with mutations enabled", path)
 		}
-		return nil, output.Errorf(output.CodeUsage, "%q is not available in-process; run it interactively with the oku CLI", path)
+		return nil, output.Errorf(output.CodeUsage, "%q is not available in-process; run it interactively with Oku Agent", path)
 	}
 	if !ok {
 		return nil, output.Errorf(output.CodeUsage, "unknown command %q", path)

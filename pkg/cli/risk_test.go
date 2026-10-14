@@ -16,7 +16,6 @@ import (
 
 func riskHarness(t *testing.T) *harness {
 	h := newHarness(t)
-	h.fake.scopes = []string{"read", "trade", "risk"}
 	h.enroll()
 	return h
 }
@@ -44,8 +43,8 @@ func assertSignedByAgent(t *testing.T, h *harness, wantAction string) {
 	s := sa["signature"].(map[string]any)
 	fmt.Sscan(s["v"].(string), &v)
 	got, _ := signing.RecoverAddress(signing.AgentDigest(conn), signing.Signature{R: s["r"].(string), S: s["s"].(string), V: v})
-	if !strings.EqualFold(got, h.fake.redeemed.Agent) {
-		t.Fatalf("signed by %s, want agent %s", got, h.fake.redeemed.Agent)
+	if !strings.EqualFold(got, h.fake.agentAddress) {
+		t.Fatalf("signed by %s, want agent %s", got, h.fake.agentAddress)
 	}
 }
 
@@ -147,40 +146,30 @@ func TestRiskErrorBeforeSendIsRejected(t *testing.T) {
 	}
 }
 
-// A created (unsigned) risk action is cleaned up with the risk scope; a
-// device without it still abandons locally and reports the skipped cleanup.
-func TestRiskAbandonUsesRiskScope(t *testing.T) {
-	for _, tc := range []struct {
-		scopes  []string
-		cleaned bool
-	}{{[]string{"read", "risk"}, true}, {[]string{"read", "trade"}, false}} {
-		h := newHarness(t)
-		h.fake.scopes = tc.scopes
-		h.enroll()
-		id, _ := prepareRisk(t, h, "positions", "leverage", "--market", "BTC", "--leverage", "7", "--mode", "isolated")
-		// Put the intent in "created": the server holds an unsigned action.
-		j, err := journal.Open("main")
-		if err != nil {
-			t.Fatal(err)
-		}
-		rec, _ := j.Get(id)
-		rec.State, rec.ActionID = journal.StateCreated, "act9"
-		rec.ActionJSON = `{"type":"updateLeverage","asset":0,"isCross":false,"leverage":7}`
-		if err := j.Put(rec, "test"); err != nil {
-			t.Fatal(err)
-		}
-		j.Close()
-		h.fake.actions["act9"] = "pending"
-		r := h.run("orders", "abandon", "--intent", id, "--json")
-		if r.code != 0 || r.data()["state"] != "abandoned" || h.fake.confirms != 0 {
-			t.Fatalf("abandon: %s", r.stdout)
-		}
-		cleanup, _ := r.data()["server_cleanup"].(string)
-		if tc.cleaned != (h.fake.actions["act9"] == "cancelled") || tc.cleaned != (cleanup == "requested") {
-			t.Fatalf("scopes %v: cleanup %q server %q", tc.scopes, cleanup, h.fake.actions["act9"])
-		}
-		if !tc.cleaned && !strings.Contains(cleanup, "risk") {
-			t.Fatalf("skipped cleanup not explained: %q", cleanup)
-		}
+// A created (unsigned) risk action is cancelled remotely when abandoned.
+func TestRiskAbandonCancelsUnsignedAction(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	id, _ := prepareRisk(t, h, "positions", "leverage", "--market", "BTC", "--leverage", "7", "--mode", "isolated")
+	// Put the intent in "created": the server holds an unsigned action.
+	j, err := journal.Open("main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec, _ := j.Get(id)
+	rec.State, rec.ActionID = journal.StateCreated, "act9"
+	rec.ActionJSON = `{"type":"updateLeverage","asset":0,"isCross":false,"leverage":7}`
+	if err := j.Put(rec, "test"); err != nil {
+		t.Fatal(err)
+	}
+	j.Close()
+	h.fake.actions["act9"] = "pending"
+	r := h.run("orders", "abandon", "--intent", id, "--json")
+	if r.code != 0 || r.data()["state"] != "abandoned" || h.fake.confirms != 0 {
+		t.Fatalf("abandon: %s", r.stdout)
+	}
+	cleanup, _ := r.data()["server_cleanup"].(string)
+	if h.fake.actions["act9"] != "cancelled" || cleanup != "requested" {
+		t.Fatalf("cleanup %q server %q", cleanup, h.fake.actions["act9"])
 	}
 }

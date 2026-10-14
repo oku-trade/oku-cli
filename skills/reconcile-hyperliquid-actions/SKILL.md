@@ -1,6 +1,6 @@
 ---
 name: reconcile-hyperliquid-actions
-description: Resolve Oku CLI intents whose outcome is unknown or still in flight (exit 6, OUTCOME_UNKNOWN, timeouts, crashes) without ever blindly resending. Use after any failed or interrupted submit, or when oku blocks new orders because an intent is unresolved.
+description: Resolve Oku Agent intents whose outcome is unknown or still in flight (exit 6, OUTCOME_UNKNOWN, timeouts, crashes) without ever blindly resending. Use after any failed or interrupted submit, or when oku blocks new orders because an intent is unresolved.
 ---
 
 # Reconcile unknown outcomes

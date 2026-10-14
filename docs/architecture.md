@@ -1,50 +1,29 @@
 # Architecture
 
 ```
-agent / human ──> oku (Go binary) ──Connect RPC──> Oku account service (PerpsService) ──> Hyperliquid
-                    │                                   │
-                    ├─ local delegated signer key       └─ shared action history (web UI + CLI)
-                    │   (Linux: encrypted file, macOS: Keychain)
-                    └─ local SQLite journal (intents, nonces, states)
+human terminal ──> oku auth login ──> Privy device grant ──> Oku /agent/authorize
+                                                    │
+external master wallet ──approveAgent───────────────┤
+                                                    ▼
+Oku Agent (Go) ──Oku session──> Accounts AuthService + PerpsService──> Hyperliquid
+       │
+       ├─ Privy embedded Ethereum agent wallet RPC (typed-data signing)
+       ├─ encrypted credential / macOS Keychain (tokens only; no wallet private key)
+       └─ SQLite journal (intents, nonces, signing/submission states)
 ```
 
-- Module `github.com/oku-trade/oku-cli`. The entry point is `./cmd/oku`, and the version is injected via `-X main.version=...`.
-- Default endpoint: `https://accounts.lat.gfx.town/connect` (Connect protocol). Override it per profile with `oku profiles add NAME --api-url URL`.
-- The binary is intentionally thin. Fees, risk rules and action construction live in the backend and are not duplicated locally. The CLI does validate every backend-built action against the locally prepared intent before it signs.
+Module `github.com/oku-trade/oku-cli`, binary `oku`, JSON schema `oku.cli/v1`. `pkg/cli` owns commands, profile/session renewal and signing integration. `pkg/privy` owns OAuth device grant, refresh, HPKE wallet authorization and signed wallet RPC. `pkg/auth` stores profile-bound credentials and takes a cross-process lock over refresh-token rotation. `pkg/api` wraps generated Connect clients for Accounts AuthService and PerpsService. `pkg/signing` computes the Hyperliquid action hash and typed-data digest and recovers signatures. `pkg/journal` owns SQLite persistence. `pkg/mcp` exposes a read-only-by-default agent interface but never interactive login/logout.
 
-## Code layout
+## Login and session renewal
 
-| Path | Role |
-|---|---|
-| `cmd/oku` | The only executable. |
-| `pkg/cli` | Command tree (urfave/cli v3), handlers, and `Service`, the non-interactive in-process entry point intended for the MCP server so it shares validation, auth, signing and journal code instead of shelling out. |
-| `pkg/journal` | SQLite store (`modernc.org/sqlite`, pure Go) with Goose migrations embedded from `pkg/journal/migrations`. |
-| `pkg/auth` | Credential providers: encrypted file (non-Darwin), Keychain (`darwin && cgo`). |
-| `pkg/trading`, `pkg/signing`, `pkg/decimal` | Intents, digests, action validation, Hyperliquid signing, exact decimals. |
-| `pkg/api` | Connect client for the account service. |
-| `pkg/gen`, `proto/` | Vendored account protos (`proto/SOURCE.yaml` records the upstream commit) and committed generated Connect code. Ordinary builds need neither the private backend repo nor codegen. `scripts/sync-protos.sh` resyncs and regenerates. |
-| `pkg/docs`, `pkg/skills`, `assets.go` | `assets.go` in the module root embeds an explicit list of the canonical `docs/*.md` files, which excludes the repository-only `validation.md`, plus the `skills/<name>/` directories. These are the single source. Go cannot embed through `..` or symlinks, so there are no copies. |
-| `pkg/drafts` | Local, syntax-only repair of malformed order-draft JSON (`github.com/kaptinlin/jsonrepair`). It is never applied to backend responses, signed actions, MCP frames, credentials or the journal. |
+The user supplies the account (an external HL master) in the profile or via `--account`. Login prints the Privy device authorization URL and user code, then polls until approved. The authorization page pairs a separate embedded Ethereum wallet with the external master and the master signs HL agent approval. The CLI authenticates the embedded wallet, exchanges the Privy JWT for an Oku session, then calls `ValidateAgentKey`; it stores nothing unless the response says `approved`. On authenticated calls it locks and reloads the credential, refreshes a near-expiry Privy token and persists the new rotating token **before** proceeding, and extends or re-exchanges an expiring Oku session. Signing access is requested lazily only for submit.
 
-## Order flow
+## Submission lifecycle
 
-1. `oku orders prepare` is local only. It returns intent_id + digest. The intent is persisted in the journal before anything else happens.
-2. On `submit --intent --digest`, `CreateAction` runs: the backend builds the exchange action payload for an explicit account and network. The CLI compares that payload with the prepared intent and refuses to sign on any divergence.
-3. In one SQLite transaction, the journal allocates the signer-global nonce, marks the record `submitting`, and checks that no unresolved submission exists for the same account on any profile or origin.
-4. The CLI signs the payload locally with the delegated (agent) signer key. The key never leaves the host.
-5. `ConfirmAction`: the signed action is submitted through Oku. It is never retried automatically.
-6. `GetAction` / `ReconcileActions` / `GetOrderStatuses` give the authoritative status. History is shared with the Oku website, so orders placed in the CLI appear in the UI and vice versa.
+`orders prepare` writes a local intent and digest. `orders submit` requests a server-built action and validates it against the intent. The journal allocates and burns a nonce and holds the account gate in `signing`. Privy signs the Hyperliquid Agent EIP-712 typed data (`Exchange/1/1337/zero address`), and the CLI recovers the returned signature to the stored agent address. Failure or a crash-left `signing` state returns to `created` (after a grace period to protect a concurrent signer); a fresh retry gets a new nonce. After signature verification and a second intent-expiry check, state becomes `submitting` and the CLI calls `ConfirmAction` exactly once. Ambiguous confirm outcomes remain unresolved until `orders reconcile`; neither signing again nor a blind confirm retry is safe.
 
-Leverage and isolated-margin changes (`oku positions leverage` / `positions margin`) use the same prepare → submit flow with `LeverageActionMetadata` / `MarginActionMetadata`. They need the `risk` device scope. They are separate exchange actions from orders. Only a server `completed` state counts as success. An `error` observed after a signature may have left the process is treated as unknown, not as a rejection.
+The journal gate is machine-local. Sharing one embedded agent across machines can cause nonce collisions or simultaneous exposure. Revoking an Oku session or Privy device grant does not remove Hyperliquid agent approval.
 
-Other RPCs used for reads include `GetMarkets`, `GetMarketPrice`, `GetAccountState`, `GetPerpPositions`, `GetOpenOrders` and `GetUserFills`. Transfers, withdrawals and deposits exist in the service but are out of scope for the CLI.
+## Outstanding integration
 
-## Local state
-
-- Config lives under the XDG config dir. `oku config path` prints every path.
-- Credentials are kept separate from config. See [security](security.md#credential-storage-by-platform).
-- The journal is `journal.sqlite` under the state dir, with WAL, `synchronous=FULL`, foreign keys, a 5 s busy timeout, and 0600 file / 0700 directory permissions. Transactions never span network calls. A regular file named `journal` at the legacy JSON journal path acts as a downgrade barrier, because older binaries expect a directory there and fail instead of silently reopening stale JSON state. A `journal-migration-incomplete` marker blocks signing until an import has been verified. Rerunning `oku journal migrate` with no legacy journal is a no-op. Legacy JSON journals are not imported automatically (see [usage](usage.md#local-journal)).
-
-## Pending
-
-- The device enrollment protocol (backend) and the `/cli` website page are implemented but not deployed. The `risk` scope and authenticated device attribution are backend work on an undeployed feature branch. See [deployment](deployment.md) and [validation](validation.md).
+See [deployment](deployment.md) and [security](security.md) for backend verifier, Privy typed-data RPC and web-onboarding blockers. Offline tests do not establish that live Privy RPC accepts chainId 1337 or that deployed Accounts accepts this app's device-grant JWT.

@@ -213,7 +213,7 @@ func (f *commandFailure) Error() string { return f.err.Error() }
 func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 	cmds := a.commands()
 	root := &urfave.Command{
-		Name: "oku", Usage: "Oku perps from your terminal and your agent (Hyperliquid mainnet)",
+		Name: "oku", Usage: "Oku Agent for Hyperliquid mainnet perps",
 		Writer: a.Stdout, ErrWriter: io.Discard, HideVersion: true,
 		OnUsageError: func(_ context.Context, cmd *urfave.Command, err error, _ bool) error {
 			return &commandFailure{name: strings.ReplaceAll(strings.TrimPrefix(cmd.FullName(), "oku "), " ", "."), json: jsonOut, err: output.Errorf(output.CodeUsage, "%v", err)}
@@ -256,8 +256,12 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 			name := strings.ReplaceAll(path, " ", ".")
 			e := &env{app: a, cmd: newCheckedFlags(cmd, leaf.Flags), args: cmd.Args().Slice(), ctx: ctx}
 			e.g = globals{profile: cmd.String("profile"), network: cmd.String("network"), account: cmd.String("account"), json: cmd.Bool("json") || jsonOut, timeout: cmd.Duration("timeout")}
-			if e.g.timeout <= 0 || e.g.timeout > maxTimeout {
-				return &commandFailure{name, e.g.json, output.Errorf(output.CodeUsage, "--timeout must be between 1ns and %s", maxTimeout)}
+			limit := maxTimeout
+			if name == "auth.login" {
+				limit = 15 * time.Minute
+			}
+			if e.g.timeout <= 0 || e.g.timeout > limit {
+				return &commandFailure{name, e.g.json, output.Errorf(output.CodeUsage, "--timeout must be between 1ns and %s", limit)}
 			}
 			if e.g.network != "" && e.g.network != "mainnet" {
 				return &commandFailure{name, e.g.json, output.Errorf(output.CodeNetworkUnsupported, "network %q is not supported: the Oku API currently serves Hyperliquid mainnet only", e.g.network)}
@@ -382,7 +386,7 @@ func apiError(err error, what string) error {
 		e.Code = output.CodeAuthRequired
 	case "permission_denied":
 		e.Code = output.CodeAuthRequired
-		e.Message += " (the device credential lacks permission for this operation)"
+		e.Message += " (the Oku session lacks permission for this operation)"
 	case "resource_exhausted":
 		e.Code, e.Retryable = output.CodeRateLimited, true
 	case "deadline_exceeded":

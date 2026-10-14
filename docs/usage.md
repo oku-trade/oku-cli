@@ -82,10 +82,9 @@ oku version
 oku doctor
 oku config path | config show          # no secrets printed
 
-oku auth setup                          # enrollment code from the Oku website
+oku auth login                          # device grant, completed on https://oku.trade/agent/authorize
 oku auth status [--verify]
-oku auth revoke                         # revokes the Oku API token + deletes local credentials only
-oku auth migrate-keychain --profile P   # macOS only, explicit; see security.md
+oku auth logout                         # best-effort session/grant revoke, deletes local credential
 
 oku profiles add NAME --account 0x.. [--api-url URL] [--default]
 oku profiles list | use NAME | remove NAME
@@ -118,7 +117,7 @@ Example error with no profile configured: `orders prepare` prints `{"ok":false,"
 
 `--digest` binds submission to the exact prepared intent. If anything changes, prepare again. There is no per-order web approval. This is **trusted-host delegated mode** (see `security.md`).
 
-## Leverage and isolated margin (`risk` scope)
+## Leverage and isolated margin
 
 ```sh
 oku positions leverage --market BTC --leverage N --mode cross|isolated [--intent-id ID] [--expires 5m]
@@ -128,8 +127,7 @@ oku orders submit --intent ID --digest SHA
 
 Both commands only **prepare** an intent. Submission goes through `orders submit` like any other intent.
 
-- Submitting needs a device enrolled with the separate `risk` scope. A `trade`-only device is refused with exit 3.
-- The backend support for the `risk` scope is **not deployed yet** (see [deployment](deployment.md)).
+- Submission needs an active Oku session and the approved embedded Hyperliquid agent; risk changes can affect real funds.
 - Leverage must be an integer from 1 to the market maximum. Isolated-only markets refuse cross mode.
 - A leverage change and an order are two separate exchange actions, not one atomic trade. Only a server `completed` state counts as success.
 
@@ -174,10 +172,10 @@ oku mcp serve --allow-mutations   # also prepare/submit/cancel/reconcile/abandon
 
 The server runs over stdio. Stdout carries only MCP protocol frames, and logs go to stderr. `--json` is refused.
 
-- **Tools:** read-only by default. Mutation tools are exposed only with `--allow-mutations`, and device scopes are still enforced. `auth setup` and profile edits are never exposed.
+- **Tools:** read-only by default. Mutation tools are exposed only with `--allow-mutations`. Login, logout and profile edits are never exposed.
 - **Resources:** bundled docs and skills are available as `oku://docs/...` and `oku://skills/...`. There is also a local `drafts_repair` tool.
 - **Profile:** `oku --profile NAME mcp serve` pins the server to that profile. Tools use it, and a tool call naming a different profile is refused. Start a separate server for another profile. Without a launch profile, tools use a per-call `profile`, then `$OKU_PROFILE`, then the config default.
-- **Pairing:** the server never prompts. Enroll first with `oku auth setup` in a terminal. On Linux, unlocking needs `OKU_PASSPHRASE_FILE`. Otherwise tools return an auth error.
+- **Login:** the server never prompts. Run `oku auth login` in a terminal first. On Linux, unlocking needs `OKU_PASSPHRASE_FILE`. Otherwise tools return an auth error.
 - **Approval:** a digest proves payload integrity, not human approval. Clients must get explicit user approval before calling `orders_submit`. Unknown outcomes follow the same reconcile-never-resend rules as the CLI.
 
 ## Local journal

@@ -89,7 +89,7 @@ func (a *App) cmdVersion(e *env) (*result, error) {
 		"schema_version": output.SchemaVersion,
 	}
 	return &result{data: data, human: func(w io.Writer) {
-		fmt.Fprintf(w, "oku %s (%s, %s/%s)\n", a.Version, buildCommit(), runtime.GOOS, runtime.GOARCH)
+		fmt.Fprintf(w, "Oku Agent %s (%s, %s/%s)\n", a.Version, buildCommit(), runtime.GOOS, runtime.GOARCH)
 	}}, nil
 }
 
@@ -98,7 +98,7 @@ func (a *App) cmdConfigPath(e *env) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeConfigError, err, "config path")
 	}
-	cred, _ := auth.Path("<profile>")
+	cred, _ := auth.PrivyPath("<profile>")
 	state, _ := config.StateDir()
 	data := map[string]string{"config": cfg, "credentials": cred, "state": state}
 	return &result{data: data, human: func(w io.Writer) {
@@ -120,17 +120,18 @@ func (a *App) cmdProfilesList(e *env) (*result, error) {
 		return nil, output.Wrap(output.CodeConfigError, err, "loading config")
 	}
 	type row struct {
-		Name     string `json:"name"`
-		Default  bool   `json:"default"`
-		Network  string `json:"network"`
-		APIURL   string `json:"api_url"`
-		Account  string `json:"account,omitempty"`
-		Enrolled bool   `json:"enrolled"`
+		Name          string `json:"name"`
+		Default       bool   `json:"default"`
+		Network       string `json:"network"`
+		APIURL        string `json:"api_url"`
+		Account       string `json:"account,omitempty"`
+		Authenticated bool   `json:"authenticated"`
 	}
 	rows := []row{}
 	for _, n := range f.Names() {
 		p := f.Profiles[n]
-		rows = append(rows, row{n, n == f.DefaultProfile, p.Network, p.APIURL, p.Account, auth.Has(n)})
+		_, credErr := auth.LoadPrivyMetadata(n)
+		rows = append(rows, row{n, n == f.DefaultProfile, p.Network, p.APIURL, p.Account, credErr == nil})
 	}
 	return &result{data: map[string]any{"profiles": rows}, human: func(w io.Writer) { printProfiles(w, f) }}, nil
 }
@@ -156,6 +157,7 @@ func printProfiles(w io.Writer, f *config.File) {
 func profilesAddFlags() []urfave.Flag {
 	return []urfave.Flag{
 		&urfave.StringFlag{Name: "api-url", Value: config.DefaultAPIURL, Usage: "Oku account API origin"},
+		&urfave.StringFlag{Name: "privy-app-id", Usage: "Privy application ID (defaults to Oku Trade Agents)"},
 		&urfave.BoolFlag{Name: "default", Usage: "make this the default profile"},
 	}
 }
@@ -174,9 +176,10 @@ func (a *App) cmdProfilesAdd(e *env) (*result, error) {
 		network = config.NetworkMainnet
 	}
 	p := &config.Profile{
-		Network: network,
-		APIURL:  config.NormalizeAPIURL(e.cmd.String("api-url")),
-		Account: e.g.account,
+		PrivyAppID: e.cmd.String("privy-app-id"),
+		Network:    network,
+		APIURL:     config.NormalizeAPIURL(e.cmd.String("api-url")),
+		Account:    e.g.account,
 	}
 	if p.Account == "" {
 		return nil, output.Errorf(output.CodeAccountRequired, "--account is required")

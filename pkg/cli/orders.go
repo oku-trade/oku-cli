@@ -365,7 +365,7 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 	}
 
 	// Nonce allocation, the account-wide unresolved gate and the
-	// "submitting" state commit in one transaction before anything is signed.
+	// "signing" state commit in one transaction before anything is signed.
 	nonce, err := j.BeginSubmission(rec, s.md.AgentAddress)
 	switch {
 	case errors.Is(err, journal.ErrUnresolved):
@@ -653,6 +653,10 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 	byAction := map[string]*journal.Record{}
 	for _, r := range un {
 		if r.State == journal.StateSigning {
+			updated, parseErr := time.Parse(time.RFC3339Nano, r.UpdatedAt)
+			if parseErr == nil && e.app.Now().Sub(updated) < 5*time.Minute {
+				return nil, output.Errorf(output.CodeOutcomeUnknown, "intent %s may still be signing; retry reconcile after five minutes", r.Intent.ID)
+			}
 			if err := j.FinishSigning(r, false); err != nil {
 				return nil, output.Wrap(output.CodeInternal, err, "resetting unsent signing action")
 			}
@@ -808,6 +812,10 @@ func (a *App) cmdOrdersAbandon(e *env) (*result, error) {
 		return recordResult(rec), nil
 	case journal.StateCreated:
 	case journal.StateSigning:
+		updated, parseErr := time.Parse(time.RFC3339Nano, rec.UpdatedAt)
+		if parseErr == nil && e.app.Now().Sub(updated) < 5*time.Minute {
+			return nil, output.Errorf(output.CodeOutcomeUnknown, "intent %s may still be signing; retry after five minutes", rec.Intent.ID)
+		}
 		if err := j.FinishSigning(rec, false); err != nil {
 			return nil, output.Wrap(output.CodeInternal, err, "resetting unsent signing action")
 		}

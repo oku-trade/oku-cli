@@ -1,6 +1,6 @@
 ---
 name: manage-hyperliquid-risk
-description: Change leverage, cross or isolated margin mode, or isolated margin on a Hyperliquid market with the Oku CLI through prepare and submit. Use only when the user explicitly asks to change leverage or margin mode, or to add or remove isolated margin.
+description: Change leverage, cross or isolated margin mode, or isolated margin on a Hyperliquid market with the Oku Agent through prepare and submit. Use only when the user explicitly asks to change leverage or margin mode, or to add or remove isolated margin.
 ---
 
 # Manage leverage and margin

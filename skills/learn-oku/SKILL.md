@@ -1,9 +1,9 @@
 ---
 name: learn-oku
-description: Orient in the Oku CLI (oku) for Hyperliquid perps. Use first whenever a task involves oku, Oku positions, markets or orders, to discover the installed version, commands, docs, output schema and capabilities before acting.
+description: Orient in the Oku Agent (oku) for Hyperliquid perps. Use first whenever a task involves oku, Oku positions, markets or orders, to discover the installed version, commands, docs, output schema and capabilities before acting.
 ---
 
-# Learn the Oku CLI
+# Learn the Oku Agent
 
 ## Ground rules (all Oku skills)
 

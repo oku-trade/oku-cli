@@ -79,8 +79,6 @@ type Secrets struct {
 	SessionToken string `json:"session_token,omitempty"`
 	AccessToken  string `json:"access_token,omitempty"`
 	RefreshToken string `json:"refresh_token,omitempty"`
-	// SpotKey is a local spot wallet private key (branch-specific signer).
-	SpotKey []byte `json:"spot_key,omitempty"`
 }
 
 // key identifies one credential record: the device credential (kind "")

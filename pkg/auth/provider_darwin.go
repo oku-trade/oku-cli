@@ -120,9 +120,9 @@ func (systemKeychain) Put(k key, value []byte) error {
 	// kSecAttrSynchronizable is specified (set to false on this item).
 	item.SetAccessible(keychain.AccessibleWhenUnlockedThisDeviceOnly)
 	if k.kind != "" {
-		item.SetLabel("Oku CLI " + k.kind + " credential")
+		item.SetLabel("Oku Agent " + k.kind + " credential")
 	} else {
-		item.SetLabel("Oku CLI device credential")
+		item.SetLabel("Oku Agent device credential")
 	}
 	err = keychain.AddItem(item)
 	if errors.Is(err, keychain.ErrorDuplicateItem) {

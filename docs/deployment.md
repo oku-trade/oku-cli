@@ -1,54 +1,23 @@
 # Deployment prerequisites
 
-Nothing here is deployed by this repository. Before the CLI is usable end to end, the following must be in place.
+**Oku Agent Privy authorization is not confirmed production-ready.** This repository does not deploy the frontend, Accounts service or Privy app configuration. Operators must validate all of these before releasing trading access.
 
-## Backend (oku-trade/account)
+## Backend and Privy
 
-- `PerpsService` reachable at the configured endpoint (default `https://accounts.lat.gfx.town/connect`), with `CreateAction`, `ConfirmAction`, `GetAction`, `ReconcileActions`, `GetOrderStatuses` and the read RPCs.
-- **Device enrollment endpoints** (`CliDeviceService`): implemented, migration 137, **not deployed**. Needs short-lived single-use codes, pending-device binding to a generated key, expiry, rate limits, and device listing/revocation.
-- **`risk` device scope** (leverage, margin mode, isolated margin): in progress on the backend feature branch `feat/cli-device-enrollment` (proto commit `1d5f44133` plus uncommitted scope-interceptor work). It is **not merged or deployed**. Until it is, `oku positions leverage` / `positions margin` intents can be prepared locally but cannot be submitted against a deployed backend. Existing `trade` tokens are intentionally not widened to cover risk actions.
-- **Authenticated order origin/device attribution** (migration 138 on the same branch): **not applied or deployed**. The Oku UI cannot yet reliably distinguish CLI or MCP orders by authenticated device.
-- Idempotent `ConfirmAction` across retries and concurrent clients, with unresolved actions visible server-side.
+1. Deploy Accounts `AuthService/PrivySessionExchange`, `ExtendSession`, `Logout` and `PerpsService/ValidateAgentKey`, plus the normal Perps action RPCs.
+2. The dedicated Privy app **Oku Trade Agents** has ID `cmv72u7fa001m0gk200vq97nd`. Configure device authorization to send users to `https://oku.trade/agent/authorize`. The CLI defaults to that app ID; profile `privy_app_id` and `OKU_PRIVY_APP_ID` override it. `OKU_PRIVY_AUTH_URL` is for local test servers.
+3. The backend must accept this app's device-grant JWT. The Accounts branch `feat/privy-multi-app-verifier` is required and its deployment and live device-JWT exchange remain **unverified**.
+4. The Privy OAuth wallet RPC must allow `eth_signTypedData_v4` for Hyperliquid Agent typed data, including chainId 1337. This is **unverified live**. Apply a grant policy that limits the wallet to that domain if available.
+5. Backend agent-session lifetime and attribution, and recovery-to-approved-agent validation must be reviewed. A generic user session is not an equivalent substitute for a scoped device session.
 
-## Frontend
+## Web onboarding
 
-- The `/cli` page is implemented but not deployed. It covers the connected account/network, a risk explanation, the enrollment code, agent approval, a device list with revocation, and wording that separates token revocation from agent-key revocation. An explicit `risk` scope opt-in is on the trade feature branch and is not deployed.
+The page `/agent/authorize` must: (1) complete the Privy device authorization for the shown user code, (2) authenticate the user's **external** master wallet, (3) obtain/create a separate embedded Ethereum agent wallet in the dedicated Privy app, (4) have the master sign Hyperliquid named-agent approval for the embedded address and builder-fee approval where required, and (5) expose an understandable route to revoke both the device grant and, separately, the Hyperliquid agent. Do not use the retail embedded wallet as the account master. Named-agent slots `oku1`–`oku3` can conflict with existing web approvals. The CLI does not implement this page.
 
-## Release
+## Operator acceptance
 
-- There is **no published npm package or public release channel**. The repository is private. `.github/workflows/release.yml` is manual only and disabled unless the repository variable `NPM_PUBLISH_ENABLED` is `true`. Even then it defaults to `--dry-run`, requires the `npm-release` environment, and publishes with `--access restricted`.
-- Package names (`@oku-trade/cli` and `@oku-trade/cli-{linux,darwin}-{x64,arm64}`), scope ownership, visibility and license (`UNLICENSED`) are pending owner decisions.
-- npm does **not** generate provenance for private source repositories. None is claimed.
-- macOS binaries carry only an ad-hoc code signature. Developer ID signing and notarization are a separate, undecided release step. See [releasing](releasing.md).
+Use disposable accounts and staging, not funded production wallets. Verify pending-to-approved login, refusal before `ValidateAgentKey` reports approved, refresh-token rotation across two processes, signed typed-data recovery against the approved agent, a failed Privy signature returning the journal record to `created`, and separate grant/session/HL-agent revocation. Confirm a minimal submitted order appears in Oku and Hyperliquid before releasing trading access. Record actual deployment SHA and evidence in `validation.md`; local mock tests alone do not close these live blockers.
 
-## Migration runbook (human-operated, documentation only)
+## npm release
 
-Agents and scripts in this repository must **not** run migrations or change services or databases. A human operator performs every step below. This repository executes none of them.
-
-1. Read-only pre-checks: confirm the target environment, the current schema version, and backups. Do not write anything.
-2. Review the backend migrations in the account repo: 137 (devices) and 138 (device origin/attribution, once finalized). Take exact commands from the account repo. Do not guess them.
-3. The operator applies the migrations and deploys the backend, then the frontend `/cli`.
-4. Read-only post-checks: the `GetMarkets` read probe (see `validation.md`), then an enrollment smoke test by a human.
-5. Prepare the rollback plan before step 3.
-
-## Enrollment RPCs (implemented in backend, not deployed)
-
-- `VerifyEnrollment` carries `agentAddress` and the human-entered `confirmationCode`.
-- The `ApproveEnrollment` request is only `{enrollmentId}`.
-- The device routes are **not deployed**. Backend DB tests and the migrations have intentionally **not** been run against shared databases, because services and databases are operator-only.
-
-**Status: not production-ready.**
-
-## Operator-run integration acceptance (required before any release)
-
-A human operator runs these in a non-production environment and records the results in `validation.md`:
-
-1. Apply migrations 137/138 (operator only) and run the backend DB/integration tests.
-2. Deploy the backend device routes and the frontend `/cli` to staging.
-3. `oku auth setup`: enter the code in the CLI, and confirm the browser shows `VerifyEnrollment` succeeding before any HL delegation prompt.
-4. Read-only device: confirm that no HL agent delegation is offered.
-5. Trading device: `ApproveEnrollment`, then `oku auth status --json` reports verified with the expected scopes.
-6. Minimal order on a test account: prepare → submit → visible in the Oku UI → cancel in the UI → the CLI sees the cancel.
-7. Risk device (only with an explicit `risk` opt-in): prepare a leverage change, confirm that a `trade`-only device is refused, then submit only with human approval.
-8. On macOS, native builds only: enroll into the Keychain. Separately, run `oku auth migrate-keychain` on a disposable legacy credential.
-9. Revoke the Oku token and separately revoke the HL agent. Confirm the CLI fails with exit 3 and the agent can no longer sign.
+`@oku-trade/cli` and the platform package names remain unchanged pending owner decisions on scope ownership, visibility and licensing. No package is published by this repository automatically. See [releasing](releasing.md).

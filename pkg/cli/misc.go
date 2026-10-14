@@ -106,15 +106,19 @@ func (a *App) cmdDoctor(e *env) (*result, error) {
 			add("oku_api", len(mk.Markets) > 0, "PerpsService reachable")
 		}
 		if p.Name != "" {
-			md, err := auth.LoadMetadata(p.Name)
+			md, err := auth.LoadPrivyMetadata(p.Name)
 			switch {
 			case errors.Is(err, auth.ErrNoCredentials):
-				add("credentials", true, "not enrolled (read-only public data only)")
+				if _, legacyErr := auth.LoadMetadata(p.Name); legacyErr == nil {
+					add("credentials", false, "legacy device credential unusable; run oku auth login")
+				} else {
+					add("credentials", true, "not logged in (public reads only)")
+				}
 			case err != nil:
 				add("credentials", false, err.Error())
 			default:
-				berr := checkBinding(md, p)
-				add("credentials", berr == nil, fmt.Sprintf("%s, scopes %s", md.Status, describeScopes(md.Scopes)))
+				berr := e.checkBinding(md, p)
+				add("credentials", berr == nil && md.Status == "active", fmt.Sprintf("%s, agent %s", md.Status, md.AgentAddress))
 			}
 			if j, err := journal.Open(p.Name); err == nil {
 				un, err := j.Unresolved()

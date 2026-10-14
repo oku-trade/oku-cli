@@ -1,6 +1,6 @@
 ---
 name: open-hyperliquid-position
-description: Open or increase a Hyperliquid perps position with the Oku CLI, using current market data, risk inputs supplied by the user, and the prepare, review, submit flow. Use when the user asks to buy, sell, long or short a market via Oku.
+description: Open or increase a Hyperliquid perps position with the Oku Agent, using current market data, risk inputs supplied by the user, and the prepare, review, submit flow. Use when the user asks to buy, sell, long or short a market via Oku.
 ---
 
 # Open a Hyperliquid position

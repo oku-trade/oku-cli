@@ -49,16 +49,16 @@ type Backend interface {
 // Config controls what the server exposes.
 type Config struct {
 	Version string
-	// AllowMutations exposes prepare/submit/cancel/reconcile tools. Enrolled
-	// device scopes are still enforced by the backend on every call.
+	// AllowMutations exposes prepare/submit/cancel/reconcile tools.
+	// Authenticated mutations still require a valid Oku session.
 	AllowMutations bool
 	Docs           docs.Store
 	Skills         fs.FS // skills root, one directory per skill
 }
 
 // Tool policy. Read tools are exposed by default; mutation tools only with
-// AllowMutations. Anything not listed is never exposed (auth setup needs a
-// human for pairing; profile edits change user state).
+// AllowMutations. Anything not listed is never exposed (auth login needs a
+// human-operated authorization; profile edits change user state).
 var (
 	readTools = map[string]bool{
 		"version": true, "doctor": true, "auth status": true, "profiles list": true,
@@ -86,7 +86,7 @@ func ToolName(path string) string { return strings.ReplaceAll(path, " ", "_") }
 // NewServer builds the MCP server.
 func NewServer(b Backend, cfg Config) *sdk.Server {
 	s := sdk.NewServer(&sdk.Implementation{Name: "oku", Version: cfg.Version}, &sdk.ServerOptions{
-		Instructions: "Oku perps (Hyperliquid mainnet). Read the oku://docs and oku://skills resources first. " +
+		Instructions: "Oku Agent for Hyperliquid mainnet perps. Read the oku://docs and oku://skills resources first. " +
 			"Never invent trade parameters. Mutations use prepare, then an explicit user-approved submit bound to the returned digest. " +
 			"An unknown outcome is not a failure: reconcile, never resend.",
 	})

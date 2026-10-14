@@ -94,7 +94,7 @@ func TestDraftsRepairIsLocalOnly(t *testing.T) {
 	}
 }
 
-func TestRiskPrepareValidatesAndNeedsRiskScope(t *testing.T) {
+func TestRiskPrepareValidatesAndSubmitsWithApprovedAgent(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
 	if r := h.run("positions", "leverage", "--market", "BTC", "--leverage", "41", "--mode", "cross", "--json"); r.errCode() != "INVALID_ARGUMENT" {
@@ -108,9 +108,10 @@ func TestRiskPrepareValidatesAndNeedsRiskScope(t *testing.T) {
 		t.Fatalf("prepare: %s", r.stdout)
 	}
 	id, dg := r.data()["intent_id"].(string), r.data()["digest"].(string)
+	h.fake.confirm = completeConfirm
 	r = h.run("orders", "submit", "--intent", id, "--digest", dg, "--json")
-	if r.errCode() != "AUTH_REQUIRED" || h.fake.creates != 0 || h.fake.confirms != 0 {
-		t.Fatalf("submit without risk scope: %s", r.stdout)
+	if r.code != 0 || h.fake.creates != 1 || h.fake.confirms != 1 {
+		t.Fatalf("approved agent risk submission: %s", r.stdout)
 	}
 }
 
@@ -146,6 +147,9 @@ func testService(h *harness) *Service {
 		if k == "OKU_PASSPHRASE_FILE" {
 			return h.passFn
 		}
+		if k == "OKU_PRIVY_AUTH_URL" {
+			return h.privy.server.URL
+		}
 		return ""
 	})
 }
@@ -179,8 +183,8 @@ func TestMCPReadsByDefaultAndGatesMutations(t *testing.T) {
 	if _, err := svc.Call(context.Background(), "orders submit", Globals{}, map[string]any{"intent": "x", "digest": "y"}, nil); err == nil {
 		t.Fatal("service ran a mutation while gated")
 	}
-	if _, err := svc.Call(context.Background(), "auth revoke", Globals{}, nil, nil); err == nil {
-		t.Fatal("service ran auth revoke")
+	if _, err := svc.Call(context.Background(), "auth logout", Globals{}, nil, nil); err == nil {
+		t.Fatal("service ran auth logout")
 	}
 	res, err := cs.ReadResource(context.Background(), &sdk.ReadResourceParams{URI: "oku://skills/reconcile-hyperliquid-actions"})
 	if err != nil || !strings.Contains(res.Contents[0].Text, "never") {

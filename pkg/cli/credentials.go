@@ -2,9 +2,7 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"errors"
-	"io"
 	"os"
 	"runtime"
 	"strings"
@@ -191,6 +189,7 @@ func (e *env) unlock(p *resolved, _ string) (*session, error) {
 			}
 		}
 		if err != nil || md.SessionID == "" || sec.SessionToken == "" {
+			c.SessionID, c.SessionToken = "", ""
 			var ex api.PrivySessionExchangeResponse
 			if err = c.Auth(ctx, "PrivySessionExchange", map[string]string{"accessToken": sec.AccessToken}, &ex, false); err != nil {
 				return nil, output.Wrap(output.CodeAuthRequired, err, "exchanging Privy session")
@@ -206,13 +205,6 @@ func (e *env) unlock(p *resolved, _ string) (*session, error) {
 	}
 	return &session{md: md, token: sec.SessionToken, sessionID: md.SessionID}, nil
 }
-func describeScopes(s []string) string {
-	if len(s) == 0 {
-		return "-"
-	}
-	return strings.Join(s, ",")
-}
-
 func (e *env) signerFor(p *resolved, s *session) (signing.Signer, error) {
 	release, err := auth.LockProfile(p.Name)
 	if err != nil {
@@ -250,6 +242,3 @@ func (e *env) signerFor(p *resolved, s *session) (signing.Signer, error) {
 	}
 	return nil, output.Errorf(output.CodeSignerUnavailable, "stored Privy wallet is not the approved agent")
 }
-
-var _ io.Writer
-var _ context.Context

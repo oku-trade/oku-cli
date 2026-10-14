@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"runtime"
 	"strings"
 	"time"
 
@@ -130,6 +129,22 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "locking credential")
 	}
 	defer release()
+	if selected := e.cmd.String("account"); selected != "" {
+		cfg, loadErr := config.Load()
+		if loadErr != nil {
+			return nil, output.Wrap(output.CodeConfigError, loadErr, "loading profile")
+		}
+		profile := cfg.Profiles[p.Name]
+		if profile == nil || config.NormalizeAPIURL(profile.APIURL) != p.APIURL {
+			return nil, output.Errorf(output.CodeConfigError, "profile changed during login; retry")
+		}
+		if !strings.EqualFold(profile.Account, selected) {
+			profile.Account = strings.ToLower(selected)
+			if saveErr := cfg.Save(); saveErr != nil {
+				return nil, output.Wrap(output.CodeConfigError, saveErr, "saving selected account")
+			}
+		}
+	}
 	md := auth.Metadata{Kind: auth.KindPrivy, Profile: p.Name, Network: p.Network, APIURL: p.APIURL, PrivyAppID: pc.AppID, AccountAddress: strings.ToLower(p.Account), AgentAddress: strings.ToLower(wallet.Address), PrivyWalletID: wallet.ID, AccessExpiresAt: tok.AccessExpiresAt.UTC().Format(time.RFC3339), SessionID: exchange.Session.SessionID, SessionExpiresAt: exchange.Session.ExpiresAt, CreatedAt: e.app.Now().UTC().Format(time.RFC3339), Status: "active", Generation: 1}
 	sec := auth.Secrets{AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken, SessionToken: exchange.Session.Token}
 	if err = auth.SavePrivy(p.Name, md, sec, pass); err != nil {
@@ -203,7 +218,12 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 		return nil, err
 	}
 	if err = e.checkBinding(md, p); err != nil {
-		return nil, err
+		if deleteErr := auth.DeletePrivy(p.Name); deleteErr != nil {
+			return nil, output.Wrap(output.CodeSignerUnavailable, deleteErr, "deleting unbound credential")
+		}
+		return &result{data: map[string]any{"local_credentials": "deleted", "oku_session": "not_attempted", "privy_grant": "not_attempted", "warning": "credential binding changed; revoke grants separately", "boundaries": boundaries}, human: func(w io.Writer) {
+			fmt.Fprintln(w, "Local credential deleted; binding changed, remote grants were not revoked. "+boundaries["not_revoked"])
+		}}, nil
 	}
 	pass, err := e.passphrase(false)
 	if err != nil {
@@ -243,10 +263,4 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 	return &result{data: map[string]any{"local_credentials": "deleted", "oku_session": remote, "privy_grant": grant, "boundaries": boundaries}, human: func(w io.Writer) {
 		fmt.Fprintf(w, "Local credential deleted; %s; Privy grant %s.\n%s\n", remote, grant, boundaries["not_revoked"])
 	}}, nil
-}
-func (a *App) cmdAuthMigrateKeychain(e *env) (*result, error) {
-	if runtime.GOOS != "darwin" {
-		return nil, output.Errorf(output.CodeUsage, "auth migrate-keychain requires macOS")
-	}
-	return nil, output.Errorf(output.CodeUsage, "legacy device credentials cannot be migrated; run oku auth login")
 }

@@ -1,6 +1,6 @@
 ---
 name: manage-hyperliquid-orders
-description: Track, cancel or replace Hyperliquid orders with the Oku CLI, covering intent status, open orders, cancels and abandoning unsigned intents. Use when the user asks about an order's status or wants to cancel or change one.
+description: Track, cancel or replace Hyperliquid orders with the Oku Agent, covering intent status, open orders, cancels and abandoning unsigned intents. Use when the user asks about an order's status or wants to cancel or change one.
 ---
 
 # Manage Hyperliquid orders
