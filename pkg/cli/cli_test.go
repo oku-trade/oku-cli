@@ -825,9 +825,11 @@ func TestCancelAllowedWhileOtherSubmissionUnknown(t *testing.T) {
 func TestExpiryRecheckedBeforeSigning(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
-	id, dg := prepare(t, h, "--expires", "1s")
+	// ExpiresAt has second precision, so a 2s TTL is still live (>=1s left)
+	// when submit starts, and the 2.1s CreateAction pushes it past expiry.
+	id, dg := prepare(t, h, "--expires", "2s")
 	h.fake.actionJSON = func(o map[string]any) string {
-		time.Sleep(1300 * time.Millisecond)
+		time.Sleep(2100 * time.Millisecond)
 		return defaultOrderAction(o)
 	}
 	r := h.run("orders", "submit", "--intent", id, "--digest", dg, "--json")
