@@ -13,10 +13,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"reflect"
-	"strings"
 
 	keychain "github.com/keybase/go-keychain"
 	"github.com/oku-trade/oku-cli/pkg/config"
@@ -43,12 +39,7 @@ func keychainAccount(k key) (string, error) {
 		return "", err
 	}
 	digest := sha256.Sum256([]byte(dir))
-	// Profile names cannot contain ':', so the Privy record never collides
-	// with a device record.
-	if k.kind != "" {
-		return hex.EncodeToString(digest[:]) + ":" + k.kind + ":" + k.profile, nil
-	}
-	return hex.EncodeToString(digest[:]) + ":" + k.profile, nil
+	return hex.EncodeToString(digest[:]) + ":" + k.kind + ":" + k.profile, nil
 }
 func keychainItem(k key) (keychain.Item, error) {
 	item := keychain.NewItem()
@@ -119,11 +110,7 @@ func (systemKeychain) Put(k key, value []byte) error {
 	// The library documents kSecAttrAccessible support on macOS when
 	// kSecAttrSynchronizable is specified (set to false on this item).
 	item.SetAccessible(keychain.AccessibleWhenUnlockedThisDeviceOnly)
-	if k.kind != "" {
-		item.SetLabel("Oku Agent " + k.kind + " credential")
-	} else {
-		item.SetLabel("Oku Agent device credential")
-	}
+	item.SetLabel("Oku Agent " + k.kind + " credential")
 	err = keychain.AddItem(item)
 	if errors.Is(err, keychain.ErrorDuplicateItem) {
 		update := keychain.NewItem()
@@ -153,104 +140,6 @@ func (systemKeychain) Remove(k key) error {
 		return nil
 	}
 	return keychainError(err)
-}
-
-func Save(profile string, md Metadata, s Secrets, _ []byte) error {
-	// An existing encrypted file is never silently replaced or ignored. Explicit
-	// migration verifies the native item before retiring the legacy file.
-	if _, err := fileLoadMetadata(deviceKey(profile)); err == nil {
-		return errors.New("legacy encrypted credential exists; migrate explicitly before writing Keychain")
-	} else if !errors.Is(err, ErrNoCredentials) {
-		return err
-	}
-	if prior, _, err := nativeLoad(systemKeychain{}, deviceKey(profile)); err == nil {
-		if prior.Network != md.Network || prior.APIURL != md.APIURL || !strings.EqualFold(prior.AccountAddress, md.AccountAddress) {
-			return errors.New("existing Keychain credential has a different origin/account/network binding")
-		}
-	} else if !errors.Is(err, ErrNoCredentials) {
-		return err
-	}
-	return nativeSave(systemKeychain{}, deviceKey(profile), md, s)
-}
-func LoadMetadata(profile string) (*Metadata, error) {
-	md, _, err := nativeLoad(systemKeychain{}, deviceKey(profile))
-	if errors.Is(err, ErrNoCredentials) {
-		if _, legacyErr := fileLoadMetadata(deviceKey(profile)); legacyErr == nil {
-			return nil, errors.New("legacy encrypted credential exists; explicit Keychain migration required")
-		} else if !errors.Is(legacyErr, ErrNoCredentials) {
-			return nil, legacyErr
-		}
-	}
-	return md, err
-}
-func Unlock(profile string, _ []byte) (*Metadata, *Secrets, error) {
-	return nativeLoad(systemKeychain{}, deviceKey(profile))
-}
-func Delete(profile string) error {
-	// Prevent accidentally leaving a usable legacy credential behind.
-	if _, err := fileLoadMetadata(deviceKey(profile)); err == nil {
-		return errors.New("legacy encrypted credential exists; retire it explicitly before deleting Keychain item")
-	} else if !errors.Is(err, ErrNoCredentials) {
-		return err
-	}
-	return (systemKeychain{}).Remove(deviceKey(profile))
-}
-
-// RetireLegacy explicitly deletes legacy encrypted and Keychain device
-// credentials without decrypting or migrating either one.
-func RetireLegacy(profile string) (bool, error) {
-	return retireLegacy(profile, systemKeychain{})
-}
-func Has(profile string) bool { _, err := LoadMetadata(profile); return err == nil }
-
-// MigrateLegacy explicitly decrypts a legacy file, writes and independently
-// reads back the native item, then renames the encrypted source to a restrictive
-// non-active backup. On any failure before rename, the original remains active.
-// No migration occurs during normal reads or enrollment.
-func MigrateLegacy(profile string, passphrase []byte) error {
-	md, sec, err := fileUnlock(deviceKey(profile), passphrase)
-	if err != nil {
-		return err
-	}
-	if md.Profile != profile || md.APIURL == "" || md.Network == "" || md.AccountAddress == "" || !strings.HasPrefix(md.APIURL, "https://") && !strings.HasPrefix(md.APIURL, "http://") {
-		return errors.New("legacy credential binding incomplete")
-	}
-	path, err := Path(profile)
-	if err != nil {
-		return err
-	}
-	backup := path + ".pre-keychain"
-	if _, err := os.Lstat(backup); err == nil {
-		return errors.New("legacy backup already exists; resolve manually")
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	if current, currentSecrets, err := nativeLoad(systemKeychain{}, deviceKey(profile)); err == nil {
-		if !reflect.DeepEqual(current, md) || currentSecrets.DeviceToken != sec.DeviceToken || currentSecrets.PollSecret != sec.PollSecret || !equalBytes(currentSecrets.AgentKey, sec.AgentKey) {
-			return errors.New("existing Keychain item differs from legacy credential")
-		}
-	} else if errors.Is(err, ErrNoCredentials) {
-		if err := nativeSave(systemKeychain{}, deviceKey(profile), *md, *sec); err != nil {
-			return err
-		}
-	} else {
-		return err
-	}
-	if err := os.Rename(path, backup); err != nil {
-		return fmt.Errorf("Keychain item verified, but legacy credential not retired: %w", err)
-	}
-	if err := os.Chmod(backup, 0o600); err != nil {
-		return fmt.Errorf("legacy backup permissions: %w", err)
-	}
-	directory, err := os.Open(filepath.Dir(path))
-	if err != nil {
-		return err
-	}
-	defer directory.Close()
-	if err := directory.Sync(); err != nil {
-		return fmt.Errorf("sync credential migration directory: %w", err)
-	}
-	return nil
 }
 
 // SavePrivy stores the Privy (Accounts session) credential in the Keychain.

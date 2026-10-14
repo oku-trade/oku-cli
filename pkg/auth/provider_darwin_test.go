@@ -29,40 +29,25 @@ func TestDedicatedNativeKeychain(t *testing.T) {
 	t.Setenv("OKU_CONFIG_DIR", t.TempDir())
 	profile := "oku-ci-native-test"
 	md := Metadata{Profile: profile, Network: "testnet", APIURL: "https://api.example", AccountAddress: "0x111"}
-	sec := Secrets{DeviceToken: "test-only-token", AgentKey: []byte("test-only-key")}
-	if err := Save(profile, md, sec, nil); err != nil {
+	sec := Secrets{RefreshToken: "test-only-token"}
+	if err := SavePrivy(profile, md, sec, nil); err != nil {
 		t.Fatal(err)
 	}
-	loaded, err := LoadMetadata(profile)
+	loaded, err := LoadPrivyMetadata(profile)
 	if err != nil || loaded.Profile != profile {
 		t.Fatalf("load metadata: %v", err)
 	}
-	_, got, err := Unlock(profile, nil)
-	if err != nil || got.DeviceToken != sec.DeviceToken {
+	_, got, err := UnlockPrivy(profile, nil)
+	if err != nil || got.RefreshToken != sec.RefreshToken {
 		t.Fatalf("unlock: %v", err)
 	}
-	if err := Save(profile, Metadata{Profile: profile, Network: "mainnet", APIURL: md.APIURL, AccountAddress: md.AccountAddress}, sec, nil); err == nil {
-		t.Fatal("network rebinding accepted")
-	}
-	if err := Save(profile, Metadata{Profile: profile, Network: md.Network, APIURL: "https://other.example", AccountAddress: md.AccountAddress}, sec, nil); err == nil {
-		t.Fatal("origin rebinding accepted")
-	}
-	if err := Save(profile, Metadata{Profile: profile, Network: md.Network, APIURL: md.APIURL, AccountAddress: "0x222"}, sec, nil); err == nil {
-		t.Fatal("account rebinding accepted")
-	}
-	if _, _, err := Unlock(profile+"-other", nil); !errors.Is(err, ErrNoCredentials) {
+	if _, _, err := UnlockPrivy(profile+"-other", nil); !errors.Is(err, ErrNoCredentials) {
 		t.Fatalf("other profile resolved: %v", err)
-	}
-	_, got, err = Unlock(profile, nil)
-	if err != nil || got.DeviceToken != sec.DeviceToken {
-		t.Fatalf("original credential not recoverable: %v", err)
 	}
 	if err := exec.Command("security", "lock-keychain", dedicated).Run(); err != nil {
 		t.Fatalf("lock disposable Keychain: %v", err)
 	}
-	if _, err := LoadMetadata(profile); err == nil || errors.Is(err, ErrNoCredentials) {
+	if _, err := LoadPrivyMetadata(profile); err == nil || errors.Is(err, ErrNoCredentials) {
 		t.Fatalf("locked Keychain did not fail closed: %v", err)
 	}
-	// Do not unlock with secret-bearing subprocess arguments. The CI wrapper
-	// deletes its owned disposable Keychain after restoring original defaults.
 }

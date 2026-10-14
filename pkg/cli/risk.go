@@ -181,23 +181,8 @@ func openJournal(p *resolved) (*journal.Journal, error) {
 		b.Network, b.Account, b.Origin = p.Network, strings.ToLower(p.Account), p.APIURL
 	}
 	j, err := journal.OpenBinding(b)
-	if errors.Is(err, journal.ErrMigrationRequired) {
-		return nil, output.Wrap(output.CodeConfigError, err, "opening journal").WithDetail("hint", "run 'oku journal migrate' after stopping older oku processes")
-	}
 	if err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "opening journal")
 	}
 	return j, nil
-}
-
-func (a *App) cmdJournalMigrate(e *env) (*result, error) {
-	if len(e.args) != 0 {
-		return nil, output.Errorf(output.CodeUsage, "unexpected arguments %v", e.args)
-	}
-	if err := journal.MigrateLegacy(); err != nil {
-		return nil, output.Wrap(output.CodeInternal, err, "journal migration (legacy data left in place)")
-	}
-	return &result{data: map[string]any{"migrated": true}, human: func(w io.Writer) {
-		fmt.Fprintln(w, "legacy journal imported; older oku binaries can no longer write to it")
-	}}, nil
 }

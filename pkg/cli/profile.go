@@ -233,9 +233,6 @@ func (a *App) cmdProfilesRemove(e *env) (*result, error) {
 		return nil, err
 	}
 	name := args[0]
-	if _, err := auth.LoadMetadata(name); !errors.Is(err, auth.ErrNoCredentials) {
-		return nil, output.Errorf(output.CodeConflict, "profile %q has stored legacy credentials; run 'oku auth logout --profile %s' first", name, name)
-	}
 	if _, err := auth.LoadPrivyMetadata(name); !errors.Is(err, auth.ErrNoCredentials) {
 		return nil, output.Errorf(output.CodeConflict, "profile %q has stored Privy credentials; run 'oku auth logout --profile %s' first", name, name)
 	}

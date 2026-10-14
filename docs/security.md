@@ -13,7 +13,7 @@ The account is the user's **external** Hyperliquid master wallet. It holds funds
 | Linux | scrypt + XChaCha20-Poly1305 encrypted file | Masked interactive prompt, or user-supplied mode-0600 `OKU_PASSPHRASE_FILE`. |
 | macOS | Keychain | Native Keychain authorization, no CLI passphrase. |
 
-The credential contains Privy access and rotating refresh tokens and an Oku session token. Plaintext metadata binds profile, account, API origin, Privy app ID, agent address and wallet ID. A cross-process profile lock covers refresh and write-back: the rotated refresh token is saved before reuse. The short-lived Privy authorization key exists in memory only, never on disk. Old device credentials are not usable: run `oku auth login`; `oku auth logout` deletes an old credential. The Keychain service identifier and JSON schema version `oku.cli/v1` remain stable.
+The credential contains Privy access and rotating refresh tokens and an Oku session token. Plaintext metadata binds profile, account, API origin, Privy app ID, agent address and wallet ID. A cross-process profile lock covers refresh and write-back: the rotated refresh token is saved before reuse. The short-lived Privy authorization key exists in memory only, never on disk. The Keychain service identifier and JSON schema version `oku.cli/v1` remain stable.
 
 ## Journal and MCP
 

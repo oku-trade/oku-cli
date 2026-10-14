@@ -337,15 +337,6 @@ func TestEnrollmentRefusesDifferentApprovedAccount(t *testing.T) {
 	}
 }
 
-func TestLegacyEnrollmentCommandRemoved(t *testing.T) {
-	h := newHarness(t)
-	h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL)
-	r := h.run("auth", "setup", "--json")
-	if r.errCode() != "USAGE" || h.privy.pending != 0 {
-		t.Fatalf("got %s", r.stdout)
-	}
-}
-
 func prepare(t *testing.T, h *harness, extra ...string) (string, string) {
 	t.Helper()
 	args := append([]string{"orders", "prepare", "--market", "BTC", "--side", "buy", "--type", "limit", "--size", "0.00100", "--price", "50000", "--json"}, extra...)

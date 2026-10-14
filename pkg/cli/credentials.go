@@ -21,9 +21,9 @@ func (e *env) passphrase(confirm bool) ([]byte, error) {
 	if runtime.GOOS == "darwin" {
 		return nil, nil
 	}
-	return e.legacyPassphrase(confirm)
+	return e.filePassphrase(confirm)
 }
-func (e *env) legacyPassphrase(confirm bool) ([]byte, error) {
+func (e *env) filePassphrase(confirm bool) ([]byte, error) {
 	if path := e.app.Getenv("OKU_PASSPHRASE_FILE"); path != "" {
 		fi, err := os.Stat(path)
 		if err != nil {
@@ -131,9 +131,6 @@ func (e *env) unlock(p *resolved, _ string) (*session, error) {
 	defer release()
 	pre, err := auth.LoadPrivyMetadata(p.Name)
 	if errors.Is(err, auth.ErrNoCredentials) {
-		if _, legacy := auth.LoadMetadata(p.Name); legacy == nil {
-			return nil, output.Errorf(output.CodeAuthRequired, "legacy device credential cannot be used; run oku auth login")
-		}
 		return nil, output.Errorf(output.CodeAuthRequired, "run oku auth login")
 	}
 	if err != nil {

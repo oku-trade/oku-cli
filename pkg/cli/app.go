@@ -169,7 +169,6 @@ func (a *App) commandTable() map[string]*handler {
 		"orders reconcile":   {summary: "Resolve unknown or in-flight intents with Oku", run: a.cmdOrdersReconcile},
 		"orders abandon":     {summary: "Cancel an unsigned server action so it can never execute", flags: statusFlags, run: a.cmdOrdersAbandon},
 		"fills list":         {summary: "Recent fills", flags: marketFilterFlags, run: a.cmdFillsList},
-		"journal migrate":    {summary: "Explicitly import the legacy JSON journal into SQLite (offline; stop older oku processes first)", run: a.cmdJournalMigrate},
 		"docs list":          {summary: "List documentation bundled in this binary (offline)", run: a.cmdDocsList},
 		"docs show":          {summary: "Print a bundled document: docs show NAME", run: a.cmdDocsShow},
 		"docs search":        {summary: "Search bundled documentation: docs search TERMS... [--limit N]", flags: docsSearchFlags, run: a.cmdDocsSearch},
