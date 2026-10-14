@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
 	"runtime"
@@ -160,19 +161,10 @@ func (e *env) unlock(p *resolved, _ string) (*session, error) {
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
-	save := func() error { md.Generation++; return auth.SavePrivy(p.Name, *md, *sec, pass) }
-	expiry, _ := time.Parse(time.RFC3339, md.AccessExpiresAt)
-	if expiry.Before(e.app.Now().Add(2 * time.Minute)) {
-		tok, err := pc.Refresh(ctx, sec.RefreshToken)
-		if err != nil {
-			return nil, output.Wrap(output.CodeAuthRequired, err, "Privy refresh failed; run oku auth login")
-		}
-		sec.RefreshToken, sec.AccessToken = tok.RefreshToken, tok.AccessToken
-		md.AccessExpiresAt = tok.AccessExpiresAt.UTC().Format(time.RFC3339)
-		if err = save(); err != nil {
-			return nil, output.Wrap(output.CodeSignerUnavailable, err, "persisting rotated refresh token; run oku auth login if rotation was lost")
-		}
+	if err := e.refreshLocked(ctx, p.Name, md, sec, pass, pc); err != nil {
+		return nil, err
 	}
+	save := func() error { md.Generation++; return auth.SavePrivy(p.Name, *md, *sec, pass) }
 	c := e.client(p)
 	sessionExpiry, _ := time.Parse(time.RFC3339, md.SessionExpiresAt)
 	if sessionExpiry.Before(e.app.Now().Add(15*time.Minute)) || md.SessionID == "" || sec.SessionToken == "" {
@@ -236,6 +228,26 @@ func (e *env) invalidateSession(profile string, failed *session) {
 	md.Generation++
 	_ = auth.SavePrivy(profile, *md, *sec, pass)
 }
+
+// refreshLocked must be called after reloading under LockProfile. Rotation is
+// persisted before the new access token is used for any network operation.
+func (e *env) refreshLocked(ctx context.Context, profile string, md *auth.Metadata, sec *auth.Secrets, pass []byte, pc *privy.Client) error {
+	expiry, _ := time.Parse(time.RFC3339, md.AccessExpiresAt)
+	if !expiry.Before(e.app.Now().Add(2 * time.Minute)) {
+		return nil
+	}
+	tok, err := pc.Refresh(ctx, sec.RefreshToken)
+	if err != nil {
+		return output.Wrap(output.CodeAuthRequired, err, "Privy refresh failed; run oku auth login")
+	}
+	sec.RefreshToken, sec.AccessToken = tok.RefreshToken, tok.AccessToken
+	md.AccessExpiresAt = tok.AccessExpiresAt.UTC().Format(time.RFC3339)
+	md.Generation++
+	if err := auth.SavePrivy(profile, *md, *sec, pass); err != nil {
+		return output.Wrap(output.CodeSignerUnavailable, err, "persisting rotated refresh token; run oku auth login if rotation was lost")
+	}
+	return nil
+}
 func (e *env) signerFor(p *resolved, s *session) (signing.Signer, error) {
 	release, err := auth.LockProfile(p.Name)
 	if err != nil {
@@ -262,6 +274,9 @@ func (e *env) signerFor(p *resolved, s *session) (signing.Signer, error) {
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
+	if err := e.refreshLocked(ctx, p.Name, md, sec, pass, pc); err != nil {
+		return nil, err
+	}
 	ps, err := pc.Authenticate(ctx, sec.AccessToken)
 	if err != nil {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "Privy wallet authentication")
