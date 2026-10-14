@@ -172,6 +172,17 @@ func newMapFlags(h *handler, given map[string]any) (mapFlags, error) {
 		if err != nil {
 			return nil, output.Errorf(output.CodeUsage, "option %q: %v", k, err)
 		}
+		if allowed := h.enums[k]; len(allowed) > 0 {
+			valid := false
+			for _, choice := range allowed {
+				if cv == choice {
+					valid = true
+				}
+			}
+			if !valid {
+				return nil, output.Errorf(output.CodeUsage, "option %q must be one of %s", k, strings.Join(allowed, ", "))
+			}
+		}
 		m[k] = cv
 	}
 	return m, nil

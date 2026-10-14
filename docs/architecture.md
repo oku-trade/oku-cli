@@ -16,7 +16,7 @@ Module `github.com/oku-trade/oku-cli`, binary `oku`, JSON schema `oku.cli/v1`. `
 
 ## Login and session renewal
 
-The user supplies the account (an external HL master) in the profile or via `--account`. Login prints the Privy device authorization URL and user code, then polls until approved. The authorization page pairs a separate embedded Ethereum wallet with the external master and the master signs HL agent approval. The CLI authenticates the embedded wallet, exchanges the Privy JWT for an Oku session, then calls `ValidateAgentKey`; it stores nothing unless the response says `approved`. On authenticated calls it locks and reloads the credential, refreshes a near-expiry Privy token and persists the new rotating token **before** proceeding, and extends or re-exchanges an expiring Oku session. Signing access is requested lazily only for submit.
+Run `oku auth login` without an account address. Login prints the Privy device authorization URL and user code, then polls until approved. The wallet signed in the browser on the Oku authorization page is the account. The page pairs a separate embedded Ethereum agent wallet with that wallet and obtains Hyperliquid agent approval. After Privy authentication, the CLI reads the agent's master through Hyperliquid `userRole` and uses it as the profile account, creating a `default` profile when necessary or updating an existing profile. It stores nothing if the role is not an agent. It then exchanges the Privy JWT for an Oku session. On authenticated calls it locks and reloads the credential, refreshes a near-expiry Privy token and persists the new rotating token **before** proceeding, and extends or re-exchanges an expiring Oku session. Signing access is requested lazily only for submit.
 
 ## Submission lifecycle
 
@@ -26,4 +26,4 @@ The journal gate is machine-local. Sharing one embedded agent across machines ca
 
 ## Outstanding integration
 
-See [deployment](deployment.md) and [security](security.md) for backend verifier, Privy typed-data RPC and web-onboarding blockers. Offline tests do not establish that live Privy RPC accepts chainId 1337 or that deployed Accounts accepts this app's device-grant JWT.
+Staging acceptance on 2026-10-14 verified Privy login, chainId 1337 typed-data signed submission, order list and cancel. Accounts multi-app verifier the account service and authorize page the web app are merged. Production deployment and remaining operational checks are separate (see [deployment](deployment.md)).

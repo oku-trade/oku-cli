@@ -109,11 +109,7 @@ func (a *App) cmdDoctor(e *env) (*result, error) {
 			md, err := auth.LoadPrivyMetadata(p.Name)
 			switch {
 			case errors.Is(err, auth.ErrNoCredentials):
-				if _, legacyErr := auth.LoadMetadata(p.Name); legacyErr == nil {
-					add("credentials", false, "legacy device credential unusable; run oku auth login")
-				} else {
-					add("credentials", true, "not logged in (public reads only)")
-				}
+				add("credentials", true, "not logged in (public reads only)")
 			case err != nil:
 				add("credentials", false, err.Error())
 			default:

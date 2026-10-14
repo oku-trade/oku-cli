@@ -24,6 +24,18 @@ oku positions list --profile <p> --json
 
 ## 3. Prepare (nothing is sent to the exchange)
 
+Prefer a reviewed `order.json` object, with keys discovered using `oku docs schema --command 'orders prepare'`:
+
+```json
+{"market":"BTC","side":"buy","type":"limit","size":"0.0002","price":"60000","tif":"gtc"}
+```
+
+```sh
+oku orders prepare --profile <p> --input order.json --json
+```
+
+Alternatively, pass command options as flags:
+
 ```sh
 oku orders prepare --profile <p> --market BTC --side buy --type limit --size <size> --price <price> [--tif gtc|ioc|alo] --json
 oku orders prepare --profile <p> --market BTC --side buy --type market --size <size> --slippage-bps <bps> --json

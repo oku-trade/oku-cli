@@ -48,7 +48,8 @@ type Candidate struct {
 	Order    Order  `json:"order"`
 	// PrepareArgs is the equivalent `oku orders prepare` argument list. It is
 	// informational; nothing is prepared.
-	PrepareArgs []string `json:"prepare_args"`
+	PrepareArgs []string       `json:"prepare_args"`
+	Input       map[string]any `json:"input"`
 }
 
 // Dec is a decimal taken verbatim from a JSON string or number literal,
@@ -120,7 +121,19 @@ func Repair(r io.Reader) (*Candidate, error) {
 			}
 		}
 	}
-	return &Candidate{Repaired: fixed != text, JSON: fixed, Order: o, PrepareArgs: prepareArgs(&o)}, nil
+	input := map[string]any{"market": o.Market, "side": o.Side, "type": o.Type, "size": string(o.Size)}
+	if o.Type == "limit" {
+		input["price"] = string(o.Price)
+		if o.TIF != "" {
+			input["tif"] = strings.ToLower(o.TIF)
+		}
+	} else {
+		input["slippage-bps"] = o.SlippageBps
+	}
+	if o.ReduceOnly {
+		input["reduce-only"] = true
+	}
+	return &Candidate{Repaired: fixed != text, JSON: fixed, Order: o, PrepareArgs: prepareArgs(&o), Input: input}, nil
 }
 
 // checkShape enforces a single flat object, bounded depth and no duplicate

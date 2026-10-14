@@ -17,7 +17,7 @@ import (
 )
 
 func authLoginFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "account", Usage: "Hyperliquid master wallet address"}, &urfave.BoolFlag{Name: "no-open", Usage: "print verification URL without opening browser"}, &urfave.DurationFlag{Name: "timeout", Value: 10 * time.Minute, Usage: "maximum time to wait for authorization"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "api-url", Usage: "Oku API origin for the profile created when none exists"}, &urfave.BoolFlag{Name: "no-open", Usage: "print verification URL without opening browser"}, &urfave.DurationFlag{Name: "timeout", Value: 10 * time.Minute, Usage: "maximum time to wait for authorization"}}
 }
 func authStatusFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.BoolFlag{Name: "verify", Usage: "refresh the credential and check Hyperliquid agent approval"}}
@@ -42,21 +42,39 @@ func validateAgent(ctx context.Context, c *api.Client, agent, account string) er
 	}
 	return nil
 }
+
+// autoProfileName is the profile auth login creates when none is configured.
+const autoProfileName = "default"
+
 func (a *App) cmdAuthLogin(e *env) (*result, error) {
+	if e.g.account != "" {
+		return nil, output.Errorf(output.CodeUsage, "the account is the wallet you sign with in the browser; do not pass --account to auth login")
+	}
 	p, err := e.profile()
 	if err != nil {
 		return nil, err
 	}
+	// With no profile configured at all, log in to a new "default" profile and
+	// save it only after the login succeeds.
+	create := false
 	if p.Name == "" {
-		return nil, output.Errorf(output.CodeProfileNotFound, "auth login requires a profile")
+		f, loadErr := config.Load()
+		if loadErr != nil {
+			return nil, output.Wrap(output.CodeConfigError, loadErr, "loading config")
+		}
+		if len(f.Profiles) > 0 {
+			return nil, output.Errorf(output.CodeProfileNotFound, "no default profile; pass --profile or run 'oku profiles use NAME'")
+		}
+		p.Name, create = autoProfileName, true
 	}
-	if e.cmd.String("account") != "" {
-		p.Account = e.cmd.String("account")
-	} else if e.g.account != "" {
-		p.Account = e.g.account
-	}
-	if !config.ValidAddress(p.Account) {
-		return nil, output.Errorf(output.CodeAccountRequired, "auth login requires --account or a profile account")
+	if u := e.cmd.String("api-url"); u != "" {
+		if !create {
+			return nil, output.Errorf(output.CodeUsage, "--api-url only applies when auth login creates a profile; profile %q already exists", p.Name)
+		}
+		if err := config.ValidateAPIURL(u); err != nil {
+			return nil, output.Wrap(output.CodeInvalidArgument, err, "invalid --api-url")
+		}
+		p.APIURL = config.NormalizeAPIURL(u)
 	}
 	if !e.app.StdinIsTTY {
 		return nil, output.Errorf(output.CodeUsage, "auth login requires an interactive terminal; never run it through MCP or Service")
@@ -108,6 +126,11 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	if wallet == nil || !config.ValidAddress(wallet.Address) || wallet.ID == "" {
 		return nil, output.Errorf(output.CodeAuthRequired, "no embedded Ethereum agent wallet returned by Privy")
 	}
+	master, err := agentMaster(ctx, e.app.Getenv("OKU_HYPERLIQUID_INFO_URL"), wallet.Address)
+	if err != nil {
+		return nil, output.Wrap(output.CodeAuthRequired, err, "finish the steps on the Oku page")
+	}
+	p.Account = strings.ToLower(master)
 	c := e.client(p)
 	var exchange api.PrivySessionExchangeResponse
 	if err = c.Auth(ctx, "PrivySessionExchange", map[string]string{"accessToken": tok.AccessToken}, &exchange, false); err != nil {
@@ -115,10 +138,6 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	}
 	if exchange.Session == nil || exchange.Session.SessionID == "" || exchange.Session.Token == "" {
 		return nil, output.Errorf(output.CodeAuthUnavailable, "Oku returned an incomplete session")
-	}
-	c.SessionID, c.SessionToken = exchange.Session.SessionID, exchange.Session.Token
-	if err = validateAgent(ctx, c, wallet.Address, p.Account); err != nil {
-		return nil, err
 	}
 	pass, err := e.passphrase(true)
 	if err != nil {
@@ -129,7 +148,23 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "locking credential")
 	}
 	defer release()
-	if selected := e.cmd.String("account"); selected != "" {
+	if create {
+		cfg, loadErr := config.Load()
+		if loadErr != nil {
+			return nil, output.Wrap(output.CodeConfigError, loadErr, "loading config")
+		}
+		if _, exists := cfg.Profiles[p.Name]; exists {
+			return nil, output.Errorf(output.CodeConfigError, "profile changed during login; retry")
+		}
+		cfg.Profiles[p.Name] = &config.Profile{Network: p.Network, APIURL: p.APIURL, Account: strings.ToLower(p.Account)}
+		if cfg.DefaultProfile == "" {
+			cfg.DefaultProfile = p.Name
+		}
+		if saveErr := cfg.Save(); saveErr != nil {
+			return nil, output.Wrap(output.CodeConfigError, saveErr, "saving profile")
+		}
+		e.diag("Created profile %q", p.Name)
+	} else {
 		cfg, loadErr := config.Load()
 		if loadErr != nil {
 			return nil, output.Wrap(output.CodeConfigError, loadErr, "loading profile")
@@ -138,10 +173,11 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 		if profile == nil || config.NormalizeAPIURL(profile.APIURL) != p.APIURL {
 			return nil, output.Errorf(output.CodeConfigError, "profile changed during login; retry")
 		}
-		if !strings.EqualFold(profile.Account, selected) {
-			profile.Account = strings.ToLower(selected)
+		if !strings.EqualFold(profile.Account, p.Account) {
+			e.diag("Profile %q account changed from %s to %s", p.Name, profile.Account, p.Account)
+			profile.Account = p.Account
 			if saveErr := cfg.Save(); saveErr != nil {
-				return nil, output.Wrap(output.CodeConfigError, saveErr, "saving selected account")
+				return nil, output.Wrap(output.CodeConfigError, saveErr, "saving derived account")
 			}
 		}
 	}
@@ -206,13 +242,6 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 	defer release()
 	md, err := auth.LoadPrivyMetadata(p.Name)
 	if errors.Is(err, auth.ErrNoCredentials) {
-		present, retireErr := auth.RetireLegacy(p.Name)
-		if retireErr != nil {
-			return nil, output.Wrap(output.CodeSignerUnavailable, retireErr, "retiring legacy credential")
-		}
-		if present {
-			return &result{data: map[string]any{"local_credentials": "deleted", "legacy": true}, human: func(w io.Writer) { fmt.Fprintln(w, "Legacy device credential deleted. "+boundaries["not_revoked"]) }}, nil
-		}
 		return nil, output.Errorf(output.CodeNotFound, "no credential for profile")
 	}
 	if err != nil {

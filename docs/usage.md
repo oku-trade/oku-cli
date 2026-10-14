@@ -26,7 +26,7 @@
 
 - **Linux:** an encrypted local file. You unlock it with an interactive masked TTY prompt or, for automation, `OKU_PASSPHRASE_FILE=<path>` pointing at a file readable only by you (mode 0600). Never pass the passphrase as an argument.
 - **macOS:** the native Keychain. No passphrase is requested. Official macOS builds need CGO and are built natively.
-- Neither platform has a plaintext fallback. See [security](security.md#credential-storage-by-platform), including the explicit `oku auth migrate-keychain` step for older macOS credentials.
+- Neither platform has a plaintext fallback. See [security](security.md#credential-storage-by-platform).
 
 ## Global flags
 
@@ -35,6 +35,23 @@
 - `--account 0x..`: for read commands.
 - `--json`.
 - `--timeout DUR`: default 15s, max 2m.
+- `--input FILE`: one JSON object of command-specific long options, or `-` for stdin.
+
+## JSON input
+
+Discover the exact keys and JSON types with `oku docs commands --json`. Read the draft 2020-12 schema with `oku docs schema --command 'orders prepare'`; `oku docs schema --all --json` returns every command schema. These schemas are generated from the same flag declarations used by the CLI, and MCP serves them as `oku://schemas/<command-path-dashed>` resources.
+
+```sh
+cat > order.json <<'JSON'
+{"market":"BTC","side":"buy","type":"limit","size":"0.0002","price":"60000","tif":"gtc"}
+JSON
+oku orders prepare --input order.json --json
+oku orders prepare --input - --json <<'JSON'
+{"market":"BTC","side":"buy","type":"limit","size":"0.0002","price":"60000"}
+JSON
+```
+
+Only command-specific options belong in the object, without `--`. Keep `--profile`, `--json`, and other globals as flags. No positional arguments or command flags may accompany `--input`. Unknown keys, wrong types, trailing values, and inputs over 1 MiB fail with USAGE. Commands without flags and interactive login/logout do not accept it. `drafts repair --stdin` cannot share stdin with `--input -`. Prefer a file path when a passphrase prompt is needed; headless stdin requires the user to configure `OKU_PASSPHRASE_FILE` securely.
 
 Global flags work before or after a command. Use `--` to end flag parsing.
 
@@ -82,7 +99,8 @@ oku version
 oku doctor
 oku config path | config show          # no secrets printed
 
-oku auth login                          # device grant, completed on https://oku.trade/agent/authorize
+oku auth login                          # sign with your account wallet at https://oku.trade/agent/authorize
+                                        # with no profiles, creates and selects profile "default"
 oku auth status [--verify]
 oku auth logout                         # best-effort session/grant revoke, deletes local credential
 
@@ -181,23 +199,6 @@ The server runs over stdio. Stdout carries only MCP protocol frames, and logs go
 ## Local journal
 
 Every intent's state is kept in `journal.sqlite` under the state directory (`oku config path`). Unknown outcomes survive restarts and block new exposure for the same account across all profiles and API origins until reconciled.
-
-Older binaries used a JSON journal directory. **Nothing migrates it automatically.** Until you run the migration, commands that touch the journal fail with `CONFIG_ERROR` and a hint to run it:
-
-```sh
-oku journal migrate   # explicit, offline; stop every older oku process first
-```
-
-Do not delete or edit the legacy directory by hand. The migration:
-
-1. Refuses while another `oku` holds the journal lock. Stop every older `oku` process first.
-2. Does nothing if there is no legacy journal: a fresh install, or one already migrated. Rerunning it is harmless.
-3. Otherwise it writes a `journal-migration-incomplete` marker. It then moves the old directory to `journal-legacy-backup` (mode 0700) and puts a regular file at the old path. Older binaries fail on that file instead of silently reopening stale state. While the marker exists, signing stays blocked.
-4. Imports every profile record and nonce from the backup, verifies the counts, and only then removes the marker.
-
-If it fails partway, the marker keeps signing blocked. Fix the reported cause, then run `oku journal migrate` again, which continues from the backup. Do not edit or delete the state directory by hand.
-
-The barrier protects only against accidental downgrade, not against deliberately restoring old state.
 
 ## Order states
 

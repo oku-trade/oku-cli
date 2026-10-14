@@ -31,6 +31,7 @@ type Command struct {
 	Path    string
 	Summary string
 	Options []Option
+	Schema  map[string]any
 }
 
 // Globals mirrors the CLI global options accepted by every tool.
@@ -98,6 +99,13 @@ func NewServer(b Backend, cfg Config) *sdk.Server {
 			continue
 		}
 		addCommandTool(s, b, c, mut)
+		if c.Schema != nil {
+			uri := "oku://schemas/" + strings.ReplaceAll(c.Path, " ", "-")
+			data, _ := json.MarshalIndent(c.Schema, "", "  ")
+			s.AddResource(&sdk.Resource{URI: uri, Name: "schemas/" + c.Path, MIMEType: "application/schema+json"}, func(context.Context, *sdk.ReadResourceRequest) (*sdk.ReadResourceResult, error) {
+				return &sdk.ReadResourceResult{Contents: []*sdk.ResourceContents{{URI: uri, MIMEType: "application/schema+json", Text: string(data)}}}, nil
+			})
+		}
 	}
 	addDraftTool(s)
 	addDocs(s, cfg.Docs)
@@ -123,11 +131,24 @@ func addCommandTool(s *sdk.Server, b Backend, c Command, mutation bool) {
 			t, desc = "string", desc+" (Go duration, e.g. 5m)"
 		}
 		props[o.Name] = map[string]any{"type": t, "description": desc}
-		if strings.Contains(o.Usage, "(required)") {
+		if c.Schema == nil && strings.Contains(o.Usage, "(required)") {
 			required = append(required, o.Name)
 		}
 	}
 	schema := map[string]any{"type": "object", "properties": props, "additionalProperties": false}
+	if c.Schema != nil {
+		for k, v := range c.Schema["properties"].(map[string]any) {
+			props[k] = v
+		}
+		if names, ok := c.Schema["required"].([]string); ok {
+			required = append(required, names...)
+		}
+		for _, p := range pos {
+			if strings.Contains(p.Usage, "(required)") {
+				required = append(required, p.Name)
+			}
+		}
+	}
 	if len(required) > 0 {
 		schema["required"] = required
 	}
@@ -308,7 +329,7 @@ func addDraftTool(s *sdk.Server) {
 		if err != nil {
 			return errResult(output.Wrap(output.CodeInvalidArgument, err, "draft refused")), nil, nil
 		}
-		return okResult(map[string]any{"repaired": c.Repaired, "candidate": c.Order, "json": c.JSON, "prepare_args": c.PrepareArgs}), nil, nil
+		return okResult(map[string]any{"repaired": c.Repaired, "candidate": c.Order, "json": c.JSON, "prepare_args": c.PrepareArgs, "input": c.Input}), nil, nil
 	})
 }
 

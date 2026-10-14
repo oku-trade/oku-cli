@@ -1,4 +1,4 @@
-// Package auth stores the CLI device credential and delegated agent key.
+// Package auth stores the CLI Privy credential.
 //
 // Storage: a single file under the config dir, mode 0600, sealed with
 // XChaCha20-Poly1305 using a key derived by scrypt from a user passphrase.
@@ -28,24 +28,15 @@ var ErrBadPassphrase = errors.New("credential decryption failed (wrong passphras
 
 // Metadata is non-secret and readable without unlocking.
 type Metadata struct {
-	Profile        string   `json:"profile"`
-	Network        string   `json:"network"`
-	APIURL         string   `json:"api_url"`
-	DeviceID       string   `json:"device_id"`
-	DeviceName     string   `json:"device_name"`
-	AgentAddress   string   `json:"agent_address"`
-	AccountAddress string   `json:"account_address"`
-	Scopes         []string `json:"scopes"`
-	CreatedAt      string   `json:"created_at"`
-	// Status is "pending" during enrollment and "active" once a device
-	// token has been claimed.
-	Status       string `json:"status"`
-	EnrollmentID string `json:"enrollment_id,omitempty"`
-	ExpiresAt    string `json:"expires_at,omitempty"`
+	Profile        string `json:"profile"`
+	Network        string `json:"network"`
+	APIURL         string `json:"api_url"`
+	AgentAddress   string `json:"agent_address"`
+	AccountAddress string `json:"account_address"`
+	CreatedAt      string `json:"created_at"`
+	Status         string `json:"status"`
 
-	// Privy (Accounts session) credential fields. Empty for device
-	// credentials, so existing records and their AEAD binding are unchanged.
-	Kind             string `json:"kind,omitempty"` // "" (device) | "privy"
+	Kind             string `json:"kind,omitempty"`
 	PrivyUserID      string `json:"privy_user_id,omitempty"`
 	AccountsUserID   string `json:"accounts_user_id,omitempty"`
 	WalletAddress    string `json:"wallet_address,omitempty"`
@@ -60,36 +51,21 @@ type Metadata struct {
 // KindPrivy marks an Accounts session credential minted from a Privy login.
 const KindPrivy = "privy"
 
-// HasScope reports whether the credential grants scope.
-func (m *Metadata) HasScope(scope string) bool {
-	for _, s := range m.Scopes {
-		if s == scope {
-			return true
-		}
-	}
-	return false
-}
-
 // Secrets are sealed.
 type Secrets struct {
-	DeviceToken string `json:"device_token,omitempty"`
-	AgentKey    []byte `json:"agent_key"`
-	PollSecret  string `json:"poll_secret,omitempty"`
-	// SessionToken is the Accounts session token (Privy credential).
+	// SessionToken is the Accounts session token.
 	SessionToken string `json:"session_token,omitempty"`
 	AccessToken  string `json:"access_token,omitempty"`
 	RefreshToken string `json:"refresh_token,omitempty"`
 }
 
-// key identifies one credential record: the device credential (kind "")
-// or the Privy credential (kind "privy") of a profile.
+// key identifies the Privy credential of a profile.
 type key struct {
 	profile string
 	kind    string
 }
 
-func deviceKey(profile string) key { return key{profile: profile} }
-func privyKey(profile string) key  { return key{profile: profile, kind: KindPrivy} }
+func privyKey(profile string) key { return key{profile: profile, kind: KindPrivy} }
 
 type sealed struct {
 	Version  int      `json:"version"`
@@ -117,9 +93,6 @@ const (
 	maxCredFile = 64 << 10
 )
 
-// Path returns the device credential file for a profile.
-func Path(profile string) (string, error) { return keyPath(deviceKey(profile)) }
-
 // PrivyPath returns the Privy credential file for a profile. It lives in a
 // separate directory so no profile name can collide with it.
 func PrivyPath(profile string) (string, error) { return keyPath(privyKey(profile)) }
@@ -129,10 +102,7 @@ func keyPath(k key) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if k.kind != "" {
-		return filepath.Join(d, "credentials", k.kind, k.profile+".json"), nil
-	}
-	return filepath.Join(d, "credentials", k.profile+".json"), nil
+	return filepath.Join(d, "credentials", k.kind, k.profile+".json"), nil
 }
 
 // Save seals and writes credentials. Metadata binds the ciphertext via AEAD
@@ -271,10 +241,4 @@ func fileDelete(k key) error {
 		return err
 	}
 	return nil
-}
-
-// Has reports whether credentials exist for a profile.
-func fileHas(k key) bool {
-	_, err := read(k)
-	return err == nil
 }

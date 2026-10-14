@@ -70,7 +70,6 @@ func (r *Record) Terminal() bool {
 
 var ErrNotFound = errors.New("intent not found")
 var ErrConflict = errors.New("intent id already used with a different payload")
-var ErrMigrationRequired = errors.New("legacy journal requires explicit migration before signing")
 var ErrUnresolved = errors.New("account has unresolved submission")
 
 // Store is the durable journal interface. Operations are short transactions, never network-spanning.
@@ -90,7 +89,6 @@ type Binding struct{ Profile, Network, Account, Origin, Signer string }
 type Journal struct {
 	db      *sql.DB
 	base    string
-	dir     string
 	binding Binding
 	now     func() time.Time
 }
@@ -149,52 +147,11 @@ func OpenBinding(b Binding) (*Journal, error) {
 	if err = os.Chmod(base, 0700); err != nil {
 		return nil, err
 	}
-	if _, e := os.Lstat(filepath.Join(base, "journal-migration-incomplete")); e == nil {
-		return nil, ErrMigrationRequired
-	} else if !errors.Is(e, os.ErrNotExist) {
-		return nil, e
-	}
-	// A regular file at the path used by old binaries makes their MkdirAll fail.
-	// Never create it over legacy data. MigrationLegacy installs it after verification.
-	legacy := filepath.Join(base, "journal")
-	info, err := os.Lstat(legacy)
-	if err == nil && !info.Mode().IsRegular() {
-		return nil, ErrMigrationRequired
-	}
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	if errors.Is(err, os.ErrNotExist) {
-		f, e := os.OpenFile(legacy, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-		if e != nil {
-			if !errors.Is(e, os.ErrExist) {
-				return nil, e
-			}
-			info, e = os.Lstat(legacy)
-			if e != nil || !info.Mode().IsRegular() {
-				return nil, ErrMigrationRequired
-			}
-		} else {
-			if e = f.Sync(); e != nil {
-				f.Close()
-				return nil, e
-			}
-			if e = f.Close(); e != nil {
-				return nil, e
-			}
-			if e = syncDir(base); e != nil {
-				return nil, e
-			}
-		}
-	}
-	if err = os.Chmod(legacy, 0600); err != nil {
-		return nil, err
-	}
 	db, jerr := openDB(base)
 	if jerr != nil {
 		return nil, jerr
 	}
-	return &Journal{db: db, base: base, dir: legacy, binding: b, now: time.Now}, nil
+	return &Journal{db: db, base: base, binding: b, now: time.Now}, nil
 }
 func openDB(base string) (*sql.DB, error) {
 	path := filepath.Join(base, "journal.sqlite")
@@ -684,15 +641,6 @@ func (j *Journal) FinishSigning(r *Record, signed bool) error {
 	r.State, r.Nonce, r.UpdatedAt = state, nonce, ts
 	r.History = append(prev.History, Transition{At: ts, State: state, Note: "signing finished"})
 	return nil
-}
-
-// Ensure old JSON nonce files cannot be ignored by new allocations before explicit import.
-func checkLegacyNonce(raw []byte) (int64, error) {
-	var n int64
-	if err := json.Unmarshal(raw, &n); err != nil || n <= 0 {
-		return 0, errors.New("corrupt legacy nonce")
-	}
-	return n, nil
 }
 
 var _ Store = (*Journal)(nil)

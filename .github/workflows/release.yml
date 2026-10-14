@@ -48,15 +48,15 @@ jobs:
       - name: test (darwin, disposable keychain; never the login keychain)
         if: matrix.goos == 'darwin'
         env: { OKU_KEYCHAIN_TEST_ACK: disposable-runner }
-        run: ./scripts/macos-keychain-test.sh make test
-      - run: VERSION=v$VERSION PLATFORMS=${{ matrix.goos }}/${{ matrix.goarch }} ./scripts/build.sh
+        run: ./mise-tasks/macos-keychain-test.sh make test
+      - run: VERSION=v$VERSION PLATFORMS=${{ matrix.goos }}/${{ matrix.goarch }} ./mise-tasks/dist.sh
       - name: package + smoke
         run: |
           n=oku_v${VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}
           tar -xzf dist/$n.tar.gz -C dist
-          ./scripts/binary-smoke.sh dist/$n/oku
-          ./scripts/npm-pack.sh "$VERSION" npm-dist "${{ matrix.goos }}/${{ matrix.goarch }}=dist/$n/oku"
-          ./scripts/npm-smoke.sh npm-dist "$VERSION"
+          ./mise-tasks/binary-smoke.sh dist/$n/oku
+          ./mise-tasks/npm-pack.sh "$VERSION" npm-dist "${{ matrix.goos }}/${{ matrix.goarch }}=dist/$n/oku"
+          ./mise-tasks/npm-smoke.sh npm-dist "$VERSION"
           # unique per-platform output dir + manifest (no name collisions when merged)
           mkdir -p out/$P
           cp dist/$n.tar.gz npm-dist/*.tgz out/$P/

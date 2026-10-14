@@ -16,10 +16,8 @@ CREATE TABLE transitions (
  FOREIGN KEY(profile,intent_id) REFERENCES records(profile,intent_id) ON DELETE RESTRICT
 );
 CREATE TABLE nonces (signer TEXT PRIMARY KEY, last_nonce INTEGER NOT NULL CHECK(last_nonce > 0));
-CREATE TABLE migration_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 -- +goose Down
-DROP TABLE migration_metadata;
 DROP TABLE nonces;
 DROP TABLE transitions;
 DROP TABLE records;

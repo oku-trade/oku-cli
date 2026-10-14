@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
+#MISE description="Generate THIRD_PARTY_NOTICES for the current target"
 # Generate THIRD_PARTY_NOTICES for the modules actually linked into ./cmd/oku for the
 # current GOOS/GOARCH/CGO_ENABLED (so darwin CGO builds include keybase/go-keychain).
 # Uses only the Go toolchain's pinned module graph (go list -deps). It copies each module's
 # LICENSE/COPYING/NOTICE files verbatim and FAILS if any linked module has none, so a
 # release cannot silently ship without notices. The Go standard library license is included.
-# Usage: scripts/third-party-notices.sh <out-file>
+# Usage: mise run third-party-notices <out-file>
 set -euo pipefail
 cd "$(dirname "$0")/.."
 out="${1:?out file}"

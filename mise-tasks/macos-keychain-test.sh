@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
+#MISE description="Run a command with a disposable macOS Keychain (CI only)"
 # Run a command with a disposable default Keychain on a fresh hosted macOS CI runner.
-# Usage: OKU_KEYCHAIN_TEST_ACK=disposable-runner scripts/macos-keychain-test.sh <cmd> [args...]
+# Usage: OKU_KEYCHAIN_TEST_ACK=disposable-runner mise run macos-keychain-test <cmd> [args...]
 # Refuses to run unless GITHUB_ACTIONS=true, CI=true and the acknowledgement are all set, so
 # it never touches a developer's login keychain. It captures the default keychain and search
 # list, creates a uniquely named keychain, makes it default for the subprocess, and the trap

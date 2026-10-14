@@ -53,7 +53,7 @@ func nativeLoad(store credentialItemStore, k key) (*Metadata, *Secrets, error) {
 
 func nativeSave(store credentialItemStore, k key, md Metadata, secrets Secrets) error {
 	profile := k.profile
-	if profile == "" || md.Profile != profile || md.Kind != k.kind || md.APIURL == "" || md.Network == "" || (k.kind == "" && md.AccountAddress == "") {
+	if profile == "" || md.Profile != profile || md.Kind != k.kind || md.APIURL == "" || md.Network == "" {
 		return errors.New("credential binding incomplete or profile mismatch")
 	}
 	raw, err := json.Marshal(credentialRecord{Version: 1, Metadata: md, Secrets: secrets})
@@ -74,15 +74,4 @@ func nativeSave(store credentialItemStore, k key, md Metadata, secrets Secrets) 
 		return errors.New("keychain credential verification mismatch")
 	}
 	return nil
-}
-
-func equalBytes(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	var difference byte
-	for i := range a {
-		difference |= a[i] ^ b[i]
-	}
-	return difference == 0
 }

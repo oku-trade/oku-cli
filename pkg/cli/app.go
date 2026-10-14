@@ -4,6 +4,7 @@ package cli
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -126,9 +127,11 @@ type result struct {
 }
 
 type handler struct {
-	summary string
-	flags   func() []urfave.Flag
-	run     func(e *env) (*result, error)
+	summary  string
+	flags    func() []urfave.Flag
+	run      func(e *env) (*result, error)
+	required map[string]bool
+	enums    map[string][]string
 }
 
 func (a *App) commands() map[string]*handler {
@@ -140,7 +143,7 @@ func (a *App) commands() map[string]*handler {
 }
 
 func (a *App) commandTable() map[string]*handler {
-	return map[string]*handler{
+	m := map[string]*handler{
 		"version":            {summary: "Print version information", run: a.cmdVersion},
 		"doctor":             {summary: "Check configuration, connectivity and credentials", run: a.cmdDoctor},
 		"config path":        {summary: "Print config, credential and state paths", run: a.cmdConfigPath},
@@ -169,15 +172,23 @@ func (a *App) commandTable() map[string]*handler {
 		"orders reconcile":   {summary: "Resolve unknown or in-flight intents with Oku", run: a.cmdOrdersReconcile},
 		"orders abandon":     {summary: "Cancel an unsigned server action so it can never execute", flags: statusFlags, run: a.cmdOrdersAbandon},
 		"fills list":         {summary: "Recent fills", flags: marketFilterFlags, run: a.cmdFillsList},
-		"journal migrate":    {summary: "Explicitly import the legacy JSON journal into SQLite (offline; stop older oku processes first)", run: a.cmdJournalMigrate},
 		"docs list":          {summary: "List documentation bundled in this binary (offline)", run: a.cmdDocsList},
 		"docs show":          {summary: "Print a bundled document: docs show NAME", run: a.cmdDocsShow},
 		"docs search":        {summary: "Search bundled documentation: docs search TERMS... [--limit N]", flags: docsSearchFlags, run: a.cmdDocsSearch},
 		"docs commands":      {summary: "List commands of this binary; --markdown prints the full reference", flags: docsCommandsFlags, run: a.cmdDocsCommands},
+		"docs schema":        {summary: "Print JSON input schema: docs schema --command 'orders prepare' or --all", flags: docsSchemaFlags, run: a.cmdDocsSchema},
 		"skills list":        {summary: "List bundled agent skills", run: a.cmdSkillsList},
 		"skills install":     {summary: "Install skills: --target jcode|claude|codex or --dir PATH [--force]", flags: skillFlags, run: a.cmdSkillsInstall},
 		"skills uninstall":   {summary: "Remove installed skills that match the bundled version", flags: skillFlags, run: a.cmdSkillsUninstall},
 	}
+	for path, h := range m {
+		h.enums = flagEnums[path]
+		h.required = map[string]bool{}
+		for _, name := range requiredFlags[path] {
+			h.required[name] = true
+		}
+	}
+	return m
 }
 
 // Run executes the CLI and returns the process exit code.
@@ -249,6 +260,7 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 			&urfave.StringFlag{Name: "account", Usage: "account address for read commands"},
 			&urfave.BoolFlag{Name: "json", Usage: "write a JSON envelope to stdout"},
 			&urfave.DurationFlag{Name: "timeout", Value: defaultTimeout, Usage: "per-request timeout (max 2m)"},
+			&urfave.StringFlag{Name: "input", Usage: "read command options from one JSON object in FILE (or - for stdin); max 1 MiB"},
 		},
 	}
 	names := sortedCommandNames(cmds)
@@ -264,6 +276,76 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 			name := strings.ReplaceAll(path, " ", ".")
 			e := &env{app: a, cmd: newCheckedFlags(cmd, leaf.Flags), args: cmd.Args().Slice(), ctx: ctx}
 			e.g = globals{profile: cmd.String("profile"), network: cmd.String("network"), account: cmd.String("account"), json: cmd.Bool("json") || jsonOut, timeout: cmd.Duration("timeout")}
+			if cmd.IsSet("input") {
+				fail := func(err error) error { return &commandFailure{name, e.g.json, err} }
+				if h.flags == nil || path == "auth login" || path == "auth logout" {
+					return fail(output.Errorf(output.CodeUsage, "--input is not available for %s", path))
+				}
+				if len(e.args) != 0 {
+					return fail(output.Errorf(output.CodeUsage, "--input cannot be combined with positional arguments"))
+				}
+				for _, f := range leaf.Flags {
+					if cmd.IsSet(f.Names()[0]) {
+						return fail(output.Errorf(output.CodeUsage, "--input cannot be combined with --%s", f.Names()[0]))
+					}
+				}
+				if cmd.String("input") == "-" && path == "drafts repair" {
+					return fail(output.Errorf(output.CodeUsage, "--input - conflicts with drafts repair --stdin"))
+				}
+				var r io.Reader
+				if cmd.String("input") == "-" {
+					r = a.Stdin
+					a.StdinIsTTY = false
+				} else {
+					file, err := os.Open(cmd.String("input"))
+					if err != nil {
+						return fail(output.Errorf(output.CodeUsage, "--input: %v", err))
+					}
+					defer file.Close()
+					r = file
+				}
+				body, readErr := io.ReadAll(io.LimitReader(r, (1<<20)+1))
+				if readErr != nil {
+					return fail(output.Errorf(output.CodeUsage, "--input: %v", readErr))
+				}
+				if len(body) > 1<<20 {
+					return fail(output.Errorf(output.CodeUsage, "--input exceeds 1 MiB"))
+				}
+				dec := json.NewDecoder(strings.NewReader(string(body)))
+				dec.UseNumber()
+				var values map[string]any
+				if err := dec.Decode(&values); err != nil || values == nil {
+					return fail(output.Errorf(output.CodeUsage, "--input must contain one JSON object: %v", err))
+				}
+				var trailing any
+				if err := dec.Decode(&trailing); err != io.EOF {
+					return fail(output.Errorf(output.CodeUsage, "--input has trailing data or exceeds 1 MiB"))
+				}
+				src, err := newMapFlags(h, values)
+				if err != nil {
+					return fail(err)
+				}
+				e.cmd = newCheckedFlags(src, leaf.Flags)
+			}
+			for _, f := range leaf.Flags {
+				if cmd.IsSet(f.Names()[0]) && !cmd.IsSet("input") {
+					if vals := h.enums[f.Names()[0]]; len(vals) > 0 {
+						valid := false
+						value := cmd.String(f.Names()[0])
+						if path == "orders prepare" && f.Names()[0] == "tif" {
+							value = strings.ToLower(value)
+						}
+						for _, v := range vals {
+							if value == v {
+								valid = true
+							}
+						}
+						if !valid {
+							return &commandFailure{name, e.g.json, output.Errorf(output.CodeInvalidArgument, "--%s must be one of %s", f.Names()[0], strings.Join(vals, ", "))}
+						}
+					}
+				}
+			}
 			limit := maxTimeout
 			if name == "auth.login" {
 				limit = 15 * time.Minute

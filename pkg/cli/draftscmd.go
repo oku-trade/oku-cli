@@ -25,7 +25,7 @@ func (a *App) cmdDraftsRepair(e *env) (*result, error) {
 		return nil, output.Wrap(output.CodeInvalidArgument, err, "draft refused")
 	}
 	return &result{data: map[string]any{
-		"repaired": c.Repaired, "candidate": c.Order, "json": c.JSON, "prepare_args": c.PrepareArgs,
+		"repaired": c.Repaired, "candidate": c.Order, "json": c.JSON, "prepare_args": c.PrepareArgs, "input": c.Input,
 		"notes": []string{"nothing was prepared, signed or sent", "review every field; then run the prepare command, which returns the digest to approve"},
 	}, human: func(w io.Writer) {
 		fmt.Fprintf(w, "repaired: %v\ncandidate: %s\nreview, then run: oku %s\n", c.Repaired, c.JSON, strings.Join(c.PrepareArgs, " "))
