@@ -118,6 +118,9 @@ func TestEveryFlagExecutableAndServiceParity(t *testing.T) {
 				t.Fatalf("%s --%s: unsupported flag type %T", path, n, f)
 			}
 			v, text := probeValue(k)
+			if choices := h.enums[n]; len(choices) > 0 {
+				v, text = choices[0], choices[0]
+			}
 			if k == kindBool {
 				args = append(args, "--"+n)
 			} else {

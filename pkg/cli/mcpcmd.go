@@ -36,6 +36,9 @@ func (b MCPBackend) Commands() []mcp.Command {
 		}
 		c := mcp.Command{Path: path, Summary: h.summary}
 		if h.flags != nil {
+			c.Schema, _ = InputSchema(path)
+		}
+		if h.flags != nil {
 			for _, f := range h.flags() {
 				o := mcp.Option{Name: f.Names()[0]}
 				switch t := f.(type) {

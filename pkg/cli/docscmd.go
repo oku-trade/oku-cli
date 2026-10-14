@@ -2,10 +2,12 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"strings"
 
 	"github.com/oku-trade/oku-cli/pkg/docs"
 	"github.com/oku-trade/oku-cli/pkg/output"
@@ -18,6 +20,38 @@ func docsSearchFlags() []urfave.Flag {
 
 func docsCommandsFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.BoolFlag{Name: "markdown", Usage: "print the Markdown command reference generated from this binary"}}
+}
+
+func docsSchemaFlags() []urfave.Flag {
+	return []urfave.Flag{&urfave.StringFlag{Name: "command", Usage: "command path, e.g. 'orders prepare'"}, &urfave.BoolFlag{Name: "all", Usage: "show schemas for every command with flags"}}
+}
+
+func (a *App) cmdDocsSchema(e *env) (*result, error) {
+	path := e.cmd.String("command")
+	if len(e.args) > 0 {
+		path = strings.Join(e.args, " ")
+	}
+	if e.cmd.Bool("all") {
+		if path != "" {
+			return nil, output.Errorf(output.CodeUsage, "--all cannot be combined with a command")
+		}
+		all := map[string]any{}
+		for name, h := range a.commands() {
+			if h.flags != nil {
+				schema, _ := InputSchema(name)
+				all[name] = schema
+			}
+		}
+		return &result{data: all, human: func(w io.Writer) { b, _ := json.MarshalIndent(all, "", "  "); fmt.Fprintln(w, string(b)) }}, nil
+	}
+	if path == "" {
+		return nil, output.Errorf(output.CodeUsage, "usage: oku docs schema --command 'orders prepare' [--json]")
+	}
+	schema, err := InputSchema(path)
+	if err != nil {
+		return nil, output.Errorf(output.CodeUsage, "%v", err)
+	}
+	return &result{data: schema, human: func(w io.Writer) { b, _ := json.MarshalIndent(schema, "", "  "); fmt.Fprintln(w, string(b)) }}, nil
 }
 
 func (a *App) cmdDocsList(e *env) (*result, error) {
@@ -77,12 +111,14 @@ func (a *App) cmdDocsCommands(e *env) (*result, error) {
 		return nil, output.Wrap(output.CodeInternal, err, "command reference")
 	}
 	type entry struct {
-		Command string `json:"command"`
-		Summary string `json:"summary"`
+		Command string       `json:"command"`
+		Summary string       `json:"summary"`
+		Input   []inputField `json:"input,omitempty"`
 	}
 	list := []entry{}
 	for _, name := range sortedCommandNames(a.commands()) {
-		list = append(list, entry{"oku " + name, a.commands()[name].summary})
+		h := a.commands()[name]
+		list = append(list, entry{Command: "oku " + name, Summary: h.summary, Input: fields(h)})
 	}
 	markdown := e.cmd.Bool("markdown")
 	data := map[string]any{"commands": list}
