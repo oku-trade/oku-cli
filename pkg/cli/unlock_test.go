@@ -67,3 +67,26 @@ func TestUnlockUsesAuthenticatedBinding(t *testing.T) {
 		t.Fatalf("authentic unlock: %v", err)
 	}
 }
+
+// One command invocation prompts for the passphrase at most once, even though
+// unlock and the signing boundary both re-read the credential under the lock.
+func TestPassphrasePromptedOncePerInvocation(t *testing.T) {
+	prompts := 0
+	app := NewApp("t")
+	app.StdinIsTTY = true
+	app.Getenv = func(string) string { return "" }
+	app.ReadSecret = func(string) ([]byte, error) { prompts++; return []byte("correct horse battery"), nil }
+	e := &env{app: app}
+	for range 3 {
+		if p, err := e.passphrase(false); err != nil || string(p) != "correct horse battery" {
+			t.Fatalf("passphrase: %q %v", p, err)
+		}
+	}
+	if prompts != 1 {
+		t.Fatalf("prompted %d times, want 1", prompts)
+	}
+	// A new invocation (new env) prompts again; confirmation always prompts.
+	if _, err := (&env{app: app}).passphrase(true); err != nil || prompts != 3 {
+		t.Fatalf("confirm prompts = %d, err = %v", prompts, err)
+	}
+}

@@ -103,6 +103,9 @@ type env struct {
 	cmd  flagSource
 	args []string // positional arguments after the command path
 	ctx  context.Context
+	// pass caches an interactively entered passphrase for this one command
+	// invocation, so unlock and the signing boundary prompt only once.
+	pass []byte
 }
 
 // flagSource is the flag view handlers read. *urfave.Command satisfies it

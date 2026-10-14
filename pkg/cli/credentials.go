@@ -41,6 +41,9 @@ func (e *env) legacyPassphrase(confirm bool) ([]byte, error) {
 	if !e.app.StdinIsTTY {
 		return nil, output.Errorf(output.CodeSignerUnavailable, "credential passphrase unavailable: set OKU_PASSPHRASE_FILE to a 0600 file")
 	}
+	if !confirm && e.pass != nil {
+		return bytes.Clone(e.pass), nil
+	}
 	p, err := e.app.ReadSecret("Oku Agent credential passphrase: ")
 	if err != nil {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "reading passphrase")
@@ -57,6 +60,7 @@ func (e *env) legacyPassphrase(confirm bool) ([]byte, error) {
 	if len(p) < 8 {
 		return nil, output.Errorf(output.CodeInvalidArgument, "passphrase must be at least 8 characters")
 	}
+	e.pass = bytes.Clone(p)
 	return p, nil
 }
 
