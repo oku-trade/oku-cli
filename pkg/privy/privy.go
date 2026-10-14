@@ -91,10 +91,14 @@ func (c *Client) now() time.Time {
 	return time.Now()
 }
 func (c *Client) http() *http.Client {
+	var client http.Client
 	if c.HTTP != nil {
-		return c.HTTP
+		client = *c.HTTP // Do not mutate a caller's shared client.
+	} else {
+		client.Timeout = 20 * time.Second
 	}
-	return &http.Client{Timeout: 20 * time.Second}
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return &client
 }
 func (c *Client) base() string {
 	if c.AuthURL != "" {
