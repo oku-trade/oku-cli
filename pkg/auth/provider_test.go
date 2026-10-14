@@ -6,12 +6,12 @@ import (
 )
 
 type fakeKeychain struct {
-	data    map[string][]byte
+	data    map[key][]byte
 	err     error
 	corrupt bool
 }
 
-func (f *fakeKeychain) Get(profile string) ([]byte, error) {
+func (f *fakeKeychain) Get(profile key) ([]byte, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -24,41 +24,65 @@ func (f *fakeKeychain) Get(profile string) ([]byte, error) {
 	}
 	return data, nil
 }
-func (f *fakeKeychain) Put(profile string, data []byte) error {
+func (f *fakeKeychain) Put(profile key, data []byte) error {
 	if f.err != nil {
 		return f.err
 	}
 	f.data[profile] = append([]byte(nil), data...)
 	return nil
 }
-func (f *fakeKeychain) Remove(profile string) error { delete(f.data, profile); return nil }
+func (f *fakeKeychain) Remove(profile key) error { delete(f.data, profile); return nil }
 
 // Primary contract: a stored native credential must survive readback with its
 // complete binding, while denied and corrupt reads never become missing items.
 func TestNativeProviderBoundary(t *testing.T) {
 	md := Metadata{Profile: "p", Network: "mainnet", APIURL: "https://api.example", AccountAddress: "0x111", Scopes: []string{"read"}}
 	sec := Secrets{DeviceToken: "secret", AgentKey: []byte("key")}
-	f := &fakeKeychain{data: map[string][]byte{}}
-	if err := nativeSave(f, "p", md, sec); err != nil {
+	f := &fakeKeychain{data: map[key][]byte{}}
+	if err := nativeSave(f, deviceKey("p"), md, sec); err != nil {
 		t.Fatal(err)
 	}
-	got, secret, err := nativeLoad(f, "p")
+	got, secret, err := nativeLoad(f, deviceKey("p"))
 	if err != nil || got.APIURL != md.APIURL || got.Network != md.Network || got.AccountAddress != md.AccountAddress || secret.DeviceToken != sec.DeviceToken {
 		t.Fatalf("native readback: %v", err)
 	}
-	if _, _, err := nativeLoad(f, "other"); !errors.Is(err, ErrNoCredentials) {
+	if _, _, err := nativeLoad(f, deviceKey("other")); !errors.Is(err, ErrNoCredentials) {
 		t.Fatalf("missing: %v", err)
 	}
 	f.err = ErrKeychainUnavailable
-	if _, _, err := nativeLoad(f, "p"); !errors.Is(err, ErrKeychainUnavailable) {
+	if _, _, err := nativeLoad(f, deviceKey("p")); !errors.Is(err, ErrKeychainUnavailable) {
 		t.Fatalf("denied became missing: %v", err)
 	}
 	f.err = nil
 	f.corrupt = true
-	if _, _, err := nativeLoad(f, "p"); err == nil || errors.Is(err, ErrNoCredentials) {
+	if _, _, err := nativeLoad(f, deviceKey("p")); err == nil || errors.Is(err, ErrNoCredentials) {
 		t.Fatalf("mismatched profile accepted: %v", err)
 	}
-	if err := nativeSave(f, "p", md, sec); err == nil {
+	if err := nativeSave(f, deviceKey("p"), md, sec); err == nil {
 		t.Fatal("unverified write accepted")
+	}
+}
+
+// Privy and device records for the same profile are independent.
+func TestNativePrivyRecordSeparate(t *testing.T) {
+	f := &fakeKeychain{data: map[key][]byte{}}
+	dev := Metadata{Profile: "p", Network: "mainnet", APIURL: "https://api.example", AccountAddress: "0x111"}
+	pv := Metadata{Profile: "p", Kind: KindPrivy, Network: "mainnet", APIURL: "https://api.example", WalletAddress: "0x222", SessionID: "s"}
+	if err := nativeSave(f, deviceKey("p"), dev, Secrets{DeviceToken: "d"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := nativeSave(f, privyKey("p"), pv, Secrets{SessionToken: "t"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, s, err := nativeLoad(f, deviceKey("p")); err != nil || s.DeviceToken != "d" {
+		t.Fatal(err)
+	}
+	if m, s, err := nativeLoad(f, privyKey("p")); err != nil || s.SessionToken != "t" || m.WalletAddress != "0x222" {
+		t.Fatal(err)
+	}
+	// A device record cannot be read as a Privy record.
+	f.data[privyKey("p")] = f.data[deviceKey("p")]
+	if _, _, err := nativeLoad(f, privyKey("p")); err == nil {
+		t.Fatal("kind mismatch accepted")
 	}
 }

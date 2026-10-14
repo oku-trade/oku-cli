@@ -42,7 +42,18 @@ type Metadata struct {
 	Status       string `json:"status"`
 	EnrollmentID string `json:"enrollment_id,omitempty"`
 	ExpiresAt    string `json:"expires_at,omitempty"`
+
+	// Privy (Accounts session) credential fields. Empty for device
+	// credentials, so existing records and their AEAD binding are unchanged.
+	Kind           string `json:"kind,omitempty"` // "" (device) | "privy"
+	PrivyUserID    string `json:"privy_user_id,omitempty"`
+	AccountsUserID string `json:"accounts_user_id,omitempty"`
+	WalletAddress  string `json:"wallet_address,omitempty"`
+	SessionID      string `json:"session_id,omitempty"`
 }
+
+// KindPrivy marks an Accounts session credential minted from a Privy login.
+const KindPrivy = "privy"
 
 // HasScope reports whether the credential grants scope.
 func (m *Metadata) HasScope(scope string) bool {
@@ -59,7 +70,21 @@ type Secrets struct {
 	DeviceToken string `json:"device_token,omitempty"`
 	AgentKey    []byte `json:"agent_key"`
 	PollSecret  string `json:"poll_secret,omitempty"`
+	// SessionToken is the Accounts session token (Privy credential).
+	SessionToken string `json:"session_token,omitempty"`
+	// SpotKey is a local spot wallet private key (branch-specific signer).
+	SpotKey []byte `json:"spot_key,omitempty"`
 }
+
+// key identifies one credential record: the device credential (kind "")
+// or the Privy credential (kind "privy") of a profile.
+type key struct {
+	profile string
+	kind    string
+}
+
+func deviceKey(profile string) key { return key{profile: profile} }
+func privyKey(profile string) key  { return key{profile: profile, kind: KindPrivy} }
 
 type sealed struct {
 	Version  int      `json:"version"`
@@ -87,18 +112,27 @@ const (
 	maxCredFile = 64 << 10
 )
 
-// Path returns the credential file for a profile.
-func Path(profile string) (string, error) {
+// Path returns the device credential file for a profile.
+func Path(profile string) (string, error) { return keyPath(deviceKey(profile)) }
+
+// PrivyPath returns the Privy credential file for a profile. It lives in a
+// separate directory so no profile name can collide with it.
+func PrivyPath(profile string) (string, error) { return keyPath(privyKey(profile)) }
+
+func keyPath(k key) (string, error) {
 	d, err := config.Dir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(d, "credentials", profile+".json"), nil
+	if k.kind != "" {
+		return filepath.Join(d, "credentials", k.kind, k.profile+".json"), nil
+	}
+	return filepath.Join(d, "credentials", k.profile+".json"), nil
 }
 
 // Save seals and writes credentials. Metadata binds the ciphertext via AEAD
 // additional data so it cannot be swapped.
-func fileSave(profile string, md Metadata, s Secrets, passphrase []byte) error {
+func fileSave(ck key, md Metadata, s Secrets, passphrase []byte) error {
 	if len(passphrase) < 8 {
 		return errors.New("passphrase must be at least 8 bytes")
 	}
@@ -128,8 +162,11 @@ func fileSave(profile string, md Metadata, s Secrets, passphrase []byte) error {
 	if err != nil {
 		return err
 	}
-	p, err := Path(profile)
+	p, err := keyPath(ck)
 	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
 		return err
 	}
 	return config.WriteFileAtomic(p, raw, 0o600)
@@ -150,8 +187,8 @@ func deriveAEAD(pass []byte, k kdf) (interface {
 	return chacha20poly1305.NewX(key)
 }
 
-func read(profile string) (*sealed, error) {
-	p, err := Path(profile)
+func read(k key) (*sealed, error) {
+	p, err := keyPath(k)
 	if err != nil {
 		return nil, err
 	}
@@ -183,8 +220,8 @@ func read(profile string) (*sealed, error) {
 }
 
 // LoadMetadata returns non-secret metadata without unlocking.
-func fileLoadMetadata(profile string) (*Metadata, error) {
-	doc, err := read(profile)
+func fileLoadMetadata(k key) (*Metadata, error) {
+	doc, err := read(k)
 	if err != nil {
 		return nil, err
 	}
@@ -192,8 +229,8 @@ func fileLoadMetadata(profile string) (*Metadata, error) {
 }
 
 // Unlock decrypts secrets.
-func fileUnlock(profile string, passphrase []byte) (*Metadata, *Secrets, error) {
-	doc, err := read(profile)
+func fileUnlock(k key, passphrase []byte) (*Metadata, *Secrets, error) {
+	doc, err := read(k)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -220,8 +257,8 @@ func fileUnlock(profile string, passphrase []byte) (*Metadata, *Secrets, error) 
 }
 
 // Delete removes stored credentials for a profile.
-func fileDelete(profile string) error {
-	p, err := Path(profile)
+func fileDelete(k key) error {
+	p, err := keyPath(k)
 	if err != nil {
 		return err
 	}
@@ -232,7 +269,7 @@ func fileDelete(profile string) error {
 }
 
 // Has reports whether credentials exist for a profile.
-func fileHas(profile string) bool {
-	_, err := read(profile)
+func fileHas(k key) bool {
+	_, err := read(k)
 	return err == nil
 }

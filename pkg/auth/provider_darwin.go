@@ -37,17 +37,22 @@ func disallowKeychainInteraction() error {
 	return nil
 }
 
-func keychainAccount(profile string) (string, error) {
+func keychainAccount(k key) (string, error) {
 	dir, err := config.Dir()
 	if err != nil {
 		return "", err
 	}
 	digest := sha256.Sum256([]byte(dir))
-	return hex.EncodeToString(digest[:]) + ":" + profile, nil
+	// Profile names cannot contain ':', so the Privy record never collides
+	// with a device record.
+	if k.kind != "" {
+		return hex.EncodeToString(digest[:]) + ":" + k.kind + ":" + k.profile, nil
+	}
+	return hex.EncodeToString(digest[:]) + ":" + k.profile, nil
 }
-func keychainItem(profile string) (keychain.Item, error) {
+func keychainItem(k key) (keychain.Item, error) {
 	item := keychain.NewItem()
-	account, err := keychainAccount(profile)
+	account, err := keychainAccount(k)
 	if err != nil {
 		return item, err
 	}
@@ -72,14 +77,15 @@ func keychainError(err error) error {
 	}
 }
 
-func (systemKeychain) Get(profile string) ([]byte, error) {
+func (systemKeychain) Get(k key) ([]byte, error) {
+	profile := k.profile
 	if err := disallowKeychainInteraction(); err != nil {
 		return nil, err
 	}
 	if profile == "" {
 		return nil, errors.New("empty keychain profile")
 	}
-	item, err := keychainItem(profile)
+	item, err := keychainItem(k)
 	if err != nil {
 		return nil, err
 	}
@@ -97,14 +103,15 @@ func (systemKeychain) Get(profile string) ([]byte, error) {
 	}
 	return result[0].Data, nil
 }
-func (systemKeychain) Put(profile string, value []byte) error {
+func (systemKeychain) Put(k key, value []byte) error {
+	profile := k.profile
 	if err := disallowKeychainInteraction(); err != nil {
 		return err
 	}
 	if profile == "" {
 		return errors.New("empty keychain profile")
 	}
-	item, err := keychainItem(profile)
+	item, err := keychainItem(k)
 	if err != nil {
 		return err
 	}
@@ -112,12 +119,16 @@ func (systemKeychain) Put(profile string, value []byte) error {
 	// The library documents kSecAttrAccessible support on macOS when
 	// kSecAttrSynchronizable is specified (set to false on this item).
 	item.SetAccessible(keychain.AccessibleWhenUnlockedThisDeviceOnly)
-	item.SetLabel("Oku CLI device credential")
+	if k.kind != "" {
+		item.SetLabel("Oku CLI " + k.kind + " credential")
+	} else {
+		item.SetLabel("Oku CLI device credential")
+	}
 	err = keychain.AddItem(item)
 	if errors.Is(err, keychain.ErrorDuplicateItem) {
 		update := keychain.NewItem()
 		update.SetData(value)
-		query, queryErr := keychainItem(profile)
+		query, queryErr := keychainItem(k)
 		if queryErr != nil {
 			return queryErr
 		}
@@ -125,14 +136,15 @@ func (systemKeychain) Put(profile string, value []byte) error {
 	}
 	return keychainError(err)
 }
-func (systemKeychain) Remove(profile string) error {
+func (systemKeychain) Remove(k key) error {
+	profile := k.profile
 	if err := disallowKeychainInteraction(); err != nil {
 		return err
 	}
 	if profile == "" {
 		return errors.New("empty keychain profile")
 	}
-	item, err := keychainItem(profile)
+	item, err := keychainItem(k)
 	if err != nil {
 		return err
 	}
@@ -146,24 +158,24 @@ func (systemKeychain) Remove(profile string) error {
 func Save(profile string, md Metadata, s Secrets, _ []byte) error {
 	// An existing encrypted file is never silently replaced or ignored. Explicit
 	// migration verifies the native item before retiring the legacy file.
-	if _, err := fileLoadMetadata(profile); err == nil {
+	if _, err := fileLoadMetadata(deviceKey(profile)); err == nil {
 		return errors.New("legacy encrypted credential exists; migrate explicitly before writing Keychain")
 	} else if !errors.Is(err, ErrNoCredentials) {
 		return err
 	}
-	if prior, _, err := nativeLoad(systemKeychain{}, profile); err == nil {
+	if prior, _, err := nativeLoad(systemKeychain{}, deviceKey(profile)); err == nil {
 		if prior.Network != md.Network || prior.APIURL != md.APIURL || !strings.EqualFold(prior.AccountAddress, md.AccountAddress) {
 			return errors.New("existing Keychain credential has a different origin/account/network binding")
 		}
 	} else if !errors.Is(err, ErrNoCredentials) {
 		return err
 	}
-	return nativeSave(systemKeychain{}, profile, md, s)
+	return nativeSave(systemKeychain{}, deviceKey(profile), md, s)
 }
 func LoadMetadata(profile string) (*Metadata, error) {
-	md, _, err := nativeLoad(systemKeychain{}, profile)
+	md, _, err := nativeLoad(systemKeychain{}, deviceKey(profile))
 	if errors.Is(err, ErrNoCredentials) {
-		if _, legacyErr := fileLoadMetadata(profile); legacyErr == nil {
+		if _, legacyErr := fileLoadMetadata(deviceKey(profile)); legacyErr == nil {
 			return nil, errors.New("legacy encrypted credential exists; explicit Keychain migration required")
 		} else if !errors.Is(legacyErr, ErrNoCredentials) {
 			return nil, legacyErr
@@ -172,16 +184,16 @@ func LoadMetadata(profile string) (*Metadata, error) {
 	return md, err
 }
 func Unlock(profile string, _ []byte) (*Metadata, *Secrets, error) {
-	return nativeLoad(systemKeychain{}, profile)
+	return nativeLoad(systemKeychain{}, deviceKey(profile))
 }
 func Delete(profile string) error {
 	// Prevent accidentally leaving a usable legacy credential behind.
-	if _, err := fileLoadMetadata(profile); err == nil {
+	if _, err := fileLoadMetadata(deviceKey(profile)); err == nil {
 		return errors.New("legacy encrypted credential exists; retire it explicitly before deleting Keychain item")
 	} else if !errors.Is(err, ErrNoCredentials) {
 		return err
 	}
-	return (systemKeychain{}).Remove(profile)
+	return (systemKeychain{}).Remove(deviceKey(profile))
 }
 func Has(profile string) bool { _, err := LoadMetadata(profile); return err == nil }
 
@@ -190,7 +202,7 @@ func Has(profile string) bool { _, err := LoadMetadata(profile); return err == n
 // non-active backup. On any failure before rename, the original remains active.
 // No migration occurs during normal reads or enrollment.
 func MigrateLegacy(profile string, passphrase []byte) error {
-	md, sec, err := fileUnlock(profile, passphrase)
+	md, sec, err := fileUnlock(deviceKey(profile), passphrase)
 	if err != nil {
 		return err
 	}
@@ -207,12 +219,12 @@ func MigrateLegacy(profile string, passphrase []byte) error {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	if current, currentSecrets, err := nativeLoad(systemKeychain{}, profile); err == nil {
+	if current, currentSecrets, err := nativeLoad(systemKeychain{}, deviceKey(profile)); err == nil {
 		if !reflect.DeepEqual(current, md) || currentSecrets.DeviceToken != sec.DeviceToken || currentSecrets.PollSecret != sec.PollSecret || !equalBytes(currentSecrets.AgentKey, sec.AgentKey) {
 			return errors.New("existing Keychain item differs from legacy credential")
 		}
 	} else if errors.Is(err, ErrNoCredentials) {
-		if err := nativeSave(systemKeychain{}, profile, *md, *sec); err != nil {
+		if err := nativeSave(systemKeychain{}, deviceKey(profile), *md, *sec); err != nil {
 			return err
 		}
 	} else {
@@ -234,3 +246,17 @@ func MigrateLegacy(profile string, passphrase []byte) error {
 	}
 	return nil
 }
+
+// SavePrivy stores the Privy (Accounts session) credential in the Keychain.
+func SavePrivy(profile string, md Metadata, s Secrets, _ []byte) error {
+	md.Kind = KindPrivy
+	return nativeSave(systemKeychain{}, privyKey(profile), md, s)
+}
+func LoadPrivyMetadata(profile string) (*Metadata, error) {
+	md, _, err := nativeLoad(systemKeychain{}, privyKey(profile))
+	return md, err
+}
+func UnlockPrivy(profile string, _ []byte) (*Metadata, *Secrets, error) {
+	return nativeLoad(systemKeychain{}, privyKey(profile))
+}
+func DeletePrivy(profile string) error { return (systemKeychain{}).Remove(privyKey(profile)) }

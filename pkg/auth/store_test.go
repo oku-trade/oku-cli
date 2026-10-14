@@ -90,3 +90,45 @@ func TestCorruptCredentialFilesFailClosed(t *testing.T) {
 		t.Error("oversized file accepted")
 	}
 }
+
+// The Privy record is a separate file; saving or deleting it leaves the
+// device credential untouched, and existing device files still unlock.
+func TestPrivyRecordIndependentOfDevice(t *testing.T) {
+	setup(t)
+	pass := []byte("correct horse")
+	dev := Metadata{Profile: "p", AccountAddress: "0x1111111111111111111111111111111111111111", Scopes: []string{"read"}}
+	if err := Save("p", dev, Secrets{DeviceToken: "okud_x", AgentKey: []byte("k")}, pass); err != nil {
+		t.Fatal(err)
+	}
+	devPath, _ := Path("p")
+	before, _ := os.ReadFile(devPath)
+	pv := Metadata{Profile: "p", Network: "mainnet", APIURL: "https://a", WalletAddress: "0x2222222222222222222222222222222222222222", SessionID: "sid", ExpiresAt: "2030-01-01T00:00:00Z"}
+	if err := SavePrivy("p", pv, Secrets{SessionToken: "sesstok-secret"}, pass); err != nil {
+		t.Fatal(err)
+	}
+	pp, _ := PrivyPath("p")
+	raw, _ := os.ReadFile(pp)
+	if strings.Contains(string(raw), "sesstok-secret") {
+		t.Fatal("session token in plaintext")
+	}
+	if !strings.Contains(string(raw), `"kind": "privy"`) {
+		t.Fatalf("kind not recorded: %s", raw)
+	}
+	md, sec, err := UnlockPrivy("p", pass)
+	if err != nil || sec.SessionToken != "sesstok-secret" || md.SessionID != "sid" {
+		t.Fatal(err)
+	}
+	if err := DeletePrivy("p"); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := os.ReadFile(devPath)
+	if string(before) != string(after) {
+		t.Fatal("device credential changed")
+	}
+	if _, s, err := Unlock("p", pass); err != nil || s.DeviceToken != "okud_x" {
+		t.Fatal(err)
+	}
+	if _, err := LoadPrivyMetadata("p"); !errors.Is(err, ErrNoCredentials) {
+		t.Fatal(err)
+	}
+}
