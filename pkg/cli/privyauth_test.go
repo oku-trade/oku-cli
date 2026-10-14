@@ -215,18 +215,14 @@ func TestPrivyRefreshRotationPersistedAndAdopted(t *testing.T) {
 	}
 }
 
-func TestPrivyLoginAccountOverrideBindsProfile(t *testing.T) {
+func TestPrivyLoginRejectsAccountFlag(t *testing.T) {
 	h := newHarness(t)
 	other := "0x2222222222222222222222222222222222222222"
 	if r := h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code != 0 {
 		t.Fatal(r.stdout)
 	}
-	h.fake.approveAcct = other
-	if r := h.run("auth", "login", "--account", other, "--no-open", "--json"); r.code != 0 {
-		t.Fatalf("login override: %s", r.stdout)
-	}
-	if r := h.run("auth", "status", "--verify", "--json"); r.code != 0 {
-		t.Fatalf("overridden account cannot unlock: %s", r.stdout)
+	if r := h.run("--account", other, "auth", "login", "--no-open", "--json"); r.errCode() != "USAGE" || !strings.Contains(r.stdout, "wallet you sign with") {
+		t.Fatalf("login accepted account flag: %s", r.stdout)
 	}
 }
 

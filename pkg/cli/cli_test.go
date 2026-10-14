@@ -65,6 +65,17 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	authed := r.Header.Get("x-oku-account-session") == "session-1" && r.Header.Get("x-oku-account-session-token") == "session-token"
 	reply := func(v any) { json.NewEncoder(w).Encode(v) }
+	if r.URL.Path == "/info" {
+		if body["type"] != "userRole" || body["user"] != f.agentAddress {
+			f.t.Errorf("unexpected hyperliquid lookup: %v", body)
+		}
+		if f.approved {
+			reply(map[string]any{"role": "agent", "data": map[string]string{"user": f.approveAcct}, "extra": true})
+		} else {
+			reply(map[string]string{"role": "missing"})
+		}
+		return
+	}
 	fail := func(status int, code, msg string) {
 		w.WriteHeader(status)
 		reply(map[string]string{"code": code, "message": msg})
@@ -251,6 +262,9 @@ func (h *harness) run(args ...string) run {
 			if k == "OKU_PRIVY_AUTH_URL" {
 				return h.privy.server.URL
 			}
+			if k == "OKU_HYPERLIQUID_INFO_URL" {
+				return h.srv.URL + "/info"
+			}
 			return ""
 		},
 		StdinIsTTY: true,
@@ -323,22 +337,22 @@ func TestEnrollmentFlow(t *testing.T) {
 
 func TestLoginWithoutProfilesCreatesDefault(t *testing.T) {
 	h := newHarness(t)
-	if r := h.run("auth", "login", "--no-open", "--json"); r.errCode() != "ACCOUNT_REQUIRED" {
-		t.Fatalf("missing account: %d %s", r.code, r.stdout)
-	}
-	h.fake.approveAcct = "0x2222222222222222222222222222222222222222"
-	if r := h.run("auth", "login", "--no-open", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code == 0 {
+	h.fake.approved = false
+	if r := h.run("auth", "login", "--no-open", "--api-url", h.srv.URL, "--json"); r.errCode() != "AUTH_REQUIRED" {
 		t.Fatalf("unapproved login succeeded: %s", r.stdout)
 	}
 	if r := h.run("profiles", "list", "--json"); strings.Contains(r.stdout, `"default"`) {
 		t.Fatalf("failed login left a profile: %s", r.stdout)
 	}
-	h.fake.approveAcct = acct
-	if r := h.run("auth", "login", "--no-open", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code != 0 {
+	if _, err := auth.LoadPrivyMetadata("default"); err != auth.ErrNoCredentials {
+		t.Fatalf("failed login left credentials: %v", err)
+	}
+	h.fake.approved = true
+	if r := h.run("auth", "login", "--no-open", "--api-url", h.srv.URL, "--json"); r.code != 0 {
 		t.Fatalf("auth login: %s %s", r.stdout, r.stderr)
 	}
 	r := h.run("auth", "status", "--json")
-	if r.code != 0 || r.data()["credential"].(map[string]any)["profile"] != "default" {
+	if r.code != 0 || r.data()["credential"].(map[string]any)["profile"] != "default" || r.data()["credential"].(map[string]any)["account_address"] != acct {
 		t.Fatalf("status: %s", r.stdout)
 	}
 	if r := h.run("auth", "login", "--no-open", "--api-url", h.srv.URL, "--json"); r.errCode() != "USAGE" {
@@ -346,16 +360,16 @@ func TestLoginWithoutProfilesCreatesDefault(t *testing.T) {
 	}
 }
 
-func TestEnrollmentRefusesDifferentApprovedAccount(t *testing.T) {
+func TestEnrollmentUpdatesDifferentApprovedAccount(t *testing.T) {
 	h := newHarness(t)
 	h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL)
 	h.fake.approveAcct = "0x2222222222222222222222222222222222222222"
 	r := h.run("auth", "login", "--no-open", "--json")
-	if r.code == 0 || r.errCode() != "AUTH_REQUIRED" {
+	if r.code != 0 || r.data()["credential"].(map[string]any)["account_address"] != h.fake.approveAcct || !strings.Contains(r.stderr, "account changed") {
 		t.Fatalf("got %d %s", r.code, r.stdout)
 	}
-	if _, err := auth.LoadPrivyMetadata("main"); err != auth.ErrNoCredentials {
-		t.Fatalf("stored unapproved agent: %v", err)
+	if s := h.run("auth", "status", "--json"); s.code != 0 {
+		t.Fatalf("updated profile cannot unlock: %s", s.stdout)
 	}
 	if strings.Contains(r.stdout, "access-0") {
 		t.Fatal("token leaked in error")

@@ -25,7 +25,6 @@ Authorize a Privy embedded-wallet agent on the Oku website
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--account` | Hyperliquid master wallet address | `` |
 | `--api-url` | Oku API origin for the profile created when none exists | `` |
 | `--no-open` | print verification URL without opening browser | `false` |
 | `--timeout` | maximum time to wait for authorization | `10m0s` |
