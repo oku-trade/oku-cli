@@ -19,7 +19,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -29,8 +28,6 @@ import (
 
 const DefaultAuthURL = "https://auth.privy.io"
 const maxResponse = 1 << 20
-
-var safeRequestID = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
 
 var (
 	ErrAuthorizationPending = errors.New("authorization pending")
@@ -130,7 +127,13 @@ func (c *Client) requestURL(ctx context.Context, method, endpoint, token string,
 	}
 	resp, err := c.http().Do(req)
 	if err != nil {
-		return fmt.Errorf("privy request failed: %w", err)
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return context.DeadlineExceeded
+		}
+		return errors.New("privy transport failed")
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxResponse+1))
@@ -161,17 +164,15 @@ func (c *Client) requestURL(ctx context.Context, method, endpoint, token string,
 		default:
 			code = "remote_error"
 		}
-		requestID := resp.Header.Get("x-request-id")
-		if !safeRequestID.MatchString(requestID) || (token != "" && strings.Contains(token, requestID)) || (requestID != "" && bytes.Contains(body, []byte(requestID))) {
-			requestID = ""
-		}
+		// Remote IDs are untrusted and may contain reflected access, refresh,
+		// device or authorization secrets. Never render them.
 		retryAfter := resp.Header.Get("Retry-After")
 		if seconds, err := strconv.ParseUint(retryAfter, 10, 32); err != nil || seconds > 86400 {
 			if _, err := http.ParseTime(retryAfter); err != nil || len(retryAfter) > 64 {
 				retryAfter = ""
 			}
 		}
-		return &Error{Status: resp.StatusCode, Code: code, Description: code, RequestID: requestID, RetryAfter: retryAfter}
+		return &Error{Status: resp.StatusCode, Code: code, Description: code, RetryAfter: retryAfter}
 	}
 	if out != nil && len(raw) > 0 {
 		if err := json.Unmarshal(raw, out); err != nil {
