@@ -22,6 +22,12 @@ The account is the external Hyperliquid master wallet. The agent is a separate P
 In their own terminal, the user runs:
 
 ```sh
+oku auth login --account 0x...
+```
+
+With no profiles configured, this creates a profile named `default` once login succeeds and makes it the default. For a named profile:
+
+```sh
 oku profiles add <name> --account 0x...
 oku auth login --profile <name>
 ```

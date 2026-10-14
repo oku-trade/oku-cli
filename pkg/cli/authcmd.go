@@ -17,7 +17,7 @@ import (
 )
 
 func authLoginFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "account", Usage: "Hyperliquid master wallet address"}, &urfave.BoolFlag{Name: "no-open", Usage: "print verification URL without opening browser"}, &urfave.DurationFlag{Name: "timeout", Value: 10 * time.Minute, Usage: "maximum time to wait for authorization"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "account", Usage: "Hyperliquid master wallet address"}, &urfave.StringFlag{Name: "api-url", Usage: "Oku API origin for the profile created when none exists"}, &urfave.BoolFlag{Name: "no-open", Usage: "print verification URL without opening browser"}, &urfave.DurationFlag{Name: "timeout", Value: 10 * time.Minute, Usage: "maximum time to wait for authorization"}}
 }
 func authStatusFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.BoolFlag{Name: "verify", Usage: "refresh the credential and check Hyperliquid agent approval"}}
@@ -42,13 +42,36 @@ func validateAgent(ctx context.Context, c *api.Client, agent, account string) er
 	}
 	return nil
 }
+
+// autoProfileName is the profile auth login creates when none is configured.
+const autoProfileName = "default"
+
 func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	p, err := e.profile()
 	if err != nil {
 		return nil, err
 	}
+	// With no profile configured at all, log in to a new "default" profile and
+	// save it only after the login succeeds.
+	create := false
 	if p.Name == "" {
-		return nil, output.Errorf(output.CodeProfileNotFound, "auth login requires a profile")
+		f, loadErr := config.Load()
+		if loadErr != nil {
+			return nil, output.Wrap(output.CodeConfigError, loadErr, "loading config")
+		}
+		if len(f.Profiles) > 0 {
+			return nil, output.Errorf(output.CodeProfileNotFound, "no default profile; pass --profile or run 'oku profiles use NAME'")
+		}
+		p.Name, create = autoProfileName, true
+	}
+	if u := e.cmd.String("api-url"); u != "" {
+		if !create {
+			return nil, output.Errorf(output.CodeUsage, "--api-url only applies when auth login creates a profile; profile %q already exists", p.Name)
+		}
+		if err := config.ValidateAPIURL(u); err != nil {
+			return nil, output.Wrap(output.CodeInvalidArgument, err, "invalid --api-url")
+		}
+		p.APIURL = config.NormalizeAPIURL(u)
 	}
 	if e.cmd.String("account") != "" {
 		p.Account = e.cmd.String("account")
@@ -56,7 +79,8 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 		p.Account = e.g.account
 	}
 	if !config.ValidAddress(p.Account) {
-		return nil, output.Errorf(output.CodeAccountRequired, "auth login requires --account or a profile account")
+		return nil, output.Errorf(output.CodeAccountRequired, "auth login requires --account or a profile account").
+			WithDetail("hint", "oku auth login --account 0x<master wallet>")
 	}
 	if !e.app.StdinIsTTY {
 		return nil, output.Errorf(output.CodeUsage, "auth login requires an interactive terminal; never run it through MCP or Service")
@@ -129,7 +153,23 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "locking credential")
 	}
 	defer release()
-	if selected := e.cmd.String("account"); selected != "" {
+	if create {
+		cfg, loadErr := config.Load()
+		if loadErr != nil {
+			return nil, output.Wrap(output.CodeConfigError, loadErr, "loading config")
+		}
+		if _, exists := cfg.Profiles[p.Name]; exists {
+			return nil, output.Errorf(output.CodeConfigError, "profile changed during login; retry")
+		}
+		cfg.Profiles[p.Name] = &config.Profile{Network: p.Network, APIURL: p.APIURL, Account: strings.ToLower(p.Account)}
+		if cfg.DefaultProfile == "" {
+			cfg.DefaultProfile = p.Name
+		}
+		if saveErr := cfg.Save(); saveErr != nil {
+			return nil, output.Wrap(output.CodeConfigError, saveErr, "saving profile")
+		}
+		e.diag("Created profile %q", p.Name)
+	} else if selected := e.cmd.String("account"); selected != "" {
 		cfg, loadErr := config.Load()
 		if loadErr != nil {
 			return nil, output.Wrap(output.CodeConfigError, loadErr, "loading profile")

@@ -321,6 +321,31 @@ func TestEnrollmentFlow(t *testing.T) {
 	}
 }
 
+func TestLoginWithoutProfilesCreatesDefault(t *testing.T) {
+	h := newHarness(t)
+	if r := h.run("auth", "login", "--no-open", "--json"); r.errCode() != "ACCOUNT_REQUIRED" {
+		t.Fatalf("missing account: %d %s", r.code, r.stdout)
+	}
+	h.fake.approveAcct = "0x2222222222222222222222222222222222222222"
+	if r := h.run("auth", "login", "--no-open", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code == 0 {
+		t.Fatalf("unapproved login succeeded: %s", r.stdout)
+	}
+	if r := h.run("profiles", "list", "--json"); strings.Contains(r.stdout, `"default"`) {
+		t.Fatalf("failed login left a profile: %s", r.stdout)
+	}
+	h.fake.approveAcct = acct
+	if r := h.run("auth", "login", "--no-open", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code != 0 {
+		t.Fatalf("auth login: %s %s", r.stdout, r.stderr)
+	}
+	r := h.run("auth", "status", "--json")
+	if r.code != 0 || r.data()["credential"].(map[string]any)["profile"] != "default" {
+		t.Fatalf("status: %s", r.stdout)
+	}
+	if r := h.run("auth", "login", "--no-open", "--api-url", h.srv.URL, "--json"); r.errCode() != "USAGE" {
+		t.Fatalf("--api-url on existing profile: %s", r.stdout)
+	}
+}
+
 func TestEnrollmentRefusesDifferentApprovedAccount(t *testing.T) {
 	h := newHarness(t)
 	h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL)

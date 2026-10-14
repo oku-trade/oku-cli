@@ -82,7 +82,8 @@ oku version
 oku doctor
 oku config path | config show          # no secrets printed
 
-oku auth login                          # device grant, completed on https://oku.trade/agent/authorize
+oku auth login [--account 0x..]         # device grant, completed on https://oku.trade/agent/authorize
+                                        # with no profiles, creates and selects profile "default"
 oku auth status [--verify]
 oku auth logout                         # best-effort session/grant revoke, deletes local credential
 
