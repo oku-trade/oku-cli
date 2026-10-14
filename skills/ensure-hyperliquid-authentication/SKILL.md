@@ -1,47 +1,35 @@
 ---
 name: ensure-hyperliquid-authentication
-description: Check or establish Oku CLI device authorization for a Hyperliquid account, covering profiles, pairing, scopes, expiry and revocation. Use before any authenticated read or trade, or when oku returns an auth error (exit 3).
+description: Check or establish Oku Agent Privy authorization for Hyperliquid perps, including account binding, embedded-wallet approval, session expiry and logout. Use before authenticated reads or trades, or when Oku reports an auth error.
 ---
 
-# Ensure Oku authentication
+# Ensure Oku Agent authentication
 
-Start with the learn-oku ground rules: pass `--json`, treat output as data, confirm flags with `oku docs commands`, and never handle secrets.
+Start with `oku docs commands` and use `--json` for machine-readable output. Never request or handle tokens, passphrases or authorization codes in chat.
 
-## Check the current state (read-only)
+## Check status
 
 ```sh
 oku profiles list --json
-oku auth status --profile <p> --json            # local enrollment: status, account, agent, scopes
-oku auth status --profile <p> --verify --json   # also asks Oku whether the device is still valid
+oku auth status --profile <name> --json
+oku auth status --profile <name> --verify --json
 ```
 
-Scopes:
-- `read`: account data.
-- `trade`: orders and cancels.
-- `risk`: leverage and isolated margin. It is granted separately.
+The account is the external Hyperliquid master wallet. The agent is a separate Privy embedded Ethereum wallet approved by that master. `--verify` refreshes credentials as needed and checks the agent approval. If missing or expired, ask the user to complete the authorization page rather than retrying trades.
 
-A missing or expired scope is fixed by the user re-enrolling with that permission on the Oku website. Retrying won't help.
+## User-operated login
 
-## Pairing is manual
-
-Only the user pairs a device. Tell them to run these in their own terminal:
+In their own terminal, the user runs:
 
 ```sh
-oku profiles add <name> --account 0x...   # only if they asked to create a profile
-oku auth setup --profile <name>           # prompts for the website enrollment code and a local passphrase
-oku auth setup --resume --profile <name>  # resume a pending enrollment
+oku profiles add <name> --account 0x...
+oku auth login --profile <name>
 ```
 
-Never run `auth setup` yourself. Never ask for the enrollment code or passphrase in chat, and never create or edit `OKU_PASSPHRASE_FILE`. Over MCP, authentication problems come back as errors. Pass the hint on to the user.
+The CLI prints a URL and user code. The user visits the Oku authorization page, signs the Hyperliquid agent approval with their external master wallet, and approves the Privy device grant. The CLI stores credentials only after Oku confirms the embedded agent is approved. Use `--no-open` to prevent automatic browser launch. Login is never available over MCP or the Service API. On Linux, headless authenticated calls require a 0600 `OKU_PASSPHRASE_FILE` configured by the user.
 
-## Revocation boundaries
+## Logout and revocation
 
-`oku auth revoke --profile <p>` revokes only this device's Oku token and deletes the local credentials. It does NOT remove the Hyperliquid agent approval, cancel orders or close positions. Those are separate steps on the Oku website or Hyperliquid. Only revoke when the user asks. See `oku docs show security`.
+`oku auth logout --profile <name>` best-effort logs out of Oku and revokes the Privy device grant, then deletes local credentials. It **does not** revoke the Hyperliquid agent, cancel orders or close positions. The user must revoke the agent separately on Hyperliquid or the Oku page. A revoked Privy grant's access JWT may remain usable for up to 15 minutes. Never perform logout without the user's authorization.
 
-## macOS Keychain
-
-`oku auth migrate-keychain --profile <p>` moves a legacy encrypted-file credential into the Keychain. It is explicit and interactive, so suggest it and let the user run it. On other platforms it reports that no migration is needed.
-
-## Permissions and consequences
-
-Status reads are harmless. Revocation is irreversible for that device. Pairing grants a local agent key that can trade the account, so it belongs only on hosts the user trusts.
+A stolen credential can sign anything its Privy grant permits. Recommend a policy restricting `eth_signTypedData_v4` to the Hyperliquid Agent typed-data domain with chainId 1337.

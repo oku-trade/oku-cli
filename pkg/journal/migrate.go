@@ -327,14 +327,14 @@ func validateLegacyRecord(r *Record, id string) error {
 		return errors.New("intent digest mismatch")
 	}
 	switch r.State {
-	case StatePrepared, StateCreating, StateCreated, StateSubmitting, StateSubmitted, StateUnknown, StateRejected, StateAbandoned:
+	case StatePrepared, StateCreating, StateCreated, StateSigning, StateSubmitting, StateSubmitted, StateUnknown, StateRejected, StateAbandoned:
 	default:
 		return errors.New("invalid state")
 	}
 	if len(r.History) == 0 || r.History[len(r.History)-1].State != r.State {
 		return errors.New("invalid transition history")
 	}
-	if (r.State == StateSubmitting || r.State == StateUnknown) && r.Nonce <= 0 {
+	if (r.State == StateSigning || r.State == StateSubmitting || r.State == StateUnknown) && r.Nonce <= 0 {
 		return errors.New("unresolved intent missing nonce")
 	}
 	if r.Nonce < 0 {

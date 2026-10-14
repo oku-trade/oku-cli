@@ -18,26 +18,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/oku-trade/oku-cli/pkg/auth"
 	"github.com/oku-trade/oku-cli/pkg/signing"
 )
 
-const (
-	acct  = "0x1111111111111111111111111111111111111111"
-	token = "okud_testtoken_abcdefghijklmnopqrstuvwxyz"
-	poll  = "pollsecret_abcdefghijklmnopqrstuvwxyz012345"
-)
+const acct = "0x1111111111111111111111111111111111111111"
 
-// fakeOku implements the subset of PerpsService/CliDeviceService the CLI
-// uses, following perps.proto and oku-cli-device-contract.md.
+// fakeOku implements the Perps and AuthService methods used by the CLI.
 type fakeOku struct {
 	t  *testing.T
 	mu sync.Mutex
 
-	pollStatuses []string
-	redeemed     *struct{ Agent, Name, Sig, Code string }
 	approveAcct  string
-	// scopes granted at enrollment approval (default read, trade).
-	scopes []string
+	agentAddress string
+	approved     bool
+	rejectExtend bool
 	// riskAction overrides the leverage/margin action the server builds.
 	riskAction func(kind string, meta map[string]any) string
 
@@ -68,19 +63,40 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f.calls = append(f.calls, method)
 	var body map[string]any
 	_ = json.NewDecoder(r.Body).Decode(&body)
-	authed := r.Header.Get("x-oku-device-token") == token
+	authed := r.Header.Get("x-oku-account-session") == "session-1" && r.Header.Get("x-oku-account-session-token") == "session-token"
 	reply := func(v any) { json.NewEncoder(w).Encode(v) }
 	fail := func(status int, code, msg string) {
 		w.WriteHeader(status)
 		reply(map[string]string{"code": code, "message": msg})
 	}
 	needAuth := map[string]bool{"CreateAction": true, "ConfirmAction": true, "CancelAction": true, "GetAction": true,
-		"ReconcileActions": true, "GetCurrentDevice": true, "RevokeCurrentDevice": true}
+		"ReconcileActions": true}
 	if needAuth[method] && !authed {
 		fail(401, "unauthenticated", "authentication required")
 		return
 	}
 	switch method {
+	case "ExtendSession":
+		if f.rejectExtend {
+			fail(401, "unauthenticated", "expired session")
+			return
+		}
+		reply(map[string]any{"session": map[string]string{"sessionId": "session-1", "token": "session-token", "expiresAt": time.Now().Add(time.Hour).UTC().Format(time.RFC3339)}})
+	case "PrivySessionExchange":
+		if f.rejectExtend && (r.Header.Get("x-oku-account-session") != "" || r.Header.Get("x-oku-account-session-token") != "") {
+			fail(401, "unauthenticated", "stale header on exchange")
+			return
+		}
+		reply(map[string]any{"session": map[string]string{"sessionId": "session-1", "token": "session-token", "expiresAt": time.Now().Add(time.Hour).UTC().Format(time.RFC3339)}})
+	case "Logout":
+		reply(map[string]any{})
+	case "ValidateAgentKey":
+		valid := f.approved && strings.EqualFold(body["agentAddress"].(string), f.agentAddress) && strings.EqualFold(body["userAddress"].(string), f.approveAcct)
+		status := "missing"
+		if valid {
+			status = "approved"
+		}
+		reply(map[string]any{"valid": valid, "status": status})
 	case "GetMarkets":
 		reply(map[string]any{"markets": []map[string]any{{"coin": "BTC", "szDecimals": 5, "maxLeverage": 40, "assetId": 0, "markPx": "50000.0", "midPx": "50000.5", "funding": "0.00001"}}})
 	case "GetMarketPrice":
@@ -91,33 +107,6 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		reply(map[string]any{"marginSummary": map[string]string{"accountValue": "100.71"}, "withdrawable": "100.71"})
 	case "GetAccountBalances":
 		reply(map[string]any{"accountAbstraction": "unifiedAccount", "spotUsdcBalance": "0.005666"})
-	case "RedeemEnrollment":
-		code := body["enrollmentCode"].(string)
-		agent := body["agentAddress"].(string)
-		name := body["deviceName"].(string)
-		sig := body["signature"].(string)
-		f.redeemed = &struct{ Agent, Name, Sig, Code string }{agent, name, sig, code}
-		reply(map[string]any{"enrollmentId": "enr1", "pollSecret": poll, "confirmationCode": "123456", "expiresAt": time.Now().Add(10 * time.Minute).UTC().Format(time.RFC3339), "pollIntervalSeconds": 5})
-	case "PollEnrollment":
-		if body["pollSecret"] != poll {
-			fail(404, "not_found", "no")
-			return
-		}
-		st := f.pollStatuses[0]
-		if len(f.pollStatuses) > 1 {
-			f.pollStatuses = f.pollStatuses[1:]
-		}
-		resp := map[string]any{"status": st}
-		if st == "approved" {
-			resp["deviceId"], resp["deviceToken"], resp["scopes"], resp["accountAddress"] = "dev1", token, f.grantedScopes(), f.approveAcct
-		}
-		reply(resp)
-	case "GetCurrentDevice", "RevokeCurrentDevice":
-		st := "active"
-		if method == "RevokeCurrentDevice" {
-			st = "revoked"
-		}
-		reply(map[string]any{"device": map[string]any{"deviceId": "dev1", "agentAddress": f.redeemed.Agent, "accountAddress": acct, "status": st}})
 	case "CreateAction":
 		f.creates++
 		params := body["params"].(map[string]any)
@@ -187,13 +176,6 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (f *fakeOku) grantedScopes() []string {
-	if f.scopes != nil {
-		return f.scopes
-	}
-	return []string{"read", "trade"}
-}
-
 // marginNtli is the fake backend's independent USDC -> 6dp integer
 // conversion (not trading.MarginUnits, so the CLI check is exercised).
 func marginNtli(amount string) int64 {
@@ -222,6 +204,7 @@ type harness struct {
 	srv    *httptest.Server
 	stdin  string
 	passFn string
+	privy  *fakePrivy
 }
 
 func newHarness(t *testing.T) *harness {
@@ -243,7 +226,10 @@ func newHarness(t *testing.T) *harness {
 	fake, srv := newFake(t)
 	pf := filepath.Join(t.TempDir(), "pass")
 	os.WriteFile(pf, []byte("correct horse battery\n"), 0o600)
-	return &harness{t: t, fake: fake, srv: srv, passFn: pf}
+	pv := newFakePrivy(t)
+	fake.agentAddress = pv.signer.Address()
+	fake.approved = true
+	return &harness{t: t, fake: fake, srv: srv, passFn: pf, privy: pv}
 }
 
 type run struct {
@@ -262,11 +248,15 @@ func (h *harness) run(args ...string) run {
 			if k == "OKU_PASSPHRASE_FILE" {
 				return h.passFn
 			}
+			if k == "OKU_PRIVY_AUTH_URL" {
+				return h.privy.server.URL
+			}
 			return ""
 		},
-		Now:     time.Now,
-		Sleep:   func(context.Context, time.Duration) error { return nil },
-		Version: "test",
+		StdinIsTTY: true,
+		Now:        time.Now,
+		Sleep:      func(context.Context, time.Duration) error { return nil },
+		Version:    "test",
 	}
 	code := a.Run(args)
 	r := run{code: code, stdout: out.String(), stderr: errb.String()}
@@ -291,41 +281,38 @@ func (h *harness) enroll() {
 	if r := h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code != 0 {
 		h.t.Fatalf("profiles add: %s %s", r.stdout, r.stderr)
 	}
-	h.fake.pollStatuses = []string{"pending_approval", "device_verified", "approved"}
-	h.stdin = "abcd-efgh jkmn-pqrs\n"
-	r := h.run("auth", "setup", "--code-stdin", "--device-name", "laptop", "--json")
+	r := h.run("auth", "login", "--no-open", "--json")
 	if r.code != 0 {
-		h.t.Fatalf("auth setup: %s %s", r.stdout, r.stderr)
+		h.t.Fatalf("auth login: %s %s", r.stdout, r.stderr)
 	}
 }
 
 func TestEnrollmentFlow(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
-	red := h.fake.redeemed
-	if red.Code != "ABCDEFGHJKMNPQRS" || red.Name != "laptop" || red.Agent != strings.ToLower(red.Agent) {
-		t.Fatalf("redeem request: %+v", red)
-	}
-	// The redeem signature must recover to the agent over the contract message.
-	msg := signing.EnrollmentMessage(red.Code, red.Agent, "laptop")
-	sig := signing.Signature{R: red.Sig[:66], S: "0x" + red.Sig[66:130], V: map[string]uint64{"1b": 27, "1c": 28}[red.Sig[130:]]}
-	if got, err := signing.RecoverAddress(signing.PersonalDigest(msg), sig); err != nil || !strings.EqualFold(got, red.Agent) {
-		t.Fatalf("enrollment signature recovers to %s, want %s (%v)", got, red.Agent, err)
+	if h.privy.pending != 1 {
+		t.Fatalf("device grant did not pass through pending: %d", h.privy.pending)
 	}
 	r := h.run("auth", "status", "--json")
 	if r.code != 0 || r.data()["credential"].(map[string]any)["status"] != "active" {
 		t.Fatalf("status: %s", r.stdout)
 	}
-	// Secrets never appear in any output.
-	for _, s := range []string{r.stdout, r.stderr} {
-		if strings.Contains(s, token) || strings.Contains(s, poll) {
-			t.Fatal("secret in output")
-		}
+	if !strings.EqualFold(r.data()["credential"].(map[string]any)["agent_address"].(string), h.fake.agentAddress) {
+		t.Fatal("wrong embedded agent")
+	}
+	if strings.Contains(r.stdout, "refresh-0") || strings.Contains(r.stdout, "access-0") || strings.Contains(r.stdout, "session-token") {
+		t.Fatal("secret in output")
 	}
 	if runtime.GOOS != "darwin" {
-		cred, _ := filepath.Glob(filepath.Join(os.Getenv("OKU_CONFIG_DIR"), "credentials", "*"))
-		raw, _ := os.ReadFile(cred[0])
-		if bytes.Contains(raw, []byte(token)) {
+		path, err := auth.PrivyPath("main")
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bytes.Contains(raw, []byte("refresh-0")) || bytes.Contains(raw, []byte("access-0")) {
 			t.Fatal("token stored in plaintext")
 		}
 	}
@@ -337,23 +324,24 @@ func TestEnrollmentFlow(t *testing.T) {
 func TestEnrollmentRefusesDifferentApprovedAccount(t *testing.T) {
 	h := newHarness(t)
 	h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL)
-	h.fake.pollStatuses = []string{"approved"}
 	h.fake.approveAcct = "0x2222222222222222222222222222222222222222"
-	h.stdin = "ABCD-EFGH-JKMN-PQRS\n"
-	r := h.run("auth", "setup", "--code-stdin", "--json")
-	if r.code == 0 || r.errCode() != "CONFIG_ERROR" {
+	r := h.run("auth", "login", "--no-open", "--json")
+	if r.code == 0 || r.errCode() != "AUTH_REQUIRED" {
 		t.Fatalf("got %d %s", r.code, r.stdout)
 	}
-	if strings.Contains(r.stdout, token) {
+	if _, err := auth.LoadPrivyMetadata("main"); err != auth.ErrNoCredentials {
+		t.Fatalf("stored unapproved agent: %v", err)
+	}
+	if strings.Contains(r.stdout, "access-0") {
 		t.Fatal("token leaked in error")
 	}
 }
 
-func TestCodeNeverAcceptedWithoutStdinOrTTY(t *testing.T) {
+func TestLegacyEnrollmentCommandRemoved(t *testing.T) {
 	h := newHarness(t)
 	h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL)
 	r := h.run("auth", "setup", "--json")
-	if r.errCode() != "USAGE" || h.fake.redeemed != nil {
+	if r.errCode() != "USAGE" || h.privy.pending != 0 {
 		t.Fatalf("got %s", r.stdout)
 	}
 }
@@ -392,8 +380,8 @@ func TestPrepareSubmitHappyPath(t *testing.T) {
 	var v uint64
 	fmt.Sscan(s["v"].(string), &v)
 	got, _ := signing.RecoverAddress(signing.AgentDigest(conn), signing.Signature{R: s["r"].(string), S: s["s"].(string), V: v})
-	if !strings.EqualFold(got, h.fake.redeemed.Agent) {
-		t.Fatalf("signed by %s, want agent %s", got, h.fake.redeemed.Agent)
+	if !strings.EqualFold(got, h.fake.agentAddress) {
+		t.Fatalf("signed by %s, want agent %s", got, h.fake.agentAddress)
 	}
 	// Same intent never sent twice.
 	r = h.run("orders", "submit", "--intent", id, "--digest", dg, "--json")
@@ -526,8 +514,8 @@ func TestProfileBindingEnforced(t *testing.T) {
 	cfgPath := filepath.Join(os.Getenv("OKU_CONFIG_DIR"), "config.json")
 	raw, _ := os.ReadFile(cfgPath)
 	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("x-oku-device-token") != "" {
-			t.Error("token sent to a different origin")
+		if r.Header.Get("x-oku-account-session") != "" || r.Header.Get("x-oku-account-session-token") != "" {
+			t.Error("session sent to a different origin")
 		}
 	}))
 	defer other.Close()
@@ -561,9 +549,12 @@ func TestNoPassphraseFailsClosed(t *testing.T) {
 func TestRevokeReportsBoundaries(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
-	r := h.run("auth", "revoke", "--json")
-	if r.code != 0 || r.data()["remote_status"] != "revoked" || r.data()["boundaries"] == nil {
-		t.Fatalf("revoke: %s", r.stdout)
+	r := h.run("auth", "logout", "--json")
+	if r.code != 0 || r.data()["local_credentials"] != "deleted" || r.data()["boundaries"] == nil {
+		t.Fatalf("logout: %s", r.stdout)
+	}
+	if _, err := auth.LoadPrivyMetadata("main"); err != auth.ErrNoCredentials {
+		t.Fatalf("credential remains after logout: %v", err)
 	}
 	if r := h.run("orders", "prepare", "--market", "BTC", "--side", "buy", "--type", "limit", "--size", "1", "--price", "1", "--json"); r.code != 0 {
 		t.Fatalf("prepare is local and should still work: %s", r.stdout)

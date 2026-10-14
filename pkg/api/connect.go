@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
+	accountv1 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v1"
+	"github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v1/accountv1connect"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
@@ -20,7 +22,7 @@ import (
 // encoded as JSON; it is decoded strictly (unknown fields rejected) into the
 // generated request message so handwritten request shapes cannot drift from
 // the vendored proto silently.
-type handler func(ctx context.Context, perps accountv2connect.PerpsServiceClient, dev accountv2connect.CliDeviceServiceClient, in []byte, h http.Header) (proto.Message, error)
+type handler func(ctx context.Context, perps accountv2connect.PerpsServiceClient, dev accountv2connect.CliDeviceServiceClient, auth accountv1connect.AuthServiceClient, in []byte, h http.Header) (proto.Message, error)
 
 var strictJSON = protojson.UnmarshalOptions{DiscardUnknown: false}
 
@@ -58,7 +60,7 @@ func perps[Req, Resp any, PReq interface {
 	*Req
 	proto.Message
 }](pick func(accountv2connect.PerpsServiceClient) func(context.Context, *connect.Request[Req]) (*connect.Response[Resp], error)) handler {
-	return func(ctx context.Context, p accountv2connect.PerpsServiceClient, _ accountv2connect.CliDeviceServiceClient, in []byte, h http.Header) (proto.Message, error) {
+	return func(ctx context.Context, p accountv2connect.PerpsServiceClient, _ accountv2connect.CliDeviceServiceClient, _ accountv1connect.AuthServiceClient, in []byte, h http.Header) (proto.Message, error) {
 		return unary[Req, Resp, PReq](pick(p), ctx, in, h)
 	}
 }
@@ -67,7 +69,7 @@ func device[Req, Resp any, PReq interface {
 	*Req
 	proto.Message
 }](pick func(accountv2connect.CliDeviceServiceClient) func(context.Context, *connect.Request[Req]) (*connect.Response[Resp], error)) handler {
-	return func(ctx context.Context, _ accountv2connect.PerpsServiceClient, d accountv2connect.CliDeviceServiceClient, in []byte, h http.Header) (proto.Message, error) {
+	return func(ctx context.Context, _ accountv2connect.PerpsServiceClient, d accountv2connect.CliDeviceServiceClient, _ accountv1connect.AuthServiceClient, in []byte, h http.Header) (proto.Message, error) {
 		return unary[Req, Resp, PReq](pick(d), ctx, in, h)
 	}
 }
@@ -75,8 +77,32 @@ func device[Req, Resp any, PReq interface {
 type P = accountv2connect.PerpsServiceClient
 type D = accountv2connect.CliDeviceServiceClient
 
+func authRPC[Req, Resp any, PReq interface {
+	*Req
+	proto.Message
+}](pick func(accountv1connect.AuthServiceClient) func(context.Context, *connect.Request[Req]) (*connect.Response[Resp], error)) handler {
+	return func(ctx context.Context, _ accountv2connect.PerpsServiceClient, _ accountv2connect.CliDeviceServiceClient, a accountv1connect.AuthServiceClient, in []byte, h http.Header) (proto.Message, error) {
+		return unary[Req, Resp, PReq](pick(a), ctx, in, h)
+	}
+}
+
+var authMethods = map[string]handler{
+	"PrivySessionExchange": authRPC[accountv1.PrivySessionExchangeRequest, accountv1.PrivySessionExchangeResponse](func(a accountv1connect.AuthServiceClient) func(context.Context, *connect.Request[accountv1.PrivySessionExchangeRequest]) (*connect.Response[accountv1.PrivySessionExchangeResponse], error) {
+		return a.PrivySessionExchange
+	}),
+	"ExtendSession": authRPC[accountv1.ExtendSessionRequest, accountv1.ExtendSessionResponse](func(a accountv1connect.AuthServiceClient) func(context.Context, *connect.Request[accountv1.ExtendSessionRequest]) (*connect.Response[accountv1.ExtendSessionResponse], error) {
+		return a.ExtendSession
+	}),
+	"Logout": authRPC[accountv1.LogoutRequest, accountv1.LogoutResponse](func(a accountv1connect.AuthServiceClient) func(context.Context, *connect.Request[accountv1.LogoutRequest]) (*connect.Response[accountv1.LogoutResponse], error) {
+		return a.Logout
+	}),
+}
+
 // Methods the CLI is allowed to call. Anything else is refused locally.
 var perpsMethods = map[string]handler{
+	"ValidateAgentKey": perps[accountv2.ValidateAgentKeyRequest, accountv2.ValidateAgentKeyResponse](func(c P) func(context.Context, *connect.Request[accountv2.ValidateAgentKeyRequest]) (*connect.Response[accountv2.ValidateAgentKeyResponse], error) {
+		return c.ValidateAgentKey
+	}),
 	"GetMarkets": perps[accountv2.GetMarketsRequest, accountv2.GetMarketsResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetMarketsRequest]) (*connect.Response[accountv2.GetMarketsResponse], error) {
 		return c.GetMarkets
 	}),

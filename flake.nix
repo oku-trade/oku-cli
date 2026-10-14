@@ -1,5 +1,5 @@
 {
-  description = "oku-cli: command line interface for Oku";
+  description = "Oku Agent: Hyperliquid perps from the oku binary";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

@@ -1,4 +1,4 @@
-// Command oku is the Oku perps CLI.
+// Command oku is Oku Agent for Hyperliquid perps.
 package main
 
 import (

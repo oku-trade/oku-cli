@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package gfxcafe.oku.account.v1;
+
+option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v1;v1";
+
+import "google/protobuf/timestamp.proto";
+import "buf/validate/validate.proto";
+import "gfxcafe/oku/account/v1/validate.proto";
+
+// Common error details
+message ErrorDetail {
+  string code = 1;
+  string message = 2;
+  map<string, string> metadata = 3;
+}
+
+// Pagination request
+message PaginationRequest {
+  int32 limit = 1;
+  string cursor = 2;
+}
+
+// Pagination response
+message PaginationResponse {
+  string next_cursor = 1;
+  bool has_more = 2;
+}
+
+// Common amount with token
+message TokenAmount {
+  string token_address = 1 [
+    (buf.validate.field).string.(eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+  string amount = 2 [
+    (buf.validate.field).string = {
+      pattern: "^[0-9]+$"  // Non-negative integer as string
+    },
+    (buf.validate.field).required = true
+  ]; // Using string for big numbers
+  int32 decimals = 3 [
+    (buf.validate.field).int32 = {
+      gte: 0,
+      lte: 255
+    }
+  ];
+}
+
+// Session information
+message Session {
+  string session_id = 1;
+  string user_id = 2;
+  string token = 3;
+  google.protobuf.Timestamp expires_at = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+// User information
+message User {
+  string user_id = 1;
+  string address = 2 [
+    (buf.validate.field).string.(eth_address) = true
+  ];
+  string email = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+  
+  // Additional fields from HTTP API
+  string username = 6;
+  string name = 7; // Display name
+  bool email_verified = 8;
+  repeated string linked_addresses = 9 [
+    (buf.validate.field).repeated.items.string.(eth_address) = true
+  ];
+}
+
+// ALTCHA challenge solution payload from client
+message AltchaSolution {
+  // Algorithm used
+  string algorithm = 1 [(buf.validate.field).required = true];
+  
+  // The challenge hash
+  string challenge = 2 [(buf.validate.field).required = true];
+  
+  // The solution number
+  int64 number = 3 [(buf.validate.field).required = true];
+  
+  // Salt value
+  string salt = 4 [(buf.validate.field).required = true];
+  
+  // HMAC signature
+  string signature = 5 [(buf.validate.field).required = true];
+}

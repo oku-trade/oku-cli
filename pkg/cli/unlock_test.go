@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/oku-trade/oku-cli/pkg/auth"
 )
@@ -17,7 +19,7 @@ func swapDuringPrompt(t *testing.T, mutate func(md map[string]any)) (*resolved, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	path, err := auth.Path(p.Name)
+	path, err := auth.PrivyPath(p.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,14 +56,37 @@ func TestUnlockUsesAuthenticatedBinding(t *testing.T) {
 	const evil = "https://different-origin.example"
 	p, app := swapDuringPrompt(t, func(md map[string]any) { md["api_url"] = evil })
 	p.APIURL = evil
-	if s, err := (&env{app: app}).unlock(p, "trade"); err == nil {
+	if s, err := (&env{app: app, ctx: context.Background(), g: globals{timeout: time.Second}}).unlock(p, "trade"); err == nil {
 		t.Fatalf("unlocked for unauthenticated origin %s (session origin %s)", evil, s.md.APIURL)
 	}
 	// Control: the authentic profile still unlocks and the session carries
 	// authenticated metadata.
 	p2, app2 := swapDuringPrompt(t, func(map[string]any) {})
-	s, err := (&env{app: app2}).unlock(p2, "trade")
+	s, err := (&env{app: app2, ctx: context.Background(), g: globals{timeout: time.Second}}).unlock(p2, "trade")
 	if err != nil || s.md.APIURL != h.srv.URL {
 		t.Fatalf("authentic unlock: %v", err)
+	}
+}
+
+// One command invocation prompts for the passphrase at most once, even though
+// unlock and the signing boundary both re-read the credential under the lock.
+func TestPassphrasePromptedOncePerInvocation(t *testing.T) {
+	prompts := 0
+	app := NewApp("t")
+	app.StdinIsTTY = true
+	app.Getenv = func(string) string { return "" }
+	app.ReadSecret = func(string) ([]byte, error) { prompts++; return []byte("correct horse battery"), nil }
+	e := &env{app: app}
+	for range 3 {
+		if p, err := e.passphrase(false); err != nil || string(p) != "correct horse battery" {
+			t.Fatalf("passphrase: %q %v", p, err)
+		}
+	}
+	if prompts != 1 {
+		t.Fatalf("prompted %d times, want 1", prompts)
+	}
+	// A new invocation (new env) prompts again; confirmation always prompts.
+	if _, err := (&env{app: app}).passphrase(true); err != nil || prompts != 3 {
+		t.Fatalf("confirm prompts = %d, err = %v", prompts, err)
 	}
 }

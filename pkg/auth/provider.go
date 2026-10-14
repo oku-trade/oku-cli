@@ -15,9 +15,9 @@ var ErrKeychainUnavailable = errors.New("credential keychain unavailable")
 var ErrUnsupportedPlatform = errors.New("native Keychain migration requires macOS with CGO")
 
 type credentialItemStore interface {
-	Get(profile string) ([]byte, error)
-	Put(profile string, value []byte) error
-	Remove(profile string) error
+	Get(k key) ([]byte, error)
+	Put(k key, value []byte) error
+	Remove(k key) error
 }
 
 type credentialRecord struct {
@@ -26,8 +26,9 @@ type credentialRecord struct {
 	Secrets  Secrets  `json:"secrets"`
 }
 
-func nativeLoad(store credentialItemStore, profile string) (*Metadata, *Secrets, error) {
-	raw, err := store.Get(profile)
+func nativeLoad(store credentialItemStore, k key) (*Metadata, *Secrets, error) {
+	profile := k.profile
+	raw, err := store.Get(k)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -41,14 +42,18 @@ func nativeLoad(store credentialItemStore, profile string) (*Metadata, *Secrets,
 	if record.Version != 1 || record.Metadata.Profile != profile || profile == "" {
 		return nil, nil, errors.New("keychain credential profile mismatch or unsupported version")
 	}
-	if record.Metadata.APIURL == "" || record.Metadata.Network == "" || record.Metadata.AccountAddress == "" || !strings.HasPrefix(record.Metadata.APIURL, "https://") && !strings.HasPrefix(record.Metadata.APIURL, "http://") {
+	if record.Metadata.Kind != k.kind {
+		return nil, nil, errors.New("keychain credential kind mismatch")
+	}
+	if record.Metadata.APIURL == "" || record.Metadata.Network == "" || (k.kind == "" && record.Metadata.AccountAddress == "") || !strings.HasPrefix(record.Metadata.APIURL, "https://") && !strings.HasPrefix(record.Metadata.APIURL, "http://") {
 		return nil, nil, errors.New("keychain credential binding incomplete")
 	}
 	return &record.Metadata, &record.Secrets, nil
 }
 
-func nativeSave(store credentialItemStore, profile string, md Metadata, secrets Secrets) error {
-	if profile == "" || md.Profile != profile || md.APIURL == "" || md.Network == "" || md.AccountAddress == "" {
+func nativeSave(store credentialItemStore, k key, md Metadata, secrets Secrets) error {
+	profile := k.profile
+	if profile == "" || md.Profile != profile || md.Kind != k.kind || md.APIURL == "" || md.Network == "" || (k.kind == "" && md.AccountAddress == "") {
 		return errors.New("credential binding incomplete or profile mismatch")
 	}
 	raw, err := json.Marshal(credentialRecord{Version: 1, Metadata: md, Secrets: secrets})
@@ -58,10 +63,10 @@ func nativeSave(store credentialItemStore, profile string, md Metadata, secrets 
 	if len(raw) > maxCredFile {
 		return errors.New("credential exceeds keychain size limit")
 	}
-	if err := store.Put(profile, raw); err != nil {
+	if err := store.Put(k, raw); err != nil {
 		return err
 	}
-	got, sec, err := nativeLoad(store, profile)
+	got, sec, err := nativeLoad(store, k)
 	if err != nil {
 		return fmt.Errorf("verify keychain credential: %w", err)
 	}

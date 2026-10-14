@@ -1,4 +1,4 @@
-# oku
+# Oku Agent (`oku`)
 
 `oku` is a Go command-line client for trading Hyperliquid perps through the Oku account service (`gfxcafe.oku.account.v2.PerpsService`). It is built for people and coding agents. It prints human-readable tables by default and offers a versioned JSON contract (`oku.cli/v1`) with `--json`. It also ships offline docs (`oku docs`), bundled task skills (`oku skills`) and a stdio MCP server (`oku mcp serve`).
 
@@ -6,9 +6,9 @@ It supports Hyperliquid **mainnet** only.
 
 > **Status: pre-release / private alpha development.**
 > - The repository is private. There is no published npm package, no hosted install script and no auto-update.
-> - Device enrollment, the `risk` scope and authenticated order attribution are implemented in the backend and frontend but **not deployed**.
-> - Live enrollment, signing and trading have **not** been tested against deployed services. No real order has been submitted as part of validation.
-> - Native Linux/macOS tests pass on amd64 and arm64, including isolated macOS Keychain tests. Final package checks are recorded in [docs/validation.md](docs/validation.md).
+> - Privy device-grant JWT verification requires the Accounts `feat/privy-multi-app-verifier` branch deployed. Its acceptance by the backend remains **unverified live**.
+> - Privy OAuth typed-data signing at chainId 1337 is **unverified live**. Do not infer production readiness from offline tests.
+> - Earlier release checks in [docs/validation.md](docs/validation.md) predate this auth model.
 > - The command grammar may change.
 
 ## Install (from source)
@@ -71,15 +71,14 @@ The release tooling packs a thin launcher `@oku-trade/cli` plus four exact-versi
 
 Nothing migrates automatically.
 
-- **macOS credentials:** `oku auth migrate-keychain --profile NAME` explicitly moves a legacy encrypted credential into the Keychain. See [docs/security.md](docs/security.md#explicit-legacy-credential-migration-macos).
+- **Credentials:** old device credentials cannot be reused; run `oku auth login` after configuring your external master account. `oku auth logout` deletes old credentials.
 - **Journal:** `oku journal migrate` explicitly imports a legacy JSON journal into SQLite. Signing is blocked until you run it. See [docs/usage.md](docs/usage.md#local-journal).
 
 ## Uninstall
 
 1. Run `oku skills uninstall --target <agent>` for any installed skills.
-2. Run `oku auth revoke`.
+2. Run `oku auth logout` (then separately revoke the Hyperliquid agent with the master wallet).
 3. Run `make uninstall` (or `rm "$(command -v oku)"`).
-4. Revoke the Hyperliquid agent from your main wallet.
 
 Removing the binary does **not** revoke Oku sessions or the exchange delegated signer. It also leaves the journal and any credential backups in place. See [docs/security.md](docs/security.md).
 
@@ -89,7 +88,7 @@ All of these except `validation.md` (repository-only evidence, not embedded) are
 
 - [docs/usage.md](docs/usage.md): commands, JSON contract, order lifecycle, risk actions, draft repair, skills, MCP, journal
 - [docs/commands.md](docs/commands.md): generated command and flag reference (`make docs`, `make docs-check`)
-- [docs/security.md](docs/security.md): signing mode, credential storage per platform, scopes, migration, revocation
+- [docs/security.md](docs/security.md): Privy signing model, credential storage, grant and agent revocation
 - [docs/architecture.md](docs/architecture.md): code layout and how the CLI talks to Oku
 - [docs/deployment.md](docs/deployment.md): backend/frontend/release prerequisites
 - [docs/local-testing.md](docs/local-testing.md): local read-only checks and operator-led enrollment/trade guidance

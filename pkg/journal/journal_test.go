@@ -160,11 +160,14 @@ func TestBeginSubmissionGatesAcrossProfilesAndOrigins(t *testing.T) {
 		t.Fatalf("account conflict bypassed: %v", e)
 	}
 	again, e := j.Get("one")
-	if e != nil || again.State != StateSubmitting || again.Nonce != n {
+	if e != nil || again.State != StateSigning || again.Nonce != n {
 		t.Fatalf("durable pre-send %v %v", again, e)
 	}
 	if e = j.Put(&Record{Intent: a.Intent, Digest: a.Digest, State: StateAbandoned, Nonce: n}, ""); e == nil {
 		t.Fatal("possibly sent action abandoned")
+	}
+	if e = j.FinishSigning(a, true); e != nil {
+		t.Fatal(e)
 	}
 	a.State = StateSubmitted
 	a.ServerState = "filled"
@@ -174,6 +177,33 @@ func TestBeginSubmissionGatesAcrossProfilesAndOrigins(t *testing.T) {
 	n2, e := j2.BeginSubmission(b, "0xsigner")
 	if e != nil || n2 <= n {
 		t.Fatalf("post reconciliation nonce %d <= %d: %v", n2, n, e)
+	}
+}
+func TestSigningFailureBurnsNonceAndReleasesGate(t *testing.T) {
+	j := open(t)
+	a := created(t, j, intent("failed-signature", "https://one.example"))
+	n, err := j.BeginSubmission(a, "0xsigner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	blocked, err := j.Blocking(a.Intent.Network, a.Intent.Account)
+	if err != nil || len(blocked) != 1 {
+		t.Fatalf("signing gate missing: %d %v", len(blocked), err)
+	}
+	if err = j.FinishSigning(a, false); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := j.Get(a.Intent.ID)
+	if err != nil || restored.State != StateCreated || restored.Nonce != 0 {
+		t.Fatalf("failed signature not retryable: %+v %v", restored, err)
+	}
+	blocked, err = j.Blocking(a.Intent.Network, a.Intent.Account)
+	if err != nil || len(blocked) != 0 {
+		t.Fatalf("signing gate retained: %d %v", len(blocked), err)
+	}
+	n2, err := j.BeginSubmission(restored, "0xsigner")
+	if err != nil || n2 <= n {
+		t.Fatalf("burned nonce reused: %d after %d: %v", n2, n, err)
 	}
 }
 func TestLegacyImportAndBarrier(t *testing.T) {
@@ -433,6 +463,9 @@ func TestRejectDefiniteOnlyFromSubmitting(t *testing.T) {
 		t.Fatal(e)
 	}
 	a.Nonce = n
+	if e = j.FinishSigning(a, true); e != nil {
+		t.Fatal(e)
+	}
 	if e = j.RejectDefinite(a, ""); e == nil {
 		t.Fatal("rejection without a reason accepted")
 	}
@@ -455,6 +488,9 @@ func TestCancelAllowedWhileUnknownButOrdersBlocked(t *testing.T) {
 		t.Fatal(e)
 	}
 	a.State = StateUnknown
+	if e = j.FinishSigning(a, true); e != nil {
+		t.Fatal(e)
+	}
 	if e = j.Put(a, "timeout"); e != nil {
 		t.Fatal(e)
 	}

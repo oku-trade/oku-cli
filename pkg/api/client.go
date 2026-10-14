@@ -16,13 +16,16 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v1/accountv1connect"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2/accountv2connect"
 )
 
 const (
-	maxBody = 16 << 20
+	maxBody            = 16 << 20
+	SessionHeader      = "x-oku-account-session"
+	SessionTokenHeader = "x-oku-account-session-token"
 	// DeviceTokenHeader carries the scoped CLI device credential.
 	DeviceTokenHeader = "x-oku-device-token"
 )
@@ -34,7 +37,12 @@ type Client struct {
 	UserAgent string
 	// Token is the device token; sent only when non-empty and only for
 	// calls made with Authed.
-	Token string
+	Token        string
+	SessionID    string
+	SessionToken string
+	// OnUnauthenticated is notified only for a definite server rejection of
+	// this session. It must not retry the request (especially mutations).
+	OnUnauthenticated func()
 }
 
 // Error is a Connect error or transport failure.
@@ -83,6 +91,15 @@ func (c *Client) Device(ctx context.Context, method string, req, resp any, authe
 	return c.call(ctx, h, req, resp, authed, true)
 }
 
+// Auth calls an allowlisted AuthService method without exposing sensitive server errors.
+func (c *Client) Auth(ctx context.Context, method string, req, resp any, authed bool) error {
+	h, ok := authMethods[method]
+	if !ok {
+		return &Error{Code: "unimplemented", Message: "AuthService/" + method + " is not supported"}
+	}
+	return c.call(ctx, h, req, resp, authed, true)
+}
+
 // call performs exactly one HTTP attempt. There is no retry at any layer:
 // the HTTP client refuses redirects and connect-go does not retry unary
 // calls. Errors are classified from observed wire evidence.
@@ -102,10 +119,17 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 		hdr.Set("User-Agent", c.UserAgent)
 	}
 	if authed {
-		if c.Token == "" {
-			return &Error{Code: "unauthenticated", Message: "device credential required"}
+		switch {
+		case c.Token != "" && (c.SessionID != "" || c.SessionToken != ""):
+			return &Error{Code: "invalid_argument", Message: "mutually exclusive credentials"}
+		case c.SessionID != "" && c.SessionToken != "":
+			hdr.Set(SessionHeader, c.SessionID)
+			hdr.Set(SessionTokenHeader, c.SessionToken)
+		case c.Token != "":
+			hdr.Set(DeviceTokenHeader, c.Token)
+		default:
+			return &Error{Code: "unauthenticated", Message: "credential required"}
 		}
-		hdr.Set(DeviceTokenHeader, c.Token)
 	}
 	st := &callState{}
 	doer := observingDoer{hc: c.HTTP, st: st}
@@ -114,9 +138,14 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 	msg, err := h(ctx,
 		accountv2connect.NewPerpsServiceClient(doer, base, opts...),
 		accountv2connect.NewCliDeviceServiceClient(doer, base, opts...),
+		accountv1connect.NewAuthServiceClient(doer, base, opts...),
 		body, hdr)
 	if err != nil {
-		return classify(ctx, st, err, sensitive)
+		classified := classify(ctx, st, err, sensitive)
+		if ae, ok := AsError(classified); ok && authed && c.SessionID != "" && ae.Code == "unauthenticated" && !ae.Ambiguous && st.status == http.StatusUnauthorized && c.OnUnauthenticated != nil {
+			c.OnUnauthenticated()
+		}
+		return classified
 	}
 	if respBody == nil {
 		return nil

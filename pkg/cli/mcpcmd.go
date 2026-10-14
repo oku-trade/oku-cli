@@ -14,7 +14,7 @@ import (
 
 func mcpFlags() []urfave.Flag {
 	return []urfave.Flag{
-		&urfave.BoolFlag{Name: "allow-mutations", Usage: "expose prepare/submit/cancel/reconcile tools (device scopes are still enforced)"},
+		&urfave.BoolFlag{Name: "allow-mutations", Usage: "expose prepare/submit/cancel/reconcile tools (requires Oku session)"},
 	}
 }
 

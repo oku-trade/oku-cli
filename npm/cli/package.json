@@ -1,7 +1,7 @@
 {
   "name": "@oku-trade/cli",
   "version": "0.0.0-dev",
-  "description": "Oku trading CLI (launcher for the native platform binary)",
+  "description": "Oku Agent trading interface (launcher for the native binary)",
   "license": "UNLICENSED",
   "bin": { "oku": "bin/oku.js" },
   "files": ["bin/oku.js", "README.md"],

@@ -1,253 +1,162 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	urfave "github.com/urfave/cli/v3"
 	"io"
-	"os"
-	"runtime"
 	"strings"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/oku-trade/oku-cli/pkg/api"
 	"github.com/oku-trade/oku-cli/pkg/auth"
+	"github.com/oku-trade/oku-cli/pkg/config"
 	"github.com/oku-trade/oku-cli/pkg/output"
-	"github.com/oku-trade/oku-cli/pkg/signing"
+	"github.com/oku-trade/oku-cli/pkg/privy"
+	urfave "github.com/urfave/cli/v3"
 )
 
-const (
-	minPollInterval = 5 * time.Second
-	maxEnrollWait   = 15 * time.Minute
-)
-
-func authSetupFlags() []urfave.Flag {
-	return []urfave.Flag{
-		&urfave.StringFlag{Name: "device-name", Usage: "name shown on the Oku devices page (default: hostname)"},
-		&urfave.BoolFlag{Name: "code-stdin", Usage: "read the enrollment code from stdin instead of a prompt"},
-		&urfave.BoolFlag{Name: "resume", Usage: "resume polling an interrupted enrollment"},
-	}
+func authLoginFlags() []urfave.Flag {
+	return []urfave.Flag{&urfave.StringFlag{Name: "account", Usage: "Hyperliquid master wallet address"}, &urfave.BoolFlag{Name: "no-open", Usage: "print verification URL without opening browser"}, &urfave.DurationFlag{Name: "timeout", Value: 10 * time.Minute, Usage: "maximum time to wait for authorization"}}
 }
-
 func authStatusFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.BoolFlag{Name: "verify", Usage: "check the device credential with Oku (requires unlock)"}}
+	return []urfave.Flag{&urfave.BoolFlag{Name: "verify", Usage: "refresh the credential and check Hyperliquid agent approval"}}
 }
 
-func (a *App) cmdAuthSetup(e *env) (*result, error) {
+var boundaries = map[string]string{
+	"mode":        "Privy delegated embedded-wallet signing",
+	"grant":       "Anyone who can read the credential can sign anything permitted by its Privy grant until revoked; an access JWT can remain valid for 15 minutes after revocation.",
+	"not_revoked": "Logging out does not remove Hyperliquid agent approval, open orders, or positions. Remove the agent separately on Hyperliquid or the Oku website.",
+}
+
+func validateAgent(ctx context.Context, c *api.Client, agent, account string) error {
+	var resp struct {
+		Valid  bool   `json:"valid"`
+		Status string `json:"status"`
+	}
+	if err := c.Perps(ctx, "ValidateAgentKey", map[string]string{"agentAddress": agent, "userAddress": account}, &resp, true); err != nil {
+		return apiError(err, "ValidateAgentKey")
+	}
+	if !resp.Valid || resp.Status != "approved" {
+		return output.Errorf(output.CodeAuthRequired, "agent %s is not approved for %s (%s); finish the steps on the Oku page", agent, account, resp.Status)
+	}
+	return nil
+}
+func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	p, err := e.profile()
 	if err != nil {
 		return nil, err
 	}
-	if p.Name == "" || p.Account == "" {
-		return nil, output.Errorf(output.CodeProfileNotFound, "auth setup needs a profile with an account").
-			WithDetail("hint", "oku profiles add NAME --account 0x... --default")
+	if p.Name == "" {
+		return nil, output.Errorf(output.CodeProfileNotFound, "auth login requires a profile")
 	}
-	resume := e.cmd.Bool("resume")
-	md, err := auth.LoadMetadata(p.Name)
-	switch {
-	case err == nil && md.Status == "active":
-		return nil, output.Errorf(output.CodeConflict, "profile %q is already enrolled as device %s; run 'oku auth revoke' first", p.Name, md.DeviceID)
-	case err == nil && !resume:
-		return nil, output.Errorf(output.CodeConflict, "an enrollment for %q is pending; use --resume or 'oku auth revoke' to discard it", p.Name)
-	case err != nil && !errors.Is(err, auth.ErrNoCredentials):
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "loading credentials")
-	case errors.Is(err, auth.ErrNoCredentials) && resume:
-		return nil, output.Errorf(output.CodeNotFound, "no pending enrollment for %q", p.Name)
+	if e.cmd.String("account") != "" {
+		p.Account = e.cmd.String("account")
+	} else if e.g.account != "" {
+		p.Account = e.g.account
 	}
-	if err == nil {
-		if berr := checkBinding(md, p); berr != nil {
-			return nil, berr
-		}
-		pass, perr := e.passphrase(false)
-		if perr != nil {
-			return nil, perr
-		}
-		amd, sec, uerr := auth.Unlock(p.Name, pass)
-		if uerr != nil {
-			return nil, output.Wrap(output.CodeSignerUnavailable, uerr, "unlocking pending enrollment")
-		}
-		// Use only the metadata authenticated with the secrets from here on.
-		if amd == nil {
-			return nil, output.Errorf(output.CodeSignerUnavailable, "unlock returned no metadata")
-		}
-		if berr := checkBinding(amd, p); berr != nil {
-			return nil, berr
-		}
-		if amd.Status == "active" {
-			return nil, output.Errorf(output.CodeConflict, "profile %q is already enrolled as device %s; run 'oku auth revoke' first", p.Name, amd.DeviceID)
-		}
-		return e.pollEnrollment(p, amd, sec, pass)
+	if !config.ValidAddress(p.Account) {
+		return nil, output.Errorf(output.CodeAccountRequired, "auth login requires --account or a profile account")
 	}
-
-	name := e.cmd.String("device-name")
-	if name == "" {
-		host, _ := os.Hostname()
-		name = defaultDeviceName(host)
+	if !e.app.StdinIsTTY {
+		return nil, output.Errorf(output.CodeUsage, "auth login requires an interactive terminal; never run it through MCP or Service")
 	}
-	name, err = signing.ValidateDeviceName(name)
+	pc, err := e.privyClient(p)
 	if err != nil {
-		return nil, output.Wrap(output.CodeInvalidArgument, err, "device name")
+		return nil, err
 	}
-	code, err := e.enrollmentCode(e.cmd.Bool("code-stdin"))
+	timeout := e.cmd.Duration("timeout")
+	if timeout <= 0 {
+		return nil, output.Errorf(output.CodeInvalidArgument, "timeout must be positive")
+	}
+	ctx, cancel := context.WithTimeout(e.ctx, timeout)
+	defer cancel()
+	da, err := pc.StartDeviceAuthorization(ctx)
 	if err != nil {
+		return nil, output.Wrap(output.CodeAuthUnavailable, err, "starting Privy login")
+	}
+	url := da.VerificationURIComplete
+	if url == "" {
+		url = da.VerificationURI
+	}
+	e.diag("Open %s and enter code %s", url, da.UserCode)
+	if !e.cmd.Bool("no-open") && e.app.OpenURL != nil {
+		if openErr := e.app.OpenURL(url); openErr != nil {
+			e.diag("Browser did not open: %v", openErr)
+		}
+	}
+	// Browser opening is best effort and intentionally optional. The URL is
+	// always printed, including in JSON mode, without leaking any access token.
+	tok, err := pc.PollDeviceToken(ctx, da, e.app.Sleep)
+	if err != nil {
+		return nil, output.Wrap(output.CodeAuthRequired, err, "Privy authorization was not approved")
+	}
+	ps, err := pc.Authenticate(ctx, tok.AccessToken)
+	if err != nil {
+		return nil, output.Wrap(output.CodeAuthUnavailable, err, "authenticating embedded wallet")
+	}
+	var wallet *privy.Wallet
+	for _, w := range ps.Wallets() {
+		if strings.EqualFold(w.ChainType, "ethereum") {
+			if wallet != nil {
+				return nil, output.Errorf(output.CodeAuthRequired, "multiple embedded Ethereum wallets returned; select one on the Oku page")
+			}
+			copy := w
+			wallet = &copy
+		}
+	}
+	if wallet == nil || !config.ValidAddress(wallet.Address) || wallet.ID == "" {
+		return nil, output.Errorf(output.CodeAuthRequired, "no embedded Ethereum agent wallet returned by Privy")
+	}
+	c := e.client(p)
+	var exchange api.PrivySessionExchangeResponse
+	if err = c.Auth(ctx, "PrivySessionExchange", map[string]string{"accessToken": tok.AccessToken}, &exchange, false); err != nil {
+		return nil, apiError(err, "PrivySessionExchange")
+	}
+	if exchange.Session == nil || exchange.Session.SessionID == "" || exchange.Session.Token == "" {
+		return nil, output.Errorf(output.CodeAuthUnavailable, "Oku returned an incomplete session")
+	}
+	c.SessionID, c.SessionToken = exchange.Session.SessionID, exchange.Session.Token
+	if err = validateAgent(ctx, c, wallet.Address, p.Account); err != nil {
 		return nil, err
 	}
 	pass, err := e.passphrase(true)
 	if err != nil {
 		return nil, err
 	}
-	key, err := signing.GenerateKey()
+	release, err := auth.LockProfile(p.Name)
 	if err != nil {
-		return nil, output.Wrap(output.CodeInternal, err, "generating agent key")
+		return nil, output.Wrap(output.CodeSignerUnavailable, err, "locking credential")
 	}
-	signer, err := signing.NewKeySigner(key)
-	if err != nil {
-		return nil, output.Wrap(output.CodeInternal, err, "agent key")
-	}
-	agent := strings.ToLower(signer.Address())
-	sig, err := signing.SignPersonal(signer, signing.EnrollmentMessage(code, agent, name))
-	if err != nil {
-		return nil, output.Wrap(output.CodeInternal, err, "signing enrollment")
-	}
-	ctx, cancel := e.requestCtx()
-	defer cancel()
-	var red api.RedeemEnrollmentResponse
-	err = e.client(p).Device(ctx, "RedeemEnrollment", api.RedeemEnrollmentRequest{
-		EnrollmentCode: code, AgentAddress: agent, DeviceName: name, Signature: sig,
-	}, &red, false)
-	if err != nil {
-		return nil, enrollError(err, "redeeming enrollment code")
-	}
-	if red.EnrollmentID == "" || red.PollSecret == "" {
-		return nil, output.Errorf(output.CodeUpstream, "incomplete enrollment response")
-	}
-	md = &auth.Metadata{
-		Profile: p.Name, Network: p.Network, APIURL: p.APIURL, DeviceName: name,
-		AgentAddress: agent, AccountAddress: strings.ToLower(p.Account),
-		CreatedAt: e.app.Now().UTC().Format(time.RFC3339), Status: "pending",
-		EnrollmentID: red.EnrollmentID, ExpiresAt: red.ExpiresAt,
-	}
-	sec := &auth.Secrets{AgentKey: key, PollSecret: red.PollSecret}
-	if err := auth.Save(p.Name, *md, *sec, pass); err != nil {
-		return nil, output.Wrap(output.CodeInternal, err, "saving pending enrollment")
-	}
-	e.diag("Confirmation code: %s", red.ConfirmationCode)
-	e.diag("Enter this code on the Oku website to approve device %q for %s.", name, p.Account)
-	e.diag("Waiting for approval (Ctrl-C to stop; resume with 'oku auth setup --resume')...")
-	return e.pollEnrollment(p, md, sec, pass)
-}
-
-func (e *env) pollEnrollment(p *resolved, md *auth.Metadata, sec *auth.Secrets, pass []byte) (*result, error) {
-	deadline := e.app.Now().Add(maxEnrollWait)
-	if t, err := time.Parse(time.RFC3339, md.ExpiresAt); err == nil && t.Before(deadline) {
-		deadline = t.Add(30 * time.Second)
-	}
-	interval := minPollInterval
-	for {
-		if e.app.Now().After(deadline) {
-			return nil, output.Errorf(output.CodeAuthRequired, "enrollment expired before approval; run 'oku auth revoke' then start again")
+	defer release()
+	if selected := e.cmd.String("account"); selected != "" {
+		cfg, loadErr := config.Load()
+		if loadErr != nil {
+			return nil, output.Wrap(output.CodeConfigError, loadErr, "loading profile")
 		}
-		if err := e.app.Sleep(e.ctx, interval); err != nil {
-			return nil, output.Wrap(output.CodeInternal, err, "waiting")
+		profile := cfg.Profiles[p.Name]
+		if profile == nil || config.NormalizeAPIURL(profile.APIURL) != p.APIURL {
+			return nil, output.Errorf(output.CodeConfigError, "profile changed during login; retry")
 		}
-		ctx, cancel := e.requestCtx()
-		var poll api.PollEnrollmentResponse
-		err := e.client(p).Device(ctx, "PollEnrollment", api.PollEnrollmentRequest{
-			EnrollmentID: md.EnrollmentID, PollSecret: sec.PollSecret,
-		}, &poll, false)
-		cancel()
-		if err != nil {
-			ae, _ := api.AsError(err)
-			if ae != nil && (ae.Code == "resource_exhausted" || ae.Ambiguous) {
-				interval = min(interval*2, time.Minute)
-				continue
+		if !strings.EqualFold(profile.Account, selected) {
+			profile.Account = strings.ToLower(selected)
+			if saveErr := cfg.Save(); saveErr != nil {
+				return nil, output.Wrap(output.CodeConfigError, saveErr, "saving selected account")
 			}
-			return nil, enrollError(err, "polling enrollment")
-		}
-		switch poll.Status {
-		case "pending_redeem", "pending_approval", "device_verified":
-			continue
-		case "approved", "claimed":
-			return e.finishEnrollment(p, md, sec, pass, &poll)
-		case "denied", "expired":
-			return nil, output.Errorf(output.CodeAuthRequired, "enrollment %s on the Oku website; run 'oku auth revoke' to discard local state", poll.Status)
-		default:
-			return nil, output.Errorf(output.CodeUpstream, "unexpected enrollment status %q", poll.Status)
 		}
 	}
+	md := auth.Metadata{Kind: auth.KindPrivy, Profile: p.Name, Network: p.Network, APIURL: p.APIURL, PrivyAppID: pc.AppID, AccountAddress: strings.ToLower(p.Account), AgentAddress: strings.ToLower(wallet.Address), PrivyWalletID: wallet.ID, AccessExpiresAt: tok.AccessExpiresAt.UTC().Format(time.RFC3339), SessionID: exchange.Session.SessionID, SessionExpiresAt: exchange.Session.ExpiresAt, CreatedAt: e.app.Now().UTC().Format(time.RFC3339), Status: "active", Generation: 1}
+	sec := auth.Secrets{AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken, SessionToken: exchange.Session.Token}
+	if err = auth.SavePrivy(p.Name, md, sec, pass); err != nil {
+		return nil, output.Wrap(output.CodeSignerUnavailable, err, "saving credential")
+	}
+	return statusResult(&md, true), nil
 }
-
-func (e *env) finishEnrollment(p *resolved, md *auth.Metadata, sec *auth.Secrets, pass []byte, poll *api.PollEnrollmentResponse) (*result, error) {
-	if poll.DeviceToken == "" {
-		// Token is delivered once. A claimed enrollment without a token here
-		// means it was lost; never assume success.
-		return nil, output.Errorf(output.CodeAuthRequired,
-			"enrollment was approved but the device token was not delivered to this session; revoke the device on the Oku website and enroll again")
-	}
-	if !strings.HasPrefix(poll.DeviceToken, "okud_") {
-		return nil, output.Errorf(output.CodeUpstream, "unexpected device token format")
-	}
-	if !strings.EqualFold(poll.AccountAddress, md.AccountAddress) {
-		return nil, output.Errorf(output.CodeConfigError,
-			"Oku approved this device for account %s but profile %q uses %s; not storing the credential. Revoke the device on the Oku website.",
-			poll.AccountAddress, p.Name, md.AccountAddress)
-	}
-	for _, s := range poll.Scopes {
-		if s != "read" && s != "trade" && s != "risk" {
-			return nil, output.Errorf(output.CodeUpstream, "unexpected scope %q", s)
-		}
-	}
-	md.Status, md.DeviceID, md.Scopes = "active", poll.DeviceID, poll.Scopes
-	sec.DeviceToken, sec.PollSecret = poll.DeviceToken, ""
-	if err := auth.Save(p.Name, *md, *sec, pass); err != nil {
-		return nil, output.Wrap(output.CodeInternal, err, "saving device credential")
-	}
-	return e.statusResult(md, nil), nil
-}
-
-func enrollError(err error, what string) error {
-	ae, ok := api.AsError(err)
-	if !ok {
-		return output.Wrap(output.CodeInternal, err, what)
-	}
-	switch ae.Code {
-	case "unimplemented":
-		return output.Errorf(output.CodeAuthUnavailable, "%s: device enrollment is not available on this Oku API deployment", what)
-	case "not_found", "invalid_argument", "failed_precondition", "permission_denied", "unauthenticated":
-		return output.Errorf(output.CodeAuthRequired, "%s: rejected by Oku (%s); the code may be invalid, expired or already used", what, ae.Code)
-	case "resource_exhausted":
-		return output.Errorf(output.CodeRateLimited, "%s: rate limited", what).WithRetry()
-	}
-	return output.Errorf(output.CodeUpstream, "%s: %s", what, ae.Code).WithRetry()
-}
-
-// boundaries is included in auth output so agents and people see what the
-// credential can and cannot do.
-var boundaries = map[string]string{
-	"mode":         "trusted-host delegated signing (alpha)",
-	"agent_key":    "a local Hyperliquid agent key, not your wallet key; anyone who can unlock it on this host can trade this account on Hyperliquid directly",
-	"oku_revoke":   "oku auth revoke stops Oku API access for this device only",
-	"not_revoked":  "Hyperliquid agent approval, open orders and positions are unaffected by Oku revocation; remove the agent and manage orders from the Oku website or Hyperliquid",
-	"local_limits": "local checks are not a security boundary against this host",
-}
-
-func (e *env) statusResult(md *auth.Metadata, remote *api.Device) *result {
-	data := map[string]any{"credential": md, "boundaries": boundaries}
-	if remote != nil {
-		data["remote_device"] = remote
-	}
-	return &result{data: data, human: func(w io.Writer) {
-		fmt.Fprintf(w, "profile   %s\nstatus    %s\naccount   %s\nagent     %s\ndevice    %s (%s)\nscopes    %s\napi       %s\n",
-			md.Profile, md.Status, md.AccountAddress, md.AgentAddress, md.DeviceName, orDash(md.DeviceID), describeScopes(md.Scopes), md.APIURL)
-		if remote != nil {
-			fmt.Fprintf(w, "remote    %s (last used %s)\n", remote.Status, orDash(remote.LastUsedAt))
-		}
-		fmt.Fprintln(w, "note: "+boundaries["not_revoked"])
+func statusResult(md *auth.Metadata, verified bool) *result {
+	return &result{data: map[string]any{"credential": md, "verified": verified, "boundaries": boundaries}, human: func(w io.Writer) {
+		fmt.Fprintf(w, "profile  %s\naccount  %s\nagent    %s\nwallet   %s\naccess   %s\nsession  %s\n", md.Profile, md.AccountAddress, md.AgentAddress, md.PrivyWalletID, md.AccessExpiresAt, md.SessionExpiresAt)
 	}}
 }
-
 func (a *App) cmdAuthStatus(e *env) (*result, error) {
 	p, err := e.profile()
 	if err != nil {
@@ -256,38 +165,33 @@ func (a *App) cmdAuthStatus(e *env) (*result, error) {
 	if p.Name == "" {
 		return nil, output.Errorf(output.CodeProfileNotFound, "no profile selected")
 	}
-	md, err := auth.LoadMetadata(p.Name)
+	md, err := auth.LoadPrivyMetadata(p.Name)
 	if errors.Is(err, auth.ErrNoCredentials) {
-		return nil, output.Errorf(output.CodeAuthRequired, "profile %q is not enrolled", p.Name).WithDetail("hint", "oku auth setup")
+		return nil, output.Errorf(output.CodeAuthRequired, "run oku auth login")
 	}
 	if err != nil {
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "loading credentials")
+		return nil, err
 	}
-	if err := checkBinding(md, p); err != nil {
+	if err = e.checkBinding(md, p); err != nil {
 		return nil, err
 	}
 	if !e.cmd.Bool("verify") {
-		return e.statusResult(md, nil), nil
+		return statusResult(md, false), nil
 	}
 	s, err := e.unlock(p, "")
 	if err != nil {
 		return nil, err
 	}
 	c := e.client(p)
-	c.Token = s.token
+	s.apply(c)
 	ctx, cancel := e.requestCtx()
 	defer cancel()
-	var resp api.DeviceResponse
-	if err := c.Device(ctx, "GetCurrentDevice", struct{}{}, &resp, true); err != nil {
-		return nil, enrollError(err, "verifying device")
+	if err = validateAgent(ctx, c, s.md.AgentAddress, s.md.AccountAddress); err != nil {
+		return nil, err
 	}
-	if !strings.EqualFold(resp.Device.AgentAddress, md.AgentAddress) || !strings.EqualFold(resp.Device.AccountAddress, md.AccountAddress) {
-		return nil, output.Errorf(output.CodeConfigError, "Oku reports a different agent/account for this credential")
-	}
-	return e.statusResult(md, &resp.Device), nil
+	return statusResult(s.md, true), nil
 }
-
-func (a *App) cmdAuthRevoke(e *env) (*result, error) {
+func (a *App) cmdAuthLogout(e *env) (*result, error) {
 	p, err := e.profile()
 	if err != nil {
 		return nil, err
@@ -295,93 +199,69 @@ func (a *App) cmdAuthRevoke(e *env) (*result, error) {
 	if p.Name == "" {
 		return nil, output.Errorf(output.CodeProfileNotFound, "no profile selected")
 	}
-	md, err := auth.LoadMetadata(p.Name)
+	release, err := auth.LockProfile(p.Name)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	md, err := auth.LoadPrivyMetadata(p.Name)
 	if errors.Is(err, auth.ErrNoCredentials) {
-		return nil, output.Errorf(output.CodeNotFound, "profile %q has no stored credentials", p.Name)
+		present, retireErr := auth.RetireLegacy(p.Name)
+		if retireErr != nil {
+			return nil, output.Wrap(output.CodeSignerUnavailable, retireErr, "retiring legacy credential")
+		}
+		if present {
+			return &result{data: map[string]any{"local_credentials": "deleted", "legacy": true}, human: func(w io.Writer) { fmt.Fprintln(w, "Legacy device credential deleted. "+boundaries["not_revoked"]) }}, nil
+		}
+		return nil, output.Errorf(output.CodeNotFound, "no credential for profile")
 	}
 	if err != nil {
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "loading credentials")
+		return nil, err
 	}
-	remote := "not_enrolled"
-	if md.Status == "active" {
-		s, err := e.unlock(p, "")
-		if err != nil {
-			return nil, err
+	if err = e.checkBinding(md, p); err != nil {
+		if deleteErr := auth.DeletePrivy(p.Name); deleteErr != nil {
+			return nil, output.Wrap(output.CodeSignerUnavailable, deleteErr, "deleting unbound credential")
 		}
-		c := e.client(p)
-		c.Token = s.token
-		ctx, cancel := e.requestCtx()
-		defer cancel()
-		var resp api.DeviceResponse
-		if err := c.Device(ctx, "RevokeCurrentDevice", struct{}{}, &resp, true); err != nil {
-			ae, _ := api.AsError(err)
-			if ae == nil || (ae.Code != "unauthenticated" && ae.Code != "not_found") {
-				return nil, enrollError(err, "revoking device (local credentials kept)")
-			}
-			remote = "already_revoked_or_unknown"
+		return &result{data: map[string]any{"local_credentials": "deleted", "oku_session": "not_attempted", "privy_grant": "not_attempted", "warning": "credential binding changed; revoke grants separately", "boundaries": boundaries}, human: func(w io.Writer) {
+			fmt.Fprintln(w, "Local credential deleted; binding changed, remote grants were not revoked. "+boundaries["not_revoked"])
+		}}, nil
+	}
+	pass, err := e.passphrase(false)
+	if err != nil {
+		return nil, err
+	}
+	md, sec, err := auth.UnlockPrivy(p.Name, pass)
+	if err != nil {
+		return nil, err
+	}
+	if err = e.checkBinding(md, p); err != nil {
+		return nil, err
+	}
+	ctx, cancel := e.requestCtx()
+	defer cancel()
+	remote := "not_attempted"
+	c := e.client(p)
+	c.SessionID, c.SessionToken = md.SessionID, sec.SessionToken
+	if md.SessionID != "" && sec.SessionToken != "" {
+		if err = c.Auth(ctx, "Logout", struct{}{}, nil, true); err != nil {
+			remote = "Oku logout failed: " + api.Redact(err.Error())
 		} else {
-			remote = resp.Device.Status
+			remote = "Oku session logged out"
 		}
 	}
-	if err := auth.Delete(p.Name); err != nil {
-		return nil, output.Wrap(output.CodeInternal, err, "deleting local credentials")
+	pc, pcErr := e.privyClient(p)
+	grant := "not_attempted"
+	if pcErr == nil && sec.AccessToken != "" {
+		if err = pc.RevokeGrant(ctx, sec.AccessToken); err != nil {
+			grant = "revoke unavailable: " + api.Redact(err.Error())
+		} else {
+			grant = "revoked"
+		}
 	}
-	data := map[string]any{"profile": p.Name, "device_id": md.DeviceID, "remote_status": remote, "local_credentials": "deleted", "boundaries": boundaries}
-	return &result{data: data, human: func(w io.Writer) {
-		fmt.Fprintf(w, "device %s: Oku API access %s; local credentials deleted\n", orDash(md.DeviceID), remote)
-		fmt.Fprintln(w, "note: "+boundaries["not_revoked"])
-	}}, nil
-}
-
-// cmdAuthMigrateKeychain explicitly moves a legacy encrypted-file credential
-// into the macOS Keychain. It never runs implicitly.
-func (a *App) cmdAuthMigrateKeychain(e *env) (*result, error) {
-	p, err := e.profile()
-	if err != nil {
+	if err = auth.DeletePrivy(p.Name); err != nil {
 		return nil, err
 	}
-	if p.Name == "" {
-		return nil, output.Errorf(output.CodeProfileNotFound, "a profile is required").WithDetail("hint", "pass --profile NAME")
-	}
-	if runtime.GOOS != "darwin" {
-		return nil, output.Errorf(output.CodeUsage, "auth migrate-keychain is only available on macOS; %s keeps credentials in the encrypted file store", runtime.GOOS).
-			WithDetail("hint", "no migration is needed on this platform")
-	}
-	pass, err := e.legacyPassphrase(false)
-	if err != nil {
-		return nil, err
-	}
-	if err := auth.MigrateLegacy(p.Name, pass); err != nil {
-		if errors.Is(err, auth.ErrUnsupportedPlatform) {
-			return nil, output.Wrap(output.CodeUsage, err, "auth migrate-keychain").WithDetail("hint", "use an official macOS build (CGO enabled)")
-		}
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "migrating credential; the encrypted file was left in place unless the Keychain item was verified")
-	}
-	return &result{data: map[string]any{"profile": p.Name, "migrated": true}, human: func(w io.Writer) {
-		fmt.Fprintf(w, "migrated %s credential to the macOS Keychain\n", p.Name)
+	return &result{data: map[string]any{"local_credentials": "deleted", "oku_session": remote, "privy_grant": grant, "boundaries": boundaries}, human: func(w io.Writer) {
+		fmt.Fprintf(w, "Local credential deleted; %s; Privy grant %s.\n%s\n", remote, grant, boundaries["not_revoked"])
 	}}, nil
-}
-
-// maxDeviceName matches signing.ValidateDeviceName.
-const maxDeviceName = 64
-
-// defaultDeviceName derives a valid device name from a hostname: control
-// characters are dropped, surrounding space trimmed, and the result is
-// truncated to 64 runes at a rune boundary. An empty result falls back to
-// "oku-cli". Explicit --device-name values are never altered, only validated.
-func defaultDeviceName(host string) string {
-	var b strings.Builder
-	for _, r := range host {
-		if !unicode.IsControl(r) && r != utf8.RuneError {
-			b.WriteRune(r)
-		}
-	}
-	r := []rune(strings.TrimSpace(b.String()))
-	if len(r) > maxDeviceName {
-		r = []rune(strings.TrimSpace(string(r[:maxDeviceName])))
-	}
-	if len(r) == 0 {
-		return "oku-cli"
-	}
-	return string(r)
 }

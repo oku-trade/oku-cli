@@ -1,4 +1,4 @@
-# Oku CLI npm packages
+# Oku Agent npm packages
 
 `@oku-trade/cli` is a thin Node launcher. The native binary ships in one of four
 exact-version optionalDependencies (`@oku-trade/cli-{linux,darwin}-{x64,arm64}`), selected by

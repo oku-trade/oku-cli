@@ -6,6 +6,7 @@
 package signing
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -98,6 +99,11 @@ func AgentDigest(connectionID [32]byte) [32]byte {
 // subaccount routing is deliberately unsupported (v1 is master-only), so the
 // vault flag is always 0x00.
 func SignAction(s Signer, actionJSON string, nonce uint64) (SignedAction, error) {
+	return SignActionContext(context.Background(), s, actionJSON, nonce)
+}
+
+// SignActionContext propagates cancellation to remote signing implementations.
+func SignActionContext(ctx context.Context, s Signer, actionJSON string, nonce uint64) (SignedAction, error) {
 	if s == nil {
 		return SignedAction{}, errors.New("signer unavailable")
 	}
@@ -105,7 +111,17 @@ func SignAction(s Signer, actionJSON string, nonce uint64) (SignedAction, error)
 	if err != nil {
 		return SignedAction{}, err
 	}
-	sig, err := s.SignDigest(AgentDigest(conn))
+	var sig Signature
+	if remote, ok := s.(interface {
+		SignAgent(context.Context, [32]byte) (Signature, error)
+	}); ok {
+		sig, err = remote.SignAgent(ctx, conn)
+	} else {
+		if err = ctx.Err(); err != nil {
+			return SignedAction{}, err
+		}
+		sig, err = s.SignDigest(AgentDigest(conn))
+	}
 	if err != nil {
 		return SignedAction{}, err
 	}

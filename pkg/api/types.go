@@ -1,5 +1,18 @@
 package api
 
+// AccountSession is the Oku session returned by AuthService.
+type AccountSession struct {
+	SessionID string `json:"sessionId"`
+	Token     string `json:"token"`
+	ExpiresAt string `json:"expiresAt"`
+}
+type PrivySessionExchangeResponse struct {
+	Session *AccountSession `json:"session"`
+}
+type ExtendSessionResponse struct {
+	Session *AccountSession `json:"session"`
+}
+
 // Field names follow protojson lowerCamelCase of perps.proto.
 
 type Market struct {

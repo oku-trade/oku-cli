@@ -1,6 +1,6 @@
 ---
 name: close-hyperliquid-position
-description: Close or reduce a Hyperliquid perps position with the Oku CLI using reduce-only orders, then check for leftover size. Use when the user asks to close, flatten, exit, or take profit on a position via Oku.
+description: Close or reduce a Hyperliquid perps position with the Oku Agent using reduce-only orders, then check for leftover size. Use when the user asks to close, flatten, exit, or take profit on a position via Oku.
 ---
 
 # Close or reduce a position

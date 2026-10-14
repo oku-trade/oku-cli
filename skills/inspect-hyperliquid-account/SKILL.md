@@ -1,6 +1,6 @@
 ---
 name: inspect-hyperliquid-account
-description: Read a Hyperliquid account through the Oku CLI, including balances, margin, positions, open orders, fills, funding and builder-fee status, without changing anything. Use when the user asks what they hold, owe, or have open.
+description: Read a Hyperliquid account through the Oku Agent, including balances, margin, positions, open orders, fills, funding and builder-fee status, without changing anything. Use when the user asks what they hold, owe, or have open.
 ---
 
 # Inspect a Hyperliquid account

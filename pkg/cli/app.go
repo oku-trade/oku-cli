@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -39,6 +41,7 @@ type App struct {
 	Now        func() time.Time
 	// Sleep waits between enrollment polls; overridable in tests.
 	Sleep   func(ctx context.Context, d time.Duration) error
+	OpenURL func(string) error
 	Version string
 
 	// wrapHandlers, when set by tests, may replace handlers after the
@@ -57,7 +60,19 @@ func NewApp(version string) *App {
 		Getenv:     os.Getenv,
 		Now:        time.Now,
 		Sleep:      sleepCtx,
-		Version:    version,
+		OpenURL: func(url string) error {
+			command := "xdg-open"
+			if runtime.GOOS == "darwin" {
+				command = "open"
+			}
+			cmd := exec.Command(command, url)
+			if err := cmd.Start(); err != nil {
+				return err
+			}
+			go func() { _ = cmd.Wait() }()
+			return nil
+		},
+		Version: version,
 	}
 }
 
@@ -88,6 +103,9 @@ type env struct {
 	cmd  flagSource
 	args []string // positional arguments after the command path
 	ctx  context.Context
+	// pass caches an interactively entered passphrase for this one command
+	// invocation, so unlock and the signing boundary prompt only once.
+	pass []byte
 }
 
 // flagSource is the flag view handlers read. *urfave.Command satisfies it
@@ -123,43 +141,42 @@ func (a *App) commands() map[string]*handler {
 
 func (a *App) commandTable() map[string]*handler {
 	return map[string]*handler{
-		"version":               {summary: "Print version information", run: a.cmdVersion},
-		"doctor":                {summary: "Check configuration, connectivity and credentials", run: a.cmdDoctor},
-		"config path":           {summary: "Print config, credential and state paths", run: a.cmdConfigPath},
-		"config show":           {summary: "Show configuration (no secrets)", run: a.cmdConfigShow},
-		"profiles list":         {summary: "List profiles", run: a.cmdProfilesList},
-		"profiles add":          {summary: "Add a profile: profiles add NAME --account 0x.. [--api-url URL] [--default]", flags: profilesAddFlags, run: a.cmdProfilesAdd},
-		"profiles use":          {summary: "Set the default profile: profiles use NAME", run: a.cmdProfilesUse},
-		"profiles remove":       {summary: "Remove a profile without credentials: profiles remove NAME", run: a.cmdProfilesRemove},
-		"auth setup":            {summary: "Enroll this device with an enrollment code from the Oku website", flags: authSetupFlags, run: a.cmdAuthSetup},
-		"auth status":           {summary: "Show local enrollment status (--verify checks with Oku)", flags: authStatusFlags, run: a.cmdAuthStatus},
-		"auth migrate-keychain": {summary: "macOS only: explicitly move a legacy encrypted credential into the Keychain", run: a.cmdAuthMigrateKeychain},
-		"drafts repair":         {summary: "Repair malformed order-draft JSON from --stdin into a reviewable candidate (local only; never prepares or submits)", flags: draftFlags, run: a.cmdDraftsRepair},
-		"mcp serve":             {summary: "Run the MCP server on stdio (reads only unless --allow-mutations)", flags: mcpFlags, run: a.cmdMCPServe},
-		"auth revoke":           {summary: "Revoke this device's Oku API token and delete local credentials", run: a.cmdAuthRevoke},
-		"markets list":          {summary: "List perp markets", flags: marketFilterFlags, run: a.cmdMarketsList},
-		"markets quote":         {summary: "Mark, mid and oracle price: markets quote COIN", run: a.cmdMarketsQuote},
-		"markets funding":       {summary: "Funding rate history: markets funding COIN [--since 24h]", flags: fundingFlags, run: a.cmdMarketsFunding},
-		"account summary":       {summary: "Balances, margin and builder-fee status", run: a.cmdAccountSummary},
-		"positions leverage":    {summary: "Prepare a leverage/margin-mode change (no submission): --market COIN --leverage N --mode cross|isolated", flags: leverageFlags, run: a.cmdPositionsLeverage},
-		"positions margin":      {summary: "Prepare an isolated margin add/remove (no submission): --market COIN --amount USDC", flags: marginFlags, run: a.cmdPositionsMargin},
-		"positions list":        {summary: "Open positions", run: a.cmdPositionsList},
-		"orders list":           {summary: "Open orders", flags: fresh, run: a.cmdOrdersList},
-		"orders prepare":        {summary: "Prepare a local order intent (no exchange submission; may read market data)", flags: prepareFlags, run: a.cmdOrdersPrepare},
-		"orders submit":         {summary: "Sign and submit a prepared intent: orders submit --intent ID --digest SHA", flags: submitFlags, run: a.cmdOrdersSubmit},
-		"orders cancel":         {summary: "Cancel an open order: orders cancel --market COIN --order-id OID", flags: cancelFlags, run: a.cmdOrdersCancel},
-		"orders status":         {summary: "Status of an intent: orders status --intent ID", flags: statusFlags, run: a.cmdOrdersStatus},
-		"orders reconcile":      {summary: "Resolve unknown or in-flight intents with Oku", run: a.cmdOrdersReconcile},
-		"orders abandon":        {summary: "Cancel an unsigned server action so it can never execute", flags: statusFlags, run: a.cmdOrdersAbandon},
-		"fills list":            {summary: "Recent fills", flags: marketFilterFlags, run: a.cmdFillsList},
-		"journal migrate":       {summary: "Explicitly import the legacy JSON journal into SQLite (offline; stop older oku processes first)", run: a.cmdJournalMigrate},
-		"docs list":             {summary: "List documentation bundled in this binary (offline)", run: a.cmdDocsList},
-		"docs show":             {summary: "Print a bundled document: docs show NAME", run: a.cmdDocsShow},
-		"docs search":           {summary: "Search bundled documentation: docs search TERMS... [--limit N]", flags: docsSearchFlags, run: a.cmdDocsSearch},
-		"docs commands":         {summary: "List commands of this binary; --markdown prints the full reference", flags: docsCommandsFlags, run: a.cmdDocsCommands},
-		"skills list":           {summary: "List bundled agent skills", run: a.cmdSkillsList},
-		"skills install":        {summary: "Install skills: --target jcode|claude|codex or --dir PATH [--force]", flags: skillFlags, run: a.cmdSkillsInstall},
-		"skills uninstall":      {summary: "Remove installed skills that match the bundled version", flags: skillFlags, run: a.cmdSkillsUninstall},
+		"version":            {summary: "Print version information", run: a.cmdVersion},
+		"doctor":             {summary: "Check configuration, connectivity and credentials", run: a.cmdDoctor},
+		"config path":        {summary: "Print config, credential and state paths", run: a.cmdConfigPath},
+		"config show":        {summary: "Show configuration (no secrets)", run: a.cmdConfigShow},
+		"profiles list":      {summary: "List profiles", run: a.cmdProfilesList},
+		"profiles add":       {summary: "Add a profile: profiles add NAME --account 0x.. [--api-url URL] [--default]", flags: profilesAddFlags, run: a.cmdProfilesAdd},
+		"profiles use":       {summary: "Set the default profile: profiles use NAME", run: a.cmdProfilesUse},
+		"profiles remove":    {summary: "Remove a profile without credentials: profiles remove NAME", run: a.cmdProfilesRemove},
+		"auth login":         {summary: "Authorize a Privy embedded-wallet agent on the Oku website", flags: authLoginFlags, run: a.cmdAuthLogin},
+		"auth status":        {summary: "Show Privy agent credential (--verify checks approval)", flags: authStatusFlags, run: a.cmdAuthStatus},
+		"drafts repair":      {summary: "Repair malformed order-draft JSON from --stdin into a reviewable candidate (local only; never prepares or submits)", flags: draftFlags, run: a.cmdDraftsRepair},
+		"mcp serve":          {summary: "Run the MCP server on stdio (reads only unless --allow-mutations)", flags: mcpFlags, run: a.cmdMCPServe},
+		"auth logout":        {summary: "Log out and delete the local Privy agent credential", run: a.cmdAuthLogout},
+		"markets list":       {summary: "List perp markets", flags: marketFilterFlags, run: a.cmdMarketsList},
+		"markets quote":      {summary: "Mark, mid and oracle price: markets quote COIN", run: a.cmdMarketsQuote},
+		"markets funding":    {summary: "Funding rate history: markets funding COIN [--since 24h]", flags: fundingFlags, run: a.cmdMarketsFunding},
+		"account summary":    {summary: "Balances, margin and builder-fee status", run: a.cmdAccountSummary},
+		"positions leverage": {summary: "Prepare a leverage/margin-mode change (no submission): --market COIN --leverage N --mode cross|isolated", flags: leverageFlags, run: a.cmdPositionsLeverage},
+		"positions margin":   {summary: "Prepare an isolated margin add/remove (no submission): --market COIN --amount USDC", flags: marginFlags, run: a.cmdPositionsMargin},
+		"positions list":     {summary: "Open positions", run: a.cmdPositionsList},
+		"orders list":        {summary: "Open orders", flags: fresh, run: a.cmdOrdersList},
+		"orders prepare":     {summary: "Prepare a local order intent (no exchange submission; may read market data)", flags: prepareFlags, run: a.cmdOrdersPrepare},
+		"orders submit":      {summary: "Sign and submit a prepared intent: orders submit --intent ID --digest SHA", flags: submitFlags, run: a.cmdOrdersSubmit},
+		"orders cancel":      {summary: "Cancel an open order: orders cancel --market COIN --order-id OID", flags: cancelFlags, run: a.cmdOrdersCancel},
+		"orders status":      {summary: "Status of an intent: orders status --intent ID", flags: statusFlags, run: a.cmdOrdersStatus},
+		"orders reconcile":   {summary: "Resolve unknown or in-flight intents with Oku", run: a.cmdOrdersReconcile},
+		"orders abandon":     {summary: "Cancel an unsigned server action so it can never execute", flags: statusFlags, run: a.cmdOrdersAbandon},
+		"fills list":         {summary: "Recent fills", flags: marketFilterFlags, run: a.cmdFillsList},
+		"journal migrate":    {summary: "Explicitly import the legacy JSON journal into SQLite (offline; stop older oku processes first)", run: a.cmdJournalMigrate},
+		"docs list":          {summary: "List documentation bundled in this binary (offline)", run: a.cmdDocsList},
+		"docs show":          {summary: "Print a bundled document: docs show NAME", run: a.cmdDocsShow},
+		"docs search":        {summary: "Search bundled documentation: docs search TERMS... [--limit N]", flags: docsSearchFlags, run: a.cmdDocsSearch},
+		"docs commands":      {summary: "List commands of this binary; --markdown prints the full reference", flags: docsCommandsFlags, run: a.cmdDocsCommands},
+		"skills list":        {summary: "List bundled agent skills", run: a.cmdSkillsList},
+		"skills install":     {summary: "Install skills: --target jcode|claude|codex or --dir PATH [--force]", flags: skillFlags, run: a.cmdSkillsInstall},
+		"skills uninstall":   {summary: "Remove installed skills that match the bundled version", flags: skillFlags, run: a.cmdSkillsUninstall},
 	}
 }
 
@@ -204,7 +221,7 @@ func (f *commandFailure) Error() string { return f.err.Error() }
 func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 	cmds := a.commands()
 	root := &urfave.Command{
-		Name: "oku", Usage: "Oku perps from your terminal and your agent (Hyperliquid mainnet)",
+		Name: "oku", Usage: "Oku Agent for Hyperliquid mainnet perps",
 		Writer: a.Stdout, ErrWriter: io.Discard, HideVersion: true,
 		OnUsageError: func(_ context.Context, cmd *urfave.Command, err error, _ bool) error {
 			return &commandFailure{name: strings.ReplaceAll(strings.TrimPrefix(cmd.FullName(), "oku "), " ", "."), json: jsonOut, err: output.Errorf(output.CodeUsage, "%v", err)}
@@ -247,8 +264,12 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 			name := strings.ReplaceAll(path, " ", ".")
 			e := &env{app: a, cmd: newCheckedFlags(cmd, leaf.Flags), args: cmd.Args().Slice(), ctx: ctx}
 			e.g = globals{profile: cmd.String("profile"), network: cmd.String("network"), account: cmd.String("account"), json: cmd.Bool("json") || jsonOut, timeout: cmd.Duration("timeout")}
-			if e.g.timeout <= 0 || e.g.timeout > maxTimeout {
-				return &commandFailure{name, e.g.json, output.Errorf(output.CodeUsage, "--timeout must be between 1ns and %s", maxTimeout)}
+			limit := maxTimeout
+			if name == "auth.login" {
+				limit = 15 * time.Minute
+			}
+			if e.g.timeout <= 0 || e.g.timeout > limit {
+				return &commandFailure{name, e.g.json, output.Errorf(output.CodeUsage, "--timeout must be between 1ns and %s", limit)}
 			}
 			if e.g.network != "" && e.g.network != "mainnet" {
 				return &commandFailure{name, e.g.json, output.Errorf(output.CodeNetworkUnsupported, "network %q is not supported: the Oku API currently serves Hyperliquid mainnet only", e.g.network)}
@@ -373,7 +394,7 @@ func apiError(err error, what string) error {
 		e.Code = output.CodeAuthRequired
 	case "permission_denied":
 		e.Code = output.CodeAuthRequired
-		e.Message += " (the device credential lacks permission for this operation)"
+		e.Message += " (the Oku session lacks permission for this operation)"
 	case "resource_exhausted":
 		e.Code, e.Retryable = output.CodeRateLimited, true
 	case "deadline_exceeded":

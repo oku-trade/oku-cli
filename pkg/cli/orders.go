@@ -286,7 +286,7 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 	}
 	switch rec.State {
 	case journal.StatePrepared, journal.StateCreated:
-	case journal.StateSubmitting, journal.StateUnknown:
+	case journal.StateSigning, journal.StateSubmitting, journal.StateUnknown:
 		return nil, unknownErr(rec)
 	case journal.StateCreating:
 		// CreateAction outcome unknown, but an unsigned action cannot
@@ -307,7 +307,7 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 			return nil, output.Wrap(output.CodeInternal, err, "journal")
 		}
 		for _, u := range un {
-			if u.Intent.ID != id && (u.State == journal.StateUnknown || u.State == journal.StateSubmitting) {
+			if u.Intent.ID != id && (u.State == journal.StateUnknown || u.State == journal.StateSubmitting || u.State == journal.StateSigning) {
 				return nil, output.Errorf(output.CodeOutcomeUnknown, "intent %s has an unknown outcome; run 'oku orders reconcile' before submitting new orders", u.Intent.ID).
 					WithDetail("blocking_intent", u.Intent.ID)
 			}
@@ -318,7 +318,7 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 		return nil, err
 	}
 	c := e.client(p)
-	c.Token = s.token
+	s.apply(c)
 
 	if rec.State != journal.StateCreated {
 		rec.State = journal.StateCreating
@@ -365,7 +365,7 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 	}
 
 	// Nonce allocation, the account-wide unresolved gate and the
-	// "submitting" state commit in one transaction before anything is signed.
+	// "signing" state commit in one transaction before anything is signed.
 	nonce, err := j.BeginSubmission(rec, s.md.AgentAddress)
 	switch {
 	case errors.Is(err, journal.ErrUnresolved):
@@ -375,10 +375,22 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 	case err != nil:
 		return nil, output.Wrap(output.CodeInternal, err, "journal (nothing sent)")
 	}
-	signed, err := signing.SignAction(s.signer, rec.ActionJSON, uint64(nonce))
+	signer, err := e.signerFor(p, s)
 	if err != nil {
-		// Recorded as submitting (fail-safe unknown); nothing was sent.
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "signing (nothing sent; reconcile to clear)")
+		return nil, withJournal(output.Wrap(output.CodeSignerUnavailable, err, "authenticating Privy signer (nothing sent)"), j.FinishSigning(rec, false))
+	}
+	signCtx, signCancel := e.requestCtx()
+	signed, err := signing.SignActionContext(signCtx, signer, rec.ActionJSON, uint64(nonce))
+	signCancel()
+	if err != nil {
+		return nil, withJournal(output.Wrap(output.CodeSignerUnavailable, err, "signing (nothing sent; safe to retry)"), j.FinishSigning(rec, false))
+	}
+	if in.Expired(e.app.Now()) {
+		jerr := j.FinishSigning(rec, false)
+		return nil, withJournal(output.Errorf(output.CodeIntentState, "intent expired while signing; nothing was submitted").WithExec(output.ExecNone), jerr)
+	}
+	if err := j.FinishSigning(rec, true); err != nil {
+		return nil, output.Wrap(output.CodeInternal, err, "journal signing transition (nothing sent)")
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
@@ -640,6 +652,16 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 	var blockers, others []string
 	byAction := map[string]*journal.Record{}
 	for _, r := range un {
+		if r.State == journal.StateSigning {
+			updated, parseErr := time.Parse(time.RFC3339Nano, r.UpdatedAt)
+			if parseErr == nil && e.app.Now().Sub(updated) < 5*time.Minute {
+				return nil, output.Errorf(output.CodeOutcomeUnknown, "intent %s may still be signing; retry reconcile after five minutes", r.Intent.ID)
+			}
+			if err := j.FinishSigning(r, false); err != nil {
+				return nil, output.Wrap(output.CodeInternal, err, "resetting unsent signing action")
+			}
+			continue
+		}
 		if r.State == journal.StateCreating {
 			// Never signed; safe to return to prepared.
 			r.State = journal.StatePrepared
@@ -652,7 +674,7 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 			continue
 		}
 		byAction[r.ActionID] = r
-		if r.State == journal.StateUnknown || r.State == journal.StateSubmitting {
+		if r.State == journal.StateUnknown || r.State == journal.StateSubmitting || r.State == journal.StateSigning {
 			blockers = append(blockers, r.ActionID)
 		} else {
 			others = append(others, r.ActionID)
@@ -665,7 +687,7 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 			return nil, err
 		}
 		c := e.client(p)
-		c.Token = s.token
+		s.apply(c)
 		for start := 0; start < len(ids); start += reconcileBatch {
 			batch := ids[start:min(start+reconcileBatch, len(ids))]
 			ctx, cancel := e.requestCtx()
@@ -697,7 +719,7 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 	}
 	unknown := 0
 	for _, r := range remaining {
-		if r.State == journal.StateUnknown || r.State == journal.StateSubmitting {
+		if r.State == journal.StateUnknown || r.State == journal.StateSubmitting || r.State == journal.StateSigning {
 			unknown++
 		}
 	}
@@ -789,6 +811,14 @@ func (a *App) cmdOrdersAbandon(e *env) (*result, error) {
 		}
 		return recordResult(rec), nil
 	case journal.StateCreated:
+	case journal.StateSigning:
+		updated, parseErr := time.Parse(time.RFC3339Nano, rec.UpdatedAt)
+		if parseErr == nil && e.app.Now().Sub(updated) < 5*time.Minute {
+			return nil, output.Errorf(output.CodeOutcomeUnknown, "intent %s may still be signing; retry after five minutes", rec.Intent.ID)
+		}
+		if err := j.FinishSigning(rec, false); err != nil {
+			return nil, output.Wrap(output.CodeInternal, err, "resetting unsent signing action")
+		}
 	case journal.StateSubmitting, journal.StateUnknown:
 		return nil, output.Errorf(output.CodeOutcomeUnknown, "intent %s was signed and its outcome is unknown; it cannot be abandoned. Run 'oku orders reconcile'", rec.Intent.ID).
 			WithExec(output.ExecUnknown)
@@ -806,7 +836,7 @@ func (a *App) cmdOrdersAbandon(e *env) (*result, error) {
 	}
 	if uerr == nil {
 		c := e.client(p)
-		c.Token = s.token
+		s.apply(c)
 		ctx, cancel := e.requestCtx()
 		err = c.Perps(ctx, "CancelAction", map[string]string{"actionId": rec.ActionID}, nil, true)
 		cancel()

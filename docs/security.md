@@ -1,93 +1,35 @@
 # Security
 
-## Signing mode: trusted-host delegated signer
+## Privy delegated agent model
 
-The CLI signs with a Hyperliquid **agent (API wallet) key** stored on the host, approved by your main wallet via Oku. Your main wallet private key is never entered into the CLI.
+The account is the user's **external** Hyperliquid master wallet. It holds funds and signs `approveAgent` and builder-fee approval on the Oku authorization page, not in this binary. The trading agent is a distinct Privy **embedded** Ethereum wallet, approved by the master as a Hyperliquid named agent. Oku Agent stores no local agent private key. `oku orders submit` requests `eth_signTypedData_v4` from Privy for the Hyperliquid Agent domain (`Exchange`, version `1`, chainId `1337`, zero verifying contract), and locally recovers the signature against the approved embedded-wallet address before sending it to Oku.
 
-Risks you accept:
+**A readable credential permits signing anything the Privy grant allows on that embedded wallet until revoked.** Revocation may leave an existing access JWT valid for up to 15 minutes. Recommend a Privy policy limiting the wallet to `eth_signTypedData_v4` on that Agent domain. Host compromise, a leaked Linux passphrase file, or a compromised macOS Keychain item can bypass CLI safeguards. The CLI's digest, risk checks and confirmations are guardrails, not a security boundary. The embedded wallet must never be used as a funded trading account.
 
-- Anything that can use the key can sign exchange actions directly, bypassing Oku and any CLI limits. On Linux that is anything that can unlock the encrypted credential file (for example a process as your user that can read `OKU_PASSPHRASE_FILE`, including a coding agent with shell access). On macOS it is anything the Keychain lets read the item. Encryption at rest and the Keychain do not isolate the key from a compromised or over-trusted process running as your user.
-- Agent keys can do more than place orders (for example leverage, margin-mode and isolated-margin changes, per Hyperliquid docs). Do not treat the key as "order-only". Withdrawals to external addresses require the main wallet.
-- Local confirmations, digests and notional checks are guardrails, not security boundaries. A digest proves the payload was not changed after `prepare`. It does not prove that a human approved it.
+## Credential storage
 
-Only use this on a host you trust.
-
-## Credential storage by platform
-
-| Platform | Provider | Unlock |
+| Platform | Storage | Unlock |
 |---|---|---|
-| Linux (and other non-Darwin) | Encrypted file: scrypt KDF + XChaCha20-Poly1305 | Interactive masked TTY prompt, or `OKU_PASSPHRASE_FILE` (must be mode 0600). Never a command-line argument. |
-| macOS | Native Keychain via Security.framework (`github.com/keybase/go-keychain`) | The Keychain authorizes access. No passphrase is requested. |
+| Linux | scrypt + XChaCha20-Poly1305 encrypted file | Masked interactive prompt, or user-supplied mode-0600 `OKU_PASSPHRASE_FILE`. |
+| macOS | Keychain | Native Keychain authorization, no CLI passphrase. |
 
-Neither platform has a plaintext fallback, and neither falls back to the other provider. The macOS provider needs CGO, so macOS binaries must be built natively on macOS (see [releasing](releasing.md)). A macOS binary built without CGO cannot use the Keychain, and it fails instead of storing credentials another way.
+The credential contains Privy access and rotating refresh tokens and an Oku session token. Plaintext metadata binds profile, account, API origin, Privy app ID, agent address and wallet ID. A cross-process profile lock covers refresh and write-back: the rotated refresh token is saved before reuse. The short-lived Privy authorization key exists in memory only, never on disk. Old device credentials are not usable: run `oku auth login`; `oku auth logout` deletes an old credential. The Keychain service identifier and JSON schema version `oku.cli/v1` remain stable.
 
-The CLI never prints, logs or returns agent private keys, device tokens, poll secrets or Keychain values.
+## Journal and MCP
 
-### Explicit legacy credential migration (macOS)
+`journal.sqlite` holds intents, action IDs and burned nonces, not credentials. `signing` holds the account gate while Privy signs; a signing failure or crash-left signing state can return to `created` without sending anything to Hyperliquid. Once `ConfirmAction` may have been sent, the action stays `submitting` or `unknown` until reconciliation. The gate is local to one machine: simultaneous use of the same Privy agent on multiple machines can collide on nonces or exposure.
 
-Earlier builds stored credentials in the encrypted file on macOS too. Normal reads, enrollment and trading **never** migrate automatically. Migration only happens when you run:
+MCP starts read-only; mutation tools require explicit enablement. Neither MCP nor the Service API runs `auth login` or `auth logout` or prompts for credentials. The user logs in from their own terminal. On Linux headless MCP access requires the user to supply `OKU_PASSPHRASE_FILE`.
 
-```sh
-oku auth migrate-keychain --profile NAME
-```
+## Independent revocations
 
-It asks for the legacy passphrase and decrypts the file. It then writes the Keychain item and reads it back to confirm it matches. Only after that check does it rename the encrypted file to `<credential>.pre-keychain` (mode 0600, no longer active).
+`oku auth logout` tries Oku session logout and Privy grant revocation on a best-effort basis, reports those outcomes and deletes the local credential. **It does not revoke the Hyperliquid agent approval, cancel orders or close positions.** Revoke the HL agent separately with the master wallet on Hyperliquid or the Oku page. Revoke any other device grants separately. Uninstalling the binary does none of these operations and does not delete journal history or backups.
 
-- If anything fails before the rename, the encrypted file stays active.
-- If a Keychain item already exists and differs, or a `.pre-keychain` backup already exists, it refuses and you must resolve the conflict by hand.
-- On Linux the command exits 2 with a usage error. No migration is needed there.
+## Deployment blockers (unverified)
 
-The `.pre-keychain` backup still holds the encrypted key. Delete it yourself once you have confirmed the Keychain credential works, or keep it as a recoverable copy. Nothing deletes it for you.
+- Device-grant JWT acceptance by the backend `PrivySessionExchange` verifier requires the Accounts branch `feat/privy-multi-app-verifier` deployed for the dedicated Oku Trade Agents app. This has **not been confirmed live**.
+- Privy OAuth wallet RPC accepting `eth_signTypedData_v4` with chainId 1337 has **not been confirmed live**.
+- Session lifetime, grant revocation, agent-session attribution and backend recovery-to-approved-agent enforcement need operator review.
+- Hyperliquid named-agent slots (`oku1` through `oku3`) are shared with the web app. The dedicated Privy app must not silently reuse a retail embedded wallet already acting as the master.
 
-## Device scopes
-
-Enrollment grants the scopes chosen on the Oku website:
-
-- `read`: account reads only. No Hyperliquid delegation.
-- `trade`: orders and cancels.
-- `risk`: leverage, margin-mode and isolated-margin changes (`oku positions leverage` / `positions margin`, then `orders submit`). This is a separate opt-in. A `trade` device cannot submit risk actions.
-
-The CLI checks scopes locally before unlocking, and the backend enforces them again. The backend support for the `risk` scope is **not deployed** (see [deployment](deployment.md)). Leverage changes and orders are separate exchange actions. They are not one atomic "buy with N× leverage".
-
-## Local execution journal
-
-Intents, action IDs, allocated nonces and execution states live in a SQLite database under the state directory: `journal.sqlite`, plus `-wal`/`-shm` sidecars. All of these are mode 0600, and the directory is 0700. The journal holds no secrets. It does contain your account address, market, size and price for every prepared intent.
-
-Safety rules the journal enforces:
-
-- The nonce and the `submitting` state are committed in one transaction before anything is signed or sent.
-- An unknown outcome survives restarts and blocks new exposure on the same account, across every profile and API origin, until it is reconciled.
-- A signed or possibly sent action can never be reset or abandoned.
-
-Pre-SQLite JSON journals are **not** migrated automatically. See [usage](usage.md#local-journal).
-
-## MCP server
-
-The planned `oku mcp serve` reuses the same profiles, credentials, scopes and journal as the CLI:
-
-- It starts read-only. Mutation tools must be enabled explicitly in its configuration, and they still need the enrolled scopes.
-- Tool annotations are hints, not authorization.
-- It never prompts for pairing codes or passphrases over stdio. Pair with `oku auth setup` in a terminal first.
-
-See [usage](usage.md#mcp-server) for its current status.
-
-## Revocation is separate
-
-These are independent. None implies another:
-
-1. **Oku session/token revocation**: stops the CLI using Oku APIs. Use the website device list, or `oku auth revoke`, which also deletes local credentials.
-2. **Exchange agent-key revocation**: stops the key signing on Hyperliquid. It requires deregistering or replacing the agent from your main wallet. Revoking the Oku token alone does **not** do this.
-3. **Canceling open orders.**
-4. **Closing positions.**
-
-Uninstalling the binary or npm package does none of these. It also leaves the journal, the credential file or Keychain item, and any `.pre-keychain` backup in place. Never reuse a retired agent address.
-
-## Reporting
-
-Report vulnerabilities privately to the Oku team. Do not open public issues with key material.
-
-## Enrollment flow (implemented, not deployed)
-
-- `VerifyEnrollment` checks the human-entered CLI code **before** the browser offers Hyperliquid agent delegation. No delegation happens for an unverified device.
-- Read-only devices never get a delegated Hyperliquid signer.
-- The CLI polls enrollment status until the device is verified. Live enrollment against deployed routes has not been tested end to end.
+Report vulnerabilities privately to Oku, never with tokens or signed payloads in public issues.
