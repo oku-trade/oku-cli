@@ -40,6 +40,9 @@ type Client struct {
 	Token        string
 	SessionID    string
 	SessionToken string
+	// OnUnauthenticated is notified only for a definite server rejection of
+	// this session. It must not retry the request (especially mutations).
+	OnUnauthenticated func()
 }
 
 // Error is a Connect error or transport failure.
@@ -138,7 +141,11 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 		accountv1connect.NewAuthServiceClient(doer, base, opts...),
 		body, hdr)
 	if err != nil {
-		return classify(ctx, st, err, sensitive)
+		classified := classify(ctx, st, err, sensitive)
+		if ae, ok := AsError(classified); ok && authed && c.SessionID != "" && ae.Code == "unauthenticated" && !ae.Ambiguous && st.status == http.StatusUnauthorized && c.OnUnauthenticated != nil {
+			c.OnUnauthenticated()
+		}
+		return classified
 	}
 	if respBody == nil {
 		return nil

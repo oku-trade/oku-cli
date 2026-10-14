@@ -60,13 +60,18 @@ func (e *env) legacyPassphrase(confirm bool) ([]byte, error) {
 }
 
 type session struct {
-	md        *auth.Metadata
-	token     string
-	sessionID string
-	signer    signing.Signer
+	md         *auth.Metadata
+	token      string
+	sessionID  string
+	signer     signing.Signer
+	invalidate func()
 }
 
-func (s *session) apply(c *api.Client) { c.SessionID = s.sessionID; c.SessionToken = s.token }
+func (s *session) apply(c *api.Client) {
+	c.SessionID = s.sessionID
+	c.SessionToken = s.token
+	c.OnUnauthenticated = s.invalidate
+}
 func (e *env) checkBinding(md *auth.Metadata, p *resolved) error {
 	switch {
 	case md.Profile != p.Name:
@@ -203,7 +208,33 @@ func (e *env) unlock(p *resolved, _ string) (*session, error) {
 			return nil, output.Wrap(output.CodeSignerUnavailable, err, "saving Oku session")
 		}
 	}
-	return &session{md: md, token: sec.SessionToken, sessionID: md.SessionID}, nil
+	s := &session{md: md, token: sec.SessionToken, sessionID: md.SessionID}
+	s.invalidate = func() { e.invalidateSession(p.Name, s) }
+	return s, nil
+}
+
+// invalidateSession compares the failed session under the profile lock so a
+// newer credential or session written by another process is never erased.
+func (e *env) invalidateSession(profile string, failed *session) {
+	release, err := auth.LockProfile(profile)
+	if err != nil {
+		return
+	}
+	defer release()
+	pass, err := e.passphrase(false)
+	if err != nil {
+		return
+	}
+	md, sec, err := auth.UnlockPrivy(profile, pass)
+	if err != nil {
+		return
+	}
+	if md.SessionID != failed.sessionID || sec.SessionToken != failed.token || md.Generation != failed.md.Generation {
+		return
+	}
+	md.SessionID, md.SessionExpiresAt, sec.SessionToken = "", "", ""
+	md.Generation++
+	_ = auth.SavePrivy(profile, *md, *sec, pass)
 }
 func (e *env) signerFor(p *resolved, s *session) (signing.Signer, error) {
 	release, err := auth.LockProfile(p.Name)
