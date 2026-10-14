@@ -1,6 +1,6 @@
 # Local testing and operator acceptance
 
-The offline test suite uses `httptest` Oku and Privy endpoints. It does not prove a production Privy device-grant JWT is accepted by Accounts or that live Privy wallet RPC signs chainId 1337 typed data. Do not use a funded wallet to close those blockers.
+The offline test suite uses `httptest` Oku and Privy endpoints. Staging acceptance on 2026-10-14 verified login, Privy signed submit, list and cancel; this does not prove production acceptance. Do not use a funded wallet for remaining checks.
 
 ```sh
 CGO_ENABLED=0 go build ./...
@@ -11,7 +11,7 @@ make docs-check
 mise run binary-smoke bin/oku
 ```
 
-For an operator-controlled staging integration, configure a dedicated Privy app **Oku Trade Agents** (`cmv72u7fa001m0gk200vq97nd`), an Accounts backend with the multi-app verifier, and the web page `https://oku.trade/agent/authorize`. Use a disposable external master wallet and a separate unfunded embedded agent wallet. Verify that the master signs approval and builder fee on the page, and that the CLI refuses to store credentials before `ValidateAgentKey` reports `approved`.
+For operator-controlled staging, use the built-in Privy app **Oku Trade Agents** (`cmv72u7fa001m0gk200vq97nd`), merged Accounts verifier (account#530) and authorize page (trade#3569). Staging verification currently uses `https://unitrade.lat.gfx.town/agent/authorize`; switch to `https://oku.trade/agent/authorize` for production. Use a disposable external master wallet and a separate unfunded embedded agent wallet.
 
 ```sh
 oku profiles add local --account 0xYOUR_EXTERNAL_MASTER --api-url https://YOUR_STAGING_CONNECT --default

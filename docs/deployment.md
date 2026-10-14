@@ -1,13 +1,13 @@
 # Deployment prerequisites
 
-**Oku Agent Privy authorization is not confirmed production-ready.** This repository does not deploy the frontend, Accounts service or Privy app configuration. Operators must validate all of these before releasing trading access.
+**Staging acceptance passed on 2026-10-14, but production is not confirmed ready.** This repository does not deploy the frontend, Accounts service or Privy app configuration. Operators must validate production separately before releasing trading access.
 
 ## Backend and Privy
 
 1. Deploy Accounts `AuthService/PrivySessionExchange`, `ExtendSession`, `Logout` and `PerpsService/ValidateAgentKey`, plus the normal Perps action RPCs.
-2. The dedicated Privy app **Oku Trade Agents** has ID `cmv72u7fa001m0gk200vq97nd`. Configure device authorization to send users to `https://oku.trade/agent/authorize`. The CLI defaults to that app ID; profile `privy_app_id` and `OKU_PRIVY_APP_ID` override it. `OKU_PRIVY_AUTH_URL` is for local test servers.
-3. The backend must accept this app's device-grant JWT. The Accounts branch `feat/privy-multi-app-verifier` is required and its deployment and live device-JWT exchange remain **unverified**.
-4. The Privy OAuth wallet RPC must allow `eth_signTypedData_v4` for Hyperliquid Agent typed data, including chainId 1337. This is **unverified live**. Apply a grant policy that limits the wallet to that domain if available.
+2. The dedicated Privy app **Oku Trade Agents** has ID `cmv72u7fa001m0gk200vq97nd`, built into the CLI. `--privy-app-id` and `OKU_PRIVY_APP_ID` override it. Staging's verification URI currently points to `https://unitrade.lat.gfx.town/agent/authorize`; change it to `https://oku.trade/agent/authorize` for production.
+3. Accounts multi-app verifier account#530 and the authorization page trade#3569 are merged. Staging accepts this app's device-grant JWT (verified 2026-10-14); verify production deployment independently.
+4. Staging Privy OAuth wallet RPC accepted `eth_signTypedData_v4` for Hyperliquid Agent typed data including chainId 1337 on 2026-10-14. Apply a grant policy limiting the wallet to that domain if available; verify production separately.
 5. Backend agent-session lifetime and attribution, and recovery-to-approved-agent validation must be reviewed. A generic user session is not an equivalent substitute for a scoped device session.
 
 ## Web onboarding

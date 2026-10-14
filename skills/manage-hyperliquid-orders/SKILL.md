@@ -18,6 +18,8 @@ oku orders status --profile <p> --intent <intent_id> --json   # local intent sta
 
 Only cancel when the user asks. Identify the order by market and exchange order id (`oid` from `orders list`).
 
+Prefer `{"market":"BTC","order-id":12345}` in `cancel.json` after checking `oku docs schema --command 'orders cancel'`, then `oku orders cancel --profile <p> --input cancel.json --json`. Alternatively use flags:
+
 ```sh
 oku orders cancel --profile <p> --market BTC --order-id <oid> --json
 ```

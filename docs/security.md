@@ -25,10 +25,9 @@ MCP starts read-only; mutation tools require explicit enablement. Neither MCP no
 
 `oku auth logout` tries Oku session logout and Privy grant revocation on a best-effort basis, reports those outcomes and deletes the local credential. **It does not revoke the Hyperliquid agent approval, cancel orders or close positions.** Revoke the HL agent separately with the master wallet on Hyperliquid or the Oku page. Revoke any other device grants separately. Uninstalling the binary does none of these operations and does not delete journal history or backups.
 
-## Deployment blockers (unverified)
+## Production deployment checks
 
-- Device-grant JWT acceptance by the backend `PrivySessionExchange` verifier requires the Accounts branch `feat/privy-multi-app-verifier` deployed for the dedicated Oku Trade Agents app. This has **not been confirmed live**.
-- Privy OAuth wallet RPC accepting `eth_signTypedData_v4` with chainId 1337 has **not been confirmed live**.
+- Staging on 2026-10-14 verified the merged Accounts multi-app verifier (account#530), Privy login, chainId 1337 signed submit, list and cancel. The authorize page is merged (trade#3569). Check production deployment independently and switch staging's `https://unitrade.lat.gfx.town/agent/authorize` verification URI to `https://oku.trade/agent/authorize`.
 - Session lifetime, grant revocation, agent-session attribution and backend recovery-to-approved-agent enforcement need operator review.
 - Hyperliquid named-agent slots (`oku1` through `oku3`) are shared with the web app. The dedicated Privy app must not silently reuse a retail embedded wallet already acting as the master.
 

@@ -26,4 +26,4 @@ The journal gate is machine-local. Sharing one embedded agent across machines ca
 
 ## Outstanding integration
 
-See [deployment](deployment.md) and [security](security.md) for backend verifier, Privy typed-data RPC and web-onboarding blockers. Offline tests do not establish that live Privy RPC accepts chainId 1337 or that deployed Accounts accepts this app's device-grant JWT.
+Staging acceptance on 2026-10-14 verified Privy login, chainId 1337 typed-data signed submission, order list and cancel. Accounts multi-app verifier account#530 and authorize page trade#3569 are merged. Production deployment and remaining operational checks are separate (see [deployment](deployment.md)).

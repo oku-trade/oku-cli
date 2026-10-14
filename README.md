@@ -6,10 +6,12 @@ It supports Hyperliquid **mainnet** only.
 
 > **Status: pre-release / private alpha development.**
 > - The repository is private. There is no published npm package, no hosted install script and no auto-update.
-> - Privy device-grant JWT verification requires the Accounts `feat/privy-multi-app-verifier` branch deployed. Its acceptance by the backend remains **unverified live**.
-> - Privy OAuth typed-data signing at chainId 1337 is **unverified live**. Do not infer production readiness from offline tests.
+> - Staging acceptance on 2026-10-14 verified Privy login, signed order submission, order listing and cancel. This is not production acceptance.
+> - Accounts multi-app verification (account#530) and the authorize page (trade#3569) are merged. Production must use `https://oku.trade/agent/authorize`; staging currently uses `https://unitrade.lat.gfx.town/agent/authorize`.
 > - Earlier release checks in [docs/validation.md](docs/validation.md) predate this auth model.
 > - The command grammar may change.
+
+For agent-authored orders, inspect `oku docs schema --command 'orders prepare'`, write a JSON object of command options, and run `oku orders prepare --input order.json --json`. Global options remain CLI flags. See [JSON input](docs/usage.md#json-input).
 
 ## Install (from source)
 
@@ -84,7 +86,7 @@ All of these except `validation.md` (repository-only evidence, not embedded) are
 - [docs/security.md](docs/security.md): Privy signing model, credential storage, grant and agent revocation
 - [docs/architecture.md](docs/architecture.md): code layout and how the CLI talks to Oku
 - [docs/deployment.md](docs/deployment.md): backend/frontend/release prerequisites
-- [docs/local-testing.md](docs/local-testing.md): local read-only checks and operator-led enrollment/trade guidance
+- [docs/local-testing.md](docs/local-testing.md): local read-only checks and operator-led Privy login/trade guidance
 - [docs/releasing.md](docs/releasing.md): native builds, npm packaging, checksums
 - [docs/validation.md](docs/validation.md): what has actually been verified
 - Agent skills: [skills/](skills/)

@@ -20,6 +20,8 @@ A positive size is long, so close it with `sell`. A negative size is short, so c
 
 ## 2. Prepare a reduce-only order
 
+Prefer an `order.json` matching `oku docs schema --command 'orders prepare'`, for example `{"market":"BTC","side":"sell","type":"limit","size":"0.0002","price":"60000","reduce-only":true}`. Then run `oku orders prepare --profile <p> --input order.json --json`. Confirm the actual position size and user-provided price first. Flags are an alternative:
+
 ```sh
 oku orders prepare --profile <p> --market BTC --side sell --type market --size <abs size> --slippage-bps <user bps> --reduce-only --json
 oku orders prepare --profile <p> --market BTC --side sell --type limit --size <abs size> --price <user price> --reduce-only --json

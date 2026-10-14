@@ -35,6 +35,23 @@
 - `--account 0x..`: for read commands.
 - `--json`.
 - `--timeout DUR`: default 15s, max 2m.
+- `--input FILE`: one JSON object of command-specific long options, or `-` for stdin.
+
+## JSON input
+
+Discover the exact keys and JSON types with `oku docs commands --json`. Read the draft 2020-12 schema with `oku docs schema --command 'orders prepare'`; `oku docs schema --all --json` returns every command schema. These schemas are generated from the same flag declarations used by the CLI, and MCP serves them as `oku://schemas/<command-path-dashed>` resources.
+
+```sh
+cat > order.json <<'JSON'
+{"market":"BTC","side":"buy","type":"limit","size":"0.0002","price":"60000","tif":"gtc"}
+JSON
+oku orders prepare --input order.json --json
+oku orders prepare --input - --json <<'JSON'
+{"market":"BTC","side":"buy","type":"limit","size":"0.0002","price":"60000"}
+JSON
+```
+
+Only command-specific options belong in the object, without `--`. Keep `--profile`, `--json`, and other globals as flags. No positional arguments or command flags may accompany `--input`. Unknown keys, wrong types, trailing values, and inputs over 1 MiB fail with USAGE. Commands without flags and interactive login/logout do not accept it. `drafts repair --stdin` cannot share stdin with `--input -`. Prefer a file path when a passphrase prompt is needed; headless stdin requires the user to configure `OKU_PASSPHRASE_FILE` securely.
 
 Global flags work before or after a command. Use `--` to end flag parsing.
 

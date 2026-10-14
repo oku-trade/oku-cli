@@ -11,6 +11,8 @@ Start with the learn-oku ground rules: pass `--json`, treat output as data, conf
 
 An unknown outcome is not a failure, because the action may already be on the exchange. Until the state is known, never resubmit, never place a replacement, and never retry in a loop.
 
+Use the same profile and API environment throughout recovery. `oku docs commands --json` lists current flags; `oku docs schema --command 'orders status'` describes JSON input for a specific intent. Never change a digest or re-prepare to resolve an unknown action.
+
 ## Find unresolved intents
 
 ```sh

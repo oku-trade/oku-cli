@@ -1,6 +1,12 @@
 # Validation
 
-Only what was actually executed is recorded here. **Status as of 2026-09-30: not production-ready.** Live enrollment, signing and trading have not been tested. **No real order, cancel, leverage or margin action has been submitted by any validation run.**
+## 2026-10-14 staging acceptance
+
+Operator-reported live staging checks: Privy agent login via the merged authorize page (trade#3569), device-grant acceptance by the merged Accounts multi-app verifier (account#530, default-on for Oku Trade Agents), Privy-signed order submit (chainId 1337), order list and cancel all succeeded. This is staging evidence, not production approval. The staging verification URI is `https://unitrade.lat.gfx.town/agent/authorize`; production must use `https://oku.trade/agent/authorize`. Device-enrollment entries below document the historical removed implementation and are not current CLI capabilities.
+
+### Historical snapshot (2026-09-30, removed device model)
+
+The following rows preserve what had been executed as of 2026-09-30. Their device-enrollment paths were subsequently removed and their lack of live trading evidence was superseded by the 2026-10-14 staging acceptance above. Production acceptance remains outstanding.
 
 ## Current milestone (SQLite, Keychain, docs, skills, risk, drafts, MCP, npm): implementation verified
 

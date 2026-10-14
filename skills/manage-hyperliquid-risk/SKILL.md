@@ -18,6 +18,8 @@ oku positions list --profile <p> --json   # current leverage type and value, mar
 
 ## Leverage and margin mode
 
+Prefer `{"market":"BTC","leverage":2,"mode":"cross"}` in `leverage.json` after reading `oku docs schema --command 'positions leverage'`, then `oku positions leverage --profile <p> --input leverage.json --json`. Alternatively use flags:
+
 ```sh
 oku positions leverage --profile <p> --market BTC --leverage <user N> --mode cross|isolated --json
 ```
@@ -25,6 +27,8 @@ oku positions leverage --profile <p> --market BTC --leverage <user N> --mode cro
 Leverage is a whole number from 1 up to the market maximum. Cross mode is refused on isolated-only markets. Higher leverage moves the liquidation price closer.
 
 ## Isolated margin
+
+Prefer `{"market":"BTC","amount":"10"}` in `margin.json` after reading `oku docs schema --command 'positions margin'`, then `oku positions margin --profile <p> --input margin.json --json`. Alternatively use flags:
 
 ```sh
 oku positions margin --profile <p> --market BTC --amount <USDC> --json    # a negative amount removes margin

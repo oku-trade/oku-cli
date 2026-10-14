@@ -32,6 +32,8 @@ oku profiles add <name> --account 0x...
 oku auth login --profile <name>
 ```
 
+The default API `https://accounts.lat.gfx.town` is staging; production uses `https://accounts.icarus.tools`. Select explicitly with `oku profiles add <name> --account 0x... --api-url https://accounts.icarus.tools` when appropriate. The Privy app is built in; `--privy-app-id` or `OKU_PRIVY_APP_ID` can override it. One passphrase prompt is used per command; headless Linux automation uses a user-owned mode-0600 `OKU_PASSPHRASE_FILE`.
+
 The CLI prints a URL and user code. The user visits the Oku authorization page, signs the Hyperliquid agent approval with their external master wallet, and approves the Privy device grant. The CLI stores credentials only after Oku confirms the embedded agent is approved. Use `--no-open` to prevent automatic browser launch. Login is never available over MCP or the Service API. On Linux, headless authenticated calls require a 0600 `OKU_PASSPHRASE_FILE` configured by the user.
 
 ## Logout and revocation
