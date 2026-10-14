@@ -1,59 +1,55 @@
 package cli
 
 import (
-	"bufio"
 	"bytes"
+	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
+	"github.com/oku-trade/oku-cli/pkg/api"
 	"github.com/oku-trade/oku-cli/pkg/auth"
+	"github.com/oku-trade/oku-cli/pkg/buildinfo"
 	"github.com/oku-trade/oku-cli/pkg/output"
+	"github.com/oku-trade/oku-cli/pkg/privy"
 	"github.com/oku-trade/oku-cli/pkg/signing"
 )
 
-// passphrase obtains the credential passphrase from OKU_PASSPHRASE_FILE
-// (must be mode 0600) or an interactive masked prompt. It never falls back
-// to plaintext storage and never reads the passphrase from argv.
 func (e *env) passphrase(confirm bool) ([]byte, error) {
 	if runtime.GOOS == "darwin" {
-		return nil, nil // Native Keychain handles authorization. No file-provider fallback.
+		return nil, nil
 	}
 	return e.legacyPassphrase(confirm)
 }
-
-// legacyPassphrase is reserved for an explicitly requested encrypted-file
-// migration on macOS. Normal Keychain reads never request it.
 func (e *env) legacyPassphrase(confirm bool) ([]byte, error) {
 	if path := e.app.Getenv("OKU_PASSPHRASE_FILE"); path != "" {
 		fi, err := os.Stat(path)
 		if err != nil {
-			return nil, output.Wrap(output.CodeSignerUnavailable, err, "reading OKU_PASSPHRASE_FILE")
+			return nil, output.Wrap(output.CodeSignerUnavailable, err, "reading passphrase file")
 		}
-		if fi.Mode().Perm()&0o077 != 0 {
-			return nil, output.Errorf(output.CodeSignerUnavailable, "OKU_PASSPHRASE_FILE must not be accessible by other users (chmod 600)")
+		if fi.Mode().Perm()&0077 != 0 {
+			return nil, output.Errorf(output.CodeSignerUnavailable, "OKU_PASSPHRASE_FILE must be mode 0600")
 		}
-		raw, err := os.ReadFile(path)
+		b, err := os.ReadFile(path)
 		if err != nil {
-			return nil, output.Wrap(output.CodeSignerUnavailable, err, "reading OKU_PASSPHRASE_FILE")
+			return nil, output.Wrap(output.CodeSignerUnavailable, err, "reading passphrase file")
 		}
-		return bytes.TrimRight(raw, "\r\n"), nil
+		return bytes.TrimRight(b, "\r\n"), nil
 	}
 	if !e.app.StdinIsTTY {
-		return nil, output.Errorf(output.CodeSignerUnavailable, "credential passphrase unavailable: no terminal and OKU_PASSPHRASE_FILE is not set").
-			WithDetail("hint", "run interactively, or set OKU_PASSPHRASE_FILE to a 0600 file")
+		return nil, output.Errorf(output.CodeSignerUnavailable, "credential passphrase unavailable: set OKU_PASSPHRASE_FILE to a 0600 file")
 	}
-	p, err := e.app.ReadSecret("Oku CLI credential passphrase: ")
+	p, err := e.app.ReadSecret("Oku Agent credential passphrase: ")
 	if err != nil {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "reading passphrase")
 	}
 	if confirm {
 		again, err := e.app.ReadSecret("Repeat passphrase: ")
 		if err != nil {
-			return nil, output.Wrap(output.CodeSignerUnavailable, err, "reading passphrase")
+			return nil, err
 		}
 		if !bytes.Equal(p, again) {
 			return nil, output.Errorf(output.CodeInvalidArgument, "passphrases do not match")
@@ -65,127 +61,195 @@ func (e *env) legacyPassphrase(confirm bool) ([]byte, error) {
 	return p, nil
 }
 
-// enrollmentCode reads the one-time code from a masked prompt or, with
-// --code-stdin, one line of stdin. Codes are never accepted as arguments.
-func (e *env) enrollmentCode(fromStdin bool) (string, error) {
-	var raw string
-	switch {
-	case fromStdin:
-		line, err := bufio.NewReader(io.LimitReader(e.app.Stdin, 256)).ReadString('\n')
-		if err != nil && !errors.Is(err, io.EOF) {
-			return "", output.Wrap(output.CodeInvalidArgument, err, "reading enrollment code from stdin")
-		}
-		raw = line
-	case e.app.StdinIsTTY:
-		b, err := e.app.ReadSecret("Enrollment code from the Oku website: ")
-		if err != nil {
-			return "", output.Wrap(output.CodeInvalidArgument, err, "reading enrollment code")
-		}
-		raw = string(b)
-	default:
-		return "", output.Errorf(output.CodeUsage, "no terminal for the enrollment code prompt").
-			WithDetail("hint", "pipe the code with --code-stdin (never pass it as an argument)")
-	}
-	code := signing.NormalizeEnrollmentCode(raw)
-	if len(code) != 16 || strings.Trim(code, "0123456789ABCDEFGHJKMNPQRSTVWXYZ") != "" {
-		return "", output.Errorf(output.CodeInvalidArgument, "enrollment code must be 16 Crockford base32 characters (XXXX-XXXX-XXXX-XXXX)")
-	}
-	return code, nil
-}
-
-// session is an unlocked, verified credential bound to the current profile.
 type session struct {
-	md     *auth.Metadata
-	token  string
-	signer *signing.KeySigner
+	md        *auth.Metadata
+	token     string
+	sessionID string
+	signer    signing.Signer
 }
 
-// checkBinding refuses to use a credential with a profile whose account,
-// network or API origin differs from what it was enrolled for.
-func checkBinding(md *auth.Metadata, p *resolved) error {
+func (s *session) apply(c *api.Client) { c.SessionID = s.sessionID; c.SessionToken = s.token }
+func (e *env) checkBinding(md *auth.Metadata, p *resolved) error {
 	switch {
 	case md.Profile != p.Name:
-		return output.Errorf(output.CodeConfigError, "credential belongs to profile %q, not %q", md.Profile, p.Name)
+		return output.Errorf(output.CodeConfigError, "credential belongs to profile %q", md.Profile)
 	case md.Network != p.Network:
-		return output.Errorf(output.CodeNetworkMismatch, "credential network %s does not match profile network %s", md.Network, p.Network)
+		return output.Errorf(output.CodeNetworkMismatch, "credential network %s does not match %s", md.Network, p.Network)
 	case md.APIURL != p.APIURL:
-		return output.Errorf(output.CodeConfigError, "credential was enrolled against %s but profile uses %s; re-enroll", md.APIURL, p.APIURL)
+		return output.Errorf(output.CodeConfigError, "credential API origin differs; run oku auth login")
 	case !strings.EqualFold(md.AccountAddress, p.Account):
-		return output.Errorf(output.CodeConfigError, "credential account %s does not match profile account %s", md.AccountAddress, p.Account)
+		return output.Errorf(output.CodeConfigError, "credential account differs from profile; run oku auth login")
+	case md.Kind == auth.KindPrivy && md.PrivyAppID != e.app.Getenv("OKU_PRIVY_APP_ID") && e.app.Getenv("OKU_PRIVY_APP_ID") != "":
+		return output.Errorf(output.CodeConfigError, "credential Privy app differs; run oku auth login")
+	}
+	if md.Kind == auth.KindPrivy && e.app.Getenv("OKU_PRIVY_APP_ID") == "" && md.PrivyAppID != effectiveAppID(p) {
+		return output.Errorf(output.CodeConfigError, "credential Privy app differs; run oku auth login")
 	}
 	return nil
 }
-
-// checkSession verifies profile binding, active status and scope.
-func checkSession(md *auth.Metadata, p *resolved, needScope string) error {
-	if err := checkBinding(md, p); err != nil {
-		return err
+func effectiveAppID(p *resolved) string {
+	if p.PrivyAppID != "" {
+		return p.PrivyAppID
 	}
-	if md.Status != "active" {
-		return output.Errorf(output.CodeAuthRequired, "enrollment for %q is not complete (status %s)", p.Name, md.Status).
-			WithDetail("hint", "oku auth setup --resume --profile "+p.Name)
-	}
-	if needScope != "" && !md.HasScope(needScope) {
-		return output.Errorf(output.CodeAuthRequired, "device credential lacks %q scope; enroll with trading enabled on the Oku website", needScope)
-	}
-	return nil
+	return buildinfo.PrivyAppID
 }
-
-func (e *env) unlock(p *resolved, needScope string) (*session, error) {
+func (e *env) privyClient(p *resolved) (*privy.Client, error) {
+	id := e.app.Getenv("OKU_PRIVY_APP_ID")
+	if id == "" {
+		id = p.PrivyAppID
+	}
+	if id == "" {
+		id = buildinfo.PrivyAppID
+	}
+	if id == "" {
+		return nil, output.Errorf(output.CodeConfigError, "Privy app id required: set OKU_PRIVY_APP_ID or profile privy_app_id")
+	}
+	base := e.app.Getenv("OKU_PRIVY_AUTH_URL")
+	if base == "" {
+		base = privy.DefaultAuthURL
+	}
+	return &privy.Client{AppID: id, AuthURL: base}, nil
+}
+func (e *env) unlock(p *resolved, _ string) (*session, error) {
 	if p.Name == "" {
-		return nil, output.Errorf(output.CodeProfileNotFound, "a profile is required").
-			WithDetail("hint", "oku profiles add NAME --account 0x...")
+		return nil, output.Errorf(output.CodeProfileNotFound, "a profile is required")
 	}
-	md, err := auth.LoadMetadata(p.Name)
+	// Keep this lock over read, refresh, exchange and write. It prevents a second
+	// process from refreshing an already-rotated token or overwriting a session.
+	release, err := auth.LockProfile(p.Name)
+	if err != nil {
+		return nil, output.Wrap(output.CodeSignerUnavailable, err, "locking credential")
+	}
+	defer release()
+	pre, err := auth.LoadPrivyMetadata(p.Name)
 	if errors.Is(err, auth.ErrNoCredentials) {
-		return nil, output.Errorf(output.CodeAuthRequired, "profile %q is not enrolled", p.Name).
-			WithDetail("hint", "oku auth setup --profile "+p.Name)
-	}
-	if err != nil {
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "loading credentials")
-	}
-	// Pre-unlock metadata is unauthenticated and only used to fail fast.
-	if err := checkSession(md, p, needScope); err != nil {
-		return nil, err
-	}
-	var sec *auth.Secrets
-	if runtime.GOOS == "darwin" {
-		md, sec, err = auth.Unlock(p.Name, nil)
-	} else {
-		pass, passErr := e.passphrase(false)
-		if passErr != nil {
-			return nil, passErr
+		if _, legacy := auth.LoadMetadata(p.Name); legacy == nil {
+			return nil, output.Errorf(output.CodeAuthRequired, "legacy device credential cannot be used; run oku auth login")
 		}
-		md, sec, err = auth.Unlock(p.Name, pass)
+		return nil, output.Errorf(output.CodeAuthRequired, "run oku auth login")
 	}
 	if err != nil {
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "unlocking credentials")
+		return nil, output.Wrap(output.CodeSignerUnavailable, err, "loading credential")
 	}
-	// Authoritative: recheck against the metadata authenticated together
-	// with the secrets (AEAD associated data / Keychain item), which may
-	// differ from the earlier snapshot if the file changed meanwhile.
-	if md == nil {
-		return nil, output.Errorf(output.CodeSignerUnavailable, "unlock returned no metadata")
-	}
-	if err := checkSession(md, p, needScope); err != nil {
+	if err = e.checkBinding(pre, p); err != nil {
 		return nil, err
 	}
-	signer, err := signing.NewKeySigner(sec.AgentKey)
+	pass, err := e.passphrase(false)
 	if err != nil {
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "loading agent key")
+		return nil, err
 	}
-	if !strings.EqualFold(signer.Address(), md.AgentAddress) {
-		return nil, output.Errorf(output.CodeSignerUnavailable, "stored agent key does not match enrolled agent address")
+	md, sec, err := auth.UnlockPrivy(p.Name, pass)
+	if err != nil {
+		return nil, output.Wrap(output.CodeSignerUnavailable, err, "unlocking credential")
 	}
-	if sec.DeviceToken == "" {
-		return nil, output.Errorf(output.CodeAuthRequired, "no device token stored")
+	if md == nil || sec == nil {
+		return nil, output.Errorf(output.CodeSignerUnavailable, "credential incomplete")
 	}
-	return &session{md: md, token: sec.DeviceToken, signer: signer}, nil
+	if err = e.checkBinding(md, p); err != nil {
+		return nil, err
+	}
+	if md.Kind != auth.KindPrivy || md.Status != "active" || sec.RefreshToken == "" {
+		return nil, output.Errorf(output.CodeAuthRequired, "run oku auth login")
+	}
+	pc, err := e.privyClient(p)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := e.requestCtx()
+	defer cancel()
+	save := func() error { md.Generation++; return auth.SavePrivy(p.Name, *md, *sec, pass) }
+	expiry, _ := time.Parse(time.RFC3339, md.AccessExpiresAt)
+	if expiry.Before(e.app.Now().Add(2 * time.Minute)) {
+		tok, err := pc.Refresh(ctx, sec.RefreshToken)
+		if err != nil {
+			return nil, output.Wrap(output.CodeAuthRequired, err, "Privy refresh failed; run oku auth login")
+		}
+		sec.RefreshToken, sec.AccessToken = tok.RefreshToken, tok.AccessToken
+		md.AccessExpiresAt = tok.AccessExpiresAt.UTC().Format(time.RFC3339)
+		if err = save(); err != nil {
+			return nil, output.Wrap(output.CodeSignerUnavailable, err, "persisting rotated refresh token; run oku auth login if rotation was lost")
+		}
+	}
+	c := e.client(p)
+	sessionExpiry, _ := time.Parse(time.RFC3339, md.SessionExpiresAt)
+	if sessionExpiry.Before(e.app.Now().Add(15*time.Minute)) || md.SessionID == "" || sec.SessionToken == "" {
+		if md.SessionID != "" && sec.SessionToken != "" {
+			c.SessionID, c.SessionToken = md.SessionID, sec.SessionToken
+			var ext api.ExtendSessionResponse
+			err = c.Auth(ctx, "ExtendSession", struct{}{}, &ext, true)
+			if err == nil && ext.Session == nil {
+				return nil, output.Errorf(output.CodeAuthUnavailable, "Oku returned no extended session")
+			}
+			if err == nil {
+				md.SessionID, sec.SessionToken, md.SessionExpiresAt = ext.Session.SessionID, ext.Session.Token, ext.Session.ExpiresAt
+			}
+			if err != nil {
+				ae, ok := api.AsError(err)
+				if !ok || ae.Code != "unauthenticated" {
+					return nil, output.Wrap(output.CodeAuthUnavailable, err, "extending Oku session")
+				}
+			}
+		}
+		if err != nil || md.SessionID == "" || sec.SessionToken == "" {
+			var ex api.PrivySessionExchangeResponse
+			if err = c.Auth(ctx, "PrivySessionExchange", map[string]string{"accessToken": sec.AccessToken}, &ex, false); err != nil {
+				return nil, output.Wrap(output.CodeAuthRequired, err, "exchanging Privy session")
+			}
+			if ex.Session == nil {
+				return nil, output.Errorf(output.CodeAuthUnavailable, "Oku returned no session")
+			}
+			md.SessionID, sec.SessionToken, md.SessionExpiresAt = ex.Session.SessionID, ex.Session.Token, ex.Session.ExpiresAt
+		}
+		if err = save(); err != nil {
+			return nil, output.Wrap(output.CodeSignerUnavailable, err, "saving Oku session")
+		}
+	}
+	return &session{md: md, token: sec.SessionToken, sessionID: md.SessionID}, nil
 }
-
 func describeScopes(s []string) string {
 	if len(s) == 0 {
 		return "-"
 	}
-	return fmt.Sprint(strings.Join(s, ","))
+	return strings.Join(s, ",")
 }
+
+func (e *env) signerFor(p *resolved, s *session) (signing.Signer, error) {
+	release, err := auth.LockProfile(p.Name)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	pass, err := e.passphrase(false)
+	if err != nil {
+		return nil, err
+	}
+	md, sec, err := auth.UnlockPrivy(p.Name, pass)
+	if err != nil {
+		return nil, err
+	}
+	if err = e.checkBinding(md, p); err != nil {
+		return nil, err
+	}
+	if !strings.EqualFold(md.AgentAddress, s.md.AgentAddress) || md.PrivyWalletID != s.md.PrivyWalletID {
+		return nil, output.Errorf(output.CodeSignerUnavailable, "agent changed since unlock; retry submission")
+	}
+	pc, err := e.privyClient(p)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := e.requestCtx()
+	defer cancel()
+	ps, err := pc.Authenticate(ctx, sec.AccessToken)
+	if err != nil {
+		return nil, output.Wrap(output.CodeSignerUnavailable, err, "Privy wallet authentication")
+	}
+	for _, wallet := range ps.Wallets() {
+		if wallet.ID == md.PrivyWalletID && strings.EqualFold(wallet.Address, md.AgentAddress) && strings.EqualFold(wallet.ChainType, "ethereum") {
+			return &privySigner{session: ps, walletID: wallet.ID, address: md.AgentAddress}, nil
+		}
+	}
+	return nil, output.Errorf(output.CodeSignerUnavailable, "stored Privy wallet is not the approved agent")
+}
+
+var _ io.Writer
+var _ context.Context

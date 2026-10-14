@@ -160,11 +160,14 @@ func TestBeginSubmissionGatesAcrossProfilesAndOrigins(t *testing.T) {
 		t.Fatalf("account conflict bypassed: %v", e)
 	}
 	again, e := j.Get("one")
-	if e != nil || again.State != StateSubmitting || again.Nonce != n {
+	if e != nil || again.State != StateSigning || again.Nonce != n {
 		t.Fatalf("durable pre-send %v %v", again, e)
 	}
 	if e = j.Put(&Record{Intent: a.Intent, Digest: a.Digest, State: StateAbandoned, Nonce: n}, ""); e == nil {
 		t.Fatal("possibly sent action abandoned")
+	}
+	if e = j.FinishSigning(a, true); e != nil {
+		t.Fatal(e)
 	}
 	a.State = StateSubmitted
 	a.ServerState = "filled"
@@ -433,6 +436,9 @@ func TestRejectDefiniteOnlyFromSubmitting(t *testing.T) {
 		t.Fatal(e)
 	}
 	a.Nonce = n
+	if e = j.FinishSigning(a, true); e != nil {
+		t.Fatal(e)
+	}
 	if e = j.RejectDefinite(a, ""); e == nil {
 		t.Fatal("rejection without a reason accepted")
 	}
@@ -455,6 +461,9 @@ func TestCancelAllowedWhileUnknownButOrdersBlocked(t *testing.T) {
 		t.Fatal(e)
 	}
 	a.State = StateUnknown
+	if e = j.FinishSigning(a, true); e != nil {
+		t.Fatal(e)
+	}
 	if e = j.Put(a, "timeout"); e != nil {
 		t.Fatal(e)
 	}

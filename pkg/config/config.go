@@ -29,9 +29,10 @@ var (
 
 // Profile selects an account, network, and API origin.
 type Profile struct {
-	Network string `json:"network"`
-	APIURL  string `json:"api_url"`
-	Account string `json:"account,omitempty"`
+	PrivyAppID string `json:"privy_app_id,omitempty"`
+	Network    string `json:"network"`
+	APIURL     string `json:"api_url"`
+	Account    string `json:"account,omitempty"`
 }
 
 // File is the persisted config document.

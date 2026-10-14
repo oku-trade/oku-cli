@@ -28,6 +28,7 @@ const (
 	StateCreating   = "creating"
 	StateCreated    = "created"
 	StateSubmitting = "submitting"
+	StateSigning    = "signing"
 	StateSubmitted  = "submitted"
 	StateUnknown    = "unknown"
 	StateRejected   = "rejected"
@@ -472,7 +473,7 @@ func (j *Journal) List() ([]*Record, error) {
 }
 func unresolved(r *Record) bool {
 	switch r.State {
-	case StateCreating, StateSubmitting, StateUnknown:
+	case StateCreating, StateSigning, StateSubmitting, StateUnknown:
 		return true
 	case StateSubmitted:
 		return !r.Terminal()
@@ -495,7 +496,7 @@ func (j *Journal) Unresolved() ([]*Record, error) {
 
 // Blocking finds possible exposure for the same account across every profile and origin.
 func (j *Journal) Blocking(network, account string) ([]*Record, error) {
-	rows, err := j.db.Query(`SELECT profile,intent_id FROM records WHERE network=? AND account=? AND state IN ('submitting','unknown')`, network, strings.ToLower(account))
+	rows, err := j.db.Query(`SELECT profile,intent_id FROM records WHERE network=? AND account=? AND state IN ('signing','submitting','unknown')`, network, strings.ToLower(account))
 	if err != nil {
 		return nil, err
 	}
@@ -520,7 +521,7 @@ func (j *Journal) Blocking(network, account string) ([]*Record, error) {
 		if e != nil {
 			return nil, e
 		}
-		if r.State == StateSubmitting || r.State == StateUnknown {
+		if r.State == StateSigning || r.State == StateSubmitting || r.State == StateUnknown {
 			out = append(out, r)
 		}
 	}
@@ -600,7 +601,7 @@ func (j *Journal) BeginSubmission(r *Record, signer string) (int64, error) {
 		riskReducing = true
 	}
 	// Gate the account in the same write transaction as nonce allocation.
-	rows, err := tx.Query(`SELECT profile,intent_id FROM records WHERE network=? AND account=? AND NOT(profile=? AND intent_id=?) AND state IN ('submitting','unknown')`, r.Intent.Network, strings.ToLower(r.Intent.Account), j.binding.Profile, r.Intent.ID)
+	rows, err := tx.Query(`SELECT profile,intent_id FROM records WHERE network=? AND account=? AND NOT(profile=? AND intent_id=?) AND state IN ('signing','submitting','unknown')`, r.Intent.Network, strings.ToLower(r.Intent.Account), j.binding.Profile, r.Intent.ID)
 	if err != nil {
 		return 0, err
 	}
@@ -624,7 +625,7 @@ func (j *Journal) BeginSubmission(r *Record, signer string) (int64, error) {
 		if e != nil {
 			return 0, e
 		}
-		if (other.State == StateSubmitting || other.State == StateUnknown) && !riskReducing {
+		if (other.State == StateSigning || other.State == StateSubmitting || other.State == StateUnknown) && !riskReducing {
 			return 0, ErrUnresolved
 		}
 	}
@@ -633,22 +634,56 @@ func (j *Journal) BeginSubmission(r *Record, signer string) (int64, error) {
 		return 0, err
 	}
 	ts := j.now().UTC().Format(time.RFC3339Nano)
-	_, err = tx.Exec(`UPDATE records SET state=?,nonce=?,signer=?,updated_at=? WHERE profile=? AND intent_id=?`, StateSubmitting, n, strings.ToLower(signer), ts, j.binding.Profile, r.Intent.ID)
+	_, err = tx.Exec(`UPDATE records SET state=?,nonce=?,signer=?,updated_at=? WHERE profile=? AND intent_id=?`, StateSigning, n, strings.ToLower(signer), ts, j.binding.Profile, r.Intent.ID)
 	if err != nil {
 		return 0, err
 	}
-	_, err = tx.Exec(`INSERT INTO transitions(profile,intent_id,sequence,at,state,note) VALUES(?,?,?,?,?,?)`, j.binding.Profile, r.Intent.ID, len(prev.History)+1, ts, StateSubmitting, "")
+	_, err = tx.Exec(`INSERT INTO transitions(profile,intent_id,sequence,at,state,note) VALUES(?,?,?,?,?,?)`, j.binding.Profile, r.Intent.ID, len(prev.History)+1, ts, StateSigning, "")
 	if err != nil {
 		return 0, err
 	}
 	if err = tx.Commit(); err != nil {
 		return 0, err
 	}
-	r.State = StateSubmitting
+	r.State = StateSigning
 	r.Nonce = n
 	r.UpdatedAt = ts
-	r.History = append(prev.History, Transition{At: ts, State: StateSubmitting})
+	r.History = append(prev.History, Transition{At: ts, State: StateSigning})
 	return n, nil
+}
+
+// FinishSigning atomically advances a verified signature to submitting, or
+// returns an unsent action to created. Nonces remain burned in the nonce table.
+func (j *Journal) FinishSigning(r *Record, signed bool) error {
+	tx, err := j.begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	prev, err := load(tx, j.binding.Profile, r.Intent.ID)
+	if err != nil {
+		return err
+	}
+	if prev.State != StateSigning || prev.Nonce != r.Nonce || prev.Digest != r.Digest {
+		return ErrConflict
+	}
+	state, nonce := StateCreated, int64(0)
+	if signed {
+		state, nonce = StateSubmitting, prev.Nonce
+	}
+	ts := j.now().UTC().Format(time.RFC3339Nano)
+	if _, err = tx.Exec(`UPDATE records SET state=?,nonce=?,updated_at=? WHERE profile=? AND intent_id=? AND state='signing'`, state, nonce, ts, j.binding.Profile, r.Intent.ID); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(`INSERT INTO transitions(profile,intent_id,sequence,at,state,note) VALUES(?,?,?,?,?,?)`, j.binding.Profile, r.Intent.ID, len(prev.History)+1, ts, state, "signing finished"); err != nil {
+		return err
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	r.State, r.Nonce, r.UpdatedAt = state, nonce, ts
+	r.History = append(prev.History, Transition{At: ts, State: state, Note: "signing finished"})
+	return nil
 }
 
 // Ensure old JSON nonce files cannot be ignored by new allocations before explicit import.

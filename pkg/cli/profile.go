@@ -17,10 +17,11 @@ import (
 
 // resolved is the effective profile for a command.
 type resolved struct {
-	Name    string `json:"profile"`
-	Network string `json:"network"`
-	APIURL  string `json:"api_url"`
-	Account string `json:"account"`
+	PrivyAppID string `json:"privy_app_id,omitempty"`
+	Name       string `json:"profile"`
+	Network    string `json:"network"`
+	APIURL     string `json:"api_url"`
+	Account    string `json:"account"`
 }
 
 // profile resolves --profile / OKU_PROFILE / default. Without any profile a
@@ -45,6 +46,7 @@ func (e *env) profile() (*resolved, error) {
 				WithDetail("hint", "run 'oku profiles list' or 'oku profiles add'")
 		}
 		r.Name, r.Network, r.APIURL, r.Account = name, p.Network, config.NormalizeAPIURL(p.APIURL), p.Account
+		r.PrivyAppID = p.PrivyAppID
 	}
 	if e.g.network != "" && e.g.network != r.Network {
 		return nil, output.Errorf(output.CodeNetworkMismatch, "--network %s does not match profile network %s", e.g.network, r.Network)
@@ -73,7 +75,7 @@ func (e *env) client(p *resolved) *api.Client {
 	return &api.Client{
 		BaseURL:   p.APIURL,
 		HTTP:      api.NewHTTPClient(e.g.timeout + 5e9),
-		UserAgent: "oku-cli/" + e.app.Version + " (" + runtime.GOOS + "/" + runtime.GOARCH + ")",
+		UserAgent: "oku-agent/" + e.app.Version + " (" + runtime.GOOS + "/" + runtime.GOARCH + ")",
 	}
 }
 
@@ -229,7 +231,10 @@ func (a *App) cmdProfilesRemove(e *env) (*result, error) {
 	}
 	name := args[0]
 	if _, err := auth.LoadMetadata(name); !errors.Is(err, auth.ErrNoCredentials) {
-		return nil, output.Errorf(output.CodeConflict, "profile %q has stored device credentials; run 'oku auth revoke --profile %s' first", name, name)
+		return nil, output.Errorf(output.CodeConflict, "profile %q has stored legacy credentials; run 'oku auth logout --profile %s' first", name, name)
+	}
+	if _, err := auth.LoadPrivyMetadata(name); !errors.Is(err, auth.ErrNoCredentials) {
+		return nil, output.Errorf(output.CodeConflict, "profile %q has stored Privy credentials; run 'oku auth logout --profile %s' first", name, name)
 	}
 	f, err := config.Load()
 	if err != nil {

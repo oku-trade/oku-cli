@@ -45,11 +45,16 @@ type Metadata struct {
 
 	// Privy (Accounts session) credential fields. Empty for device
 	// credentials, so existing records and their AEAD binding are unchanged.
-	Kind           string `json:"kind,omitempty"` // "" (device) | "privy"
-	PrivyUserID    string `json:"privy_user_id,omitempty"`
-	AccountsUserID string `json:"accounts_user_id,omitempty"`
-	WalletAddress  string `json:"wallet_address,omitempty"`
-	SessionID      string `json:"session_id,omitempty"`
+	Kind             string `json:"kind,omitempty"` // "" (device) | "privy"
+	PrivyUserID      string `json:"privy_user_id,omitempty"`
+	AccountsUserID   string `json:"accounts_user_id,omitempty"`
+	WalletAddress    string `json:"wallet_address,omitempty"`
+	SessionID        string `json:"session_id,omitempty"`
+	PrivyAppID       string `json:"privy_app_id,omitempty"`
+	PrivyWalletID    string `json:"privy_wallet_id,omitempty"`
+	AccessExpiresAt  string `json:"access_expires_at,omitempty"`
+	SessionExpiresAt string `json:"session_expires_at,omitempty"`
+	Generation       uint64 `json:"generation,omitempty"`
 }
 
 // KindPrivy marks an Accounts session credential minted from a Privy login.
@@ -72,6 +77,8 @@ type Secrets struct {
 	PollSecret  string `json:"poll_secret,omitempty"`
 	// SessionToken is the Accounts session token (Privy credential).
 	SessionToken string `json:"session_token,omitempty"`
+	AccessToken  string `json:"access_token,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty"`
 	// SpotKey is a local spot wallet private key (branch-specific signer).
 	SpotKey []byte `json:"spot_key,omitempty"`
 }
