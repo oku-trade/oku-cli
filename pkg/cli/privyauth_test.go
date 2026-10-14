@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/hpke"
@@ -25,13 +26,13 @@ import (
 // fakePrivy exercises the actual device grant, HPKE wallet authentication and
 // signed typed-data RPC through the CLI's public command boundary.
 type fakePrivy struct {
-	t                            *testing.T
-	mu                           sync.Mutex
-	server                       *httptest.Server
-	signer                       *signing.KeySigner
-	pending, refreshes, rpcCalls int
-	failSign                     bool
-	wrongSigner                  bool
+	t                                            *testing.T
+	mu                                           sync.Mutex
+	server                                       *httptest.Server
+	signer                                       *signing.KeySigner
+	authorizations, pending, refreshes, rpcCalls int
+	failSign                                     bool
+	wrongSigner                                  bool
 }
 
 func newFakePrivy(t *testing.T) *fakePrivy {
@@ -59,6 +60,7 @@ func (f *fakePrivy) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case strings.HasSuffix(r.URL.Path, "/device_authorization"):
+		f.authorizations++
 		reply(map[string]any{"device_code": "device-secret", "user_code": "WV225-WZBZM", "verification_uri": "https://oku.trade/agent/authorize", "verification_uri_complete": "https://oku.trade/agent/authorize?user_code=WV225-WZBZM", "expires_in": 600, "interval": 1})
 	case strings.HasSuffix(r.URL.Path, "/token"):
 		var b map[string]string
@@ -243,6 +245,29 @@ func TestPrivySessionReexchangeDropsExpiredHeaders(t *testing.T) {
 	h.fake.rejectExtend = true
 	if r := h.run("auth", "status", "--verify", "--json"); r.code != 0 {
 		t.Fatalf("reexchange: %s", r.stdout)
+	}
+}
+
+func TestPrivyLoginRequiresTerminalBeforeDeviceGrant(t *testing.T) {
+	h := newHarness(t)
+	if r := h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code != 0 {
+		t.Fatal(r.stdout)
+	}
+	a := NewApp("test")
+	var stdout, stderr bytes.Buffer
+	a.Stdout, a.Stderr = &stdout, &stderr
+	a.StdinIsTTY = false
+	a.Getenv = func(k string) string {
+		if k == "OKU_PRIVY_AUTH_URL" {
+			return h.privy.server.URL
+		}
+		return ""
+	}
+	if code := a.Run([]string{"auth", "login", "--no-open", "--json"}); code == 0 {
+		t.Fatal("noninteractive login accepted")
+	}
+	if h.privy.authorizations != 0 {
+		t.Fatal("noninteractive login initiated device grant")
 	}
 }
 

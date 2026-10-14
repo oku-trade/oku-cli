@@ -337,7 +337,7 @@ func TestEnrollmentRefusesDifferentApprovedAccount(t *testing.T) {
 	}
 }
 
-func TestCodeNeverAcceptedWithoutStdinOrTTY(t *testing.T) {
+func TestLegacyEnrollmentCommandRemoved(t *testing.T) {
 	h := newHarness(t)
 	h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL)
 	r := h.run("auth", "setup", "--json")

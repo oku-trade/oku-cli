@@ -65,7 +65,12 @@ func NewApp(version string) *App {
 			if runtime.GOOS == "darwin" {
 				command = "open"
 			}
-			return exec.Command(command, url).Start()
+			cmd := exec.Command(command, url)
+			if err := cmd.Start(); err != nil {
+				return err
+			}
+			go func() { _ = cmd.Wait() }()
+			return nil
 		},
 		Version: version,
 	}
