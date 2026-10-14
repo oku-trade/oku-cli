@@ -15,8 +15,8 @@ docs:
 docs-check:
 	@tmp=$$(mktemp); trap 'rm -f "$$tmp"' EXIT; go run ./cmd/oku docs commands --markdown > "$$tmp" && cmp -s docs/commands.md "$$tmp" || { echo 'docs/commands.md is stale; run make docs' >&2; exit 1; }
 dist:
-	VERSION=$(VERSION) ./scripts/build.sh
+	VERSION=$(VERSION) ./mise-tasks/dist.sh
 checksums:
-	./scripts/checksums.sh dist
+	./mise-tasks/checksums.sh dist
 clean:
 	rm -rf bin dist

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+#MISE description="Write and verify SHA256SUMS for local archives"
 # Write and verify SHA-256 checksums for local archives.
 set -euo pipefail
 OUT="${1:-dist}"

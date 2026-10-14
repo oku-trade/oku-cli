@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
+#MISE description="Smoke-test an oku binary or npm launcher offline"
 # Exercise an actual oku binary (or the npm-installed launcher) offline.
-# Usage: scripts/binary-smoke.sh <path-to-oku-or-launcher>
+# Usage: mise run binary-smoke <path-to-oku-or-launcher>
 # Commands that exist only after the agent-UX work lands (docs, skills, mcp serve) are
 # checked when `oku help` lists them; once listed they must work.
 set -euo pipefail

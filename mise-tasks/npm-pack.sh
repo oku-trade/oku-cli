@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
+#MISE description="Build npm tarballs locally (never publishes)"
 # Build npm tarballs locally. Never publishes.
-# Usage: scripts/npm-pack.sh <version> <out-dir> [os/arch=path/to/oku ...]
+# Usage: mise run npm-pack <version> <out-dir> [os/arch=path/to/oku ...]
 #   Always packs the launcher. Packs one platform package per os/arch=binary argument.
-#   Each binary must have THIRD_PARTY_NOTICES beside it (as produced by build.sh);
+#   Each binary must have THIRD_PARTY_NOTICES beside it (as produced by the dist task);
 #   packing refuses without it so binaries never ship without dependency notices.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -42,7 +43,7 @@ for spec in "$@"; do
   os="${plat%/*}"; cpu="$(npm_cpu "${plat#*/}")"
   d="$work/$os-$cpu"; mkdir -p "$d/bin"
   notices="$(dirname "$bin")/THIRD_PARTY_NOTICES"
-  [[ -s "$notices" ]] || { echo "missing $notices (run scripts/build.sh or third-party-notices.sh)" >&2; exit 1; }
+  [[ -s "$notices" ]] || { echo "missing $notices (run 'mise run dist' or 'mise run third-party-notices')" >&2; exit 1; }
   grep -q "^Third-party notices for oku ($os/${plat#*/}," "$notices" || { echo "$notices is not for $plat" >&2; exit 1; }
   install -m755 "$bin" "$d/bin/oku"; cp "$root/npm/README.md" "$d/README.md"; cp "$notices" "$d/THIRD_PARTY_NOTICES"
   sed -e "s/@OS@/$os/g" -e "s/@CPU@/$cpu/g" -e "s/@VERSION@/$VERSION/g" \

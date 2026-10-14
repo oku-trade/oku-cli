@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
+#MISE description="Vendor account API protos and regenerate pkg/gen"
 # Vendor the account API proto closure used by the CLI and regenerate Go code.
-# Usage: ACCOUNT_REPO=/path/to/account scripts/sync-protos.sh [--check]
+# Usage: ACCOUNT_REPO=/path/to/account mise run sync-protos [--check]
 # Ordinary builds never need this: generated code in pkg/gen is committed.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -37,6 +38,6 @@ buf generate
 gofmt -l pkg/gen >/dev/null
 
 if [[ $CHECK -eq 1 ]]; then
-  git diff --exit-code -- pkg/gen proto || { echo "generated code drift: run scripts/sync-protos.sh" >&2; exit 1; }
+  git diff --exit-code -- pkg/gen proto || { echo "generated code drift: run 'mise run sync-protos'" >&2; exit 1; }
   [[ -z "$(git status --porcelain -- pkg/gen)" ]] || { echo "untracked generated files" >&2; exit 1; }
 fi

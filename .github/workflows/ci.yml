@@ -38,26 +38,26 @@ jobs:
       - name: test (darwin, disposable keychain)
         if: matrix.goos == 'darwin'
         env: { OKU_KEYCHAIN_TEST_ACK: disposable-runner }
-        run: ./scripts/macos-keychain-test.sh make test
+        run: ./mise-tasks/macos-keychain-test.sh make test
       - name: race tests (darwin, disposable keychain)
         if: matrix.goos == 'darwin'
         env: { OKU_KEYCHAIN_TEST_ACK: disposable-runner }
-        run: ./scripts/macos-keychain-test.sh go test -race -count=1 ./...
+        run: ./mise-tasks/macos-keychain-test.sh go test -race -count=1 ./...
       # The dedicated lock/unlock test locks the keychain, so it runs alone with its own enable flag.
       - name: dedicated native Keychain lock test (darwin)
         if: matrix.goos == 'darwin'
         env:
           OKU_KEYCHAIN_TEST_ACK: disposable-runner
           OKU_KEYCHAIN_LOCK_TEST: "1"
-        run: ./scripts/macos-keychain-test.sh go test -count=1 -p 1 -run '^TestDedicatedNativeKeychain$' -v ./pkg/auth/
+        run: ./mise-tasks/macos-keychain-test.sh go test -count=1 -p 1 -run '^TestDedicatedNativeKeychain$' -v ./pkg/auth/
       - name: build archive (native)
-        run: VERSION=v0.0.0-ci PLATFORMS=${{ matrix.goos }}/${{ matrix.goarch }} ./scripts/build.sh
+        run: VERSION=v0.0.0-ci PLATFORMS=${{ matrix.goos }}/${{ matrix.goarch }} ./mise-tasks/dist.sh
       - name: run packaged binary
         run: |
           tar -xzf dist/oku_v0.0.0-ci_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz -C dist
           bin=dist/oku_v0.0.0-ci_${{ matrix.goos }}_${{ matrix.goarch }}/oku
           file "$bin"
-          ./scripts/binary-smoke.sh "$bin"
+          ./mise-tasks/binary-smoke.sh "$bin"
           if [ "${{ matrix.goos }}" = darwin ]; then
             otool -L "$bin"
             # CGO build must link Security.framework (keybase/go-keychain)
@@ -72,8 +72,8 @@ jobs:
           echo "BIN=$bin" >> "$GITHUB_ENV"
       - name: npm pack + local install smoke (no publish)
         run: |
-          ./scripts/npm-pack.sh 0.0.0-ci npm-dist "${{ matrix.goos }}/${{ matrix.goarch }}=$BIN"
-          ./scripts/npm-smoke.sh npm-dist 0.0.0-ci
+          ./mise-tasks/npm-pack.sh 0.0.0-ci npm-dist "${{ matrix.goos }}/${{ matrix.goarch }}=$BIN"
+          ./mise-tasks/npm-smoke.sh npm-dist 0.0.0-ci
           want=$(awk '{print $1}' native-bin.sha256)
           got=$(tar -xOzf npm-dist/oku-trade-cli-*-*-0.0.0-ci.tgz package/bin/oku | shasum -a 256 | awk '{print $1}')
           test "$want" = "$got" || { echo "npm platform binary != native build" >&2; exit 1; }
@@ -116,4 +116,4 @@ jobs:
           go install github.com/bufbuild/buf/cmd/buf@v1.73.0
           go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.21.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-      - run: ./scripts/sync-protos.sh --check
+      - run: ./mise-tasks/sync-protos.sh --check

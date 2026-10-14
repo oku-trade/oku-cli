@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+#MISE description="Reproducible multi-platform release archives in dist/"
 # Local reproducible multi-platform build. No publishing, no network uploads.
 # Linux: CGO_ENABLED=0 (cross-compilable). Darwin: CGO_ENABLED=1 (macOS Keychain via
 # keybase/go-keychain), which requires building on a native macOS host of the target arch.

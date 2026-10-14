@@ -16,7 +16,7 @@ It supports Hyperliquid **mainnet** only.
 Building requires Go (the version is in `go.mod`).
 
 - **Linux** builds with `CGO_ENABLED=0`.
-- **macOS** needs CGO and a native macOS host for the Keychain credential provider. Cross-compiling Darwin from Linux is refused by `scripts/build.sh`.
+- **macOS** needs CGO and a native macOS host for the Keychain credential provider. Cross-compiling Darwin from Linux is refused by `mise run dist`.
 
 ```sh
 git clone --branch master <this repository> && cd oku-cli

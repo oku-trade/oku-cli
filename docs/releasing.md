@@ -7,12 +7,12 @@
 | linux/amd64, linux/arm64 | any Linux host (cross OK) | 0 | static, encrypted-file credential store |
 | darwin/amd64, darwin/arm64 | native macOS host of that arch | 1 | macOS Keychain via `keybase/go-keychain` |
 
-`scripts/build.sh` refuses darwin targets unless run on a matching native macOS host. By default
+`mise run dist` (`mise-tasks/dist.sh`) refuses darwin targets unless run on a matching native macOS host. By default
 it builds both Linux targets on Linux, or the host target on macOS. Override with `PLATFORMS`.
 
 ```sh
 make dist                                   # linux/amd64 + linux/arm64 (on Linux)
-PLATFORMS=darwin/arm64 ./scripts/build.sh   # on an Apple Silicon Mac
+PLATFORMS=darwin/arm64 mise run dist        # on an Apple Silicon Mac
 ```
 
 Archives: `dist/oku_<version>_<os>_<arch>.tar.gz` + `dist/SHA256SUMS`. Linux builds are
@@ -45,8 +45,8 @@ the child's terminating signal. If the platform package is missing it exits 1 wi
 `OKU_BINARY_PATH` overrides binary resolution (used by tests).
 
 ```sh
-scripts/npm-pack.sh 0.1.0 npm-dist linux/amd64=path/to/oku   # launcher + given platforms
-scripts/npm-smoke.sh npm-dist 0.1.0                          # offline install + checks
+mise run npm-pack 0.1.0 npm-dist linux/amd64=path/to/oku   # launcher + given platforms
+mise run npm-smoke npm-dist 0.1.0                          # offline install + checks
 ```
 
 `npm-pack.sh` fails unless each tarball contains exactly `package.json`, `README.md` and the
@@ -75,11 +75,11 @@ binary). The four-runner CI matrix, Nix CI job and release workflow have not bee
 
 ## Hardening notes
 
-- **Smoke coverage** (`scripts/binary-smoke.sh`, run on the raw binary and through the npm
+- **Smoke coverage** (`mise run binary-smoke`, run on the raw binary and through the npm
   launcher): `--json version`, `--json` usage-error envelope with exit code 2, and, once
   listed by `oku help`, `docs list`/`docs show`, `skills list`, and an MCP `initialize`
   over stdio via `mcp serve`.
-- **macOS signing**: `build.sh` ad-hoc signs darwin binaries (`codesign --sign -`) and runs
+- **macOS signing**: `dist.sh` ad-hoc signs darwin binaries (`codesign --sign -`) and runs
   `codesign --verify --strict`. That proves the signature is intact. It is not Developer ID
   signing or notarization, so Gatekeeper still quarantines downloads.
 - **Release artifacts**: each platform uploads a separate directory with its own
@@ -91,11 +91,11 @@ binary). The four-runner CI matrix, Nix CI job and release workflow have not bee
 - **Nix**: CI builds `.#default`. After any `go.mod`/`go.sum` change, refresh `vendorHash`
   (set `lib.fakeHash`, build, copy the `got:` hash). Without system Nix access, a scratch
   store works: `nix --store "local?root=$DIR" build "path:$PWD#default"`.
-- **Third-party notices**: `UNLICENSED` covers only Oku's own code. `scripts/third-party-notices.sh`
+- **Third-party notices**: `UNLICENSED` covers only Oku's own code. `mise run third-party-notices`
   walks the pinned module graph actually linked into `cmd/oku` for the exact
   GOOS/GOARCH/CGO target (darwin includes `keybase/go-keychain`). It copies each module's
   LICENSE/NOTICE files verbatim plus the Go standard library license, and fails if any
-  module has no license file. `build.sh` puts `THIRD_PARTY_NOTICES` in every archive,
+  module has no license file. `dist.sh` puts `THIRD_PARTY_NOTICES` in every archive,
   `npm-pack.sh` refuses to pack a platform binary without it, and `release.yml` blocks
   publish unless every archive and platform tarball contains it. The launcher is dependency-free
   JS and carries no third-party code. Nobody has done a legal review of the notice contents.

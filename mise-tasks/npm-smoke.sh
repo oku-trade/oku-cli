@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
+#MISE description="Install packed npm tarballs offline and exercise the launcher"
 # Install locally packed tarballs into a disposable prefix and exercise the launcher.
-# Usage: scripts/npm-smoke.sh <dir-with-tarballs> <version>
+# Usage: mise run npm-smoke <dir-with-tarballs> <version>
 # Uses only local files (no registry fetches: --offline). Never publishes.
 set -euo pipefail
 DIR="$(cd "${1:?tarball dir}" && pwd)"; VERSION="${2:?version}"; VERSION="${VERSION#v}"
