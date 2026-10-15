@@ -2,8 +2,10 @@
 //
 // Storage: a single file under the config dir, mode 0600, sealed with
 // XChaCha20-Poly1305 using a key derived by scrypt from a user passphrase.
-// There is no plaintext fallback: without a passphrase the signer and token
-// are unavailable and commands fail closed.
+// A user may explicitly opt out of the passphrase at login (after repeated
+// warnings). Such a credential is marked Unprotected and sealed under a fixed
+// all-zero key, so it is only as safe as the file permissions. There is no
+// silent fallback: an unmarked credential always requires its passphrase.
 package auth
 
 import (
@@ -46,6 +48,9 @@ type Metadata struct {
 	AccessExpiresAt  string `json:"access_expires_at,omitempty"`
 	SessionExpiresAt string `json:"session_expires_at,omitempty"`
 	Generation       uint64 `json:"generation,omitempty"`
+	// Unprotected marks a credential the user chose to store without a
+	// passphrase. It is bound into the AEAD additional data.
+	Unprotected bool `json:"unprotected,omitempty"`
 }
 
 // KindPrivy marks an Accounts session credential minted from a Privy login.
@@ -91,6 +96,8 @@ const (
 	kdfP        = 1
 	kdfSaltLen  = 16
 	maxCredFile = 64 << 10
+	// kdfNone seals an Unprotected credential under a fixed zero key.
+	kdfNone = "none"
 )
 
 // PrivyPath returns the Privy credential file for a profile. It lives in a
@@ -108,14 +115,22 @@ func keyPath(k key) (string, error) {
 // Save seals and writes credentials. Metadata binds the ciphertext via AEAD
 // additional data so it cannot be swapped.
 func fileSave(ck key, md Metadata, s Secrets, passphrase []byte) error {
-	if len(passphrase) < 8 {
+	var k kdf
+	switch {
+	case md.Unprotected:
+		if len(passphrase) != 0 {
+			return errors.New("unprotected credential must not have a passphrase")
+		}
+		k = kdf{Name: kdfNone}
+	case len(passphrase) < 8:
 		return errors.New("passphrase must be at least 8 bytes")
+	default:
+		salt := make([]byte, kdfSaltLen)
+		if _, err := rand.Read(salt); err != nil {
+			return err
+		}
+		k = kdf{Name: "scrypt", Salt: salt, N: kdfN, R: kdfR, P: kdfP}
 	}
-	salt := make([]byte, 16)
-	if _, err := rand.Read(salt); err != nil {
-		return err
-	}
-	k := kdf{Name: "scrypt", Salt: salt, N: kdfN, R: kdfR, P: kdfP}
 	aead, err := deriveAEAD(passphrase, k)
 	if err != nil {
 		return err
@@ -152,6 +167,12 @@ func deriveAEAD(pass []byte, k kdf) (interface {
 	Seal(dst, nonce, plaintext, ad []byte) []byte
 	Open(dst, nonce, ciphertext, ad []byte) ([]byte, error)
 }, error) {
+	if k.Name == kdfNone && k.N == 0 && k.R == 0 && k.P == 0 && len(k.Salt) == 0 {
+		if len(pass) != 0 {
+			return nil, ErrBadPassphrase
+		}
+		return chacha20poly1305.NewX(make([]byte, chacha20poly1305.KeySize))
+	}
 	if k.Name != "scrypt" || k.N != kdfN || k.R != kdfR || k.P != kdfP || len(k.Salt) != kdfSaltLen {
 		return nil, errors.New("unsupported kdf parameters")
 	}
@@ -212,6 +233,11 @@ func fileUnlock(k key, passphrase []byte) (*Metadata, *Secrets, error) {
 	aead, err := deriveAEAD(passphrase, doc.KDF)
 	if err != nil {
 		return nil, nil, err
+	}
+	// The KDF choice must agree with the authenticated Unprotected flag, so a
+	// tampered file cannot downgrade a protected credential.
+	if (doc.KDF.Name == kdfNone) != doc.Metadata.Unprotected {
+		return nil, nil, ErrBadPassphrase
 	}
 	if len(doc.Nonce) != aead.NonceSize() {
 		return nil, nil, ErrBadPassphrase

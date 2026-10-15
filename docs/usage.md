@@ -24,7 +24,7 @@
 
 ## Credentials
 
-- **Linux:** an encrypted local file. You unlock it with an interactive masked TTY prompt or, for automation, `OKU_PASSPHRASE_FILE=<path>` pointing at a file readable only by you (mode 0600). Never pass the passphrase as an argument.
+- **Linux:** an encrypted local file. You unlock it with an interactive masked TTY prompt or, for automation, `OKU_PASSPHRASE_FILE=<path>` pointing at a file readable only by you (mode 0600). Never pass the passphrase as an argument. A short, mismatched, or wrong passphrase re-prompts (up to 5 tries). At login you may leave the passphrase empty to store the credential unprotected; this asks twice and is insecure, since anyone who can read the file can sign as your agent.
 - **macOS:** the native Keychain. No passphrase is requested. Official macOS builds need CGO and are built natively.
 - Neither platform has a plaintext fallback. See [security](security.md#credential-storage-by-platform).
 

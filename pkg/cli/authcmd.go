@@ -87,6 +87,12 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	if timeout <= 0 {
 		return nil, output.Errorf(output.CodeInvalidArgument, "timeout must be positive")
 	}
+	// Choose the passphrase before anything is authorized remotely, so a typo
+	// here can never leave an approved session or grant behind.
+	np, err := e.choosePassphrase()
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithTimeout(e.ctx, timeout)
 	defer cancel()
 	da, err := pc.StartDeviceAuthorization(ctx)
@@ -97,7 +103,12 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	if url == "" {
 		url = da.VerificationURI
 	}
+	expires := e.app.Now().Add(time.Duration(da.ExpiresIn) * time.Second)
+	if dl, ok := ctx.Deadline(); ok && dl.Before(expires) {
+		expires = dl
+	}
 	e.diag("Open %s and enter code %s", url, da.UserCode)
+	e.diag("The code expires in %s (at %s).", expires.Sub(e.app.Now()).Round(time.Second), expires.Local().Format("15:04:05"))
 	if !e.cmd.Bool("no-open") && e.app.OpenURL != nil {
 		if openErr := e.app.OpenURL(url); openErr != nil {
 			e.diag("Browser did not open: %v", openErr)
@@ -109,6 +120,28 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeAuthRequired, err, "Privy authorization was not approved")
 	}
+	// From here on the device grant (and later the Oku session) exist remotely.
+	// Any failure before the credential is saved revokes them so a failed login
+	// never leaves an authorized session behind.
+	var exchange api.PrivySessionExchangeResponse
+	saved := false
+	defer func() {
+		if saved {
+			return
+		}
+		cctx, ccancel := context.WithTimeout(context.WithoutCancel(e.ctx), 15*time.Second)
+		defer ccancel()
+		if exchange.Session != nil && exchange.Session.SessionID != "" && exchange.Session.Token != "" {
+			c := e.client(p)
+			c.SessionID, c.SessionToken = exchange.Session.SessionID, exchange.Session.Token
+			if lerr := c.Auth(cctx, "Logout", struct{}{}, nil, true); lerr != nil {
+				e.diag("Login failed and the Oku session could not be logged out: %s", api.Redact(lerr.Error()))
+			}
+		}
+		if rerr := pc.RevokeGrant(cctx, tok.AccessToken); rerr != nil {
+			e.diag("Login failed and the Privy grant could not be revoked: %s", api.Redact(rerr.Error()))
+		}
+	}()
 	ps, err := pc.Authenticate(ctx, tok.AccessToken)
 	if err != nil {
 		return nil, output.Wrap(output.CodeAuthUnavailable, err, "authenticating embedded wallet")
@@ -132,16 +165,11 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	}
 	p.Account = strings.ToLower(master)
 	c := e.client(p)
-	var exchange api.PrivySessionExchangeResponse
 	if err = c.Auth(ctx, "PrivySessionExchange", map[string]string{"accessToken": tok.AccessToken}, &exchange, false); err != nil {
 		return nil, apiError(err, "PrivySessionExchange")
 	}
 	if exchange.Session == nil || exchange.Session.SessionID == "" || exchange.Session.Token == "" {
 		return nil, output.Errorf(output.CodeAuthUnavailable, "Oku returned an incomplete session")
-	}
-	pass, err := e.passphrase(true)
-	if err != nil {
-		return nil, err
 	}
 	release, err := auth.LockProfile(p.Name)
 	if err != nil {
@@ -181,11 +209,12 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 			}
 		}
 	}
-	md := auth.Metadata{Kind: auth.KindPrivy, Profile: p.Name, Network: p.Network, APIURL: p.APIURL, PrivyAppID: pc.AppID, AccountAddress: strings.ToLower(p.Account), AgentAddress: strings.ToLower(wallet.Address), PrivyWalletID: wallet.ID, AccessExpiresAt: tok.AccessExpiresAt.UTC().Format(time.RFC3339), SessionID: exchange.Session.SessionID, SessionExpiresAt: exchange.Session.ExpiresAt, CreatedAt: e.app.Now().UTC().Format(time.RFC3339), Status: "active", Generation: 1}
+	md := auth.Metadata{Kind: auth.KindPrivy, Profile: p.Name, Network: p.Network, APIURL: p.APIURL, PrivyAppID: pc.AppID, AccountAddress: strings.ToLower(p.Account), AgentAddress: strings.ToLower(wallet.Address), PrivyWalletID: wallet.ID, AccessExpiresAt: tok.AccessExpiresAt.UTC().Format(time.RFC3339), SessionID: exchange.Session.SessionID, SessionExpiresAt: exchange.Session.ExpiresAt, CreatedAt: e.app.Now().UTC().Format(time.RFC3339), Status: "active", Generation: 1, Unprotected: np.unprotected}
 	sec := auth.Secrets{AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken, SessionToken: exchange.Session.Token}
-	if err = auth.SavePrivy(p.Name, md, sec, pass); err != nil {
+	if err = auth.SavePrivy(p.Name, md, sec, np.pass); err != nil {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "saving credential")
 	}
+	saved = true
 	return statusResult(&md, true), nil
 }
 func statusResult(md *auth.Metadata, verified bool) *result {
@@ -255,11 +284,7 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 			fmt.Fprintln(w, "Local credential deleted; binding changed, remote grants were not revoked. "+boundaries["not_revoked"])
 		}}, nil
 	}
-	pass, err := e.passphrase(false)
-	if err != nil {
-		return nil, err
-	}
-	md, sec, err := auth.UnlockPrivy(p.Name, pass)
+	md, sec, _, err := e.unlockCredential(p.Name)
 	if err != nil {
 		return nil, err
 	}
