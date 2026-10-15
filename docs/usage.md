@@ -1,5 +1,13 @@
 # Usage
 
+## Agent EVM transfers and master deposits
+
+`oku send prepare --chain 42161 --token native --amount 0.01` prepares an agent-wallet transfer to the enrolled master by default. For ERC-20 use `--token 0x...`; specify `--to 0x...` explicitly to send elsewhere. Review the returned recipient, amount, chain, calldata and digest, then run `oku send submit --intent ID --digest SHA`. Use `oku send status --intent ID` to check a receipt. Allowed chains are Arbitrum 42161, Base 8453 and Ethereum 1. Override the chain RPC with `OKU_RPC_URL_42161`, `OKU_RPC_URL_8453` or `OKU_RPC_URL_1` when necessary. Keep native gas in the agent wallet.
+
+`oku deposit prepare --amount 10` prepares **only** an Arbitrum native-USDC transfer from the agent to the profile master EOA. After reviewing it, run `oku deposit submit --intent ID --digest SHA` and `oku deposit status --intent ID`. This does **not** deposit into Hyperliquid. The master must deposit from its own wallet on the Oku web deposit page (`https://oku.trade/perps`). For a master-bound HyperUnit address use `oku deposit address --asset ASSET --source-chain CHAIN` and fund that address externally. Never transfer USDC from the agent to the Hyperliquid bridge: that credits the agent, not the master.
+
+A timeout or ambiguous Privy broadcast becomes `OUTCOME_UNKNOWN`. Never repeat `submit`; inspect `status` and the source-chain explorer. An unknown transaction without a returned hash cannot be automatically reconciled and blocks new transfers until investigated. The Privy OAuth `eth_sendTransaction` wire shape is based on the published recipe but remains unverified with a funded wallet in this CLI.
+
 > `oku --help`, `oku docs commands` and the [generated command reference](commands.md) describe the urfave/cli v3 command tree of the binary you run. `make docs-check` detects drift between the committed reference and the tree.
 
 ## Output contract

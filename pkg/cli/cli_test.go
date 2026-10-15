@@ -236,6 +236,7 @@ type harness struct {
 	stdin  string
 	passFn string
 	privy  *fakePrivy
+	rpcURL string
 }
 
 func newHarness(t *testing.T) *harness {
@@ -284,6 +285,9 @@ func (h *harness) run(args ...string) run {
 			}
 			if k == "OKU_HYPERLIQUID_INFO_URL" {
 				return h.srv.URL + "/info"
+			}
+			if k == "OKU_RPC_URL_42161" {
+				return h.rpcURL
 			}
 			return ""
 		},

@@ -33,6 +33,7 @@ type Service struct {
 // submit or change user configuration.
 var ServiceReads = map[string]bool{
 	"wallet address": true, "wallet balances": true, "deposit address": true,
+	"send prepare": true, "send status": true, "deposit prepare": true, "deposit status": true,
 	"version": true, "doctor": true, "auth status": true, "profiles list": true,
 	"markets list": true, "markets quote": true, "markets funding": true,
 	"account summary": true, "positions list": true, "orders list": true,
@@ -46,6 +47,7 @@ var ServiceReads = map[string]bool{
 var ServiceMutations = map[string]bool{
 	"orders prepare": true, "positions leverage": true, "positions margin": true,
 	"orders submit": true, "orders cancel": true, "orders reconcile": true, "orders abandon": true,
+	"send submit": true, "deposit submit": true,
 }
 
 // AllowMutations enables the ServiceMutations commands.

@@ -23,6 +23,8 @@ MCP starts read-only; mutation tools require explicit enablement. Neither MCP no
 
 ## Independent revocations
 
+The Privy embedded agent wallet now has **EVM spending power independent of Hyperliquid agent trading limits**. Hyperliquid order limits and agent revocation do not protect ERC-20s or native gas held in this wallet. The Privy wallet policy must explicitly allow `eth_sendTransaction` for the intended chains and contracts; restrict grants tightly and do not store more value in the agent wallet than needed. The OAuth transaction parameter shape has not yet been validated against a funded wallet. A receipt confirms an EVM transfer, not Hyperliquid credit to the master.
+
 `oku auth logout` tries Oku session logout and Privy grant revocation on a best-effort basis, reports those outcomes and deletes the local credential. **It does not revoke the Hyperliquid agent approval, cancel orders or close positions.** Revoke the HL agent separately with the master wallet on Hyperliquid or the Oku page. Revoke any other device grants separately. Uninstalling the binary does none of these operations and does not delete journal history or backups.
 
 ## Production deployment checks

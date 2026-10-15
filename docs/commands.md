@@ -80,6 +80,39 @@ Read a master-bound HyperUnit deposit address
 | `--asset` | HyperUnit asset symbol | `` |
 | `--source-chain` | HyperUnit source chain CAIP-2 identifier | `` |
 
+## `oku deposit prepare`
+
+Prepare Arbitrum USDC transfer from agent to master
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--amount` | USDC amount on Arbitrum | `` |
+| `--to` | must equal profile master address if supplied | `` |
+| `--intent-id` | optional idempotency ID | `` |
+
+## `oku deposit status`
+
+Reconcile agent-to-master USDC transfer
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id (required) | `` |
+
+## `oku deposit submit`
+
+Transfer agent USDC to master EOA
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id from 'orders prepare' (required) | `` |
+| `--digest` | intent digest from 'orders prepare' (required) | `` |
+
 ## `oku docs commands`
 
 List commands of this binary; --markdown prints the full reference
@@ -307,6 +340,41 @@ Remove a profile without credentials: profiles remove NAME
 ## `oku profiles use`
 
 Set the default profile: profiles use NAME
+
+## `oku send prepare`
+
+Prepare an agent EVM transfer
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | chain ID 42161, 8453, or 1 | `` |
+| `--token` | ERC-20 contract address or native | `` |
+| `--amount` | exact decimal amount | `` |
+| `--to` | recipient EVM address (defaults to profile master) | `` |
+| `--intent-id` | optional idempotency ID | `` |
+
+## `oku send status`
+
+Reconcile a transfer receipt
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id (required) | `` |
+
+## `oku send submit`
+
+Broadcast an approved EVM transfer
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id from 'orders prepare' (required) | `` |
+| `--digest` | intent digest from 'orders prepare' (required) | `` |
 
 ## `oku skills install`
 

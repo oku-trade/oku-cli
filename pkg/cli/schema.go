@@ -13,6 +13,12 @@ var flagEnums = map[string]map[string][]string{
 }
 
 var requiredFlags = map[string][]string{
+	"send prepare": {"chain", "token", "amount"},
+	"send submit": {"intent", "digest"},
+	"send status": {"intent"},
+	"deposit prepare": {"amount"},
+	"deposit submit": {"intent", "digest"},
+	"deposit status": {"intent"},
 	"orders prepare":     {"market", "side", "type", "size"},
 	"orders submit":      {"intent", "digest"},
 	"orders cancel":      {"market", "order-id"},
