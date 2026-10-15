@@ -23,6 +23,67 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type PerpMarketCategory int32
+
+const (
+	PerpMarketCategory_PERP_MARKET_CATEGORY_UNSPECIFIED PerpMarketCategory = 0
+	PerpMarketCategory_PERP_MARKET_CATEGORY_CRYPTO      PerpMarketCategory = 1
+	PerpMarketCategory_PERP_MARKET_CATEGORY_STOCK       PerpMarketCategory = 2
+	PerpMarketCategory_PERP_MARKET_CATEGORY_ETF         PerpMarketCategory = 3
+	PerpMarketCategory_PERP_MARKET_CATEGORY_COMMODITY   PerpMarketCategory = 4
+	PerpMarketCategory_PERP_MARKET_CATEGORY_FOREX       PerpMarketCategory = 5
+	PerpMarketCategory_PERP_MARKET_CATEGORY_INDEX       PerpMarketCategory = 6
+)
+
+// Enum value maps for PerpMarketCategory.
+var (
+	PerpMarketCategory_name = map[int32]string{
+		0: "PERP_MARKET_CATEGORY_UNSPECIFIED",
+		1: "PERP_MARKET_CATEGORY_CRYPTO",
+		2: "PERP_MARKET_CATEGORY_STOCK",
+		3: "PERP_MARKET_CATEGORY_ETF",
+		4: "PERP_MARKET_CATEGORY_COMMODITY",
+		5: "PERP_MARKET_CATEGORY_FOREX",
+		6: "PERP_MARKET_CATEGORY_INDEX",
+	}
+	PerpMarketCategory_value = map[string]int32{
+		"PERP_MARKET_CATEGORY_UNSPECIFIED": 0,
+		"PERP_MARKET_CATEGORY_CRYPTO":      1,
+		"PERP_MARKET_CATEGORY_STOCK":       2,
+		"PERP_MARKET_CATEGORY_ETF":         3,
+		"PERP_MARKET_CATEGORY_COMMODITY":   4,
+		"PERP_MARKET_CATEGORY_FOREX":       5,
+		"PERP_MARKET_CATEGORY_INDEX":       6,
+	}
+)
+
+func (x PerpMarketCategory) Enum() *PerpMarketCategory {
+	p := new(PerpMarketCategory)
+	*p = x
+	return p
+}
+
+func (x PerpMarketCategory) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PerpMarketCategory) Descriptor() protoreflect.EnumDescriptor {
+	return file_gfxcafe_oku_account_v2_perps_proto_enumTypes[0].Descriptor()
+}
+
+func (PerpMarketCategory) Type() protoreflect.EnumType {
+	return &file_gfxcafe_oku_account_v2_perps_proto_enumTypes[0]
+}
+
+func (x PerpMarketCategory) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PerpMarketCategory.Descriptor instead.
+func (PerpMarketCategory) EnumDescriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{0}
+}
+
 type PerpTradeKind int32
 
 const (
@@ -59,11 +120,11 @@ func (x PerpTradeKind) String() string {
 }
 
 func (PerpTradeKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_gfxcafe_oku_account_v2_perps_proto_enumTypes[0].Descriptor()
+	return file_gfxcafe_oku_account_v2_perps_proto_enumTypes[1].Descriptor()
 }
 
 func (PerpTradeKind) Type() protoreflect.EnumType {
-	return &file_gfxcafe_oku_account_v2_perps_proto_enumTypes[0]
+	return &file_gfxcafe_oku_account_v2_perps_proto_enumTypes[1]
 }
 
 func (x PerpTradeKind) Number() protoreflect.EnumNumber {
@@ -72,7 +133,7 @@ func (x PerpTradeKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PerpTradeKind.Descriptor instead.
 func (PerpTradeKind) EnumDescriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{0}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{1}
 }
 
 type PerpsAccountMode int32
@@ -111,11 +172,11 @@ func (x PerpsAccountMode) String() string {
 }
 
 func (PerpsAccountMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_gfxcafe_oku_account_v2_perps_proto_enumTypes[1].Descriptor()
+	return file_gfxcafe_oku_account_v2_perps_proto_enumTypes[2].Descriptor()
 }
 
 func (PerpsAccountMode) Type() protoreflect.EnumType {
-	return &file_gfxcafe_oku_account_v2_perps_proto_enumTypes[1]
+	return &file_gfxcafe_oku_account_v2_perps_proto_enumTypes[2]
 }
 
 func (x PerpsAccountMode) Number() protoreflect.EnumNumber {
@@ -124,7 +185,7 @@ func (x PerpsAccountMode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PerpsAccountMode.Descriptor instead.
 func (PerpsAccountMode) EnumDescriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{1}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{2}
 }
 
 type PerpsBalanceClass int32
@@ -160,11 +221,11 @@ func (x PerpsBalanceClass) String() string {
 }
 
 func (PerpsBalanceClass) Descriptor() protoreflect.EnumDescriptor {
-	return file_gfxcafe_oku_account_v2_perps_proto_enumTypes[2].Descriptor()
+	return file_gfxcafe_oku_account_v2_perps_proto_enumTypes[3].Descriptor()
 }
 
 func (PerpsBalanceClass) Type() protoreflect.EnumType {
-	return &file_gfxcafe_oku_account_v2_perps_proto_enumTypes[2]
+	return &file_gfxcafe_oku_account_v2_perps_proto_enumTypes[3]
 }
 
 func (x PerpsBalanceClass) Number() protoreflect.EnumNumber {
@@ -173,7 +234,7 @@ func (x PerpsBalanceClass) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PerpsBalanceClass.Descriptor instead.
 func (PerpsBalanceClass) EnumDescriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{2}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{3}
 }
 
 // TriggerOrderType distinguishes take-profit from stop-loss in trigger order metadata.
@@ -210,11 +271,11 @@ func (x TriggerOrderType) String() string {
 }
 
 func (TriggerOrderType) Descriptor() protoreflect.EnumDescriptor {
-	return file_gfxcafe_oku_account_v2_perps_proto_enumTypes[3].Descriptor()
+	return file_gfxcafe_oku_account_v2_perps_proto_enumTypes[4].Descriptor()
 }
 
 func (TriggerOrderType) Type() protoreflect.EnumType {
-	return &file_gfxcafe_oku_account_v2_perps_proto_enumTypes[3]
+	return &file_gfxcafe_oku_account_v2_perps_proto_enumTypes[4]
 }
 
 func (x TriggerOrderType) Number() protoreflect.EnumNumber {
@@ -223,7 +284,7 @@ func (x TriggerOrderType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TriggerOrderType.Descriptor instead.
 func (TriggerOrderType) EnumDescriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{3}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{4}
 }
 
 // PerpMarket represents a perpetual futures market.
@@ -248,8 +309,10 @@ type PerpMarket struct {
 	// mark_px * shares outstanding, USD. Equity markets only; empty when the
 	// share count is unknown.
 	ImpliedMarketCap string `protobuf:"bytes,20,opt,name=implied_market_cap,json=impliedMarketCap,proto3" json:"implied_market_cap,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// UNSPECIFIED when HL gives no usable category; clients should not guess.
+	Category      PerpMarketCategory `protobuf:"varint,21,opt,name=category,proto3,enum=gfxcafe.oku.account.v2.PerpMarketCategory" json:"category,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PerpMarket) Reset() {
@@ -392,6 +455,13 @@ func (x *PerpMarket) GetImpliedMarketCap() string {
 		return x.ImpliedMarketCap
 	}
 	return ""
+}
+
+func (x *PerpMarket) GetCategory() PerpMarketCategory {
+	if x != nil {
+		return x.Category
+	}
+	return PerpMarketCategory_PERP_MARKET_CATEGORY_UNSPECIFIED
 }
 
 // PerpPosition represents an open perpetual position.
@@ -632,11 +702,8 @@ type PerpOrder struct {
 	AssetId          int32                  `protobuf:"varint,15,opt,name=asset_id,json=assetId,proto3" json:"asset_id,omitempty"`                        // exchange asset id when known
 	Tif              string                 `protobuf:"bytes,16,opt,name=tif,proto3" json:"tif,omitempty"`                                                // time-in-force: "Gtc", "Ioc", "Alo"
 	Children         []*PerpOrder           `protobuf:"bytes,17,rep,name=children,proto3" json:"children,omitempty"`                                      // nested TP/SL orders attached to this order
-	// Server-verified origin. Unset when the order was not placed through an
-	// authenticated Oku CLI device (external or unknown).
-	Origin        *OrderOrigin `protobuf:"bytes,18,opt,name=origin,proto3" json:"origin,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *PerpOrder) Reset() {
@@ -788,68 +855,6 @@ func (x *PerpOrder) GetChildren() []*PerpOrder {
 	return nil
 }
 
-func (x *PerpOrder) GetOrigin() *OrderOrigin {
-	if x != nil {
-		return x.Origin
-	}
-	return nil
-}
-
-// OrderOrigin is authenticated order attribution, derived only from the
-// server-side device credential that created the action, never from client
-// headers. It survives device revocation.
-type OrderOrigin struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	CliDeviceId   string                 `protobuf:"bytes,1,opt,name=cli_device_id,json=cliDeviceId,proto3" json:"cli_device_id,omitempty"`
-	CliDeviceName string                 `protobuf:"bytes,2,opt,name=cli_device_name,json=cliDeviceName,proto3" json:"cli_device_name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *OrderOrigin) Reset() {
-	*x = OrderOrigin{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *OrderOrigin) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*OrderOrigin) ProtoMessage() {}
-
-func (x *OrderOrigin) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use OrderOrigin.ProtoReflect.Descriptor instead.
-func (*OrderOrigin) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *OrderOrigin) GetCliDeviceId() string {
-	if x != nil {
-		return x.CliDeviceId
-	}
-	return ""
-}
-
-func (x *OrderOrigin) GetCliDeviceName() string {
-	if x != nil {
-		return x.CliDeviceName
-	}
-	return ""
-}
-
 // PerpTwap represents a Hyperliquid TWAP lifecycle entry.
 type PerpTwap struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
@@ -876,7 +881,7 @@ type PerpTwap struct {
 
 func (x *PerpTwap) Reset() {
 	*x = PerpTwap{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[5]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -888,7 +893,7 @@ func (x *PerpTwap) String() string {
 func (*PerpTwap) ProtoMessage() {}
 
 func (x *PerpTwap) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[5]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -901,7 +906,7 @@ func (x *PerpTwap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PerpTwap.ProtoReflect.Descriptor instead.
 func (*PerpTwap) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{5}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *PerpTwap) GetTwapId() int64 {
@@ -1035,7 +1040,7 @@ type OrderbookLevel struct {
 
 func (x *OrderbookLevel) Reset() {
 	*x = OrderbookLevel{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[6]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1047,7 +1052,7 @@ func (x *OrderbookLevel) String() string {
 func (*OrderbookLevel) ProtoMessage() {}
 
 func (x *OrderbookLevel) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[6]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1060,7 +1065,7 @@ func (x *OrderbookLevel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderbookLevel.ProtoReflect.Descriptor instead.
 func (*OrderbookLevel) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{6}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *OrderbookLevel) GetPx() string {
@@ -1100,7 +1105,7 @@ type PerpCandle struct {
 
 func (x *PerpCandle) Reset() {
 	*x = PerpCandle{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[7]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1112,7 +1117,7 @@ func (x *PerpCandle) String() string {
 func (*PerpCandle) ProtoMessage() {}
 
 func (x *PerpCandle) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[7]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1125,7 +1130,7 @@ func (x *PerpCandle) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PerpCandle.ProtoReflect.Descriptor instead.
 func (*PerpCandle) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{7}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *PerpCandle) GetT() int64 {
@@ -1198,16 +1203,13 @@ type PerpTrade struct {
 	Kind          PerpTradeKind          `protobuf:"varint,16,opt,name=kind,proto3,enum=gfxcafe.oku.account.v2.PerpTradeKind" json:"kind,omitempty"`
 	Liquidation   *PerpLiquidation       `protobuf:"bytes,17,opt,name=liquidation,proto3" json:"liquidation,omitempty"`
 	TwapId        int64                  `protobuf:"varint,18,opt,name=twap_id,json=twapId,proto3" json:"twap_id,omitempty"` // HL TWAP id this fill belongs to; 0 when not a TWAP fill
-	// Server-verified origin of the order this fill belongs to; unset when
-	// external or unknown.
-	Origin        *OrderOrigin `protobuf:"bytes,19,opt,name=origin,proto3" json:"origin,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PerpTrade) Reset() {
 	*x = PerpTrade{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[8]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1219,7 +1221,7 @@ func (x *PerpTrade) String() string {
 func (*PerpTrade) ProtoMessage() {}
 
 func (x *PerpTrade) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[8]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1232,7 +1234,7 @@ func (x *PerpTrade) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PerpTrade.ProtoReflect.Descriptor instead.
 func (*PerpTrade) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{8}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *PerpTrade) GetCoin() string {
@@ -1361,13 +1363,6 @@ func (x *PerpTrade) GetTwapId() int64 {
 	return 0
 }
 
-func (x *PerpTrade) GetOrigin() *OrderOrigin {
-	if x != nil {
-		return x.Origin
-	}
-	return nil
-}
-
 type PerpLiquidation struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	LiquidatedUser string                 `protobuf:"bytes,1,opt,name=liquidated_user,json=liquidatedUser,proto3" json:"liquidated_user,omitempty"`
@@ -1379,7 +1374,7 @@ type PerpLiquidation struct {
 
 func (x *PerpLiquidation) Reset() {
 	*x = PerpLiquidation{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[9]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1391,7 +1386,7 @@ func (x *PerpLiquidation) String() string {
 func (*PerpLiquidation) ProtoMessage() {}
 
 func (x *PerpLiquidation) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[9]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1404,7 +1399,7 @@ func (x *PerpLiquidation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PerpLiquidation.ProtoReflect.Descriptor instead.
 func (*PerpLiquidation) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{9}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *PerpLiquidation) GetLiquidatedUser() string {
@@ -1444,7 +1439,7 @@ type PerpMarketTrade struct {
 
 func (x *PerpMarketTrade) Reset() {
 	*x = PerpMarketTrade{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[10]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1456,7 +1451,7 @@ func (x *PerpMarketTrade) String() string {
 func (*PerpMarketTrade) ProtoMessage() {}
 
 func (x *PerpMarketTrade) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[10]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1469,7 +1464,7 @@ func (x *PerpMarketTrade) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PerpMarketTrade.ProtoReflect.Descriptor instead.
 func (*PerpMarketTrade) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{10}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *PerpMarketTrade) GetCoin() string {
@@ -1536,7 +1531,7 @@ type PerpFundingPayment struct {
 
 func (x *PerpFundingPayment) Reset() {
 	*x = PerpFundingPayment{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[11]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1548,7 +1543,7 @@ func (x *PerpFundingPayment) String() string {
 func (*PerpFundingPayment) ProtoMessage() {}
 
 func (x *PerpFundingPayment) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[11]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1561,7 +1556,7 @@ func (x *PerpFundingPayment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PerpFundingPayment.ProtoReflect.Descriptor instead.
 func (*PerpFundingPayment) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{11}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *PerpFundingPayment) GetTime() int64 {
@@ -1616,14 +1611,17 @@ type PerpDepositWithdraw struct {
 	UsdcValue string                 `protobuf:"bytes,6,opt,name=usdc_value,json=usdcValue,proto3" json:"usdc_value,omitempty"`
 	Fee       string                 `protobuf:"bytes,7,opt,name=fee,proto3" json:"fee,omitempty"`
 	// HL ledger nonce; for withdrawals it is the signed action time (ms) * 1000.
-	Nonce         int64 `protobuf:"varint,8,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	Nonce int64 `protobuf:"varint,8,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	// Oku Bridge (onramp) order that produced this credit, when it can be joined.
+	// Only ever set on inbound USDC "spotTransfer" rows from 0x2000000000000000000000000000000000000000, never on "deposit".
+	OnrampOrderId string `protobuf:"bytes,9,opt,name=onramp_order_id,json=onrampOrderId,proto3" json:"onramp_order_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PerpDepositWithdraw) Reset() {
 	*x = PerpDepositWithdraw{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[12]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1635,7 +1633,7 @@ func (x *PerpDepositWithdraw) String() string {
 func (*PerpDepositWithdraw) ProtoMessage() {}
 
 func (x *PerpDepositWithdraw) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[12]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1648,7 +1646,7 @@ func (x *PerpDepositWithdraw) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PerpDepositWithdraw.ProtoReflect.Descriptor instead.
 func (*PerpDepositWithdraw) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{12}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *PerpDepositWithdraw) GetTime() int64 {
@@ -1707,6 +1705,13 @@ func (x *PerpDepositWithdraw) GetNonce() int64 {
 	return 0
 }
 
+func (x *PerpDepositWithdraw) GetOnrampOrderId() string {
+	if x != nil {
+		return x.OnrampOrderId
+	}
+	return ""
+}
+
 // MarginSummary contains margin/balance information.
 type PerpsMarginSummary struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
@@ -1720,7 +1725,7 @@ type PerpsMarginSummary struct {
 
 func (x *PerpsMarginSummary) Reset() {
 	*x = PerpsMarginSummary{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[13]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1732,7 +1737,7 @@ func (x *PerpsMarginSummary) String() string {
 func (*PerpsMarginSummary) ProtoMessage() {}
 
 func (x *PerpsMarginSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[13]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1745,7 +1750,7 @@ func (x *PerpsMarginSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PerpsMarginSummary.ProtoReflect.Descriptor instead.
 func (*PerpsMarginSummary) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{13}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *PerpsMarginSummary) GetAccountValue() string {
@@ -1789,7 +1794,7 @@ type EVMSignature struct {
 
 func (x *EVMSignature) Reset() {
 	*x = EVMSignature{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[14]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1801,7 +1806,7 @@ func (x *EVMSignature) String() string {
 func (*EVMSignature) ProtoMessage() {}
 
 func (x *EVMSignature) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[14]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1814,7 +1819,7 @@ func (x *EVMSignature) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EVMSignature.ProtoReflect.Descriptor instead.
 func (*EVMSignature) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{14}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *EVMSignature) GetR() string {
@@ -1850,7 +1855,7 @@ type SignedAction struct {
 
 func (x *SignedAction) Reset() {
 	*x = SignedAction{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[15]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1862,7 +1867,7 @@ func (x *SignedAction) String() string {
 func (*SignedAction) ProtoMessage() {}
 
 func (x *SignedAction) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[15]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1875,7 +1880,7 @@ func (x *SignedAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignedAction.ProtoReflect.Descriptor instead.
 func (*SignedAction) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{15}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *SignedAction) GetActionJson() string {
@@ -1916,7 +1921,7 @@ type GetMarketsRequest struct {
 
 func (x *GetMarketsRequest) Reset() {
 	*x = GetMarketsRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[16]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1928,7 +1933,7 @@ func (x *GetMarketsRequest) String() string {
 func (*GetMarketsRequest) ProtoMessage() {}
 
 func (x *GetMarketsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[16]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1941,7 +1946,7 @@ func (x *GetMarketsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMarketsRequest.ProtoReflect.Descriptor instead.
 func (*GetMarketsRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{16}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetMarketsRequest) GetCoin() string {
@@ -1967,7 +1972,7 @@ type GetMarketsResponse struct {
 
 func (x *GetMarketsResponse) Reset() {
 	*x = GetMarketsResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[17]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1979,7 +1984,7 @@ func (x *GetMarketsResponse) String() string {
 func (*GetMarketsResponse) ProtoMessage() {}
 
 func (x *GetMarketsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[17]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1992,7 +1997,7 @@ func (x *GetMarketsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMarketsResponse.ProtoReflect.Descriptor instead.
 func (*GetMarketsResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{17}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetMarketsResponse) GetMarkets() []*PerpMarket {
@@ -2011,7 +2016,7 @@ type GetMarketPriceRequest struct {
 
 func (x *GetMarketPriceRequest) Reset() {
 	*x = GetMarketPriceRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[18]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2023,7 +2028,7 @@ func (x *GetMarketPriceRequest) String() string {
 func (*GetMarketPriceRequest) ProtoMessage() {}
 
 func (x *GetMarketPriceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[18]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2036,7 +2041,7 @@ func (x *GetMarketPriceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMarketPriceRequest.ProtoReflect.Descriptor instead.
 func (*GetMarketPriceRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{18}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetMarketPriceRequest) GetCoin() string {
@@ -2058,7 +2063,7 @@ type GetMarketPriceResponse struct {
 
 func (x *GetMarketPriceResponse) Reset() {
 	*x = GetMarketPriceResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[19]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2070,7 +2075,7 @@ func (x *GetMarketPriceResponse) String() string {
 func (*GetMarketPriceResponse) ProtoMessage() {}
 
 func (x *GetMarketPriceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[19]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2083,7 +2088,7 @@ func (x *GetMarketPriceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMarketPriceResponse.ProtoReflect.Descriptor instead.
 func (*GetMarketPriceResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{19}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetMarketPriceResponse) GetCoin() string {
@@ -2123,7 +2128,7 @@ type GetSpotMarketsRequest struct {
 
 func (x *GetSpotMarketsRequest) Reset() {
 	*x = GetSpotMarketsRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[20]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2135,7 +2140,7 @@ func (x *GetSpotMarketsRequest) String() string {
 func (*GetSpotMarketsRequest) ProtoMessage() {}
 
 func (x *GetSpotMarketsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[20]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2148,7 +2153,7 @@ func (x *GetSpotMarketsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSpotMarketsRequest.ProtoReflect.Descriptor instead.
 func (*GetSpotMarketsRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{20}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetSpotMarketsRequest) GetCoin() string {
@@ -2167,7 +2172,7 @@ type GetSpotMarketsResponse struct {
 
 func (x *GetSpotMarketsResponse) Reset() {
 	*x = GetSpotMarketsResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[21]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2179,7 +2184,7 @@ func (x *GetSpotMarketsResponse) String() string {
 func (*GetSpotMarketsResponse) ProtoMessage() {}
 
 func (x *GetSpotMarketsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[21]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2192,7 +2197,7 @@ func (x *GetSpotMarketsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSpotMarketsResponse.ProtoReflect.Descriptor instead.
 func (*GetSpotMarketsResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{21}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *GetSpotMarketsResponse) GetMarkets() []*SpotMarket {
@@ -2226,7 +2231,7 @@ type SpotMarket struct {
 
 func (x *SpotMarket) Reset() {
 	*x = SpotMarket{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[22]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2238,7 +2243,7 @@ func (x *SpotMarket) String() string {
 func (*SpotMarket) ProtoMessage() {}
 
 func (x *SpotMarket) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[22]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2251,7 +2256,7 @@ func (x *SpotMarket) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SpotMarket.ProtoReflect.Descriptor instead.
 func (*SpotMarket) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{22}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *SpotMarket) GetCoin() string {
@@ -2370,7 +2375,7 @@ type GetOrderbookRequest struct {
 
 func (x *GetOrderbookRequest) Reset() {
 	*x = GetOrderbookRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[23]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2382,7 +2387,7 @@ func (x *GetOrderbookRequest) String() string {
 func (*GetOrderbookRequest) ProtoMessage() {}
 
 func (x *GetOrderbookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[23]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2395,7 +2400,7 @@ func (x *GetOrderbookRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOrderbookRequest.ProtoReflect.Descriptor instead.
 func (*GetOrderbookRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{23}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GetOrderbookRequest) GetCoin() string {
@@ -2430,7 +2435,7 @@ type GetOrderbookResponse struct {
 
 func (x *GetOrderbookResponse) Reset() {
 	*x = GetOrderbookResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[24]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2442,7 +2447,7 @@ func (x *GetOrderbookResponse) String() string {
 func (*GetOrderbookResponse) ProtoMessage() {}
 
 func (x *GetOrderbookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[24]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2455,7 +2460,7 @@ func (x *GetOrderbookResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOrderbookResponse.ProtoReflect.Descriptor instead.
 func (*GetOrderbookResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{24}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GetOrderbookResponse) GetCoin() string {
@@ -2488,7 +2493,7 @@ type GetOrderbookAggregationOptionsRequest struct {
 
 func (x *GetOrderbookAggregationOptionsRequest) Reset() {
 	*x = GetOrderbookAggregationOptionsRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[25]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2500,7 +2505,7 @@ func (x *GetOrderbookAggregationOptionsRequest) String() string {
 func (*GetOrderbookAggregationOptionsRequest) ProtoMessage() {}
 
 func (x *GetOrderbookAggregationOptionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[25]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2513,7 +2518,7 @@ func (x *GetOrderbookAggregationOptionsRequest) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use GetOrderbookAggregationOptionsRequest.ProtoReflect.Descriptor instead.
 func (*GetOrderbookAggregationOptionsRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{25}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *GetOrderbookAggregationOptionsRequest) GetCoin() string {
@@ -2538,7 +2543,7 @@ type GetOrderbookAggregationOptionsResponse struct {
 
 func (x *GetOrderbookAggregationOptionsResponse) Reset() {
 	*x = GetOrderbookAggregationOptionsResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[26]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2550,7 +2555,7 @@ func (x *GetOrderbookAggregationOptionsResponse) String() string {
 func (*GetOrderbookAggregationOptionsResponse) ProtoMessage() {}
 
 func (x *GetOrderbookAggregationOptionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[26]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2563,7 +2568,7 @@ func (x *GetOrderbookAggregationOptionsResponse) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use GetOrderbookAggregationOptionsResponse.ProtoReflect.Descriptor instead.
 func (*GetOrderbookAggregationOptionsResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{26}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetOrderbookAggregationOptionsResponse) GetCoin() string {
@@ -2615,7 +2620,7 @@ type OrderbookAggregationOption struct {
 
 func (x *OrderbookAggregationOption) Reset() {
 	*x = OrderbookAggregationOption{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[27]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2627,7 +2632,7 @@ func (x *OrderbookAggregationOption) String() string {
 func (*OrderbookAggregationOption) ProtoMessage() {}
 
 func (x *OrderbookAggregationOption) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[27]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2640,7 +2645,7 @@ func (x *OrderbookAggregationOption) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderbookAggregationOption.ProtoReflect.Descriptor instead.
 func (*OrderbookAggregationOption) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{27}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *OrderbookAggregationOption) GetId() string {
@@ -2683,7 +2688,7 @@ type GetCandlesRequest struct {
 
 func (x *GetCandlesRequest) Reset() {
 	*x = GetCandlesRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[28]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2695,7 +2700,7 @@ func (x *GetCandlesRequest) String() string {
 func (*GetCandlesRequest) ProtoMessage() {}
 
 func (x *GetCandlesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[28]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2708,7 +2713,7 @@ func (x *GetCandlesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCandlesRequest.ProtoReflect.Descriptor instead.
 func (*GetCandlesRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{28}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *GetCandlesRequest) GetCoin() string {
@@ -2748,7 +2753,7 @@ type GetCandlesResponse struct {
 
 func (x *GetCandlesResponse) Reset() {
 	*x = GetCandlesResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[29]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2760,7 +2765,7 @@ func (x *GetCandlesResponse) String() string {
 func (*GetCandlesResponse) ProtoMessage() {}
 
 func (x *GetCandlesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[29]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2773,7 +2778,7 @@ func (x *GetCandlesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCandlesResponse.ProtoReflect.Descriptor instead.
 func (*GetCandlesResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{29}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GetCandlesResponse) GetCandles() []*PerpCandle {
@@ -2794,7 +2799,7 @@ type GetMarketFundingHistoryRequest struct {
 
 func (x *GetMarketFundingHistoryRequest) Reset() {
 	*x = GetMarketFundingHistoryRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[30]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2806,7 +2811,7 @@ func (x *GetMarketFundingHistoryRequest) String() string {
 func (*GetMarketFundingHistoryRequest) ProtoMessage() {}
 
 func (x *GetMarketFundingHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[30]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2819,7 +2824,7 @@ func (x *GetMarketFundingHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMarketFundingHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetMarketFundingHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{30}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *GetMarketFundingHistoryRequest) GetCoin() string {
@@ -2854,7 +2859,7 @@ type PerpFundingRate struct {
 
 func (x *PerpFundingRate) Reset() {
 	*x = PerpFundingRate{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[31]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2866,7 +2871,7 @@ func (x *PerpFundingRate) String() string {
 func (*PerpFundingRate) ProtoMessage() {}
 
 func (x *PerpFundingRate) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[31]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2879,7 +2884,7 @@ func (x *PerpFundingRate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PerpFundingRate.ProtoReflect.Descriptor instead.
 func (*PerpFundingRate) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{31}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *PerpFundingRate) GetTime() int64 {
@@ -2912,7 +2917,7 @@ type GetMarketFundingHistoryResponse struct {
 
 func (x *GetMarketFundingHistoryResponse) Reset() {
 	*x = GetMarketFundingHistoryResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[32]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2924,7 +2929,7 @@ func (x *GetMarketFundingHistoryResponse) String() string {
 func (*GetMarketFundingHistoryResponse) ProtoMessage() {}
 
 func (x *GetMarketFundingHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[32]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2937,7 +2942,7 @@ func (x *GetMarketFundingHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMarketFundingHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetMarketFundingHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{32}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetMarketFundingHistoryResponse) GetRates() []*PerpFundingRate {
@@ -2958,7 +2963,7 @@ type StreamOrderbookRequest struct {
 
 func (x *StreamOrderbookRequest) Reset() {
 	*x = StreamOrderbookRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[33]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2970,7 +2975,7 @@ func (x *StreamOrderbookRequest) String() string {
 func (*StreamOrderbookRequest) ProtoMessage() {}
 
 func (x *StreamOrderbookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[33]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2983,7 +2988,7 @@ func (x *StreamOrderbookRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamOrderbookRequest.ProtoReflect.Descriptor instead.
 func (*StreamOrderbookRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{33}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *StreamOrderbookRequest) GetCoin() string {
@@ -3019,7 +3024,7 @@ type OrderbookUpdate struct {
 
 func (x *OrderbookUpdate) Reset() {
 	*x = OrderbookUpdate{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[34]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3031,7 +3036,7 @@ func (x *OrderbookUpdate) String() string {
 func (*OrderbookUpdate) ProtoMessage() {}
 
 func (x *OrderbookUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[34]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3044,7 +3049,7 @@ func (x *OrderbookUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderbookUpdate.ProtoReflect.Descriptor instead.
 func (*OrderbookUpdate) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{34}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *OrderbookUpdate) GetCoin() string {
@@ -3085,7 +3090,7 @@ type StreamCandlesRequest struct {
 
 func (x *StreamCandlesRequest) Reset() {
 	*x = StreamCandlesRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[35]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3097,7 +3102,7 @@ func (x *StreamCandlesRequest) String() string {
 func (*StreamCandlesRequest) ProtoMessage() {}
 
 func (x *StreamCandlesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[35]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3110,7 +3115,7 @@ func (x *StreamCandlesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamCandlesRequest.ProtoReflect.Descriptor instead.
 func (*StreamCandlesRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{35}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *StreamCandlesRequest) GetCoin() string {
@@ -3138,7 +3143,7 @@ type CandleUpdate struct {
 
 func (x *CandleUpdate) Reset() {
 	*x = CandleUpdate{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[36]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3150,7 +3155,7 @@ func (x *CandleUpdate) String() string {
 func (*CandleUpdate) ProtoMessage() {}
 
 func (x *CandleUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[36]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3163,7 +3168,7 @@ func (x *CandleUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CandleUpdate.ProtoReflect.Descriptor instead.
 func (*CandleUpdate) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{36}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *CandleUpdate) GetCandle() *PerpCandle {
@@ -3197,7 +3202,7 @@ type StreamTradesRequest struct {
 
 func (x *StreamTradesRequest) Reset() {
 	*x = StreamTradesRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[37]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3209,7 +3214,7 @@ func (x *StreamTradesRequest) String() string {
 func (*StreamTradesRequest) ProtoMessage() {}
 
 func (x *StreamTradesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[37]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3222,7 +3227,7 @@ func (x *StreamTradesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamTradesRequest.ProtoReflect.Descriptor instead.
 func (*StreamTradesRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{37}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *StreamTradesRequest) GetCoin() string {
@@ -3249,7 +3254,7 @@ type TradeUpdate struct {
 
 func (x *TradeUpdate) Reset() {
 	*x = TradeUpdate{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[38]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3261,7 +3266,7 @@ func (x *TradeUpdate) String() string {
 func (*TradeUpdate) ProtoMessage() {}
 
 func (x *TradeUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[38]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3274,7 +3279,7 @@ func (x *TradeUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TradeUpdate.ProtoReflect.Descriptor instead.
 func (*TradeUpdate) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{38}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *TradeUpdate) GetCoin() string {
@@ -3300,7 +3305,7 @@ type StreamAssetContextRequest struct {
 
 func (x *StreamAssetContextRequest) Reset() {
 	*x = StreamAssetContextRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[39]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3312,7 +3317,7 @@ func (x *StreamAssetContextRequest) String() string {
 func (*StreamAssetContextRequest) ProtoMessage() {}
 
 func (x *StreamAssetContextRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[39]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3325,7 +3330,7 @@ func (x *StreamAssetContextRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamAssetContextRequest.ProtoReflect.Descriptor instead.
 func (*StreamAssetContextRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{39}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *StreamAssetContextRequest) GetCoin() string {
@@ -3354,7 +3359,7 @@ type AssetContextUpdate struct {
 
 func (x *AssetContextUpdate) Reset() {
 	*x = AssetContextUpdate{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[40]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3366,7 +3371,7 @@ func (x *AssetContextUpdate) String() string {
 func (*AssetContextUpdate) ProtoMessage() {}
 
 func (x *AssetContextUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[40]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3379,7 +3384,7 @@ func (x *AssetContextUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssetContextUpdate.ProtoReflect.Descriptor instead.
 func (*AssetContextUpdate) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{40}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *AssetContextUpdate) GetCoin() string {
@@ -3468,7 +3473,7 @@ type GetAccountStateRequest struct {
 
 func (x *GetAccountStateRequest) Reset() {
 	*x = GetAccountStateRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[41]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3480,7 +3485,7 @@ func (x *GetAccountStateRequest) String() string {
 func (*GetAccountStateRequest) ProtoMessage() {}
 
 func (x *GetAccountStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[41]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3493,7 +3498,7 @@ func (x *GetAccountStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountStateRequest.ProtoReflect.Descriptor instead.
 func (*GetAccountStateRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{41}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *GetAccountStateRequest) GetAddress() string {
@@ -3515,7 +3520,7 @@ type SpotBalance struct {
 
 func (x *SpotBalance) Reset() {
 	*x = SpotBalance{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[42]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3527,7 +3532,7 @@ func (x *SpotBalance) String() string {
 func (*SpotBalance) ProtoMessage() {}
 
 func (x *SpotBalance) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[42]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3540,7 +3545,7 @@ func (x *SpotBalance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SpotBalance.ProtoReflect.Descriptor instead.
 func (*SpotBalance) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{42}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *SpotBalance) GetCoin() string {
@@ -3584,7 +3589,7 @@ type PerpsBalance struct {
 
 func (x *PerpsBalance) Reset() {
 	*x = PerpsBalance{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[43]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3596,7 +3601,7 @@ func (x *PerpsBalance) String() string {
 func (*PerpsBalance) ProtoMessage() {}
 
 func (x *PerpsBalance) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[43]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3609,7 +3614,7 @@ func (x *PerpsBalance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PerpsBalance.ProtoReflect.Descriptor instead.
 func (*PerpsBalance) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{43}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *PerpsBalance) GetAccountValue() string {
@@ -3646,7 +3651,7 @@ type PerpsDexBalance struct {
 
 func (x *PerpsDexBalance) Reset() {
 	*x = PerpsDexBalance{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[44]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3658,7 +3663,7 @@ func (x *PerpsDexBalance) String() string {
 func (*PerpsDexBalance) ProtoMessage() {}
 
 func (x *PerpsDexBalance) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[44]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3671,7 +3676,7 @@ func (x *PerpsDexBalance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PerpsDexBalance.ProtoReflect.Descriptor instead.
 func (*PerpsDexBalance) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{44}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *PerpsDexBalance) GetDex() string {
@@ -3738,7 +3743,7 @@ type GetAccountStateResponse struct {
 
 func (x *GetAccountStateResponse) Reset() {
 	*x = GetAccountStateResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[45]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3750,7 +3755,7 @@ func (x *GetAccountStateResponse) String() string {
 func (*GetAccountStateResponse) ProtoMessage() {}
 
 func (x *GetAccountStateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[45]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3763,7 +3768,7 @@ func (x *GetAccountStateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountStateResponse.ProtoReflect.Descriptor instead.
 func (*GetAccountStateResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{45}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *GetAccountStateResponse) GetMarginSummary() *PerpsMarginSummary {
@@ -3887,7 +3892,7 @@ type GetPerpPositionsRequest struct {
 
 func (x *GetPerpPositionsRequest) Reset() {
 	*x = GetPerpPositionsRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[46]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3899,7 +3904,7 @@ func (x *GetPerpPositionsRequest) String() string {
 func (*GetPerpPositionsRequest) ProtoMessage() {}
 
 func (x *GetPerpPositionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[46]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3912,7 +3917,7 @@ func (x *GetPerpPositionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPerpPositionsRequest.ProtoReflect.Descriptor instead.
 func (*GetPerpPositionsRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{46}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *GetPerpPositionsRequest) GetAddress() string {
@@ -3939,7 +3944,7 @@ type GetPerpPositionsResponse struct {
 
 func (x *GetPerpPositionsResponse) Reset() {
 	*x = GetPerpPositionsResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[47]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3951,7 +3956,7 @@ func (x *GetPerpPositionsResponse) String() string {
 func (*GetPerpPositionsResponse) ProtoMessage() {}
 
 func (x *GetPerpPositionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[47]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3964,7 +3969,7 @@ func (x *GetPerpPositionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPerpPositionsResponse.ProtoReflect.Descriptor instead.
 func (*GetPerpPositionsResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{47}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *GetPerpPositionsResponse) GetMarginSummary() *PerpsMarginSummary {
@@ -4015,7 +4020,7 @@ type GetOpenOrdersRequest struct {
 
 func (x *GetOpenOrdersRequest) Reset() {
 	*x = GetOpenOrdersRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[48]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4027,7 +4032,7 @@ func (x *GetOpenOrdersRequest) String() string {
 func (*GetOpenOrdersRequest) ProtoMessage() {}
 
 func (x *GetOpenOrdersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[48]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4040,7 +4045,7 @@ func (x *GetOpenOrdersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOpenOrdersRequest.ProtoReflect.Descriptor instead.
 func (*GetOpenOrdersRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{48}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *GetOpenOrdersRequest) GetAddress() string {
@@ -4067,7 +4072,7 @@ type GetOpenOrdersResponse struct {
 
 func (x *GetOpenOrdersResponse) Reset() {
 	*x = GetOpenOrdersResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[49]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4079,7 +4084,7 @@ func (x *GetOpenOrdersResponse) String() string {
 func (*GetOpenOrdersResponse) ProtoMessage() {}
 
 func (x *GetOpenOrdersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[49]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4092,7 +4097,7 @@ func (x *GetOpenOrdersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOpenOrdersResponse.ProtoReflect.Descriptor instead.
 func (*GetOpenOrdersResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{49}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *GetOpenOrdersResponse) GetOpenOrders() []*PerpOrder {
@@ -4115,7 +4120,7 @@ type GetAccountBalancesRequest struct {
 
 func (x *GetAccountBalancesRequest) Reset() {
 	*x = GetAccountBalancesRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[50]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4127,7 +4132,7 @@ func (x *GetAccountBalancesRequest) String() string {
 func (*GetAccountBalancesRequest) ProtoMessage() {}
 
 func (x *GetAccountBalancesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[50]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4140,7 +4145,7 @@ func (x *GetAccountBalancesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountBalancesRequest.ProtoReflect.Descriptor instead.
 func (*GetAccountBalancesRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{50}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *GetAccountBalancesRequest) GetAddress() string {
@@ -4179,7 +4184,7 @@ type GetAccountBalancesResponse struct {
 
 func (x *GetAccountBalancesResponse) Reset() {
 	*x = GetAccountBalancesResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[51]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4191,7 +4196,7 @@ func (x *GetAccountBalancesResponse) String() string {
 func (*GetAccountBalancesResponse) ProtoMessage() {}
 
 func (x *GetAccountBalancesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[51]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4204,7 +4209,7 @@ func (x *GetAccountBalancesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountBalancesResponse.ProtoReflect.Descriptor instead.
 func (*GetAccountBalancesResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{51}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *GetAccountBalancesResponse) GetSpotBalances() []*SpotBalance {
@@ -4262,7 +4267,7 @@ type GetAccountModeRequest struct {
 
 func (x *GetAccountModeRequest) Reset() {
 	*x = GetAccountModeRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[52]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4274,7 +4279,7 @@ func (x *GetAccountModeRequest) String() string {
 func (*GetAccountModeRequest) ProtoMessage() {}
 
 func (x *GetAccountModeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[52]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4287,7 +4292,7 @@ func (x *GetAccountModeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountModeRequest.ProtoReflect.Descriptor instead.
 func (*GetAccountModeRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{52}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *GetAccountModeRequest) GetAddress() string {
@@ -4315,7 +4320,7 @@ type GetAccountModeResponse struct {
 
 func (x *GetAccountModeResponse) Reset() {
 	*x = GetAccountModeResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[53]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4327,7 +4332,7 @@ func (x *GetAccountModeResponse) String() string {
 func (*GetAccountModeResponse) ProtoMessage() {}
 
 func (x *GetAccountModeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[53]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4340,7 +4345,7 @@ func (x *GetAccountModeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountModeResponse.ProtoReflect.Descriptor instead.
 func (*GetAccountModeResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{53}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *GetAccountModeResponse) GetAccountAbstraction() string {
@@ -4362,7 +4367,7 @@ type GetPerpsPnlSummaryRequest struct {
 
 func (x *GetPerpsPnlSummaryRequest) Reset() {
 	*x = GetPerpsPnlSummaryRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[54]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4374,7 +4379,7 @@ func (x *GetPerpsPnlSummaryRequest) String() string {
 func (*GetPerpsPnlSummaryRequest) ProtoMessage() {}
 
 func (x *GetPerpsPnlSummaryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[54]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4387,7 +4392,7 @@ func (x *GetPerpsPnlSummaryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPerpsPnlSummaryRequest.ProtoReflect.Descriptor instead.
 func (*GetPerpsPnlSummaryRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{54}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *GetPerpsPnlSummaryRequest) GetAddress() string {
@@ -4422,7 +4427,7 @@ type GetPerpsPnlSummaryResponse struct {
 
 func (x *GetPerpsPnlSummaryResponse) Reset() {
 	*x = GetPerpsPnlSummaryResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[55]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4434,7 +4439,7 @@ func (x *GetPerpsPnlSummaryResponse) String() string {
 func (*GetPerpsPnlSummaryResponse) ProtoMessage() {}
 
 func (x *GetPerpsPnlSummaryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[55]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4447,7 +4452,7 @@ func (x *GetPerpsPnlSummaryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPerpsPnlSummaryResponse.ProtoReflect.Descriptor instead.
 func (*GetPerpsPnlSummaryResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{55}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *GetPerpsPnlSummaryResponse) GetDayPnl() string {
@@ -4494,7 +4499,7 @@ type GetBuilderFeeStatusRequest struct {
 
 func (x *GetBuilderFeeStatusRequest) Reset() {
 	*x = GetBuilderFeeStatusRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[56]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4506,7 +4511,7 @@ func (x *GetBuilderFeeStatusRequest) String() string {
 func (*GetBuilderFeeStatusRequest) ProtoMessage() {}
 
 func (x *GetBuilderFeeStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[56]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4519,7 +4524,7 @@ func (x *GetBuilderFeeStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBuilderFeeStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetBuilderFeeStatusRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{56}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *GetBuilderFeeStatusRequest) GetAddress() string {
@@ -4544,7 +4549,7 @@ type GetBuilderFeeStatusResponse struct {
 
 func (x *GetBuilderFeeStatusResponse) Reset() {
 	*x = GetBuilderFeeStatusResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[57]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4556,7 +4561,7 @@ func (x *GetBuilderFeeStatusResponse) String() string {
 func (*GetBuilderFeeStatusResponse) ProtoMessage() {}
 
 func (x *GetBuilderFeeStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[57]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4569,7 +4574,7 @@ func (x *GetBuilderFeeStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBuilderFeeStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetBuilderFeeStatusResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{57}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *GetBuilderFeeStatusResponse) GetBuilderFeePpm() int32 {
@@ -4622,6 +4627,7 @@ type ActionParams struct {
 	//	*ActionParams_Scale
 	//	*ActionParams_CancelOrders
 	//	*ActionParams_ConvertToUsdc
+	//	*ActionParams_TrailingStop
 	Metadata      isActionParams_Metadata `protobuf_oneof:"metadata"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -4629,7 +4635,7 @@ type ActionParams struct {
 
 func (x *ActionParams) Reset() {
 	*x = ActionParams{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[58]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4641,7 +4647,7 @@ func (x *ActionParams) String() string {
 func (*ActionParams) ProtoMessage() {}
 
 func (x *ActionParams) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[58]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4654,7 +4660,7 @@ func (x *ActionParams) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionParams.ProtoReflect.Descriptor instead.
 func (*ActionParams) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{58}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ActionParams) GetMetadata() isActionParams_Metadata {
@@ -4754,6 +4760,15 @@ func (x *ActionParams) GetConvertToUsdc() *ConvertToUsdcActionMetadata {
 	return nil
 }
 
+func (x *ActionParams) GetTrailingStop() *TrailingStopActionMetadata {
+	if x != nil {
+		if x, ok := x.Metadata.(*ActionParams_TrailingStop); ok {
+			return x.TrailingStop
+		}
+	}
+	return nil
+}
+
 type isActionParams_Metadata interface {
 	isActionParams_Metadata()
 }
@@ -4798,6 +4813,10 @@ type ActionParams_ConvertToUsdc struct {
 	ConvertToUsdc *ConvertToUsdcActionMetadata `protobuf:"bytes,10,opt,name=convert_to_usdc,json=convertToUsdc,proto3,oneof"`
 }
 
+type ActionParams_TrailingStop struct {
+	TrailingStop *TrailingStopActionMetadata `protobuf:"bytes,12,opt,name=trailing_stop,json=trailingStop,proto3,oneof"`
+}
+
 func (*ActionParams_Order) isActionParams_Metadata() {}
 
 func (*ActionParams_Cancel) isActionParams_Metadata() {}
@@ -4818,6 +4837,8 @@ func (*ActionParams_CancelOrders) isActionParams_Metadata() {}
 
 func (*ActionParams_ConvertToUsdc) isActionParams_Metadata() {}
 
+func (*ActionParams_TrailingStop) isActionParams_Metadata() {}
+
 type CreateActionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Address       string                 `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
@@ -4828,7 +4849,7 @@ type CreateActionRequest struct {
 
 func (x *CreateActionRequest) Reset() {
 	*x = CreateActionRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[59]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4840,7 +4861,7 @@ func (x *CreateActionRequest) String() string {
 func (*CreateActionRequest) ProtoMessage() {}
 
 func (x *CreateActionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[59]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4853,7 +4874,7 @@ func (x *CreateActionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateActionRequest.ProtoReflect.Descriptor instead.
 func (*CreateActionRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{59}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *CreateActionRequest) GetAddress() string {
@@ -4880,7 +4901,7 @@ type UpdateActionRequest struct {
 
 func (x *UpdateActionRequest) Reset() {
 	*x = UpdateActionRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[60]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4892,7 +4913,7 @@ func (x *UpdateActionRequest) String() string {
 func (*UpdateActionRequest) ProtoMessage() {}
 
 func (x *UpdateActionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[60]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4905,7 +4926,7 @@ func (x *UpdateActionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateActionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateActionRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{60}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *UpdateActionRequest) GetActionId() string {
@@ -4936,7 +4957,7 @@ type ActionPayloadResponse struct {
 
 func (x *ActionPayloadResponse) Reset() {
 	*x = ActionPayloadResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[61]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4948,7 +4969,7 @@ func (x *ActionPayloadResponse) String() string {
 func (*ActionPayloadResponse) ProtoMessage() {}
 
 func (x *ActionPayloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[61]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4961,7 +4982,7 @@ func (x *ActionPayloadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionPayloadResponse.ProtoReflect.Descriptor instead.
 func (*ActionPayloadResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{61}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *ActionPayloadResponse) GetActionId() string {
@@ -5016,7 +5037,7 @@ type ConfirmActionRequest struct {
 
 func (x *ConfirmActionRequest) Reset() {
 	*x = ConfirmActionRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[62]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5028,7 +5049,7 @@ func (x *ConfirmActionRequest) String() string {
 func (*ConfirmActionRequest) ProtoMessage() {}
 
 func (x *ConfirmActionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[62]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5041,7 +5062,7 @@ func (x *ConfirmActionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfirmActionRequest.ProtoReflect.Descriptor instead.
 func (*ConfirmActionRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{62}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *ConfirmActionRequest) GetActionId() string {
@@ -5061,7 +5082,7 @@ func (x *ConfirmActionRequest) GetSignedAction() *SignedAction {
 type ConfirmActionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`             // "submitted", "filled", "completed", "error"
-	HlOid         int64                  `protobuf:"varint,2,opt,name=hl_oid,json=hlOid,proto3" json:"hl_oid,omitempty"` // Hyperliquid order ID (for order/modify actions)
+	HlOid         int64                  `protobuf:"varint,2,opt,name=hl_oid,json=hlOid,proto3" json:"hl_oid,omitempty"` // Hyperliquid order ID (for order/modify/trailing_stop actions)
 	ErrorMessage  string                 `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -5069,7 +5090,7 @@ type ConfirmActionResponse struct {
 
 func (x *ConfirmActionResponse) Reset() {
 	*x = ConfirmActionResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[63]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5081,7 +5102,7 @@ func (x *ConfirmActionResponse) String() string {
 func (*ConfirmActionResponse) ProtoMessage() {}
 
 func (x *ConfirmActionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[63]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5094,7 +5115,7 @@ func (x *ConfirmActionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfirmActionResponse.ProtoReflect.Descriptor instead.
 func (*ConfirmActionResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{63}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *ConfirmActionResponse) GetStatus() string {
@@ -5128,7 +5149,7 @@ type CancelActionRequest struct {
 
 func (x *CancelActionRequest) Reset() {
 	*x = CancelActionRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[64]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5140,7 +5161,7 @@ func (x *CancelActionRequest) String() string {
 func (*CancelActionRequest) ProtoMessage() {}
 
 func (x *CancelActionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[64]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5153,7 +5174,7 @@ func (x *CancelActionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelActionRequest.ProtoReflect.Descriptor instead.
 func (*CancelActionRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{64}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *CancelActionRequest) GetActionId() string {
@@ -5179,7 +5200,7 @@ type CancelActionResponse struct {
 
 func (x *CancelActionResponse) Reset() {
 	*x = CancelActionResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[65]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5191,7 +5212,7 @@ func (x *CancelActionResponse) String() string {
 func (*CancelActionResponse) ProtoMessage() {}
 
 func (x *CancelActionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[65]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5204,7 +5225,7 @@ func (x *CancelActionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelActionResponse.ProtoReflect.Descriptor instead.
 func (*CancelActionResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{65}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *CancelActionResponse) GetStatus() string {
@@ -5229,7 +5250,7 @@ type ActionWorkflowInput struct {
 
 func (x *ActionWorkflowInput) Reset() {
 	*x = ActionWorkflowInput{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[66]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5241,7 +5262,7 @@ func (x *ActionWorkflowInput) String() string {
 func (*ActionWorkflowInput) ProtoMessage() {}
 
 func (x *ActionWorkflowInput) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[66]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5254,7 +5275,7 @@ func (x *ActionWorkflowInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionWorkflowInput.ProtoReflect.Descriptor instead.
 func (*ActionWorkflowInput) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{66}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *ActionWorkflowInput) GetAddress() string {
@@ -5304,7 +5325,7 @@ type ActionTrackingState struct {
 
 func (x *ActionTrackingState) Reset() {
 	*x = ActionTrackingState{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[67]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5316,7 +5337,7 @@ func (x *ActionTrackingState) String() string {
 func (*ActionTrackingState) ProtoMessage() {}
 
 func (x *ActionTrackingState) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[67]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5329,7 +5350,7 @@ func (x *ActionTrackingState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionTrackingState.ProtoReflect.Descriptor instead.
 func (*ActionTrackingState) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{67}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *ActionTrackingState) GetHlOid() int64 {
@@ -5390,7 +5411,7 @@ type GetActionRequest struct {
 
 func (x *GetActionRequest) Reset() {
 	*x = GetActionRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[68]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5402,7 +5423,7 @@ func (x *GetActionRequest) String() string {
 func (*GetActionRequest) ProtoMessage() {}
 
 func (x *GetActionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[68]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5415,7 +5436,7 @@ func (x *GetActionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetActionRequest.ProtoReflect.Descriptor instead.
 func (*GetActionRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{68}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *GetActionRequest) GetActionId() string {
@@ -5434,7 +5455,7 @@ type ReconcileActionsRequest struct {
 
 func (x *ReconcileActionsRequest) Reset() {
 	*x = ReconcileActionsRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[69]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5446,7 +5467,7 @@ func (x *ReconcileActionsRequest) String() string {
 func (*ReconcileActionsRequest) ProtoMessage() {}
 
 func (x *ReconcileActionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[69]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5459,7 +5480,7 @@ func (x *ReconcileActionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReconcileActionsRequest.ProtoReflect.Descriptor instead.
 func (*ReconcileActionsRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{69}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *ReconcileActionsRequest) GetActionIds() []string {
@@ -5478,7 +5499,7 @@ type ReconcileActionsResponse struct {
 
 func (x *ReconcileActionsResponse) Reset() {
 	*x = ReconcileActionsResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[70]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5490,7 +5511,7 @@ func (x *ReconcileActionsResponse) String() string {
 func (*ReconcileActionsResponse) ProtoMessage() {}
 
 func (x *ReconcileActionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[70]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5503,7 +5524,7 @@ func (x *ReconcileActionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReconcileActionsResponse.ProtoReflect.Descriptor instead.
 func (*ReconcileActionsResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{70}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *ReconcileActionsResponse) GetActions() []*GetActionResponse {
@@ -5514,21 +5535,19 @@ func (x *ReconcileActionsResponse) GetActions() []*GetActionResponse {
 }
 
 type GetActionResponse struct {
-	state        protoimpl.MessageState `protogen:"open.v1"`
-	ActionId     string                 `protobuf:"bytes,1,opt,name=action_id,json=actionId,proto3" json:"action_id,omitempty"`
-	ActionType   string                 `protobuf:"bytes,2,opt,name=action_type,json=actionType,proto3" json:"action_type,omitempty"`       // "order", "leverage", "margin", "cancel", etc.
-	State        string                 `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"`                                   // "pending", "submitted", "completed", "filled", "cancelled", "error"
-	HlOid        int64                  `protobuf:"varint,4,opt,name=hl_oid,json=hlOid,proto3" json:"hl_oid,omitempty"`                     // Hyperliquid order ID (if applicable)
-	ErrorMessage string                 `protobuf:"bytes,5,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"` // error details (if state == "error")
-	// Authenticated CLI device that created the action; empty otherwise.
-	CliDeviceId   string `protobuf:"bytes,6,opt,name=cli_device_id,json=cliDeviceId,proto3" json:"cli_device_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ActionId      string                 `protobuf:"bytes,1,opt,name=action_id,json=actionId,proto3" json:"action_id,omitempty"`
+	ActionType    string                 `protobuf:"bytes,2,opt,name=action_type,json=actionType,proto3" json:"action_type,omitempty"`       // "order", "leverage", "margin", "cancel", etc.
+	State         string                 `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"`                                   // "pending", "submitted", "completed", "filled", "cancelled", "error"
+	HlOid         int64                  `protobuf:"varint,4,opt,name=hl_oid,json=hlOid,proto3" json:"hl_oid,omitempty"`                     // Hyperliquid order ID (if applicable)
+	ErrorMessage  string                 `protobuf:"bytes,5,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"` // error details (if state == "error")
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetActionResponse) Reset() {
 	*x = GetActionResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[71]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5540,7 +5559,7 @@ func (x *GetActionResponse) String() string {
 func (*GetActionResponse) ProtoMessage() {}
 
 func (x *GetActionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[71]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5553,7 +5572,7 @@ func (x *GetActionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetActionResponse.ProtoReflect.Descriptor instead.
 func (*GetActionResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{71}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *GetActionResponse) GetActionId() string {
@@ -5591,13 +5610,6 @@ func (x *GetActionResponse) GetErrorMessage() string {
 	return ""
 }
 
-func (x *GetActionResponse) GetCliDeviceId() string {
-	if x != nil {
-		return x.CliDeviceId
-	}
-	return ""
-}
-
 type GetOrderStatusesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Address       string                 `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
@@ -5608,7 +5620,7 @@ type GetOrderStatusesRequest struct {
 
 func (x *GetOrderStatusesRequest) Reset() {
 	*x = GetOrderStatusesRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[72]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5620,7 +5632,7 @@ func (x *GetOrderStatusesRequest) String() string {
 func (*GetOrderStatusesRequest) ProtoMessage() {}
 
 func (x *GetOrderStatusesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[72]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5633,7 +5645,7 @@ func (x *GetOrderStatusesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOrderStatusesRequest.ProtoReflect.Descriptor instead.
 func (*GetOrderStatusesRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{72}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *GetOrderStatusesRequest) GetAddress() string {
@@ -5662,7 +5674,7 @@ type PerpOrderStatus struct {
 
 func (x *PerpOrderStatus) Reset() {
 	*x = PerpOrderStatus{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[73]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5674,7 +5686,7 @@ func (x *PerpOrderStatus) String() string {
 func (*PerpOrderStatus) ProtoMessage() {}
 
 func (x *PerpOrderStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[73]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5687,7 +5699,7 @@ func (x *PerpOrderStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PerpOrderStatus.ProtoReflect.Descriptor instead.
 func (*PerpOrderStatus) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{73}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *PerpOrderStatus) GetOid() int64 {
@@ -5727,7 +5739,7 @@ type GetOrderStatusesResponse struct {
 
 func (x *GetOrderStatusesResponse) Reset() {
 	*x = GetOrderStatusesResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[74]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5739,7 +5751,7 @@ func (x *GetOrderStatusesResponse) String() string {
 func (*GetOrderStatusesResponse) ProtoMessage() {}
 
 func (x *GetOrderStatusesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[74]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5752,7 +5764,7 @@ func (x *GetOrderStatusesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOrderStatusesResponse.ProtoReflect.Descriptor instead.
 func (*GetOrderStatusesResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{74}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *GetOrderStatusesResponse) GetStatuses() []*PerpOrderStatus {
@@ -5775,7 +5787,7 @@ type GetActiveTwapsRequest struct {
 
 func (x *GetActiveTwapsRequest) Reset() {
 	*x = GetActiveTwapsRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[75]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5787,7 +5799,7 @@ func (x *GetActiveTwapsRequest) String() string {
 func (*GetActiveTwapsRequest) ProtoMessage() {}
 
 func (x *GetActiveTwapsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[75]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5800,7 +5812,7 @@ func (x *GetActiveTwapsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetActiveTwapsRequest.ProtoReflect.Descriptor instead.
 func (*GetActiveTwapsRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{75}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *GetActiveTwapsRequest) GetAddress() string {
@@ -5826,7 +5838,7 @@ type GetActiveTwapsResponse struct {
 
 func (x *GetActiveTwapsResponse) Reset() {
 	*x = GetActiveTwapsResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[76]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5838,7 +5850,7 @@ func (x *GetActiveTwapsResponse) String() string {
 func (*GetActiveTwapsResponse) ProtoMessage() {}
 
 func (x *GetActiveTwapsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[76]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5851,7 +5863,7 @@ func (x *GetActiveTwapsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetActiveTwapsResponse.ProtoReflect.Descriptor instead.
 func (*GetActiveTwapsResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{76}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *GetActiveTwapsResponse) GetTwaps() []*PerpTwap {
@@ -5871,7 +5883,7 @@ type GetTwapHistoryRequest struct {
 
 func (x *GetTwapHistoryRequest) Reset() {
 	*x = GetTwapHistoryRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[77]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5883,7 +5895,7 @@ func (x *GetTwapHistoryRequest) String() string {
 func (*GetTwapHistoryRequest) ProtoMessage() {}
 
 func (x *GetTwapHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[77]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5896,7 +5908,7 @@ func (x *GetTwapHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTwapHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetTwapHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{77}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *GetTwapHistoryRequest) GetAddress() string {
@@ -5922,7 +5934,7 @@ type GetTwapHistoryResponse struct {
 
 func (x *GetTwapHistoryResponse) Reset() {
 	*x = GetTwapHistoryResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[78]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5934,7 +5946,7 @@ func (x *GetTwapHistoryResponse) String() string {
 func (*GetTwapHistoryResponse) ProtoMessage() {}
 
 func (x *GetTwapHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[78]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5947,7 +5959,7 @@ func (x *GetTwapHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTwapHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetTwapHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{78}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *GetTwapHistoryResponse) GetTwaps() []*PerpTwap {
@@ -5968,7 +5980,7 @@ type PerpTwapSliceFill struct {
 
 func (x *PerpTwapSliceFill) Reset() {
 	*x = PerpTwapSliceFill{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[79]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5980,7 +5992,7 @@ func (x *PerpTwapSliceFill) String() string {
 func (*PerpTwapSliceFill) ProtoMessage() {}
 
 func (x *PerpTwapSliceFill) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[79]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5993,7 +6005,7 @@ func (x *PerpTwapSliceFill) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PerpTwapSliceFill.ProtoReflect.Descriptor instead.
 func (*PerpTwapSliceFill) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{79}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *PerpTwapSliceFill) GetFill() *PerpTrade {
@@ -6023,7 +6035,7 @@ type GetTwapSliceFillsRequest struct {
 
 func (x *GetTwapSliceFillsRequest) Reset() {
 	*x = GetTwapSliceFillsRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[80]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6035,7 +6047,7 @@ func (x *GetTwapSliceFillsRequest) String() string {
 func (*GetTwapSliceFillsRequest) ProtoMessage() {}
 
 func (x *GetTwapSliceFillsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[80]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6048,7 +6060,7 @@ func (x *GetTwapSliceFillsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTwapSliceFillsRequest.ProtoReflect.Descriptor instead.
 func (*GetTwapSliceFillsRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{80}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *GetTwapSliceFillsRequest) GetAddress() string {
@@ -6082,7 +6094,7 @@ type GetTwapSliceFillsResponse struct {
 
 func (x *GetTwapSliceFillsResponse) Reset() {
 	*x = GetTwapSliceFillsResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[81]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6094,7 +6106,7 @@ func (x *GetTwapSliceFillsResponse) String() string {
 func (*GetTwapSliceFillsResponse) ProtoMessage() {}
 
 func (x *GetTwapSliceFillsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[81]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6107,7 +6119,7 @@ func (x *GetTwapSliceFillsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTwapSliceFillsResponse.ProtoReflect.Descriptor instead.
 func (*GetTwapSliceFillsResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{81}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *GetTwapSliceFillsResponse) GetFills() []*PerpTwapSliceFill {
@@ -6127,7 +6139,7 @@ type ValidateAgentKeyRequest struct {
 
 func (x *ValidateAgentKeyRequest) Reset() {
 	*x = ValidateAgentKeyRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[82]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6139,7 +6151,7 @@ func (x *ValidateAgentKeyRequest) String() string {
 func (*ValidateAgentKeyRequest) ProtoMessage() {}
 
 func (x *ValidateAgentKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[82]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6152,7 +6164,7 @@ func (x *ValidateAgentKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateAgentKeyRequest.ProtoReflect.Descriptor instead.
 func (*ValidateAgentKeyRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{82}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *ValidateAgentKeyRequest) GetAgentAddress() string {
@@ -6183,7 +6195,7 @@ type ValidateAgentKeyResponse struct {
 
 func (x *ValidateAgentKeyResponse) Reset() {
 	*x = ValidateAgentKeyResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[83]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6195,7 +6207,7 @@ func (x *ValidateAgentKeyResponse) String() string {
 func (*ValidateAgentKeyResponse) ProtoMessage() {}
 
 func (x *ValidateAgentKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[83]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6208,7 +6220,7 @@ func (x *ValidateAgentKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateAgentKeyResponse.ProtoReflect.Descriptor instead.
 func (*ValidateAgentKeyResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{83}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *ValidateAgentKeyResponse) GetValid() bool {
@@ -6250,7 +6262,7 @@ type CreateApproveAgentPayloadRequest struct {
 
 func (x *CreateApproveAgentPayloadRequest) Reset() {
 	*x = CreateApproveAgentPayloadRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[84]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6262,7 +6274,7 @@ func (x *CreateApproveAgentPayloadRequest) String() string {
 func (*CreateApproveAgentPayloadRequest) ProtoMessage() {}
 
 func (x *CreateApproveAgentPayloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[84]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6275,7 +6287,7 @@ func (x *CreateApproveAgentPayloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateApproveAgentPayloadRequest.ProtoReflect.Descriptor instead.
 func (*CreateApproveAgentPayloadRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{84}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *CreateApproveAgentPayloadRequest) GetAgentAddress() string {
@@ -6305,7 +6317,7 @@ type CreateApproveAgentPayloadResponse struct {
 
 func (x *CreateApproveAgentPayloadResponse) Reset() {
 	*x = CreateApproveAgentPayloadResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[85]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6317,7 +6329,7 @@ func (x *CreateApproveAgentPayloadResponse) String() string {
 func (*CreateApproveAgentPayloadResponse) ProtoMessage() {}
 
 func (x *CreateApproveAgentPayloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[85]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6330,7 +6342,7 @@ func (x *CreateApproveAgentPayloadResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use CreateApproveAgentPayloadResponse.ProtoReflect.Descriptor instead.
 func (*CreateApproveAgentPayloadResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{85}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *CreateApproveAgentPayloadResponse) GetNonce() int64 {
@@ -6369,7 +6381,7 @@ type ApproveAgentRequest struct {
 
 func (x *ApproveAgentRequest) Reset() {
 	*x = ApproveAgentRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[86]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6381,7 +6393,7 @@ func (x *ApproveAgentRequest) String() string {
 func (*ApproveAgentRequest) ProtoMessage() {}
 
 func (x *ApproveAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[86]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6394,7 +6406,7 @@ func (x *ApproveAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproveAgentRequest.ProtoReflect.Descriptor instead.
 func (*ApproveAgentRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{86}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *ApproveAgentRequest) GetAgentAddress() string {
@@ -6435,7 +6447,7 @@ type ApproveAgentResponse struct {
 
 func (x *ApproveAgentResponse) Reset() {
 	*x = ApproveAgentResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[87]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6447,7 +6459,7 @@ func (x *ApproveAgentResponse) String() string {
 func (*ApproveAgentResponse) ProtoMessage() {}
 
 func (x *ApproveAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[87]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6460,7 +6472,7 @@ func (x *ApproveAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproveAgentResponse.ProtoReflect.Descriptor instead.
 func (*ApproveAgentResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{87}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *ApproveAgentResponse) GetStatus() string {
@@ -6485,7 +6497,7 @@ type GetBuilderFeeApprovalPayloadRequest struct {
 
 func (x *GetBuilderFeeApprovalPayloadRequest) Reset() {
 	*x = GetBuilderFeeApprovalPayloadRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[88]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6497,7 +6509,7 @@ func (x *GetBuilderFeeApprovalPayloadRequest) String() string {
 func (*GetBuilderFeeApprovalPayloadRequest) ProtoMessage() {}
 
 func (x *GetBuilderFeeApprovalPayloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[88]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6510,7 +6522,7 @@ func (x *GetBuilderFeeApprovalPayloadRequest) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use GetBuilderFeeApprovalPayloadRequest.ProtoReflect.Descriptor instead.
 func (*GetBuilderFeeApprovalPayloadRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{88}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{87}
 }
 
 type GetBuilderFeeApprovalPayloadResponse struct {
@@ -6525,7 +6537,7 @@ type GetBuilderFeeApprovalPayloadResponse struct {
 
 func (x *GetBuilderFeeApprovalPayloadResponse) Reset() {
 	*x = GetBuilderFeeApprovalPayloadResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[89]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6537,7 +6549,7 @@ func (x *GetBuilderFeeApprovalPayloadResponse) String() string {
 func (*GetBuilderFeeApprovalPayloadResponse) ProtoMessage() {}
 
 func (x *GetBuilderFeeApprovalPayloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[89]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6550,7 +6562,7 @@ func (x *GetBuilderFeeApprovalPayloadResponse) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use GetBuilderFeeApprovalPayloadResponse.ProtoReflect.Descriptor instead.
 func (*GetBuilderFeeApprovalPayloadResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{89}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *GetBuilderFeeApprovalPayloadResponse) GetTypedDataJson() string {
@@ -6593,7 +6605,7 @@ type ApproveBuilderFeeRequest struct {
 
 func (x *ApproveBuilderFeeRequest) Reset() {
 	*x = ApproveBuilderFeeRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[90]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6605,7 +6617,7 @@ func (x *ApproveBuilderFeeRequest) String() string {
 func (*ApproveBuilderFeeRequest) ProtoMessage() {}
 
 func (x *ApproveBuilderFeeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[90]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6618,7 +6630,7 @@ func (x *ApproveBuilderFeeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproveBuilderFeeRequest.ProtoReflect.Descriptor instead.
 func (*ApproveBuilderFeeRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{90}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *ApproveBuilderFeeRequest) GetNonce() int64 {
@@ -6660,7 +6672,7 @@ type ApproveBuilderFeeResponse struct {
 
 func (x *ApproveBuilderFeeResponse) Reset() {
 	*x = ApproveBuilderFeeResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[91]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6672,7 +6684,7 @@ func (x *ApproveBuilderFeeResponse) String() string {
 func (*ApproveBuilderFeeResponse) ProtoMessage() {}
 
 func (x *ApproveBuilderFeeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[91]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6685,7 +6697,7 @@ func (x *ApproveBuilderFeeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproveBuilderFeeResponse.ProtoReflect.Descriptor instead.
 func (*ApproveBuilderFeeResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{91}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *ApproveBuilderFeeResponse) GetStatus() string {
@@ -6719,7 +6731,7 @@ type CreateSetAccountAbstractionPayloadRequest struct {
 
 func (x *CreateSetAccountAbstractionPayloadRequest) Reset() {
 	*x = CreateSetAccountAbstractionPayloadRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[92]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6731,7 +6743,7 @@ func (x *CreateSetAccountAbstractionPayloadRequest) String() string {
 func (*CreateSetAccountAbstractionPayloadRequest) ProtoMessage() {}
 
 func (x *CreateSetAccountAbstractionPayloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[92]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6744,7 +6756,7 @@ func (x *CreateSetAccountAbstractionPayloadRequest) ProtoReflect() protoreflect.
 
 // Deprecated: Use CreateSetAccountAbstractionPayloadRequest.ProtoReflect.Descriptor instead.
 func (*CreateSetAccountAbstractionPayloadRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{92}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *CreateSetAccountAbstractionPayloadRequest) GetUserAddress() string {
@@ -6771,7 +6783,7 @@ type CreateSetAccountAbstractionPayloadResponse struct {
 
 func (x *CreateSetAccountAbstractionPayloadResponse) Reset() {
 	*x = CreateSetAccountAbstractionPayloadResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[93]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6783,7 +6795,7 @@ func (x *CreateSetAccountAbstractionPayloadResponse) String() string {
 func (*CreateSetAccountAbstractionPayloadResponse) ProtoMessage() {}
 
 func (x *CreateSetAccountAbstractionPayloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[93]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6796,7 +6808,7 @@ func (x *CreateSetAccountAbstractionPayloadResponse) ProtoReflect() protoreflect
 
 // Deprecated: Use CreateSetAccountAbstractionPayloadResponse.ProtoReflect.Descriptor instead.
 func (*CreateSetAccountAbstractionPayloadResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{93}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *CreateSetAccountAbstractionPayloadResponse) GetNonce() int64 {
@@ -6825,7 +6837,7 @@ type SetAccountAbstractionRequest struct {
 
 func (x *SetAccountAbstractionRequest) Reset() {
 	*x = SetAccountAbstractionRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[94]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6837,7 +6849,7 @@ func (x *SetAccountAbstractionRequest) String() string {
 func (*SetAccountAbstractionRequest) ProtoMessage() {}
 
 func (x *SetAccountAbstractionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[94]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6850,7 +6862,7 @@ func (x *SetAccountAbstractionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetAccountAbstractionRequest.ProtoReflect.Descriptor instead.
 func (*SetAccountAbstractionRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{94}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *SetAccountAbstractionRequest) GetNonce() int64 {
@@ -6891,7 +6903,7 @@ type SetAccountAbstractionResponse struct {
 
 func (x *SetAccountAbstractionResponse) Reset() {
 	*x = SetAccountAbstractionResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[95]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6903,7 +6915,7 @@ func (x *SetAccountAbstractionResponse) String() string {
 func (*SetAccountAbstractionResponse) ProtoMessage() {}
 
 func (x *SetAccountAbstractionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[95]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6916,7 +6928,7 @@ func (x *SetAccountAbstractionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetAccountAbstractionResponse.ProtoReflect.Descriptor instead.
 func (*SetAccountAbstractionResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{95}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *SetAccountAbstractionResponse) GetStatus() string {
@@ -6946,7 +6958,7 @@ type CreateBalanceTransferPayloadRequest struct {
 
 func (x *CreateBalanceTransferPayloadRequest) Reset() {
 	*x = CreateBalanceTransferPayloadRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[96]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6958,7 +6970,7 @@ func (x *CreateBalanceTransferPayloadRequest) String() string {
 func (*CreateBalanceTransferPayloadRequest) ProtoMessage() {}
 
 func (x *CreateBalanceTransferPayloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[96]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6971,7 +6983,7 @@ func (x *CreateBalanceTransferPayloadRequest) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use CreateBalanceTransferPayloadRequest.ProtoReflect.Descriptor instead.
 func (*CreateBalanceTransferPayloadRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{96}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *CreateBalanceTransferPayloadRequest) GetAmount() string {
@@ -7019,7 +7031,7 @@ type CreateBalanceTransferPayloadResponse struct {
 
 func (x *CreateBalanceTransferPayloadResponse) Reset() {
 	*x = CreateBalanceTransferPayloadResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[97]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7031,7 +7043,7 @@ func (x *CreateBalanceTransferPayloadResponse) String() string {
 func (*CreateBalanceTransferPayloadResponse) ProtoMessage() {}
 
 func (x *CreateBalanceTransferPayloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[97]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7044,7 +7056,7 @@ func (x *CreateBalanceTransferPayloadResponse) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use CreateBalanceTransferPayloadResponse.ProtoReflect.Descriptor instead.
 func (*CreateBalanceTransferPayloadResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{97}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *CreateBalanceTransferPayloadResponse) GetNonce() int64 {
@@ -7076,7 +7088,7 @@ type TransferBalanceRequest struct {
 
 func (x *TransferBalanceRequest) Reset() {
 	*x = TransferBalanceRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[98]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7088,7 +7100,7 @@ func (x *TransferBalanceRequest) String() string {
 func (*TransferBalanceRequest) ProtoMessage() {}
 
 func (x *TransferBalanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[98]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7101,7 +7113,7 @@ func (x *TransferBalanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransferBalanceRequest.ProtoReflect.Descriptor instead.
 func (*TransferBalanceRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{98}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *TransferBalanceRequest) GetAmount() string {
@@ -7162,7 +7174,7 @@ type TransferBalanceResponse struct {
 
 func (x *TransferBalanceResponse) Reset() {
 	*x = TransferBalanceResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[99]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7174,7 +7186,7 @@ func (x *TransferBalanceResponse) String() string {
 func (*TransferBalanceResponse) ProtoMessage() {}
 
 func (x *TransferBalanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[99]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7187,7 +7199,7 @@ func (x *TransferBalanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransferBalanceResponse.ProtoReflect.Descriptor instead.
 func (*TransferBalanceResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{99}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *TransferBalanceResponse) GetStatus() string {
@@ -7207,7 +7219,7 @@ type CreateWithdrawPayloadRequest struct {
 
 func (x *CreateWithdrawPayloadRequest) Reset() {
 	*x = CreateWithdrawPayloadRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[100]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7219,7 +7231,7 @@ func (x *CreateWithdrawPayloadRequest) String() string {
 func (*CreateWithdrawPayloadRequest) ProtoMessage() {}
 
 func (x *CreateWithdrawPayloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[100]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7232,7 +7244,7 @@ func (x *CreateWithdrawPayloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateWithdrawPayloadRequest.ProtoReflect.Descriptor instead.
 func (*CreateWithdrawPayloadRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{100}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *CreateWithdrawPayloadRequest) GetDestination() string {
@@ -7259,7 +7271,7 @@ type CreateWithdrawPayloadResponse struct {
 
 func (x *CreateWithdrawPayloadResponse) Reset() {
 	*x = CreateWithdrawPayloadResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[101]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7271,7 +7283,7 @@ func (x *CreateWithdrawPayloadResponse) String() string {
 func (*CreateWithdrawPayloadResponse) ProtoMessage() {}
 
 func (x *CreateWithdrawPayloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[101]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7284,7 +7296,7 @@ func (x *CreateWithdrawPayloadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateWithdrawPayloadResponse.ProtoReflect.Descriptor instead.
 func (*CreateWithdrawPayloadResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{101}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *CreateWithdrawPayloadResponse) GetTime() int64 {
@@ -7313,7 +7325,7 @@ type WithdrawRequest struct {
 
 func (x *WithdrawRequest) Reset() {
 	*x = WithdrawRequest{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[102]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7325,7 +7337,7 @@ func (x *WithdrawRequest) String() string {
 func (*WithdrawRequest) ProtoMessage() {}
 
 func (x *WithdrawRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[102]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7338,7 +7350,7 @@ func (x *WithdrawRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WithdrawRequest.ProtoReflect.Descriptor instead.
 func (*WithdrawRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{102}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *WithdrawRequest) GetDestination() string {
@@ -7380,7 +7392,7 @@ type WithdrawResponse struct {
 
 func (x *WithdrawResponse) Reset() {
 	*x = WithdrawResponse{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[103]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7392,7 +7404,7 @@ func (x *WithdrawResponse) String() string {
 func (*WithdrawResponse) ProtoMessage() {}
 
 func (x *WithdrawResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[103]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7405,7 +7417,7 @@ func (x *WithdrawResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WithdrawResponse.ProtoReflect.Descriptor instead.
 func (*WithdrawResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{103}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *WithdrawResponse) GetStatus() string {
@@ -7457,7 +7469,7 @@ type OrderActionMetadata struct {
 
 func (x *OrderActionMetadata) Reset() {
 	*x = OrderActionMetadata{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[104]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7469,7 +7481,7 @@ func (x *OrderActionMetadata) String() string {
 func (*OrderActionMetadata) ProtoMessage() {}
 
 func (x *OrderActionMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[104]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7482,7 +7494,7 @@ func (x *OrderActionMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderActionMetadata.ProtoReflect.Descriptor instead.
 func (*OrderActionMetadata) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{104}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *OrderActionMetadata) GetCoin() string {
@@ -7624,7 +7636,7 @@ type ConvertToUsdcActionMetadata struct {
 
 func (x *ConvertToUsdcActionMetadata) Reset() {
 	*x = ConvertToUsdcActionMetadata{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[105]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7636,7 +7648,7 @@ func (x *ConvertToUsdcActionMetadata) String() string {
 func (*ConvertToUsdcActionMetadata) ProtoMessage() {}
 
 func (x *ConvertToUsdcActionMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[105]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7649,7 +7661,7 @@ func (x *ConvertToUsdcActionMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConvertToUsdcActionMetadata.ProtoReflect.Descriptor instead.
 func (*ConvertToUsdcActionMetadata) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{105}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *ConvertToUsdcActionMetadata) GetCoin() string {
@@ -7685,7 +7697,7 @@ type CancelActionMetadata struct {
 
 func (x *CancelActionMetadata) Reset() {
 	*x = CancelActionMetadata{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[106]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7697,7 +7709,7 @@ func (x *CancelActionMetadata) String() string {
 func (*CancelActionMetadata) ProtoMessage() {}
 
 func (x *CancelActionMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[106]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7710,7 +7722,7 @@ func (x *CancelActionMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelActionMetadata.ProtoReflect.Descriptor instead.
 func (*CancelActionMetadata) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{106}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *CancelActionMetadata) GetActionId() string {
@@ -7744,7 +7756,7 @@ type CancelOrderItem struct {
 
 func (x *CancelOrderItem) Reset() {
 	*x = CancelOrderItem{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[107]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7756,7 +7768,7 @@ func (x *CancelOrderItem) String() string {
 func (*CancelOrderItem) ProtoMessage() {}
 
 func (x *CancelOrderItem) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[107]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7769,7 +7781,7 @@ func (x *CancelOrderItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelOrderItem.ProtoReflect.Descriptor instead.
 func (*CancelOrderItem) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{107}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *CancelOrderItem) GetCoin() string {
@@ -7797,7 +7809,7 @@ type CancelOrdersActionMetadata struct {
 
 func (x *CancelOrdersActionMetadata) Reset() {
 	*x = CancelOrdersActionMetadata{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[108]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7809,7 +7821,7 @@ func (x *CancelOrdersActionMetadata) String() string {
 func (*CancelOrdersActionMetadata) ProtoMessage() {}
 
 func (x *CancelOrdersActionMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[108]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7822,7 +7834,7 @@ func (x *CancelOrdersActionMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelOrdersActionMetadata.ProtoReflect.Descriptor instead.
 func (*CancelOrdersActionMetadata) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{108}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *CancelOrdersActionMetadata) GetOrders() []*CancelOrderItem {
@@ -7845,7 +7857,7 @@ type ModifyActionMetadata struct {
 
 func (x *ModifyActionMetadata) Reset() {
 	*x = ModifyActionMetadata{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[109]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7857,7 +7869,7 @@ func (x *ModifyActionMetadata) String() string {
 func (*ModifyActionMetadata) ProtoMessage() {}
 
 func (x *ModifyActionMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[109]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7870,7 +7882,7 @@ func (x *ModifyActionMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModifyActionMetadata.ProtoReflect.Descriptor instead.
 func (*ModifyActionMetadata) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{109}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *ModifyActionMetadata) GetModifies() []*ModifyOrderMetadata {
@@ -7904,7 +7916,7 @@ type ModifyOrderMetadata struct {
 
 func (x *ModifyOrderMetadata) Reset() {
 	*x = ModifyOrderMetadata{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[110]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7916,7 +7928,7 @@ func (x *ModifyOrderMetadata) String() string {
 func (*ModifyOrderMetadata) ProtoMessage() {}
 
 func (x *ModifyOrderMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[110]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7929,7 +7941,7 @@ func (x *ModifyOrderMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModifyOrderMetadata.ProtoReflect.Descriptor instead.
 func (*ModifyOrderMetadata) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{110}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *ModifyOrderMetadata) GetCoin() string {
@@ -8031,7 +8043,7 @@ type TWAPActionMetadata struct {
 
 func (x *TWAPActionMetadata) Reset() {
 	*x = TWAPActionMetadata{}
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[111]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8043,7 +8055,7 @@ func (x *TWAPActionMetadata) String() string {
 func (*TWAPActionMetadata) ProtoMessage() {}
 
 func (x *TWAPActionMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[111]
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8056,7 +8068,7 @@ func (x *TWAPActionMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TWAPActionMetadata.ProtoReflect.Descriptor instead.
 func (*TWAPActionMetadata) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{111}
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *TWAPActionMetadata) GetCoin() string {
@@ -8118,6 +8130,106 @@ func (x *TWAPActionMetadata) GetTriggerActivateAbove() bool {
 func (x *TWAPActionMetadata) GetStopPx() string {
 	if x != nil {
 		return x.StopPx
+	}
+	return ""
+}
+
+// TrailingStopActionMetadata is metadata for placing a trailing stop.
+// Builds a Hyperliquid trailingStop action: a market order that fires when the
+// mark price retraces from its best level since activation by the retracement.
+// side is the side of the resulting market order ("sell" closes a long).
+type TrailingStopActionMetadata struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Coin       string                 `protobuf:"bytes,1,opt,name=coin,proto3" json:"coin,omitempty"`
+	Side       string                 `protobuf:"bytes,2,opt,name=side,proto3" json:"side,omitempty"`
+	Sz         string                 `protobuf:"bytes,3,opt,name=sz,proto3" json:"sz,omitempty"`
+	ReduceOnly bool                   `protobuf:"varint,4,opt,name=reduce_only,json=reduceOnly,proto3" json:"reduce_only,omitempty"`
+	// Mark price at which tracking starts. Empty starts tracking immediately.
+	ActivationPx string `protobuf:"bytes,5,opt,name=activation_px,json=activationPx,proto3" json:"activation_px,omitempty"`
+	// Exactly one of retracement_pct or retracement_px must be set.
+	// Percent of the watermark, e.g. "5" or "2.5". At most 4 decimal places.
+	RetracementPct string `protobuf:"bytes,6,opt,name=retracement_pct,json=retracementPct,proto3" json:"retracement_pct,omitempty"`
+	// Fixed price distance from the watermark.
+	RetracementPx string `protobuf:"bytes,7,opt,name=retracement_px,json=retracementPx,proto3" json:"retracement_px,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TrailingStopActionMetadata) Reset() {
+	*x = TrailingStopActionMetadata{}
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[111]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TrailingStopActionMetadata) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TrailingStopActionMetadata) ProtoMessage() {}
+
+func (x *TrailingStopActionMetadata) ProtoReflect() protoreflect.Message {
+	mi := &file_gfxcafe_oku_account_v2_perps_proto_msgTypes[111]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TrailingStopActionMetadata.ProtoReflect.Descriptor instead.
+func (*TrailingStopActionMetadata) Descriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP(), []int{111}
+}
+
+func (x *TrailingStopActionMetadata) GetCoin() string {
+	if x != nil {
+		return x.Coin
+	}
+	return ""
+}
+
+func (x *TrailingStopActionMetadata) GetSide() string {
+	if x != nil {
+		return x.Side
+	}
+	return ""
+}
+
+func (x *TrailingStopActionMetadata) GetSz() string {
+	if x != nil {
+		return x.Sz
+	}
+	return ""
+}
+
+func (x *TrailingStopActionMetadata) GetReduceOnly() bool {
+	if x != nil {
+		return x.ReduceOnly
+	}
+	return false
+}
+
+func (x *TrailingStopActionMetadata) GetActivationPx() string {
+	if x != nil {
+		return x.ActivationPx
+	}
+	return ""
+}
+
+func (x *TrailingStopActionMetadata) GetRetracementPct() string {
+	if x != nil {
+		return x.RetracementPct
+	}
+	return ""
+}
+
+func (x *TrailingStopActionMetadata) GetRetracementPx() string {
+	if x != nil {
+		return x.RetracementPx
 	}
 	return ""
 }
@@ -11213,7 +11325,7 @@ var File_gfxcafe_oku_account_v2_perps_proto protoreflect.FileDescriptor
 
 const file_gfxcafe_oku_account_v2_perps_proto_rawDesc = "" +
 	"\n" +
-	"\"gfxcafe/oku/account/v2/perps.proto\x12\x16gfxcafe.oku.account.v2\x1a\x1bbuf/validate/validate.proto\x1a%gfxcafe/oku/account/v1/validate.proto\x1a%gfxcafe/oku/account/v2/validate.proto\"\xf7\x03\n" +
+	"\"gfxcafe/oku/account/v2/perps.proto\x12\x16gfxcafe.oku.account.v2\x1a\x1bbuf/validate/validate.proto\x1a%gfxcafe/oku/account/v1/validate.proto\x1a%gfxcafe/oku/account/v2/validate.proto\"\xbf\x04\n" +
 	"\n" +
 	"PerpMarket\x12\x12\n" +
 	"\x04coin\x18\x01 \x01(\tR\x04coin\x12\x1f\n" +
@@ -11233,7 +11345,8 @@ const file_gfxcafe_oku_account_v2_perps_proto_rawDesc = "" +
 	"\apremium\x18\x11 \x01(\tR\apremium\x12!\n" +
 	"\fdisplay_name\x18\x12 \x01(\tR\vdisplayName\x12\x1a\n" +
 	"\bkeywords\x18\x13 \x03(\tR\bkeywords\x12,\n" +
-	"\x12implied_market_cap\x18\x14 \x01(\tR\x10impliedMarketCap\"\xc1\x03\n" +
+	"\x12implied_market_cap\x18\x14 \x01(\tR\x10impliedMarketCap\x12F\n" +
+	"\bcategory\x18\x15 \x01(\x0e2*.gfxcafe.oku.account.v2.PerpMarketCategoryR\bcategory\"\xc1\x03\n" +
 	"\fPerpPosition\x12\x12\n" +
 	"\x04coin\x18\x01 \x01(\tR\x04coin\x12\x10\n" +
 	"\x03szi\x18\x02 \x01(\tR\x03szi\x12\x19\n" +
@@ -11255,7 +11368,7 @@ const file_gfxcafe_oku_account_v2_perps_proto_rawDesc = "" +
 	"\x0eleverage_value\x18\x03 \x01(\x05R\rleverageValue\x12\x17\n" +
 	"\amark_px\x18\x04 \x01(\tR\x06markPx\x12,\n" +
 	"\x12available_to_trade\x18\x05 \x03(\tR\x10availableToTrade\x12\"\n" +
-	"\rmax_trade_szs\x18\x06 \x03(\tR\vmaxTradeSzs\"\xbb\x04\n" +
+	"\rmax_trade_szs\x18\x06 \x03(\tR\vmaxTradeSzs\"\xfe\x03\n" +
 	"\tPerpOrder\x12\x12\n" +
 	"\x04coin\x18\x01 \x01(\tR\x04coin\x12\x19\n" +
 	"\blimit_px\x18\x02 \x01(\tR\alimitPx\x12\x10\n" +
@@ -11278,11 +11391,7 @@ const file_gfxcafe_oku_account_v2_perps_proto_rawDesc = "" +
 	"\x10is_position_tpsl\x18\x0e \x01(\bR\x0eisPositionTpsl\x12\x19\n" +
 	"\basset_id\x18\x0f \x01(\x05R\aassetId\x12\x10\n" +
 	"\x03tif\x18\x10 \x01(\tR\x03tif\x12=\n" +
-	"\bchildren\x18\x11 \x03(\v2!.gfxcafe.oku.account.v2.PerpOrderR\bchildren\x12;\n" +
-	"\x06origin\x18\x12 \x01(\v2#.gfxcafe.oku.account.v2.OrderOriginR\x06origin\"Y\n" +
-	"\vOrderOrigin\x12\"\n" +
-	"\rcli_device_id\x18\x01 \x01(\tR\vcliDeviceId\x12&\n" +
-	"\x0fcli_device_name\x18\x02 \x01(\tR\rcliDeviceName\"\xe0\x03\n" +
+	"\bchildren\x18\x11 \x03(\v2!.gfxcafe.oku.account.v2.PerpOrderR\bchildren\"\xe0\x03\n" +
 	"\bPerpTwap\x12\x17\n" +
 	"\atwap_id\x18\x01 \x01(\x03R\x06twapId\x12\x12\n" +
 	"\x04time\x18\x02 \x01(\x03R\x04time\x12\x16\n" +
@@ -11317,7 +11426,7 @@ const file_gfxcafe_oku_account_v2_perps_proto_rawDesc = "" +
 	"\x01l\x18\x04 \x01(\tR\x01l\x12\f\n" +
 	"\x01c\x18\x05 \x01(\tR\x01c\x12\f\n" +
 	"\x01v\x18\x06 \x01(\tR\x01v\x12\f\n" +
-	"\x01n\x18\a \x01(\x05R\x01n\"\xd1\x04\n" +
+	"\x01n\x18\a \x01(\x05R\x01n\"\x94\x04\n" +
 	"\tPerpTrade\x12\x12\n" +
 	"\x04coin\x18\x01 \x01(\tR\x04coin\x12\x18\n" +
 	"\x02px\x18\x02 \x01(\tB\b\xbaH\x05r\x03\xa0}\x01R\x02px\x12\x18\n" +
@@ -11339,8 +11448,7 @@ const file_gfxcafe_oku_account_v2_perps_proto_rawDesc = "" +
 	"builderFee\x129\n" +
 	"\x04kind\x18\x10 \x01(\x0e2%.gfxcafe.oku.account.v2.PerpTradeKindR\x04kind\x12I\n" +
 	"\vliquidation\x18\x11 \x01(\v2'.gfxcafe.oku.account.v2.PerpLiquidationR\vliquidation\x12\x17\n" +
-	"\atwap_id\x18\x12 \x01(\x03R\x06twapId\x12;\n" +
-	"\x06origin\x18\x13 \x01(\v2#.gfxcafe.oku.account.v2.OrderOriginR\x06origin\"k\n" +
+	"\atwap_id\x18\x12 \x01(\x03R\x06twapId\"k\n" +
 	"\x0fPerpLiquidation\x12'\n" +
 	"\x0fliquidated_user\x18\x01 \x01(\tR\x0eliquidatedUser\x12\x17\n" +
 	"\amark_px\x18\x02 \x01(\tR\x06markPx\x12\x16\n" +
@@ -11359,7 +11467,7 @@ const file_gfxcafe_oku_account_v2_perps_proto_rawDesc = "" +
 	"\x04usdc\x18\x03 \x01(\tR\x04usdc\x12\x10\n" +
 	"\x03szi\x18\x04 \x01(\tR\x03szi\x12!\n" +
 	"\ffunding_rate\x18\x05 \x01(\tR\vfundingRate\x12\x12\n" +
-	"\x04hash\x18\x06 \x01(\tR\x04hash\"\xc6\x01\n" +
+	"\x04hash\x18\x06 \x01(\tR\x04hash\"\xee\x01\n" +
 	"\x13PerpDepositWithdraw\x12\x12\n" +
 	"\x04time\x18\x01 \x01(\x03R\x04time\x12\x12\n" +
 	"\x04hash\x18\x02 \x01(\tR\x04hash\x12\x12\n" +
@@ -11369,7 +11477,8 @@ const file_gfxcafe_oku_account_v2_perps_proto_rawDesc = "" +
 	"\n" +
 	"usdc_value\x18\x06 \x01(\tR\tusdcValue\x12\x10\n" +
 	"\x03fee\x18\a \x01(\tR\x03fee\x12\x14\n" +
-	"\x05nonce\x18\b \x01(\x03R\x05nonce\"\xad\x01\n" +
+	"\x05nonce\x18\b \x01(\x03R\x05nonce\x12&\n" +
+	"\x0fonramp_order_id\x18\t \x01(\tR\ronrampOrderId\"\xad\x01\n" +
 	"\x12PerpsMarginSummary\x12#\n" +
 	"\raccount_value\x18\x01 \x01(\tR\faccountValue\x12\"\n" +
 	"\rtotal_ntl_pos\x18\x02 \x01(\tR\vtotalNtlPos\x12\"\n" +
@@ -11599,7 +11708,7 @@ const file_gfxcafe_oku_account_v2_perps_proto_rawDesc = "" +
 	"\x14builder_fee_approved\x18\x02 \x01(\bR\x12builderFeeApproved\x12'\n" +
 	"\x0fbuilder_address\x18\x03 \x01(\tR\x0ebuilderAddress\x125\n" +
 	"\x17builder_fee_charged_ppm\x18\x04 \x01(\x05R\x14builderFeeChargedPpm\x12D\n" +
-	"\x1fbuilder_fee_approval_target_ppm\x18\x05 \x01(\x05R\x1bbuilderFeeApprovalTargetPpm\"\xb6\x06\n" +
+	"\x1fbuilder_fee_approval_target_ppm\x18\x05 \x01(\x05R\x1bbuilderFeeApprovalTargetPpm\"\x91\a\n" +
 	"\fActionParams\x12C\n" +
 	"\x05order\x18\x01 \x01(\v2+.gfxcafe.oku.account.v2.OrderActionMetadataH\x00R\x05order\x12F\n" +
 	"\x06cancel\x18\x02 \x01(\v2,.gfxcafe.oku.account.v2.CancelActionMetadataH\x00R\x06cancel\x12F\n" +
@@ -11612,7 +11721,8 @@ const file_gfxcafe_oku_account_v2_perps_proto_rawDesc = "" +
 	"\x05scale\x18\b \x01(\v2+.gfxcafe.oku.account.v2.ScaleActionMetadataH\x00R\x05scale\x12Y\n" +
 	"\rcancel_orders\x18\t \x01(\v22.gfxcafe.oku.account.v2.CancelOrdersActionMetadataH\x00R\fcancelOrders\x12]\n" +
 	"\x0fconvert_to_usdc\x18\n" +
-	" \x01(\v23.gfxcafe.oku.account.v2.ConvertToUsdcActionMetadataH\x00R\rconvertToUsdcB\n" +
+	" \x01(\v23.gfxcafe.oku.account.v2.ConvertToUsdcActionMetadataH\x00R\rconvertToUsdc\x12Y\n" +
+	"\rtrailing_stop\x18\f \x01(\v22.gfxcafe.oku.account.v2.TrailingStopActionMetadataH\x00R\ftrailingStopB\n" +
 	"\n" +
 	"\bmetadataJ\x04\b\v\x10\fR\x13set_unified_account\"\x7f\n" +
 	"\x13CreateActionRequest\x12\"\n" +
@@ -11663,15 +11773,14 @@ const file_gfxcafe_oku_account_v2_perps_proto_rawDesc = "" +
 	"action_ids\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
 	"\b\x01\x102\"\x04r\x02\x10\x01R\tactionIds\"_\n" +
 	"\x18ReconcileActionsResponse\x12C\n" +
-	"\aactions\x18\x01 \x03(\v2).gfxcafe.oku.account.v2.GetActionResponseR\aactions\"\xc7\x01\n" +
+	"\aactions\x18\x01 \x03(\v2).gfxcafe.oku.account.v2.GetActionResponseR\aactions\"\xa3\x01\n" +
 	"\x11GetActionResponse\x12\x1b\n" +
 	"\taction_id\x18\x01 \x01(\tR\bactionId\x12\x1f\n" +
 	"\vaction_type\x18\x02 \x01(\tR\n" +
 	"actionType\x12\x14\n" +
 	"\x05state\x18\x03 \x01(\tR\x05state\x12\x15\n" +
 	"\x06hl_oid\x18\x04 \x01(\x03R\x05hlOid\x12#\n" +
-	"\rerror_message\x18\x05 \x01(\tR\ferrorMessage\x12\"\n" +
-	"\rcli_device_id\x18\x06 \x01(\tR\vcliDeviceId\"O\n" +
+	"\rerror_message\x18\x05 \x01(\tR\ferrorMessage\"O\n" +
 	"\x17GetOrderStatusesRequest\x12\"\n" +
 	"\aaddress\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xd0H\x01R\aaddress\x12\x10\n" +
 	"\x03oid\x18\x02 \x03(\x03R\x03oid\"\x9f\x01\n" +
@@ -11861,7 +11970,16 @@ const file_gfxcafe_oku_account_v2_perps_proto_rawDesc = "" +
 	"\n" +
 	"trigger_px\x18\a \x01(\tB\v\xbaH\br\x06\xa0}\x01\xc8}\x01R\ttriggerPx\x124\n" +
 	"\x16trigger_activate_above\x18\b \x01(\bR\x14triggerActivateAbove\x12$\n" +
-	"\astop_px\x18\t \x01(\tB\v\xbaH\br\x06\xa0}\x01\xc8}\x01R\x06stopPx\"\xc2\x02\n" +
+	"\astop_px\x18\t \x01(\tB\v\xbaH\br\x06\xa0}\x01\xc8}\x01R\x06stopPx\"\xb1\x02\n" +
+	"\x1aTrailingStopActionMetadata\x12\x1a\n" +
+	"\x04coin\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04coin\x12\x1a\n" +
+	"\x04side\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04side\x12\x1e\n" +
+	"\x02sz\x18\x03 \x01(\tB\x0e\xbaH\v\xc8\x01\x01r\x06\xa0}\x01\xc8}\x01R\x02sz\x12\x1f\n" +
+	"\vreduce_only\x18\x04 \x01(\bR\n" +
+	"reduceOnly\x120\n" +
+	"\ractivation_px\x18\x05 \x01(\tB\v\xbaH\br\x06\xa0}\x01\xc8}\x01R\factivationPx\x124\n" +
+	"\x0fretracement_pct\x18\x06 \x01(\tB\v\xbaH\br\x06\xa0}\x01\xc8}\x01R\x0eretracementPct\x122\n" +
+	"\x0eretracement_px\x18\a \x01(\tB\v\xbaH\br\x06\xa0}\x01\xc8}\x01R\rretracementPx\"\xc2\x02\n" +
 	"\x13ScaleActionMetadata\x12\x1a\n" +
 	"\x04coin\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04coin\x12\x1a\n" +
 	"\x04side\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x04side\x12\x1e\n" +
@@ -12119,7 +12237,15 @@ const file_gfxcafe_oku_account_v2_perps_proto_rawDesc = "" +
 	"\x11_show_close_priceB\x11\n" +
 	"\x0f_show_time_open\"+\n" +
 	"\x17GeneratePnlCardResponse\x12\x10\n" +
-	"\x03url\x18\x01 \x01(\tR\x03url*\x93\x01\n" +
+	"\x03url\x18\x01 \x01(\tR\x03url*\xfd\x01\n" +
+	"\x12PerpMarketCategory\x12$\n" +
+	" PERP_MARKET_CATEGORY_UNSPECIFIED\x10\x00\x12\x1f\n" +
+	"\x1bPERP_MARKET_CATEGORY_CRYPTO\x10\x01\x12\x1e\n" +
+	"\x1aPERP_MARKET_CATEGORY_STOCK\x10\x02\x12\x1c\n" +
+	"\x18PERP_MARKET_CATEGORY_ETF\x10\x03\x12\"\n" +
+	"\x1ePERP_MARKET_CATEGORY_COMMODITY\x10\x04\x12\x1e\n" +
+	"\x1aPERP_MARKET_CATEGORY_FOREX\x10\x05\x12\x1e\n" +
+	"\x1aPERP_MARKET_CATEGORY_INDEX\x10\x06*\x93\x01\n" +
 	"\rPerpTradeKind\x12\x1f\n" +
 	"\x1bPERP_TRADE_KIND_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16PERP_TRADE_KIND_NORMAL\x10\x01\x12\x1f\n" +
@@ -12210,18 +12336,18 @@ func file_gfxcafe_oku_account_v2_perps_proto_rawDescGZIP() []byte {
 	return file_gfxcafe_oku_account_v2_perps_proto_rawDescData
 }
 
-var file_gfxcafe_oku_account_v2_perps_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_gfxcafe_oku_account_v2_perps_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
 var file_gfxcafe_oku_account_v2_perps_proto_msgTypes = make([]protoimpl.MessageInfo, 157)
 var file_gfxcafe_oku_account_v2_perps_proto_goTypes = []any{
-	(PerpTradeKind)(0),                                 // 0: gfxcafe.oku.account.v2.PerpTradeKind
-	(PerpsAccountMode)(0),                              // 1: gfxcafe.oku.account.v2.PerpsAccountMode
-	(PerpsBalanceClass)(0),                             // 2: gfxcafe.oku.account.v2.PerpsBalanceClass
-	(TriggerOrderType)(0),                              // 3: gfxcafe.oku.account.v2.TriggerOrderType
-	(*PerpMarket)(nil),                                 // 4: gfxcafe.oku.account.v2.PerpMarket
-	(*PerpPosition)(nil),                               // 5: gfxcafe.oku.account.v2.PerpPosition
-	(*PerpActiveAssetData)(nil),                        // 6: gfxcafe.oku.account.v2.PerpActiveAssetData
-	(*PerpOrder)(nil),                                  // 7: gfxcafe.oku.account.v2.PerpOrder
-	(*OrderOrigin)(nil),                                // 8: gfxcafe.oku.account.v2.OrderOrigin
+	(PerpMarketCategory)(0),                            // 0: gfxcafe.oku.account.v2.PerpMarketCategory
+	(PerpTradeKind)(0),                                 // 1: gfxcafe.oku.account.v2.PerpTradeKind
+	(PerpsAccountMode)(0),                              // 2: gfxcafe.oku.account.v2.PerpsAccountMode
+	(PerpsBalanceClass)(0),                             // 3: gfxcafe.oku.account.v2.PerpsBalanceClass
+	(TriggerOrderType)(0),                              // 4: gfxcafe.oku.account.v2.TriggerOrderType
+	(*PerpMarket)(nil),                                 // 5: gfxcafe.oku.account.v2.PerpMarket
+	(*PerpPosition)(nil),                               // 6: gfxcafe.oku.account.v2.PerpPosition
+	(*PerpActiveAssetData)(nil),                        // 7: gfxcafe.oku.account.v2.PerpActiveAssetData
+	(*PerpOrder)(nil),                                  // 8: gfxcafe.oku.account.v2.PerpOrder
 	(*PerpTwap)(nil),                                   // 9: gfxcafe.oku.account.v2.PerpTwap
 	(*OrderbookLevel)(nil),                             // 10: gfxcafe.oku.account.v2.OrderbookLevel
 	(*PerpCandle)(nil),                                 // 11: gfxcafe.oku.account.v2.PerpCandle
@@ -12329,101 +12455,102 @@ var file_gfxcafe_oku_account_v2_perps_proto_goTypes = []any{
 	(*ModifyActionMetadata)(nil),                       // 113: gfxcafe.oku.account.v2.ModifyActionMetadata
 	(*ModifyOrderMetadata)(nil),                        // 114: gfxcafe.oku.account.v2.ModifyOrderMetadata
 	(*TWAPActionMetadata)(nil),                         // 115: gfxcafe.oku.account.v2.TWAPActionMetadata
-	(*ScaleActionMetadata)(nil),                        // 116: gfxcafe.oku.account.v2.ScaleActionMetadata
-	(*CancelTWAPActionMetadata)(nil),                   // 117: gfxcafe.oku.account.v2.CancelTWAPActionMetadata
-	(*LeverageActionMetadata)(nil),                     // 118: gfxcafe.oku.account.v2.LeverageActionMetadata
-	(*MarginActionMetadata)(nil),                       // 119: gfxcafe.oku.account.v2.MarginActionMetadata
-	(*GetTradeHistoryRequest)(nil),                     // 120: gfxcafe.oku.account.v2.GetTradeHistoryRequest
-	(*GetTradeHistoryResponse)(nil),                    // 121: gfxcafe.oku.account.v2.GetTradeHistoryResponse
-	(*GetUserFillsRequest)(nil),                        // 122: gfxcafe.oku.account.v2.GetUserFillsRequest
-	(*GetUserFillsResponse)(nil),                       // 123: gfxcafe.oku.account.v2.GetUserFillsResponse
-	(*GetFundingHistoryRequest)(nil),                   // 124: gfxcafe.oku.account.v2.GetFundingHistoryRequest
-	(*GetFundingHistoryResponse)(nil),                  // 125: gfxcafe.oku.account.v2.GetFundingHistoryResponse
-	(*GetOrderHistoryRequest)(nil),                     // 126: gfxcafe.oku.account.v2.GetOrderHistoryRequest
-	(*GetOrderHistoryResponse)(nil),                    // 127: gfxcafe.oku.account.v2.GetOrderHistoryResponse
-	(*PerpHistoricalOrder)(nil),                        // 128: gfxcafe.oku.account.v2.PerpHistoricalOrder
-	(*GetDepositWithdrawHistoryRequest)(nil),           // 129: gfxcafe.oku.account.v2.GetDepositWithdrawHistoryRequest
-	(*GetDepositWithdrawHistoryResponse)(nil),          // 130: gfxcafe.oku.account.v2.GetDepositWithdrawHistoryResponse
-	(*GetHyperliquidOrderInfoRequest)(nil),             // 131: gfxcafe.oku.account.v2.GetHyperliquidOrderInfoRequest
-	(*GetHyperliquidOrderInfoResponse)(nil),            // 132: gfxcafe.oku.account.v2.GetHyperliquidOrderInfoResponse
-	(*GetTradeEstimateRequest)(nil),                    // 133: gfxcafe.oku.account.v2.GetTradeEstimateRequest
-	(*GetTradeEstimateResponse)(nil),                   // 134: gfxcafe.oku.account.v2.GetTradeEstimateResponse
-	(*GetUserFeeRatesRequest)(nil),                     // 135: gfxcafe.oku.account.v2.GetUserFeeRatesRequest
-	(*GetUserFeeRatesResponse)(nil),                    // 136: gfxcafe.oku.account.v2.GetUserFeeRatesResponse
-	(*GetUserFeeScheduleRequest)(nil),                  // 137: gfxcafe.oku.account.v2.GetUserFeeScheduleRequest
-	(*GetUserFeeScheduleResponse)(nil),                 // 138: gfxcafe.oku.account.v2.GetUserFeeScheduleResponse
-	(*PerpFeeSchedule)(nil),                            // 139: gfxcafe.oku.account.v2.PerpFeeSchedule
-	(*PerpFeeTiers)(nil),                               // 140: gfxcafe.oku.account.v2.PerpFeeTiers
-	(*PerpVipFeeTier)(nil),                             // 141: gfxcafe.oku.account.v2.PerpVipFeeTier
-	(*PerpMmFeeTier)(nil),                              // 142: gfxcafe.oku.account.v2.PerpMmFeeTier
-	(*PerpStakingDiscountTier)(nil),                    // 143: gfxcafe.oku.account.v2.PerpStakingDiscountTier
-	(*PerpDailyUserVolume)(nil),                        // 144: gfxcafe.oku.account.v2.PerpDailyUserVolume
-	(*GetActiveAssetDataRequest)(nil),                  // 145: gfxcafe.oku.account.v2.GetActiveAssetDataRequest
-	(*GetActiveAssetDataResponse)(nil),                 // 146: gfxcafe.oku.account.v2.GetActiveAssetDataResponse
-	(*GetDepositTokensRequest)(nil),                    // 147: gfxcafe.oku.account.v2.GetDepositTokensRequest
-	(*DepositToken)(nil),                               // 148: gfxcafe.oku.account.v2.DepositToken
-	(*GetDepositTokensResponse)(nil),                   // 149: gfxcafe.oku.account.v2.GetDepositTokensResponse
-	(*BuildDepositTransactionRequest)(nil),             // 150: gfxcafe.oku.account.v2.BuildDepositTransactionRequest
-	(*BuildDepositTransactionResponse)(nil),            // 151: gfxcafe.oku.account.v2.BuildDepositTransactionResponse
-	(*DepositTransaction)(nil),                         // 152: gfxcafe.oku.account.v2.DepositTransaction
-	(*GenerateDepositAddressRequest)(nil),              // 153: gfxcafe.oku.account.v2.GenerateDepositAddressRequest
-	(*GenerateDepositAddressResponse)(nil),             // 154: gfxcafe.oku.account.v2.GenerateDepositAddressResponse
-	(*GetDepositOperationsRequest)(nil),                // 155: gfxcafe.oku.account.v2.GetDepositOperationsRequest
-	(*HyperUnitDepositAddress)(nil),                    // 156: gfxcafe.oku.account.v2.HyperUnitDepositAddress
-	(*HyperUnitOperation)(nil),                         // 157: gfxcafe.oku.account.v2.HyperUnitOperation
-	(*GetDepositOperationsResponse)(nil),               // 158: gfxcafe.oku.account.v2.GetDepositOperationsResponse
-	(*GeneratePnlCardRequest)(nil),                     // 159: gfxcafe.oku.account.v2.GeneratePnlCardRequest
-	(*GeneratePnlCardResponse)(nil),                    // 160: gfxcafe.oku.account.v2.GeneratePnlCardResponse
+	(*TrailingStopActionMetadata)(nil),                 // 116: gfxcafe.oku.account.v2.TrailingStopActionMetadata
+	(*ScaleActionMetadata)(nil),                        // 117: gfxcafe.oku.account.v2.ScaleActionMetadata
+	(*CancelTWAPActionMetadata)(nil),                   // 118: gfxcafe.oku.account.v2.CancelTWAPActionMetadata
+	(*LeverageActionMetadata)(nil),                     // 119: gfxcafe.oku.account.v2.LeverageActionMetadata
+	(*MarginActionMetadata)(nil),                       // 120: gfxcafe.oku.account.v2.MarginActionMetadata
+	(*GetTradeHistoryRequest)(nil),                     // 121: gfxcafe.oku.account.v2.GetTradeHistoryRequest
+	(*GetTradeHistoryResponse)(nil),                    // 122: gfxcafe.oku.account.v2.GetTradeHistoryResponse
+	(*GetUserFillsRequest)(nil),                        // 123: gfxcafe.oku.account.v2.GetUserFillsRequest
+	(*GetUserFillsResponse)(nil),                       // 124: gfxcafe.oku.account.v2.GetUserFillsResponse
+	(*GetFundingHistoryRequest)(nil),                   // 125: gfxcafe.oku.account.v2.GetFundingHistoryRequest
+	(*GetFundingHistoryResponse)(nil),                  // 126: gfxcafe.oku.account.v2.GetFundingHistoryResponse
+	(*GetOrderHistoryRequest)(nil),                     // 127: gfxcafe.oku.account.v2.GetOrderHistoryRequest
+	(*GetOrderHistoryResponse)(nil),                    // 128: gfxcafe.oku.account.v2.GetOrderHistoryResponse
+	(*PerpHistoricalOrder)(nil),                        // 129: gfxcafe.oku.account.v2.PerpHistoricalOrder
+	(*GetDepositWithdrawHistoryRequest)(nil),           // 130: gfxcafe.oku.account.v2.GetDepositWithdrawHistoryRequest
+	(*GetDepositWithdrawHistoryResponse)(nil),          // 131: gfxcafe.oku.account.v2.GetDepositWithdrawHistoryResponse
+	(*GetHyperliquidOrderInfoRequest)(nil),             // 132: gfxcafe.oku.account.v2.GetHyperliquidOrderInfoRequest
+	(*GetHyperliquidOrderInfoResponse)(nil),            // 133: gfxcafe.oku.account.v2.GetHyperliquidOrderInfoResponse
+	(*GetTradeEstimateRequest)(nil),                    // 134: gfxcafe.oku.account.v2.GetTradeEstimateRequest
+	(*GetTradeEstimateResponse)(nil),                   // 135: gfxcafe.oku.account.v2.GetTradeEstimateResponse
+	(*GetUserFeeRatesRequest)(nil),                     // 136: gfxcafe.oku.account.v2.GetUserFeeRatesRequest
+	(*GetUserFeeRatesResponse)(nil),                    // 137: gfxcafe.oku.account.v2.GetUserFeeRatesResponse
+	(*GetUserFeeScheduleRequest)(nil),                  // 138: gfxcafe.oku.account.v2.GetUserFeeScheduleRequest
+	(*GetUserFeeScheduleResponse)(nil),                 // 139: gfxcafe.oku.account.v2.GetUserFeeScheduleResponse
+	(*PerpFeeSchedule)(nil),                            // 140: gfxcafe.oku.account.v2.PerpFeeSchedule
+	(*PerpFeeTiers)(nil),                               // 141: gfxcafe.oku.account.v2.PerpFeeTiers
+	(*PerpVipFeeTier)(nil),                             // 142: gfxcafe.oku.account.v2.PerpVipFeeTier
+	(*PerpMmFeeTier)(nil),                              // 143: gfxcafe.oku.account.v2.PerpMmFeeTier
+	(*PerpStakingDiscountTier)(nil),                    // 144: gfxcafe.oku.account.v2.PerpStakingDiscountTier
+	(*PerpDailyUserVolume)(nil),                        // 145: gfxcafe.oku.account.v2.PerpDailyUserVolume
+	(*GetActiveAssetDataRequest)(nil),                  // 146: gfxcafe.oku.account.v2.GetActiveAssetDataRequest
+	(*GetActiveAssetDataResponse)(nil),                 // 147: gfxcafe.oku.account.v2.GetActiveAssetDataResponse
+	(*GetDepositTokensRequest)(nil),                    // 148: gfxcafe.oku.account.v2.GetDepositTokensRequest
+	(*DepositToken)(nil),                               // 149: gfxcafe.oku.account.v2.DepositToken
+	(*GetDepositTokensResponse)(nil),                   // 150: gfxcafe.oku.account.v2.GetDepositTokensResponse
+	(*BuildDepositTransactionRequest)(nil),             // 151: gfxcafe.oku.account.v2.BuildDepositTransactionRequest
+	(*BuildDepositTransactionResponse)(nil),            // 152: gfxcafe.oku.account.v2.BuildDepositTransactionResponse
+	(*DepositTransaction)(nil),                         // 153: gfxcafe.oku.account.v2.DepositTransaction
+	(*GenerateDepositAddressRequest)(nil),              // 154: gfxcafe.oku.account.v2.GenerateDepositAddressRequest
+	(*GenerateDepositAddressResponse)(nil),             // 155: gfxcafe.oku.account.v2.GenerateDepositAddressResponse
+	(*GetDepositOperationsRequest)(nil),                // 156: gfxcafe.oku.account.v2.GetDepositOperationsRequest
+	(*HyperUnitDepositAddress)(nil),                    // 157: gfxcafe.oku.account.v2.HyperUnitDepositAddress
+	(*HyperUnitOperation)(nil),                         // 158: gfxcafe.oku.account.v2.HyperUnitOperation
+	(*GetDepositOperationsResponse)(nil),               // 159: gfxcafe.oku.account.v2.GetDepositOperationsResponse
+	(*GeneratePnlCardRequest)(nil),                     // 160: gfxcafe.oku.account.v2.GeneratePnlCardRequest
+	(*GeneratePnlCardResponse)(nil),                    // 161: gfxcafe.oku.account.v2.GeneratePnlCardResponse
 }
 var file_gfxcafe_oku_account_v2_perps_proto_depIdxs = []int32{
-	7,   // 0: gfxcafe.oku.account.v2.PerpOrder.children:type_name -> gfxcafe.oku.account.v2.PerpOrder
-	8,   // 1: gfxcafe.oku.account.v2.PerpOrder.origin:type_name -> gfxcafe.oku.account.v2.OrderOrigin
-	0,   // 2: gfxcafe.oku.account.v2.PerpTrade.kind:type_name -> gfxcafe.oku.account.v2.PerpTradeKind
+	0,   // 0: gfxcafe.oku.account.v2.PerpMarket.category:type_name -> gfxcafe.oku.account.v2.PerpMarketCategory
+	8,   // 1: gfxcafe.oku.account.v2.PerpOrder.children:type_name -> gfxcafe.oku.account.v2.PerpOrder
+	1,   // 2: gfxcafe.oku.account.v2.PerpTrade.kind:type_name -> gfxcafe.oku.account.v2.PerpTradeKind
 	13,  // 3: gfxcafe.oku.account.v2.PerpTrade.liquidation:type_name -> gfxcafe.oku.account.v2.PerpLiquidation
-	8,   // 4: gfxcafe.oku.account.v2.PerpTrade.origin:type_name -> gfxcafe.oku.account.v2.OrderOrigin
-	18,  // 5: gfxcafe.oku.account.v2.SignedAction.signature:type_name -> gfxcafe.oku.account.v2.EVMSignature
-	4,   // 6: gfxcafe.oku.account.v2.GetMarketsResponse.markets:type_name -> gfxcafe.oku.account.v2.PerpMarket
-	26,  // 7: gfxcafe.oku.account.v2.GetSpotMarketsResponse.markets:type_name -> gfxcafe.oku.account.v2.SpotMarket
-	10,  // 8: gfxcafe.oku.account.v2.GetOrderbookResponse.bids:type_name -> gfxcafe.oku.account.v2.OrderbookLevel
-	10,  // 9: gfxcafe.oku.account.v2.GetOrderbookResponse.asks:type_name -> gfxcafe.oku.account.v2.OrderbookLevel
-	31,  // 10: gfxcafe.oku.account.v2.GetOrderbookAggregationOptionsResponse.options:type_name -> gfxcafe.oku.account.v2.OrderbookAggregationOption
-	11,  // 11: gfxcafe.oku.account.v2.GetCandlesResponse.candles:type_name -> gfxcafe.oku.account.v2.PerpCandle
-	35,  // 12: gfxcafe.oku.account.v2.GetMarketFundingHistoryResponse.rates:type_name -> gfxcafe.oku.account.v2.PerpFundingRate
-	10,  // 13: gfxcafe.oku.account.v2.OrderbookUpdate.bids:type_name -> gfxcafe.oku.account.v2.OrderbookLevel
-	10,  // 14: gfxcafe.oku.account.v2.OrderbookUpdate.asks:type_name -> gfxcafe.oku.account.v2.OrderbookLevel
-	11,  // 15: gfxcafe.oku.account.v2.CandleUpdate.candle:type_name -> gfxcafe.oku.account.v2.PerpCandle
-	14,  // 16: gfxcafe.oku.account.v2.TradeUpdate.trades:type_name -> gfxcafe.oku.account.v2.PerpMarketTrade
-	17,  // 17: gfxcafe.oku.account.v2.GetAccountStateResponse.margin_summary:type_name -> gfxcafe.oku.account.v2.PerpsMarginSummary
-	17,  // 18: gfxcafe.oku.account.v2.GetAccountStateResponse.cross_margin_summary:type_name -> gfxcafe.oku.account.v2.PerpsMarginSummary
-	5,   // 19: gfxcafe.oku.account.v2.GetAccountStateResponse.positions:type_name -> gfxcafe.oku.account.v2.PerpPosition
-	7,   // 20: gfxcafe.oku.account.v2.GetAccountStateResponse.open_orders:type_name -> gfxcafe.oku.account.v2.PerpOrder
-	46,  // 21: gfxcafe.oku.account.v2.GetAccountStateResponse.spot_balances:type_name -> gfxcafe.oku.account.v2.SpotBalance
-	47,  // 22: gfxcafe.oku.account.v2.GetAccountStateResponse.perps_balance:type_name -> gfxcafe.oku.account.v2.PerpsBalance
-	48,  // 23: gfxcafe.oku.account.v2.GetAccountStateResponse.hip3_balances:type_name -> gfxcafe.oku.account.v2.PerpsDexBalance
-	17,  // 24: gfxcafe.oku.account.v2.GetPerpPositionsResponse.margin_summary:type_name -> gfxcafe.oku.account.v2.PerpsMarginSummary
-	17,  // 25: gfxcafe.oku.account.v2.GetPerpPositionsResponse.cross_margin_summary:type_name -> gfxcafe.oku.account.v2.PerpsMarginSummary
-	5,   // 26: gfxcafe.oku.account.v2.GetPerpPositionsResponse.positions:type_name -> gfxcafe.oku.account.v2.PerpPosition
-	7,   // 27: gfxcafe.oku.account.v2.GetOpenOrdersResponse.open_orders:type_name -> gfxcafe.oku.account.v2.PerpOrder
-	46,  // 28: gfxcafe.oku.account.v2.GetAccountBalancesResponse.spot_balances:type_name -> gfxcafe.oku.account.v2.SpotBalance
-	47,  // 29: gfxcafe.oku.account.v2.GetAccountBalancesResponse.perps_balance:type_name -> gfxcafe.oku.account.v2.PerpsBalance
-	48,  // 30: gfxcafe.oku.account.v2.GetAccountBalancesResponse.hip3_balances:type_name -> gfxcafe.oku.account.v2.PerpsDexBalance
-	108, // 31: gfxcafe.oku.account.v2.ActionParams.order:type_name -> gfxcafe.oku.account.v2.OrderActionMetadata
-	110, // 32: gfxcafe.oku.account.v2.ActionParams.cancel:type_name -> gfxcafe.oku.account.v2.CancelActionMetadata
-	113, // 33: gfxcafe.oku.account.v2.ActionParams.modify:type_name -> gfxcafe.oku.account.v2.ModifyActionMetadata
-	115, // 34: gfxcafe.oku.account.v2.ActionParams.twap:type_name -> gfxcafe.oku.account.v2.TWAPActionMetadata
-	117, // 35: gfxcafe.oku.account.v2.ActionParams.cancel_twap:type_name -> gfxcafe.oku.account.v2.CancelTWAPActionMetadata
-	118, // 36: gfxcafe.oku.account.v2.ActionParams.leverage:type_name -> gfxcafe.oku.account.v2.LeverageActionMetadata
-	119, // 37: gfxcafe.oku.account.v2.ActionParams.margin:type_name -> gfxcafe.oku.account.v2.MarginActionMetadata
-	116, // 38: gfxcafe.oku.account.v2.ActionParams.scale:type_name -> gfxcafe.oku.account.v2.ScaleActionMetadata
-	112, // 39: gfxcafe.oku.account.v2.ActionParams.cancel_orders:type_name -> gfxcafe.oku.account.v2.CancelOrdersActionMetadata
-	109, // 40: gfxcafe.oku.account.v2.ActionParams.convert_to_usdc:type_name -> gfxcafe.oku.account.v2.ConvertToUsdcActionMetadata
+	18,  // 4: gfxcafe.oku.account.v2.SignedAction.signature:type_name -> gfxcafe.oku.account.v2.EVMSignature
+	5,   // 5: gfxcafe.oku.account.v2.GetMarketsResponse.markets:type_name -> gfxcafe.oku.account.v2.PerpMarket
+	26,  // 6: gfxcafe.oku.account.v2.GetSpotMarketsResponse.markets:type_name -> gfxcafe.oku.account.v2.SpotMarket
+	10,  // 7: gfxcafe.oku.account.v2.GetOrderbookResponse.bids:type_name -> gfxcafe.oku.account.v2.OrderbookLevel
+	10,  // 8: gfxcafe.oku.account.v2.GetOrderbookResponse.asks:type_name -> gfxcafe.oku.account.v2.OrderbookLevel
+	31,  // 9: gfxcafe.oku.account.v2.GetOrderbookAggregationOptionsResponse.options:type_name -> gfxcafe.oku.account.v2.OrderbookAggregationOption
+	11,  // 10: gfxcafe.oku.account.v2.GetCandlesResponse.candles:type_name -> gfxcafe.oku.account.v2.PerpCandle
+	35,  // 11: gfxcafe.oku.account.v2.GetMarketFundingHistoryResponse.rates:type_name -> gfxcafe.oku.account.v2.PerpFundingRate
+	10,  // 12: gfxcafe.oku.account.v2.OrderbookUpdate.bids:type_name -> gfxcafe.oku.account.v2.OrderbookLevel
+	10,  // 13: gfxcafe.oku.account.v2.OrderbookUpdate.asks:type_name -> gfxcafe.oku.account.v2.OrderbookLevel
+	11,  // 14: gfxcafe.oku.account.v2.CandleUpdate.candle:type_name -> gfxcafe.oku.account.v2.PerpCandle
+	14,  // 15: gfxcafe.oku.account.v2.TradeUpdate.trades:type_name -> gfxcafe.oku.account.v2.PerpMarketTrade
+	17,  // 16: gfxcafe.oku.account.v2.GetAccountStateResponse.margin_summary:type_name -> gfxcafe.oku.account.v2.PerpsMarginSummary
+	17,  // 17: gfxcafe.oku.account.v2.GetAccountStateResponse.cross_margin_summary:type_name -> gfxcafe.oku.account.v2.PerpsMarginSummary
+	6,   // 18: gfxcafe.oku.account.v2.GetAccountStateResponse.positions:type_name -> gfxcafe.oku.account.v2.PerpPosition
+	8,   // 19: gfxcafe.oku.account.v2.GetAccountStateResponse.open_orders:type_name -> gfxcafe.oku.account.v2.PerpOrder
+	46,  // 20: gfxcafe.oku.account.v2.GetAccountStateResponse.spot_balances:type_name -> gfxcafe.oku.account.v2.SpotBalance
+	47,  // 21: gfxcafe.oku.account.v2.GetAccountStateResponse.perps_balance:type_name -> gfxcafe.oku.account.v2.PerpsBalance
+	48,  // 22: gfxcafe.oku.account.v2.GetAccountStateResponse.hip3_balances:type_name -> gfxcafe.oku.account.v2.PerpsDexBalance
+	17,  // 23: gfxcafe.oku.account.v2.GetPerpPositionsResponse.margin_summary:type_name -> gfxcafe.oku.account.v2.PerpsMarginSummary
+	17,  // 24: gfxcafe.oku.account.v2.GetPerpPositionsResponse.cross_margin_summary:type_name -> gfxcafe.oku.account.v2.PerpsMarginSummary
+	6,   // 25: gfxcafe.oku.account.v2.GetPerpPositionsResponse.positions:type_name -> gfxcafe.oku.account.v2.PerpPosition
+	8,   // 26: gfxcafe.oku.account.v2.GetOpenOrdersResponse.open_orders:type_name -> gfxcafe.oku.account.v2.PerpOrder
+	46,  // 27: gfxcafe.oku.account.v2.GetAccountBalancesResponse.spot_balances:type_name -> gfxcafe.oku.account.v2.SpotBalance
+	47,  // 28: gfxcafe.oku.account.v2.GetAccountBalancesResponse.perps_balance:type_name -> gfxcafe.oku.account.v2.PerpsBalance
+	48,  // 29: gfxcafe.oku.account.v2.GetAccountBalancesResponse.hip3_balances:type_name -> gfxcafe.oku.account.v2.PerpsDexBalance
+	108, // 30: gfxcafe.oku.account.v2.ActionParams.order:type_name -> gfxcafe.oku.account.v2.OrderActionMetadata
+	110, // 31: gfxcafe.oku.account.v2.ActionParams.cancel:type_name -> gfxcafe.oku.account.v2.CancelActionMetadata
+	113, // 32: gfxcafe.oku.account.v2.ActionParams.modify:type_name -> gfxcafe.oku.account.v2.ModifyActionMetadata
+	115, // 33: gfxcafe.oku.account.v2.ActionParams.twap:type_name -> gfxcafe.oku.account.v2.TWAPActionMetadata
+	118, // 34: gfxcafe.oku.account.v2.ActionParams.cancel_twap:type_name -> gfxcafe.oku.account.v2.CancelTWAPActionMetadata
+	119, // 35: gfxcafe.oku.account.v2.ActionParams.leverage:type_name -> gfxcafe.oku.account.v2.LeverageActionMetadata
+	120, // 36: gfxcafe.oku.account.v2.ActionParams.margin:type_name -> gfxcafe.oku.account.v2.MarginActionMetadata
+	117, // 37: gfxcafe.oku.account.v2.ActionParams.scale:type_name -> gfxcafe.oku.account.v2.ScaleActionMetadata
+	112, // 38: gfxcafe.oku.account.v2.ActionParams.cancel_orders:type_name -> gfxcafe.oku.account.v2.CancelOrdersActionMetadata
+	109, // 39: gfxcafe.oku.account.v2.ActionParams.convert_to_usdc:type_name -> gfxcafe.oku.account.v2.ConvertToUsdcActionMetadata
+	116, // 40: gfxcafe.oku.account.v2.ActionParams.trailing_stop:type_name -> gfxcafe.oku.account.v2.TrailingStopActionMetadata
 	62,  // 41: gfxcafe.oku.account.v2.CreateActionRequest.params:type_name -> gfxcafe.oku.account.v2.ActionParams
 	62,  // 42: gfxcafe.oku.account.v2.UpdateActionRequest.params:type_name -> gfxcafe.oku.account.v2.ActionParams
 	19,  // 43: gfxcafe.oku.account.v2.ConfirmActionRequest.signed_action:type_name -> gfxcafe.oku.account.v2.SignedAction
 	19,  // 44: gfxcafe.oku.account.v2.CancelActionRequest.signed_action:type_name -> gfxcafe.oku.account.v2.SignedAction
 	71,  // 45: gfxcafe.oku.account.v2.ActionWorkflowInput.continued_state:type_name -> gfxcafe.oku.account.v2.ActionTrackingState
 	75,  // 46: gfxcafe.oku.account.v2.ReconcileActionsResponse.actions:type_name -> gfxcafe.oku.account.v2.GetActionResponse
-	7,   // 47: gfxcafe.oku.account.v2.PerpOrderStatus.order:type_name -> gfxcafe.oku.account.v2.PerpOrder
+	8,   // 47: gfxcafe.oku.account.v2.PerpOrderStatus.order:type_name -> gfxcafe.oku.account.v2.PerpOrder
 	77,  // 48: gfxcafe.oku.account.v2.GetOrderStatusesResponse.statuses:type_name -> gfxcafe.oku.account.v2.PerpOrderStatus
 	9,   // 49: gfxcafe.oku.account.v2.GetActiveTwapsResponse.twaps:type_name -> gfxcafe.oku.account.v2.PerpTwap
 	9,   // 50: gfxcafe.oku.account.v2.GetTwapHistoryResponse.twaps:type_name -> gfxcafe.oku.account.v2.PerpTwap
@@ -12431,38 +12558,38 @@ var file_gfxcafe_oku_account_v2_perps_proto_depIdxs = []int32{
 	83,  // 52: gfxcafe.oku.account.v2.GetTwapSliceFillsResponse.fills:type_name -> gfxcafe.oku.account.v2.PerpTwapSliceFill
 	18,  // 53: gfxcafe.oku.account.v2.ApproveAgentRequest.signature:type_name -> gfxcafe.oku.account.v2.EVMSignature
 	18,  // 54: gfxcafe.oku.account.v2.ApproveBuilderFeeRequest.signature:type_name -> gfxcafe.oku.account.v2.EVMSignature
-	1,   // 55: gfxcafe.oku.account.v2.CreateSetAccountAbstractionPayloadRequest.mode:type_name -> gfxcafe.oku.account.v2.PerpsAccountMode
+	2,   // 55: gfxcafe.oku.account.v2.CreateSetAccountAbstractionPayloadRequest.mode:type_name -> gfxcafe.oku.account.v2.PerpsAccountMode
 	18,  // 56: gfxcafe.oku.account.v2.SetAccountAbstractionRequest.signature:type_name -> gfxcafe.oku.account.v2.EVMSignature
-	1,   // 57: gfxcafe.oku.account.v2.SetAccountAbstractionRequest.mode:type_name -> gfxcafe.oku.account.v2.PerpsAccountMode
-	1,   // 58: gfxcafe.oku.account.v2.SetAccountAbstractionResponse.mode:type_name -> gfxcafe.oku.account.v2.PerpsAccountMode
-	2,   // 59: gfxcafe.oku.account.v2.CreateBalanceTransferPayloadRequest.source:type_name -> gfxcafe.oku.account.v2.PerpsBalanceClass
-	2,   // 60: gfxcafe.oku.account.v2.CreateBalanceTransferPayloadRequest.destination:type_name -> gfxcafe.oku.account.v2.PerpsBalanceClass
-	2,   // 61: gfxcafe.oku.account.v2.TransferBalanceRequest.source:type_name -> gfxcafe.oku.account.v2.PerpsBalanceClass
-	2,   // 62: gfxcafe.oku.account.v2.TransferBalanceRequest.destination:type_name -> gfxcafe.oku.account.v2.PerpsBalanceClass
+	2,   // 57: gfxcafe.oku.account.v2.SetAccountAbstractionRequest.mode:type_name -> gfxcafe.oku.account.v2.PerpsAccountMode
+	2,   // 58: gfxcafe.oku.account.v2.SetAccountAbstractionResponse.mode:type_name -> gfxcafe.oku.account.v2.PerpsAccountMode
+	3,   // 59: gfxcafe.oku.account.v2.CreateBalanceTransferPayloadRequest.source:type_name -> gfxcafe.oku.account.v2.PerpsBalanceClass
+	3,   // 60: gfxcafe.oku.account.v2.CreateBalanceTransferPayloadRequest.destination:type_name -> gfxcafe.oku.account.v2.PerpsBalanceClass
+	3,   // 61: gfxcafe.oku.account.v2.TransferBalanceRequest.source:type_name -> gfxcafe.oku.account.v2.PerpsBalanceClass
+	3,   // 62: gfxcafe.oku.account.v2.TransferBalanceRequest.destination:type_name -> gfxcafe.oku.account.v2.PerpsBalanceClass
 	18,  // 63: gfxcafe.oku.account.v2.TransferBalanceRequest.signature:type_name -> gfxcafe.oku.account.v2.EVMSignature
 	18,  // 64: gfxcafe.oku.account.v2.WithdrawRequest.signature:type_name -> gfxcafe.oku.account.v2.EVMSignature
 	111, // 65: gfxcafe.oku.account.v2.CancelOrdersActionMetadata.orders:type_name -> gfxcafe.oku.account.v2.CancelOrderItem
 	114, // 66: gfxcafe.oku.account.v2.ModifyActionMetadata.modifies:type_name -> gfxcafe.oku.account.v2.ModifyOrderMetadata
-	3,   // 67: gfxcafe.oku.account.v2.ModifyOrderMetadata.tpsl:type_name -> gfxcafe.oku.account.v2.TriggerOrderType
+	4,   // 67: gfxcafe.oku.account.v2.ModifyOrderMetadata.tpsl:type_name -> gfxcafe.oku.account.v2.TriggerOrderType
 	12,  // 68: gfxcafe.oku.account.v2.GetTradeHistoryResponse.trades:type_name -> gfxcafe.oku.account.v2.PerpTrade
 	12,  // 69: gfxcafe.oku.account.v2.GetUserFillsResponse.fills:type_name -> gfxcafe.oku.account.v2.PerpTrade
 	15,  // 70: gfxcafe.oku.account.v2.GetFundingHistoryResponse.payments:type_name -> gfxcafe.oku.account.v2.PerpFundingPayment
-	128, // 71: gfxcafe.oku.account.v2.GetOrderHistoryResponse.orders:type_name -> gfxcafe.oku.account.v2.PerpHistoricalOrder
-	7,   // 72: gfxcafe.oku.account.v2.PerpHistoricalOrder.order:type_name -> gfxcafe.oku.account.v2.PerpOrder
+	129, // 71: gfxcafe.oku.account.v2.GetOrderHistoryResponse.orders:type_name -> gfxcafe.oku.account.v2.PerpHistoricalOrder
+	8,   // 72: gfxcafe.oku.account.v2.PerpHistoricalOrder.order:type_name -> gfxcafe.oku.account.v2.PerpOrder
 	16,  // 73: gfxcafe.oku.account.v2.GetDepositWithdrawHistoryResponse.entries:type_name -> gfxcafe.oku.account.v2.PerpDepositWithdraw
-	139, // 74: gfxcafe.oku.account.v2.GetUserFeeScheduleResponse.fee_schedule:type_name -> gfxcafe.oku.account.v2.PerpFeeSchedule
-	143, // 75: gfxcafe.oku.account.v2.GetUserFeeScheduleResponse.active_staking_discount:type_name -> gfxcafe.oku.account.v2.PerpStakingDiscountTier
-	144, // 76: gfxcafe.oku.account.v2.GetUserFeeScheduleResponse.daily_user_vlm:type_name -> gfxcafe.oku.account.v2.PerpDailyUserVolume
-	140, // 77: gfxcafe.oku.account.v2.PerpFeeSchedule.tiers:type_name -> gfxcafe.oku.account.v2.PerpFeeTiers
-	143, // 78: gfxcafe.oku.account.v2.PerpFeeSchedule.staking_discount_tiers:type_name -> gfxcafe.oku.account.v2.PerpStakingDiscountTier
-	141, // 79: gfxcafe.oku.account.v2.PerpFeeTiers.vip:type_name -> gfxcafe.oku.account.v2.PerpVipFeeTier
-	142, // 80: gfxcafe.oku.account.v2.PerpFeeTiers.mm:type_name -> gfxcafe.oku.account.v2.PerpMmFeeTier
-	6,   // 81: gfxcafe.oku.account.v2.GetActiveAssetDataResponse.active_asset_data:type_name -> gfxcafe.oku.account.v2.PerpActiveAssetData
-	148, // 82: gfxcafe.oku.account.v2.GetDepositTokensResponse.tokens:type_name -> gfxcafe.oku.account.v2.DepositToken
-	152, // 83: gfxcafe.oku.account.v2.BuildDepositTransactionResponse.approve_tx:type_name -> gfxcafe.oku.account.v2.DepositTransaction
-	152, // 84: gfxcafe.oku.account.v2.BuildDepositTransactionResponse.deposit_tx:type_name -> gfxcafe.oku.account.v2.DepositTransaction
-	156, // 85: gfxcafe.oku.account.v2.GetDepositOperationsResponse.addresses:type_name -> gfxcafe.oku.account.v2.HyperUnitDepositAddress
-	157, // 86: gfxcafe.oku.account.v2.GetDepositOperationsResponse.operations:type_name -> gfxcafe.oku.account.v2.HyperUnitOperation
+	140, // 74: gfxcafe.oku.account.v2.GetUserFeeScheduleResponse.fee_schedule:type_name -> gfxcafe.oku.account.v2.PerpFeeSchedule
+	144, // 75: gfxcafe.oku.account.v2.GetUserFeeScheduleResponse.active_staking_discount:type_name -> gfxcafe.oku.account.v2.PerpStakingDiscountTier
+	145, // 76: gfxcafe.oku.account.v2.GetUserFeeScheduleResponse.daily_user_vlm:type_name -> gfxcafe.oku.account.v2.PerpDailyUserVolume
+	141, // 77: gfxcafe.oku.account.v2.PerpFeeSchedule.tiers:type_name -> gfxcafe.oku.account.v2.PerpFeeTiers
+	144, // 78: gfxcafe.oku.account.v2.PerpFeeSchedule.staking_discount_tiers:type_name -> gfxcafe.oku.account.v2.PerpStakingDiscountTier
+	142, // 79: gfxcafe.oku.account.v2.PerpFeeTiers.vip:type_name -> gfxcafe.oku.account.v2.PerpVipFeeTier
+	143, // 80: gfxcafe.oku.account.v2.PerpFeeTiers.mm:type_name -> gfxcafe.oku.account.v2.PerpMmFeeTier
+	7,   // 81: gfxcafe.oku.account.v2.GetActiveAssetDataResponse.active_asset_data:type_name -> gfxcafe.oku.account.v2.PerpActiveAssetData
+	149, // 82: gfxcafe.oku.account.v2.GetDepositTokensResponse.tokens:type_name -> gfxcafe.oku.account.v2.DepositToken
+	153, // 83: gfxcafe.oku.account.v2.BuildDepositTransactionResponse.approve_tx:type_name -> gfxcafe.oku.account.v2.DepositTransaction
+	153, // 84: gfxcafe.oku.account.v2.BuildDepositTransactionResponse.deposit_tx:type_name -> gfxcafe.oku.account.v2.DepositTransaction
+	157, // 85: gfxcafe.oku.account.v2.GetDepositOperationsResponse.addresses:type_name -> gfxcafe.oku.account.v2.HyperUnitDepositAddress
+	158, // 86: gfxcafe.oku.account.v2.GetDepositOperationsResponse.operations:type_name -> gfxcafe.oku.account.v2.HyperUnitOperation
 	20,  // 87: gfxcafe.oku.account.v2.PerpsService.GetMarkets:input_type -> gfxcafe.oku.account.v2.GetMarketsRequest
 	24,  // 88: gfxcafe.oku.account.v2.PerpsService.GetSpotMarkets:input_type -> gfxcafe.oku.account.v2.GetSpotMarketsRequest
 	22,  // 89: gfxcafe.oku.account.v2.PerpsService.GetMarketPrice:input_type -> gfxcafe.oku.account.v2.GetMarketPriceRequest
@@ -12480,7 +12607,7 @@ var file_gfxcafe_oku_account_v2_perps_proto_depIdxs = []int32{
 	54,  // 101: gfxcafe.oku.account.v2.PerpsService.GetAccountBalances:input_type -> gfxcafe.oku.account.v2.GetAccountBalancesRequest
 	56,  // 102: gfxcafe.oku.account.v2.PerpsService.GetAccountMode:input_type -> gfxcafe.oku.account.v2.GetAccountModeRequest
 	60,  // 103: gfxcafe.oku.account.v2.PerpsService.GetBuilderFeeStatus:input_type -> gfxcafe.oku.account.v2.GetBuilderFeeStatusRequest
-	145, // 104: gfxcafe.oku.account.v2.PerpsService.GetActiveAssetData:input_type -> gfxcafe.oku.account.v2.GetActiveAssetDataRequest
+	146, // 104: gfxcafe.oku.account.v2.PerpsService.GetActiveAssetData:input_type -> gfxcafe.oku.account.v2.GetActiveAssetDataRequest
 	58,  // 105: gfxcafe.oku.account.v2.PerpsService.GetPerpsPnlSummary:input_type -> gfxcafe.oku.account.v2.GetPerpsPnlSummaryRequest
 	63,  // 106: gfxcafe.oku.account.v2.PerpsService.CreateAction:input_type -> gfxcafe.oku.account.v2.CreateActionRequest
 	64,  // 107: gfxcafe.oku.account.v2.PerpsService.UpdateAction:input_type -> gfxcafe.oku.account.v2.UpdateActionRequest
@@ -12503,20 +12630,20 @@ var file_gfxcafe_oku_account_v2_perps_proto_depIdxs = []int32{
 	102, // 124: gfxcafe.oku.account.v2.PerpsService.TransferBalance:input_type -> gfxcafe.oku.account.v2.TransferBalanceRequest
 	104, // 125: gfxcafe.oku.account.v2.PerpsService.CreateWithdrawPayload:input_type -> gfxcafe.oku.account.v2.CreateWithdrawPayloadRequest
 	106, // 126: gfxcafe.oku.account.v2.PerpsService.Withdraw:input_type -> gfxcafe.oku.account.v2.WithdrawRequest
-	133, // 127: gfxcafe.oku.account.v2.PerpsService.GetTradeEstimate:input_type -> gfxcafe.oku.account.v2.GetTradeEstimateRequest
-	135, // 128: gfxcafe.oku.account.v2.PerpsService.GetUserFeeRates:input_type -> gfxcafe.oku.account.v2.GetUserFeeRatesRequest
-	137, // 129: gfxcafe.oku.account.v2.PerpsService.GetUserFeeSchedule:input_type -> gfxcafe.oku.account.v2.GetUserFeeScheduleRequest
-	120, // 130: gfxcafe.oku.account.v2.PerpsService.GetTradeHistory:input_type -> gfxcafe.oku.account.v2.GetTradeHistoryRequest
-	122, // 131: gfxcafe.oku.account.v2.PerpsService.GetUserFills:input_type -> gfxcafe.oku.account.v2.GetUserFillsRequest
-	124, // 132: gfxcafe.oku.account.v2.PerpsService.GetFundingHistory:input_type -> gfxcafe.oku.account.v2.GetFundingHistoryRequest
-	126, // 133: gfxcafe.oku.account.v2.PerpsService.GetOrderHistory:input_type -> gfxcafe.oku.account.v2.GetOrderHistoryRequest
-	129, // 134: gfxcafe.oku.account.v2.PerpsService.GetDepositWithdrawHistory:input_type -> gfxcafe.oku.account.v2.GetDepositWithdrawHistoryRequest
-	131, // 135: gfxcafe.oku.account.v2.PerpsService.GetHyperliquidOrderInfo:input_type -> gfxcafe.oku.account.v2.GetHyperliquidOrderInfoRequest
-	159, // 136: gfxcafe.oku.account.v2.PerpsService.GeneratePnlCard:input_type -> gfxcafe.oku.account.v2.GeneratePnlCardRequest
-	147, // 137: gfxcafe.oku.account.v2.PerpsService.GetDepositTokens:input_type -> gfxcafe.oku.account.v2.GetDepositTokensRequest
-	150, // 138: gfxcafe.oku.account.v2.PerpsService.BuildDepositTransaction:input_type -> gfxcafe.oku.account.v2.BuildDepositTransactionRequest
-	153, // 139: gfxcafe.oku.account.v2.PerpsService.GenerateDepositAddress:input_type -> gfxcafe.oku.account.v2.GenerateDepositAddressRequest
-	155, // 140: gfxcafe.oku.account.v2.PerpsService.GetDepositOperations:input_type -> gfxcafe.oku.account.v2.GetDepositOperationsRequest
+	134, // 127: gfxcafe.oku.account.v2.PerpsService.GetTradeEstimate:input_type -> gfxcafe.oku.account.v2.GetTradeEstimateRequest
+	136, // 128: gfxcafe.oku.account.v2.PerpsService.GetUserFeeRates:input_type -> gfxcafe.oku.account.v2.GetUserFeeRatesRequest
+	138, // 129: gfxcafe.oku.account.v2.PerpsService.GetUserFeeSchedule:input_type -> gfxcafe.oku.account.v2.GetUserFeeScheduleRequest
+	121, // 130: gfxcafe.oku.account.v2.PerpsService.GetTradeHistory:input_type -> gfxcafe.oku.account.v2.GetTradeHistoryRequest
+	123, // 131: gfxcafe.oku.account.v2.PerpsService.GetUserFills:input_type -> gfxcafe.oku.account.v2.GetUserFillsRequest
+	125, // 132: gfxcafe.oku.account.v2.PerpsService.GetFundingHistory:input_type -> gfxcafe.oku.account.v2.GetFundingHistoryRequest
+	127, // 133: gfxcafe.oku.account.v2.PerpsService.GetOrderHistory:input_type -> gfxcafe.oku.account.v2.GetOrderHistoryRequest
+	130, // 134: gfxcafe.oku.account.v2.PerpsService.GetDepositWithdrawHistory:input_type -> gfxcafe.oku.account.v2.GetDepositWithdrawHistoryRequest
+	132, // 135: gfxcafe.oku.account.v2.PerpsService.GetHyperliquidOrderInfo:input_type -> gfxcafe.oku.account.v2.GetHyperliquidOrderInfoRequest
+	160, // 136: gfxcafe.oku.account.v2.PerpsService.GeneratePnlCard:input_type -> gfxcafe.oku.account.v2.GeneratePnlCardRequest
+	148, // 137: gfxcafe.oku.account.v2.PerpsService.GetDepositTokens:input_type -> gfxcafe.oku.account.v2.GetDepositTokensRequest
+	151, // 138: gfxcafe.oku.account.v2.PerpsService.BuildDepositTransaction:input_type -> gfxcafe.oku.account.v2.BuildDepositTransactionRequest
+	154, // 139: gfxcafe.oku.account.v2.PerpsService.GenerateDepositAddress:input_type -> gfxcafe.oku.account.v2.GenerateDepositAddressRequest
+	156, // 140: gfxcafe.oku.account.v2.PerpsService.GetDepositOperations:input_type -> gfxcafe.oku.account.v2.GetDepositOperationsRequest
 	21,  // 141: gfxcafe.oku.account.v2.PerpsService.GetMarkets:output_type -> gfxcafe.oku.account.v2.GetMarketsResponse
 	25,  // 142: gfxcafe.oku.account.v2.PerpsService.GetSpotMarkets:output_type -> gfxcafe.oku.account.v2.GetSpotMarketsResponse
 	23,  // 143: gfxcafe.oku.account.v2.PerpsService.GetMarketPrice:output_type -> gfxcafe.oku.account.v2.GetMarketPriceResponse
@@ -12534,7 +12661,7 @@ var file_gfxcafe_oku_account_v2_perps_proto_depIdxs = []int32{
 	55,  // 155: gfxcafe.oku.account.v2.PerpsService.GetAccountBalances:output_type -> gfxcafe.oku.account.v2.GetAccountBalancesResponse
 	57,  // 156: gfxcafe.oku.account.v2.PerpsService.GetAccountMode:output_type -> gfxcafe.oku.account.v2.GetAccountModeResponse
 	61,  // 157: gfxcafe.oku.account.v2.PerpsService.GetBuilderFeeStatus:output_type -> gfxcafe.oku.account.v2.GetBuilderFeeStatusResponse
-	146, // 158: gfxcafe.oku.account.v2.PerpsService.GetActiveAssetData:output_type -> gfxcafe.oku.account.v2.GetActiveAssetDataResponse
+	147, // 158: gfxcafe.oku.account.v2.PerpsService.GetActiveAssetData:output_type -> gfxcafe.oku.account.v2.GetActiveAssetDataResponse
 	59,  // 159: gfxcafe.oku.account.v2.PerpsService.GetPerpsPnlSummary:output_type -> gfxcafe.oku.account.v2.GetPerpsPnlSummaryResponse
 	65,  // 160: gfxcafe.oku.account.v2.PerpsService.CreateAction:output_type -> gfxcafe.oku.account.v2.ActionPayloadResponse
 	65,  // 161: gfxcafe.oku.account.v2.PerpsService.UpdateAction:output_type -> gfxcafe.oku.account.v2.ActionPayloadResponse
@@ -12557,20 +12684,20 @@ var file_gfxcafe_oku_account_v2_perps_proto_depIdxs = []int32{
 	103, // 178: gfxcafe.oku.account.v2.PerpsService.TransferBalance:output_type -> gfxcafe.oku.account.v2.TransferBalanceResponse
 	105, // 179: gfxcafe.oku.account.v2.PerpsService.CreateWithdrawPayload:output_type -> gfxcafe.oku.account.v2.CreateWithdrawPayloadResponse
 	107, // 180: gfxcafe.oku.account.v2.PerpsService.Withdraw:output_type -> gfxcafe.oku.account.v2.WithdrawResponse
-	134, // 181: gfxcafe.oku.account.v2.PerpsService.GetTradeEstimate:output_type -> gfxcafe.oku.account.v2.GetTradeEstimateResponse
-	136, // 182: gfxcafe.oku.account.v2.PerpsService.GetUserFeeRates:output_type -> gfxcafe.oku.account.v2.GetUserFeeRatesResponse
-	138, // 183: gfxcafe.oku.account.v2.PerpsService.GetUserFeeSchedule:output_type -> gfxcafe.oku.account.v2.GetUserFeeScheduleResponse
-	121, // 184: gfxcafe.oku.account.v2.PerpsService.GetTradeHistory:output_type -> gfxcafe.oku.account.v2.GetTradeHistoryResponse
-	123, // 185: gfxcafe.oku.account.v2.PerpsService.GetUserFills:output_type -> gfxcafe.oku.account.v2.GetUserFillsResponse
-	125, // 186: gfxcafe.oku.account.v2.PerpsService.GetFundingHistory:output_type -> gfxcafe.oku.account.v2.GetFundingHistoryResponse
-	127, // 187: gfxcafe.oku.account.v2.PerpsService.GetOrderHistory:output_type -> gfxcafe.oku.account.v2.GetOrderHistoryResponse
-	130, // 188: gfxcafe.oku.account.v2.PerpsService.GetDepositWithdrawHistory:output_type -> gfxcafe.oku.account.v2.GetDepositWithdrawHistoryResponse
-	132, // 189: gfxcafe.oku.account.v2.PerpsService.GetHyperliquidOrderInfo:output_type -> gfxcafe.oku.account.v2.GetHyperliquidOrderInfoResponse
-	160, // 190: gfxcafe.oku.account.v2.PerpsService.GeneratePnlCard:output_type -> gfxcafe.oku.account.v2.GeneratePnlCardResponse
-	149, // 191: gfxcafe.oku.account.v2.PerpsService.GetDepositTokens:output_type -> gfxcafe.oku.account.v2.GetDepositTokensResponse
-	151, // 192: gfxcafe.oku.account.v2.PerpsService.BuildDepositTransaction:output_type -> gfxcafe.oku.account.v2.BuildDepositTransactionResponse
-	154, // 193: gfxcafe.oku.account.v2.PerpsService.GenerateDepositAddress:output_type -> gfxcafe.oku.account.v2.GenerateDepositAddressResponse
-	158, // 194: gfxcafe.oku.account.v2.PerpsService.GetDepositOperations:output_type -> gfxcafe.oku.account.v2.GetDepositOperationsResponse
+	135, // 181: gfxcafe.oku.account.v2.PerpsService.GetTradeEstimate:output_type -> gfxcafe.oku.account.v2.GetTradeEstimateResponse
+	137, // 182: gfxcafe.oku.account.v2.PerpsService.GetUserFeeRates:output_type -> gfxcafe.oku.account.v2.GetUserFeeRatesResponse
+	139, // 183: gfxcafe.oku.account.v2.PerpsService.GetUserFeeSchedule:output_type -> gfxcafe.oku.account.v2.GetUserFeeScheduleResponse
+	122, // 184: gfxcafe.oku.account.v2.PerpsService.GetTradeHistory:output_type -> gfxcafe.oku.account.v2.GetTradeHistoryResponse
+	124, // 185: gfxcafe.oku.account.v2.PerpsService.GetUserFills:output_type -> gfxcafe.oku.account.v2.GetUserFillsResponse
+	126, // 186: gfxcafe.oku.account.v2.PerpsService.GetFundingHistory:output_type -> gfxcafe.oku.account.v2.GetFundingHistoryResponse
+	128, // 187: gfxcafe.oku.account.v2.PerpsService.GetOrderHistory:output_type -> gfxcafe.oku.account.v2.GetOrderHistoryResponse
+	131, // 188: gfxcafe.oku.account.v2.PerpsService.GetDepositWithdrawHistory:output_type -> gfxcafe.oku.account.v2.GetDepositWithdrawHistoryResponse
+	133, // 189: gfxcafe.oku.account.v2.PerpsService.GetHyperliquidOrderInfo:output_type -> gfxcafe.oku.account.v2.GetHyperliquidOrderInfoResponse
+	161, // 190: gfxcafe.oku.account.v2.PerpsService.GeneratePnlCard:output_type -> gfxcafe.oku.account.v2.GeneratePnlCardResponse
+	150, // 191: gfxcafe.oku.account.v2.PerpsService.GetDepositTokens:output_type -> gfxcafe.oku.account.v2.GetDepositTokensResponse
+	152, // 192: gfxcafe.oku.account.v2.PerpsService.BuildDepositTransaction:output_type -> gfxcafe.oku.account.v2.BuildDepositTransactionResponse
+	155, // 193: gfxcafe.oku.account.v2.PerpsService.GenerateDepositAddress:output_type -> gfxcafe.oku.account.v2.GenerateDepositAddressResponse
+	159, // 194: gfxcafe.oku.account.v2.PerpsService.GetDepositOperations:output_type -> gfxcafe.oku.account.v2.GetDepositOperationsResponse
 	141, // [141:195] is the sub-list for method output_type
 	87,  // [87:141] is the sub-list for method input_type
 	87,  // [87:87] is the sub-list for extension type_name
@@ -12584,12 +12711,12 @@ func file_gfxcafe_oku_account_v2_perps_proto_init() {
 		return
 	}
 	file_gfxcafe_oku_account_v2_validate_proto_init()
-	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[14].OneofWrappers = []any{}
-	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[23].OneofWrappers = []any{}
-	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[27].OneofWrappers = []any{}
-	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[33].OneofWrappers = []any{}
-	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[37].OneofWrappers = []any{}
-	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[58].OneofWrappers = []any{
+	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[13].OneofWrappers = []any{}
+	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[22].OneofWrappers = []any{}
+	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[26].OneofWrappers = []any{}
+	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[32].OneofWrappers = []any{}
+	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[36].OneofWrappers = []any{}
+	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[57].OneofWrappers = []any{
 		(*ActionParams_Order)(nil),
 		(*ActionParams_Cancel)(nil),
 		(*ActionParams_Modify)(nil),
@@ -12600,9 +12727,10 @@ func file_gfxcafe_oku_account_v2_perps_proto_init() {
 		(*ActionParams_Scale)(nil),
 		(*ActionParams_CancelOrders)(nil),
 		(*ActionParams_ConvertToUsdc)(nil),
+		(*ActionParams_TrailingStop)(nil),
 	}
-	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[80].OneofWrappers = []any{}
-	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[110].OneofWrappers = []any{}
+	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[79].OneofWrappers = []any{}
+	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[109].OneofWrappers = []any{}
 	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[129].OneofWrappers = []any{}
 	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[134].OneofWrappers = []any{}
 	file_gfxcafe_oku_account_v2_perps_proto_msgTypes[155].OneofWrappers = []any{}
@@ -12611,7 +12739,7 @@ func file_gfxcafe_oku_account_v2_perps_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gfxcafe_oku_account_v2_perps_proto_rawDesc), len(file_gfxcafe_oku_account_v2_perps_proto_rawDesc)),
-			NumEnums:      4,
+			NumEnums:      5,
 			NumMessages:   157,
 			NumExtensions: 0,
 			NumServices:   1,

@@ -1,0 +1,571 @@
+syntax = "proto3";
+
+package gfxcafe.oku.account.v2;
+
+import "buf/validate/validate.proto";
+import "gfxcafe/oku/account/v1/validate.proto";
+import "gfxcafe/oku/account/v2/orders.proto";
+import "gfxcafe/oku/account/v2/validate.proto";
+
+option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v2;accountv2";
+
+// ============================================================================
+// Service Definition
+// ============================================================================
+
+// SimpleSwapServiceV2 provides simple swap workflow operations
+service SimpleSwapServiceV2 {
+  // Authenticated historical tier for the caller's account, never a quote fee.
+  rpc GetAccountFeeTier(GetAccountFeeTierRequest) returns (GetAccountFeeTierResponse);
+
+  // Create creates a new simple swap order
+  rpc Create(SwapCreateRequest) returns (SwapCreateResponse);
+
+  // Ping pings a simple swap order and returns its current state
+  rpc Ping(PingRequest) returns (PingResponse);
+
+  // Cancel cancels a simple swap order
+  rpc Cancel(CancelRequest) returns (CancelResponse);
+
+  // UpdateQuoteParams updates quote parameters
+  rpc UpdateQuoteParams(SwapUpdateQuoteParamsRequest) returns (SwapUpdateQuoteParamsResponse);
+
+  // RefreshQuotes refreshes quotes for a simple swap order
+  rpc RefreshQuotes(RefreshQuotesRequest) returns (RefreshQuotesResponse);
+
+  // GetNewQuotes gets new quotes that have become available since last fetch
+  rpc GetNewQuotes(SwapGetNewQuotesRequest) returns (SwapGetQuotesResponse);
+
+  // GetQuotes gets all quotes for a simple swap order
+  rpc GetQuotes(SwapGetQuotesRequest) returns (SwapGetQuotesResponse);
+
+  // GetFlowstreamQuotes gets all quotes from Redis cache
+  rpc GetFlowstreamQuotes(SwapGetFlowstreamQuotesRequest) returns (SwapGetFlowstreamQuotesResponse);
+
+  // GetQuote gets a specific quote for a router
+  rpc GetQuote(SwapGetQuoteRequest) returns (SwapGetQuoteResponse);
+
+  // UpdateQuoteSelect selects a quote
+  rpc UpdateQuoteSelect(SwapUpdateQuoteSelectRequest) returns (SwapUpdateQuoteSelectResponse);
+
+  // ConfirmQuoteSelect confirms quote selection
+  rpc ConfirmQuoteSelect(SwapConfirmQuoteSelectRequest) returns (SwapConfirmQuoteSelectResponse);
+
+  // GetExecutionInfo gets execution information
+  rpc GetExecutionInfo(GetExecutionInfoRequest) returns (GetExecutionInfoResponse);
+
+  // Finish finishes the order with transaction details
+  rpc Finish(FinishRequest) returns (FinishResponse);
+
+  // Deprecated: use GetOrderStatus instead.
+  rpc GetCowswapOrderStatus(GetCowswapOrderStatusRequest) returns (GetCowswapOrderStatusResponse) {
+    option deprecated = true;
+  }
+
+  // Deprecated: use CancelIntentOrder instead.
+  rpc CancelCowswapOrder(CancelCowswapOrderRequest) returns (CancelCowswapOrderResponse) {
+    option deprecated = true;
+  }
+
+  // CancelIntentOrder cancels an intent-based order (e.g. cowswap). Only needs order_id.
+  rpc CancelIntentOrder(CancelIntentOrderRequest) returns (CancelIntentOrderResponse);
+
+  // GetSupportedMarkets returns which swap routers are active and which chains they support
+  rpc GetSupportedMarkets(GetSupportedMarketsRequest) returns (GetSupportedMarketsResponse);
+
+  // RequestJitQuote fetches a fresh "just in time" quote and execution info for the
+  // same router that was already selected, right before the user sends the transaction.
+  // Compares the new quote against the reference (rolling) and returns a verdict.
+  rpc RequestJitQuote(JitQuoteRequest) returns (JitQuoteResponse);
+}
+
+// ============================================================================
+// Core Types and Data Structures
+// ============================================================================
+
+// SwapFeatureFlags contains opt-in feature flags for swap orders.
+// New experimental or progressive features are added here to keep
+// SwapQuoteParams stable and maintain backwards compatibility.
+message SwapFeatureFlags {
+  // JIT buffer tolerance in parts per million. When > 0, the JIT re-quote
+  // comparison allows the new quote to be up to this many ppm worse than
+  // the reference before being rejected. This lets users set tighter
+  // slippage (less sandwich exposure) while tolerating normal price drift
+  // between quote and execution time. Default 0 = strict comparison.
+  // Capped at 100000 ppm (10%).
+  // Ignored when enable_auto_slippage is set (the backend computes the
+  // optimal JIT buffer from historical data).
+  int32 jit_buffer_ppm = 1 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 100000
+  }];
+  // Enable auto slippage. When set, the backend uses data-driven slippage
+  // from historical trades instead of slippage_ppm. Both the router slippage
+  // and JIT buffer tolerance are computed automatically. The auto suggestion
+  // is clamped to max_auto_slippage_ppm in SwapQuoteParams (required).
+  bool enable_auto_slippage = 2;
+}
+
+// SwapQuoteParams represents swap quote parameters
+message SwapQuoteParams {
+  int64 chain = 1;
+  repeated string enabled_markets = 2;
+  string account = 3;
+  bool is_exact_in = 4;
+  string in_token_address = 5;
+  string out_token_address = 6;
+  string token_amount = 7;
+  // Deprecated: use slippage_ppm instead. Slippage tolerance in basis points (e.g. 50 = 0.5%).
+  double slippage = 8 [deprecated = true];
+  bool skip_simulation = 9;
+  string dst_address = 10;
+  bool use_permit2 = 11;
+  repeated string enabled_protocols = 12; // optional list of protocols (V2, V3, V4, MIXED) for Uniswap routing
+  // Deprecated: ignored by the server. Swaps always route through the Oku Router contract.
+  bool use_oku_router = 13 [deprecated = true];
+  bool use_permit2_proxy = 14; // Route through Permit2Proxy contract when using Permit2 with Oku Router
+  bool enable_jit = 15; // Enable JIT (just-in-time) re-quoting before execution for eligible routes
+  bool use_allowance_transfer = 16; // Use Permit2 AllowanceTransfer via Permit2Proxy.executeAllowance
+  // Slippage tolerance in parts per million (e.g. 5000 = 50 bps = 0.5%).
+  // Canonical field — prefer over deprecated slippage (bps). Cannot be set together with slippage.
+  int32 slippage_ppm = 17 [(buf.validate.field).int32.gte = 0];
+  SwapFeatureFlags feature_flags = 18; // Optional feature flags for progressive feature rollout
+  // Maximum slippage (in ppm) the backend may auto-apply. Required when
+  // feature_flags.enable_auto_slippage is set. Acts as a ceiling — the
+  // backend will never exceed this value regardless of what historical
+  // data suggests.
+  int32 max_auto_slippage_ppm = 19 [(buf.validate.field).int32.gte = 0];
+}
+
+// AutoSlippageInfo describes the auto-applied slippage and JIT buffer when
+// enable_auto_slippage is set. Present on quote responses so the frontend
+// knows what the backend computed.
+message AutoSlippageInfo {
+  // The slippage (in ppm) actually sent to the router. May be lower than
+  // the user's max_auto_slippage_ppm.
+  int32 applied_slippage_ppm = 1;
+  // The JIT buffer tolerance (in ppm) computed from historical volatility.
+  // Used for JIT re-quote comparison instead of the manual jit_buffer_ppm.
+  int32 applied_jit_buffer_ppm = 2;
+  // The user's max_auto_slippage_ppm ceiling.
+  int32 max_slippage_ppm = 3;
+  // Number of historical trades the suggestion was based on (for the
+  // matched trade-size bucket). Zero means no data was available and the
+  // backend fell back to the user's slippage_ppm.
+  int32 sample_count = 4;
+}
+
+// SimpleSwapQuoteInformation contains quote information
+message SimpleSwapQuoteInformation {
+  string router = 1;
+  bool fetched = 2;
+  string quote_id = 3 [(buf.validate.field).string.uuid = true];
+  int32 generation = 4;
+  int64 start_time = 5;
+  OrderError error = 6;
+  SimpleSwapQuote quote = 7;
+  string type = 8;
+  int32 timeline = 9;
+  // Quote fetch latency in milliseconds.
+  int64 duration = 10;
+  // Whether this quote supports JIT (just-in-time) re-quoting before execution.
+  bool jit_eligible = 11;
+  // JIT buffer tolerance in ppm that was in effect when this quote was
+  // fetched. Lets the frontend detect when the user's current setting
+  // differs from what this quote was created with (e.g. the setting was
+  // changed after quoting). Zero means strict comparison.
+  int32 jit_buffer_ppm = 12;
+  // Auto slippage info. Present when enable_auto_slippage was set.
+  // When present, jit_buffer_ppm above reflects the auto-computed value
+  // rather than the user's manual setting.
+  AutoSlippageInfo auto_slippage = 13;
+  // Protocol fee used to fetch this quote, in parts per million.
+  int32 fee_ppm = 14;
+  // Fee waived by a free trade; claimed on confirmation.
+  bool free_trade = 15;
+}
+
+// SimpleSwapQuote represents a simple swap quote (ExtendedPriceQuote)
+message SimpleSwapQuote {
+  // Core quote fields
+  string in_amount = 1;
+  string out_amount = 2;
+
+  // Chain and market info
+  int32 chain_id = 3;
+  string market = 4;
+  bool is_exact_in = 5;
+  TokenMetadata in_token = 6;
+  TokenMetadata out_token = 7;
+
+  // DEPRECATED: Use approvals_v2 instead, will be removed in Phase 2
+  repeated ApprovalPayload approvals = 8 [deprecated = true];
+  SigningRequest signing_request = 9;
+  // DEPRECATED: Workflow handles coupon internally, will be removed in Phase 2
+  Coupon coupon = 10 [deprecated = true];
+
+  // Optional fields
+  // Deprecated: use slippage_ppm instead. Slippage in basis points.
+  double slippage = 11 [deprecated = true];
+  SimpleSwapFees fees = 12;
+  // Slippage tolerance in parts per million (e.g. 5000 = 50 bps = 0.5%).
+  int32 slippage_ppm = 27;
+  double price_impact = 13;
+
+  // Price ratios and USD values
+  double amount_ratio = 14;
+  double gas_usd_value = 15;
+  double token_in_usd_value = 16;
+  double in_usd_value = 17;
+  double token_out_usd_value = 18;
+  double out_usd_value = 19;
+  double net_usd_value = 20;
+
+  // Simulation
+  SimulationResult simulation = 21;
+
+  // Timestamp
+  int64 timestamp = 22;
+
+  // V2 fields
+  repeated ApprovalPayloadV2 approvals_v2 = 23;
+  ExecutionInformation execution_info = 24;
+
+  // Protocol fee info from Oku Router
+  FeeInfo fee_info = 25;
+
+  // Whether this quote is intent-based (e.g. cowswap) rather than transaction-based
+  bool intent_based = 26;
+
+  // Minimum amount of tokens expected to receive
+  string min_amount_out = 28;
+
+  // Exact base-unit amounts returned by the router.
+  string in_amount_raw = 29;
+  string out_amount_raw = 30;
+  string min_amount_out_raw = 31;
+}
+
+// SimpleSwapFees represents fees
+message SimpleSwapFees {
+  string fees_in_amount = 1;
+  string fees_out_amount = 2;
+  string gas = 3;
+  string gas_in_usd = 4;
+}
+
+// FeeInfo contains protocol fee details.
+message FeeInfo {
+  TokenFeeInfo output_token_fee_info = 1;
+  TokenFeeInfo input_token_fee_info = 2;
+}
+
+// TokenFeeInfo describes a fee charged on a specific token.
+message TokenFeeInfo {
+  string amount_raw = 1;
+  string amount = 2;
+  string token_address = 3;
+  int32 chain_id = 4;
+}
+
+// ============================================================================
+// Request/Response Message Pairs
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// Create: Creates a new simple swap order
+// ----------------------------------------------------------------------------
+
+message SwapCreateRequest {
+  SwapQuoteParams params = 1;
+  string integration = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v2.integration_id) = true];
+  // Set by the client when the order is placed from the launchpad. Stored as
+  // order metadata and copied to analytics.
+  // TODO: derive this server side instead of trusting the client, e.g. by
+  // checking the traded tokens against the launchpad factory.
+  bool launchpad = 3;
+}
+
+message SwapCreateResponse {
+  string order_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+  int32 timeline = 2;
+}
+
+// ----------------------------------------------------------------------------
+// UpdateQuoteParams: Updates quote parameters for an order
+// ----------------------------------------------------------------------------
+
+message SwapUpdateQuoteParamsRequest {
+  string order_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+  SwapQuoteParams params = 2;
+}
+
+message SwapUpdateQuoteParamsResponse {
+  int32 timeline = 1;
+}
+
+// ----------------------------------------------------------------------------
+// GetNewQuotes: Gets new quotes that have become available since last fetch
+// ----------------------------------------------------------------------------
+
+message SwapGetNewQuotesRequest {
+  string order_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+  repeated string fetched_routers = 2 [(buf.validate.field).repeated.items.string.(gfxcafe.oku.account.v2.router_id) = true];
+  int64 wait_time = 3;
+  int32 generation = 4;
+}
+
+message SwapGetQuotesResponse {
+  map<string, SimpleSwapQuoteInformation> quotes = 1;
+}
+
+// ----------------------------------------------------------------------------
+// GetQuotes: Gets all quotes for a simple swap order
+// ----------------------------------------------------------------------------
+
+message SwapGetQuotesRequest {
+  string order_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+  int32 generation = 2;
+}
+
+// ----------------------------------------------------------------------------
+// GetFlowstreamQuotes: Gets all quotes from Redis cache with long-polling support
+// ----------------------------------------------------------------------------
+
+message SwapGetFlowstreamQuotesRequest {
+  string order_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+  // The client's current timeline. If it differs from server, returns immediately.
+  int32 timeline = 2;
+  // Routers the client already has quotes for in the current timeline.
+  repeated string fetched_routers = 3 [(buf.validate.field).repeated.items.string.(gfxcafe.oku.account.v2.router_id) = true];
+  // Maximum time to wait for updates in milliseconds (long-polling).
+  int32 wait_time = 4;
+}
+
+message SwapGetFlowstreamQuotesResponse {
+  map<string, SimpleSwapQuoteInformation> quotes = 1;
+  int32 timeline = 2;
+}
+
+// ----------------------------------------------------------------------------
+// GetQuote: Gets a specific quote for a router
+// ----------------------------------------------------------------------------
+
+message SwapGetQuoteRequest {
+  string order_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+  string router = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v2.router_id) = true];
+}
+
+message SwapGetQuoteResponse {
+  map<string, SimpleSwapQuoteInformation> quotes = 1;
+}
+
+// ----------------------------------------------------------------------------
+// UpdateQuoteSelect: Selects a quote for an order
+// ----------------------------------------------------------------------------
+
+message SwapUpdateQuoteSelectRequest {
+  string order_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+  string router = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v2.router_id) = true];
+  string quote_id = 3 [(buf.validate.field).string.uuid = true];
+}
+
+message SwapUpdateQuoteSelectResponse {
+  string quote_id = 1;
+  string router = 2;
+}
+
+// ----------------------------------------------------------------------------
+// ConfirmQuoteSelect: Confirms the selected quote
+// ----------------------------------------------------------------------------
+
+message SwapConfirmQuoteSelectRequest {
+  string order_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+  string router = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v2.router_id) = true];
+  string quote_id = 3 [(buf.validate.field).string.uuid = true];
+}
+
+message SwapConfirmQuoteSelectResponse {}
+
+// ----------------------------------------------------------------------------
+// GetCowswapOrderStatus: Gets the status of a Cowswap order (deprecated)
+// ----------------------------------------------------------------------------
+
+message GetCowswapOrderStatusRequest {
+  string order_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+}
+
+message GetCowswapOrderStatusResponse {
+  string status = 1;
+}
+
+// ----------------------------------------------------------------------------
+// CancelCowswapOrder: Cancels a Cowswap order (deprecated)
+// ----------------------------------------------------------------------------
+
+message CancelCowswapOrderRequest {
+  string order_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+  string signature = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+message CancelCowswapOrderResponse {}
+
+// ----------------------------------------------------------------------------
+// CancelIntentOrder: Cancels an intent-based order (e.g. cowswap).
+// The backend resolves the intent order ID from the workflow.
+// ----------------------------------------------------------------------------
+
+message CancelIntentOrderRequest {
+  string order_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+  string signature = 2;
+}
+
+message CancelIntentOrderResponse {}
+
+// ----------------------------------------------------------------------------
+// GetSupportedMarkets: Returns which swap routers are active and which chains
+// they support. Cached aggressively — data rarely changes.
+// ----------------------------------------------------------------------------
+
+message GetSupportedMarketsRequest {}
+
+message MarketStatus {
+  // Router identifier (e.g. "zeroex", "kyberswap", "paraswap")
+  string name = 1;
+  // Whether the router is currently active
+  bool active = 2;
+  // Chain IDs where this router is available
+  repeated int32 supported_chain_ids = 3;
+  // Whether the router supports exact-out swaps
+  bool supports_exact_out = 4;
+}
+
+message GetSupportedMarketsResponse {
+  // Status of each known swap router
+  repeated MarketStatus markets = 1;
+}
+
+// ----------------------------------------------------------------------------
+// RequestJitQuote: Fetches a fresh quote + execution info for the same router
+// right before transaction broadcast, and compares against the reference quote.
+// ----------------------------------------------------------------------------
+
+// JitQuoteVerdict indicates how the new JIT quote compares to the reference.
+enum JitQuoteVerdict {
+  JIT_QUOTE_VERDICT_UNSPECIFIED = 0;
+  // New quote is strictly better (higher output) than the reference.
+  JIT_QUOTE_VERDICT_BETTER = 1;
+  // New quote is identical to the reference.
+  JIT_QUOTE_VERDICT_EQUAL = 2;
+  // New quote is worse (lower output) than the reference.
+  JIT_QUOTE_VERDICT_WORSE = 3;
+  // Failed to obtain a JIT quote. Reference is unchanged.
+  JIT_QUOTE_VERDICT_FAILED = 4;
+  // New quote is slightly worse but within the JIT buffer tolerance.
+  // Treat as acceptable — proceed with execution.
+  JIT_QUOTE_VERDICT_ACCEPTABLE = 5;
+}
+
+message JitQuoteRequest {
+  string order_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+  string quote_id = 2 [(buf.validate.field).string.uuid = true];
+  // Reuse ExecutionRequest — carries the signing_request from the initial flow.
+  ExecutionRequest request = 3;
+  // When true, restore the comparison reference to what it was before the
+  // last WORSE ratchet, then re-quote against that restored benchmark.
+  // Use this after receiving a WORSE verdict to retry with the previous
+  // (better) reference instead of the ratcheted-down one.
+  // Defaults to false (current rolling-ratchet behavior).
+  bool use_previous_benchmark = 4;
+}
+
+message JitQuoteResponse {
+  JitQuoteVerdict verdict = 1;
+  // The fresh execution info from the JIT quote (nil on FAILED).
+  GetExecutionInfoResponse new_execution_info = 2;
+  // The fresh quote details for comparison / state replacement (nil on FAILED).
+  SimpleSwapQuoteInformation new_quote = 3;
+  // The reference quote that was compared against (always present).
+  SimpleSwapQuoteInformation reference_quote = 4;
+  // Error message when verdict is FAILED.
+  string error = 5;
+}
+
+// ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+
+// Identity comes exclusively from authentication. The optional wallet broadens
+// the free-trade count, but never selects another user.
+message GetAccountFeeTierRequest {
+  // Must be a wallet linked to the authenticated user.
+  optional string account = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
+}
+
+message AccountFeeVolumeTier {
+  // Ascending lower bounds. The next row defines this row's upper bound.
+  double minimum_volume_usd = 1;
+  bool minimum_exclusive = 2;
+  uint32 fee_ppm = 3;
+}
+
+message GetAccountFeeTierResponse {
+  // Historical default-policy rate before current-size benefits or exemptions.
+  uint32 historical_fee_ppm = 1;
+  // Account-wide completed trade volume from the 30 days before calculated_at.
+  // Uses the same double-precision volume and up-to-24-hour cache as fee resolution.
+  double volume_usd = 2;
+  // UTC RFC3339 snapshot time, not request time. Trades do not invalidate the cache.
+  string calculated_at = 3;
+  uint32 volume_window_days = 4;
+  uint32 cache_max_age_seconds = 5;
+  repeated AccountFeeVolumeTier default_schedule = 6;
+  // Configuration state, NOT a claim that this account or any quote pays fees.
+  bool default_fee_enabled = 7;
+  // Always true: exemptions, discounts, routing, wrapping, like-kind, flat fees
+  // and current-size benefits require quote context. Retail and miniapp have
+  // separate policies. Use the quote's fee fields for actual fees, including zero.
+  bool quote_context_required = 8;
+  bool free_trades_enabled = 9;
+  uint32 free_trades_limit = 10;
+  // Pre-claim remaining trades, counting the user and (if given) the wallet.
+  // Zero when the account or wallet made a non-free trade within the window.
+  // The quote's free_trade flag is authoritative for a particular quote.
+  uint32 free_trades_remaining = 11;
+  uint32 free_trades_window_days = 12;
+}
