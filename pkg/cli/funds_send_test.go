@@ -119,3 +119,32 @@ func TestSendUnknownBlocksNextSubmission(t *testing.T) {
 		t.Fatalf("missing unresolved reason: %s", result.stdout)
 	}
 }
+
+func TestSendInsufficientGasBeforeBroadcast(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	rpc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request struct {
+			Method string `json:"method"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&request)
+		switch request.Method {
+		case "eth_getBalance":
+			fmt.Fprint(w, `{"result":"0x0"}`)
+		case "eth_gasPrice":
+			fmt.Fprint(w, `{"result":"0x1"}`)
+		default:
+			t.Errorf("unexpected RPC %s", request.Method)
+		}
+	}))
+	defer rpc.Close()
+	h.rpcURL = rpc.URL
+	prepared := h.run("send", "prepare", "--chain", "42161", "--token", "native", "--amount", "0.01", "--json")
+	if prepared.code != 0 {
+		t.Fatalf("prepare: %s", prepared.stdout)
+	}
+	result := h.run("send", "submit", "--intent", prepared.data()["intent_id"].(string), "--digest", prepared.data()["digest"].(string), "--json")
+	if result.errCode() != "INSUFFICIENT_GAS" || h.privy.rpcCalls != 0 {
+		t.Fatalf("gas refusal: %s calls=%d", result.stdout, h.privy.rpcCalls)
+	}
+}
