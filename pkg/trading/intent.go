@@ -59,9 +59,9 @@ type Intent struct {
 	TIF         string `json:"tif,omitempty"`   // GTC | IOC | ALO
 	ReduceOnly  bool   `json:"reduce_only,omitempty"`
 	SlippageBps int    `json:"slippage_bps,omitempty"`
-	// ReferencePx and WorstPx bound market orders. The server computes its
-	// own aggressive price from the live mid; the signed price must not be
-	// worse than WorstPx.
+	// ReferencePx and WorstPx bound market orders. A market order is sent as
+	// an IOC limit at exactly WorstPx, so the signed price is the approved
+	// bound and a later market move cannot invalidate it.
 	ReferencePx string `json:"reference_px,omitempty"`
 	WorstPx     string `json:"worst_px,omitempty"`
 	// Builder fee policy observed at prepare time.
@@ -112,8 +112,10 @@ func (in *Intent) hlTIF() string {
 	return "Gtc"
 }
 
-// WorstPrice returns reference*(1±bps/10000) truncated toward the safe side
-// to at most maxDecimals decimals. It is a bound, not the order price.
+// WorstPrice returns reference*(1±bps/10000) rounded toward the reference
+// to a valid Hyperliquid perp price: at most maxDecimals decimals and at most
+// 5 significant figures unless integral. It is the exact IOC limit price
+// submitted for a market order, so it must be exchange-valid.
 func WorstPrice(reference string, isBuy bool, bps int, maxDecimals int) (string, error) {
 	if bps <= 0 || bps >= 10000 {
 		return "", errors.New("slippage bps must be between 1 and 9999")
@@ -127,19 +129,31 @@ func WorstPrice(reference string, isBuy bool, bps int, maxDecimals int) (string,
 		mult = int64(10000 + bps)
 	}
 	v := new(big.Rat).Mul(ref, big.NewRat(mult, 10000))
-	scale := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(maxDecimals)), nil)
+	for d := maxDecimals; d >= 0; d-- {
+		s, err := roundToward(v, d, !isBuy)
+		if err != nil {
+			return "", err
+		}
+		if decimal.Decimals(s) == 0 || decimal.SigFigs(s) <= 5 {
+			return s, nil
+		}
+	}
+	return "", errors.New("slippage bound is not representable at market precision")
+}
+
+// roundToward rounds v to d decimals, down unless up is set. Rounding a buy
+// bound down and a sell bound up keeps it within the user's tolerance.
+func roundToward(v *big.Rat, d int, up bool) (string, error) {
+	scale := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(d)), nil)
 	num := new(big.Int).Mul(v.Num(), scale)
 	q, r := new(big.Int).QuoRem(num, v.Denom(), new(big.Int))
-	// Round toward the reference (buy down, sell up) so the bound is never
-	// looser than the user's slippage tolerance.
-	if !isBuy && r.Sign() != 0 {
+	if up && r.Sign() != 0 {
 		q.Add(q, big.NewInt(1))
 	}
 	if q.Sign() <= 0 {
 		return "", errors.New("slippage bound is not representable at market precision")
 	}
-	s := new(big.Rat).SetFrac(q, scale).FloatString(maxDecimals)
-	return decimal.Canonical(s)
+	return decimal.Canonical(new(big.Rat).SetFrac(q, scale).FloatString(d))
 }
 
 // wire types for validation; unknown fields are rejected.

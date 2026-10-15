@@ -120,6 +120,9 @@ oku orders prepare --market BTC --side buy|sell --type limit|market --size <dec>
   [--expires 5m] [--intent-id ID]
 #   no exchange submission; may read current market data. Returns intent_id and digest.
 #   --price for limit orders. Market orders default to --slippage-bps 50 (0.5%).
+#   A market order is sent as an IOC limit at exactly the previewed worst price, so price
+#   moves between prepare and submit cannot make it fail; it fills at the best available
+#   price up to that bound. Bare symbols such as RKLB resolve to HIP-3 markets (xyz:RKLB).
 oku orders submit --intent ID --digest SHA
 oku orders status --intent ID
 oku orders reconcile

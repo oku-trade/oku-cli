@@ -68,7 +68,13 @@ func (a *App) cmdMarketsList(e *env) (*result, error) {
 		}
 	}
 	var resp api.GetMarketsResponse
-	if err := e.perpsRead(p, "GetMarkets", req, &resp); err != nil {
+	if req["coin"] != "" {
+		m, err := e.market(p, req["coin"])
+		if err != nil {
+			return nil, err
+		}
+		resp.Markets = []api.Market{*m}
+	} else if err := e.perpsRead(p, "GetMarkets", req, &resp); err != nil {
 		return nil, err
 	}
 	if resp.Markets == nil {
@@ -97,6 +103,9 @@ func (a *App) cmdMarketsQuote(e *env) (*result, error) {
 	p, err := e.profile()
 	if err != nil {
 		return nil, err
+	}
+	if m, merr := e.market(p, coin); merr == nil {
+		coin = m.Coin
 	}
 	var resp api.GetMarketPriceResponse
 	if err := e.perpsRead(p, "GetMarketPrice", map[string]string{"coin": coin}, &resp); err != nil {
@@ -131,6 +140,9 @@ func (a *App) cmdMarketsFunding(e *env) (*result, error) {
 	p, err := e.profile()
 	if err != nil {
 		return nil, err
+	}
+	if m, merr := e.market(p, coin); merr == nil {
+		coin = m.Coin
 	}
 	now := e.app.Now()
 	var hist api.GetMarketFundingHistoryResponse

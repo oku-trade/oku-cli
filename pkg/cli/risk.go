@@ -129,7 +129,7 @@ func (e *env) prepareRisk(coin string, fill func(*trading.Intent, int, bool) err
 	now := e.app.Now().UTC()
 	in := trading.Intent{
 		Version: 1, ID: id, Network: p.Network, Account: acct, APIURL: p.APIURL,
-		Market: coin, AssetID: m.AssetID,
+		Market: m.Coin, AssetID: m.AssetID,
 		CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(ttl).Format(time.RFC3339),
 	}
 	if err := fill(&in, m.MaxLeverage, m.OnlyIsolated); err != nil {

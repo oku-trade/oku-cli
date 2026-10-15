@@ -66,6 +66,10 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	authed := r.Header.Get("x-oku-account-session") == "session-1" && r.Header.Get("x-oku-account-session-token") == "session-token"
 	reply := func(v any) { json.NewEncoder(w).Encode(v) }
 	if r.URL.Path == "/info" {
+		if body["type"] == "perpDexs" {
+			reply([]any{nil, map[string]string{"name": "xyz"}, map[string]string{"name": "flx"}})
+			return
+		}
 		if body["type"] != "userRole" || body["user"] != f.agentAddress {
 			f.t.Errorf("unexpected hyperliquid lookup: %v", body)
 		}
@@ -109,8 +113,21 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		reply(map[string]any{"valid": valid, "status": status})
 	case "GetMarkets":
+		switch body["coin"] {
+		case "xyz:RKLB":
+			reply(map[string]any{"markets": []map[string]any{{"coin": "xyz:RKLB", "szDecimals": 2, "maxLeverage": 10, "onlyIsolated": true, "assetId": 110062, "markPx": "54.86", "midPx": "54.852"}}})
+			return
+		case "BTC", nil, "":
+		default:
+			fail(404, "not_found", "market not found")
+			return
+		}
 		reply(map[string]any{"markets": []map[string]any{{"coin": "BTC", "szDecimals": 5, "maxLeverage": 40, "assetId": 0, "markPx": "50000.0", "midPx": "50000.5", "funding": "0.00001"}}})
 	case "GetMarketPrice":
+		if body["coin"] == "xyz:RKLB" {
+			reply(map[string]any{"coin": "xyz:RKLB", "markPx": "54.86", "midPx": "54.852", "oraclePx": "54.85"})
+			return
+		}
 		reply(map[string]any{"coin": "BTC", "markPx": "50000.0", "midPx": "50000", "oraclePx": "50001.0"})
 	case "GetBuilderFeeStatus":
 		reply(map[string]any{"builderAddress": "0xd637f2a36c1a3b37d57ef4c7022cb183d8922f2c", "builderFeeChargedPpm": 100, "builderFeeApproved": true, "builderFeePpm": 500})
@@ -202,6 +219,9 @@ func defaultOrderAction(o map[string]any) string {
 	b := o["side"] == "buy"
 	p, _ := o["limitPx"].(string)
 	tif := "Gtc"
+	if o["tif"] == "IOC" {
+		tif = "Ioc"
+	}
 	if o["orderType"] == "market" {
 		p, tif = "50500", "Ioc"
 	}
@@ -532,6 +552,27 @@ func TestFlipPrepareUsesDefaultSlippage(t *testing.T) {
 	}
 }
 
+// A bare HIP-3 symbol resolves to its dex market, and the market order is
+// priced as a valid IOC limit at the 5-significant-figure bound.
+func TestHIP3BareSymbolResolves(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	r := h.run("orders", "prepare", "--market", "RKLB", "--side", "buy", "--type", "market", "--size", "9.07", "--json")
+	if r.code != 0 {
+		t.Fatalf("prepare RKLB: %s %s", r.stdout, r.stderr)
+	}
+	in := r.data()["intent"].(map[string]any)
+	if in["market"] != "xyz:RKLB" || in["asset_id"] != float64(110062) || in["worst_px"] != "55.126" {
+		t.Fatalf("intent: %v", in)
+	}
+	if r := h.run("markets", "list", "--market", "RKLB", "--json"); r.code != 0 || !strings.Contains(r.stdout, "xyz:RKLB") {
+		t.Fatalf("markets list: %s", r.stdout)
+	}
+	if r := h.run("markets", "list", "--market", "NOPE", "--json"); r.errCode() != "NOT_FOUND" {
+		t.Fatalf("unknown market: %s", r.stdout)
+	}
+}
+
 func TestMarketOrderSlippageBound(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
@@ -548,9 +589,23 @@ func TestMarketOrderSlippageBound(t *testing.T) {
 	if d["intent"].(map[string]any)["worst_px"] != "50250" {
 		t.Fatalf("worst px: %s", r.stdout)
 	}
-	// Server price 50500 exceeds the 50 bps bound: never signed.
+	// The market order is sent as an IOC limit at exactly the approved bound,
+	// so a later market move cannot invalidate it.
+	var sent map[string]any
+	h.fake.actionJSON = func(o map[string]any) string { sent = o; return defaultOrderAction(o) }
 	r = h.run("orders", "submit", "--intent", d["intent_id"].(string), "--digest", d["digest"].(string), "--json")
-	if r.errCode() != "PAYLOAD_MISMATCH" || h.fake.confirms != 0 {
+	if r.code != 0 || sent["orderType"] != "limit" || sent["tif"] != "IOC" || sent["limitPx"] != "50250" || h.fake.confirms != 1 {
+		t.Fatalf("market submit: sent=%v %s", sent, r.stdout)
+	}
+	// A server that returns a price beyond the bound is never signed.
+	r = h.run("orders", "prepare", "--market", "BTC", "--side", "buy", "--type", "market", "--size", "0.001", "--slippage-bps", "50", "--json")
+	d = r.data()
+	h.fake.actionJSON = func(o map[string]any) string {
+		o["limitPx"] = "50500"
+		return defaultOrderAction(o)
+	}
+	r = h.run("orders", "submit", "--intent", d["intent_id"].(string), "--digest", d["digest"].(string), "--json")
+	if r.errCode() != "PAYLOAD_MISMATCH" || h.fake.confirms != 1 {
 		t.Fatalf("got %s", r.stdout)
 	}
 }

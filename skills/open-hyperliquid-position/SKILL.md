@@ -15,8 +15,9 @@ You need the market, the side, the size in base units and the order type. Do not
 
 - **Type:** default to a market order unless the user gives a price or asks for a limit order.
 - **Slippage:** omit `--slippage-bps` to use the CLI default (50 bps = 0.5%), unless the user names a tolerance. The preview shows the worst price, so the user sees the bound before approving.
-- **Size:** use the size the user states. When the request names a size in USD ("$50 of BTC"), convert using the current mark and round down to `szDecimals`, and say so in the preview. For "flip" requests, see below.
+- **Size:** use the size the user states. When the size is derived (a USD amount like "$500 of RKLB", a fraction like "half" or "a third"), compute it and round **down** to the market's `szDecimals` yourself. Never ask the user to choose between two rounded sizes; just state the size used in the preview. For "flip" requests, see below.
 - **Flip** ("flip my short to long"): one market order on the opposite side for **twice** the current absolute position size, not reduce-only. This closes the position and opens the same size the other way in one fill. Only ask if the user wants a different size for the new side.
+- **Market:** pass the symbol the user says (`RKLB`, `AVAX`). The CLI resolves stock and other HIP-3 markets (`xyz:RKLB`) itself; do not search for the prefix. HIP-3 markets are often isolated-only, so if the user names leverage, use isolated mode without asking.
 
 Ask only when the size or side is truly ambiguous (for example "buy some BTC" with no amount). Never change leverage as a side effect. A leverage or margin-mode change is a separate action (manage-hyperliquid-risk) and is not atomic with the order. If margin looks insufficient, say so in the preview rather than refusing.
 

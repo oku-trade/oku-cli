@@ -16,7 +16,7 @@ oku positions list --profile <p> --json
 oku orders list --profile <p> --json    # resting orders that could change exposure
 ```
 
-A positive size is long, so close it with `sell`. A negative size is short, so close it with `buy`. Use the absolute size for a full close ("close", "flatten", "exit" all mean full), or the size or fraction the user specified for a partial one. Do not ask for the size when the request already implies it.
+A positive size is long, so close it with `sell`. A negative size is short, so close it with `buy`. Use the absolute size for a full close ("close", "flatten", "exit" all mean full), or the size or fraction the user specified for a partial one. For a fraction ("halve", "close a third"), compute it and round **down** to `szDecimals` without asking. Do not ask for the size when the request already implies it.
 
 To **flip** a position instead of just closing it, use open-hyperliquid-position: one non-reduce-only market order on the opposite side for twice the absolute size.
 
