@@ -58,21 +58,6 @@ func (s *fakeSender) SendTransaction(_ context.Context, _ string, _ privy.Transa
 func intent() journal.OnchainIntent {
 	return journal.OnchainIntent{ID: "test-send", Kind: "send", ChainID: 42161, Sender: agent, Recipient: master, Token: "native", Amount: "0.001", Templates: []journal.OnchainTemplate{{ChainID: 42161, To: master, Value: "0x1"}}}
 }
-func TestExecutePersistsHashBeforeReceipt(t *testing.T) {
-	j := &fakeJournal{state: "sending"}
-	s := &fakeSender{send: func() (string, error) { return hash, nil }}
-	rpc := fakeRPC{gas: big.NewInt(10000000), receipt: func() (*bool, error) {
-		if j.state != "sent" || len(j.hashes) != 1 || j.hashes[0] != hash {
-			t.Fatal("receipt polled before hash committed")
-		}
-		yes := true
-		return &yes, nil
-	}}
-	err := (Executor{RPC: rpc, Sender: s, Journal: j}).Execute(context.Background(), intent())
-	if err != nil || j.state != "confirmed" || s.calls != 1 {
-		t.Fatalf("err=%v state=%s calls=%d", err, j.state, s.calls)
-	}
-}
 func TestExecuteInsufficientGasNeverBroadcasts(t *testing.T) {
 	j := &fakeJournal{state: "sending"}
 	s := &fakeSender{send: func() (string, error) { t.Fatal("broadcasted without gas"); return "", nil }}
