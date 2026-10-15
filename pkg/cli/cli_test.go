@@ -521,8 +521,12 @@ func TestMarketOrderSlippageBound(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
 	r := h.run("orders", "prepare", "--market", "BTC", "--side", "buy", "--type", "market", "--size", "0.001", "--json")
+	if r.code != 0 || r.data()["intent"].(map[string]any)["slippage_bps"] != float64(defaultSlippageBps) {
+		t.Fatalf("market without slippage should default to %d bps: %s", defaultSlippageBps, r.stdout)
+	}
+	r = h.run("orders", "prepare", "--market", "BTC", "--side", "buy", "--type", "market", "--size", "0.001", "--slippage-bps", "2000", "--json")
 	if r.errCode() != "INVALID_ARGUMENT" {
-		t.Fatalf("market without slippage: %s", r.stdout)
+		t.Fatalf("excessive slippage: %s", r.stdout)
 	}
 	r = h.run("orders", "prepare", "--market", "BTC", "--side", "buy", "--type", "market", "--size", "0.001", "--slippage-bps", "50", "--json")
 	d := r.data()

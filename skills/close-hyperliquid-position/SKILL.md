@@ -16,18 +16,20 @@ oku positions list --profile <p> --json
 oku orders list --profile <p> --json    # resting orders that could change exposure
 ```
 
-A positive size is long, so close it with `sell`. A negative size is short, so close it with `buy`. Use the absolute size for a full close, or the size the user specified for a partial one.
+A positive size is long, so close it with `sell`. A negative size is short, so close it with `buy`. Use the absolute size for a full close ("close", "flatten", "exit" all mean full), or the size or fraction the user specified for a partial one. Do not ask for the size when the request already implies it.
+
+To **flip** a position instead of just closing it, use open-hyperliquid-position: one non-reduce-only market order on the opposite side for twice the absolute size.
 
 ## 2. Prepare a reduce-only order
 
-Prefer an `order.json` matching `oku docs schema --command 'orders prepare'`, for example `{"market":"BTC","side":"sell","type":"limit","size":"0.0002","price":"60000","reduce-only":true}`. Then run `oku orders prepare --profile <p> --input order.json --json`. Confirm the actual position size and user-provided price first. Flags are an alternative:
+Prefer an `order.json` matching `oku docs schema --command 'orders prepare'`, for example `{"market":"BTC","side":"sell","type":"market","size":"0.0002","reduce-only":true}`. Then run `oku orders prepare --profile <p> --input order.json --json`. Flags are an alternative:
 
 ```sh
-oku orders prepare --profile <p> --market BTC --side sell --type market --size <abs size> --slippage-bps <user bps> --reduce-only --json
+oku orders prepare --profile <p> --market BTC --side sell --type market --size <abs size> [--slippage-bps <bps>] --reduce-only --json
 oku orders prepare --profile <p> --market BTC --side sell --type limit --size <abs size> --price <user price> --reduce-only --json
 ```
 
-`--reduce-only` means the order can only shrink the position. It can never flip or grow it. The slippage or price comes from the user.
+`--reduce-only` means the order can only shrink the position. It can never flip or grow it. Default to a market order with the CLI's default slippage (50 bps) unless the user gives a price or a tolerance.
 
 ## 3. Review, approve, submit
 

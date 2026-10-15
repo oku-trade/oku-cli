@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -156,9 +158,75 @@ func (e *env) readLine(prompt string) (string, error) {
 	return strings.TrimRight(string(line), "\r"), nil
 }
 
-// unlockCredential loads and decrypts a profile's credential. A wrong
-// interactively entered passphrase re-prompts instead of failing, and an
-// Unprotected credential never prompts.
+// unlockCache keeps a passphrase in the kernel user keyring keyed by the
+// credential file path (not the profile name), so separate config dirs never
+// share an entry.
+type unlockCache interface {
+	Get(path string) []byte
+	Put(path string, pass []byte, ttl time.Duration) error
+	Forget(path string)
+}
+
+type keyringCache struct{}
+
+func cacheKey(path string) string {
+	sum := sha256.Sum256([]byte(path))
+	return hex.EncodeToString(sum[:12])
+}
+func (keyringCache) Get(path string) []byte { return auth.CachedPassphrase(cacheKey(path)) }
+func (keyringCache) Put(path string, pass []byte, ttl time.Duration) error {
+	return auth.CachePassphrase(cacheKey(path), pass, ttl)
+}
+func (keyringCache) Forget(path string) { auth.ForgetPassphrase(cacheKey(path)) }
+
+// defaultUnlockTTL is how long an interactively entered passphrase stays
+// cached. OKU_UNLOCK_TTL overrides it; 0 disables caching.
+const defaultUnlockTTL = 8 * time.Hour
+
+func (e *env) unlockTTL() time.Duration {
+	if v := e.app.Getenv("OKU_UNLOCK_TTL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d >= 0 {
+			return d
+		}
+	}
+	return defaultUnlockTTL
+}
+
+// rememberPassphrase caches a verified passphrase so later non-interactive
+// commands (coding agents, MCP) can use the credential.
+func (e *env) rememberPassphrase(profile string, pass []byte, ttl time.Duration) bool {
+	if e.app.UnlockCache == nil || len(pass) == 0 || ttl <= 0 {
+		return false
+	}
+	path, err := auth.PrivyPath(profile)
+	if err != nil {
+		return false
+	}
+	return e.app.UnlockCache.Put(path, pass, ttl) == nil
+}
+func (e *env) cachedPassphrase(profile string) []byte {
+	if e.app.UnlockCache == nil {
+		return nil
+	}
+	path, err := auth.PrivyPath(profile)
+	if err != nil {
+		return nil
+	}
+	return e.app.UnlockCache.Get(path)
+}
+func (e *env) forgetPassphrase(profile string) {
+	if e.app.UnlockCache == nil {
+		return
+	}
+	if path, err := auth.PrivyPath(profile); err == nil {
+		e.app.UnlockCache.Forget(path)
+	}
+}
+
+// unlockCredential loads and decrypts a profile's credential. Sources, in
+// order: an Unprotected credential, OKU_PASSPHRASE_FILE, the unlock cache,
+// then an interactive prompt. A wrong interactive passphrase re-prompts.
+// A successful interactive unlock is cached for OKU_UNLOCK_TTL.
 func (e *env) unlockCredential(profile string) (*auth.Metadata, *auth.Secrets, []byte, error) {
 	if runtime.GOOS != "darwin" {
 		if pre, err := auth.LoadPrivyMetadata(profile); err == nil && pre.Unprotected {
@@ -166,7 +234,20 @@ func (e *env) unlockCredential(profile string) (*auth.Metadata, *auth.Secrets, [
 			return md, sec, []byte{}, err
 		}
 	}
+	if runtime.GOOS != "darwin" && e.pass == nil && e.app.Getenv("OKU_PASSPHRASE_FILE") == "" {
+		if cached := e.cachedPassphrase(profile); cached != nil {
+			md, sec, err := auth.UnlockPrivy(profile, cached)
+			if err == nil {
+				e.pass = bytes.Clone(cached)
+				return md, sec, cached, nil
+			}
+			if errors.Is(err, auth.ErrBadPassphrase) {
+				e.forgetPassphrase(profile)
+			}
+		}
+	}
 	interactive := runtime.GOOS != "darwin" && e.app.Getenv("OKU_PASSPHRASE_FILE") == "" && e.app.StdinIsTTY
+	prompted := interactive && e.pass == nil
 	for attempt := 1; ; attempt++ {
 		pass, err := e.passphrase(false)
 		if err != nil {
@@ -174,12 +255,16 @@ func (e *env) unlockCredential(profile string) (*auth.Metadata, *auth.Secrets, [
 		}
 		md, sec, err := auth.UnlockPrivy(profile, pass)
 		if err == nil {
+			if prompted {
+				e.rememberPassphrase(profile, pass, e.unlockTTL())
+			}
 			return md, sec, pass, nil
 		}
 		if !errors.Is(err, auth.ErrBadPassphrase) || !interactive || attempt >= maxPassphraseAttempts {
 			return nil, nil, nil, err
 		}
 		e.pass = nil
+		prompted = true
 		e.diag("Wrong passphrase. Try again.")
 	}
 }
@@ -200,7 +285,7 @@ func (e *env) filePassphrase() ([]byte, error) {
 		return bytes.TrimRight(b, "\r\n"), nil
 	}
 	if !e.app.StdinIsTTY {
-		return nil, output.Errorf(output.CodeSignerUnavailable, "credential passphrase unavailable: set OKU_PASSPHRASE_FILE to a 0600 file")
+		return nil, output.Errorf(output.CodeSignerUnavailable, "credential is locked: run 'oku auth unlock' in your own terminal (keeps it unlocked for %s), or set OKU_PASSPHRASE_FILE to a 0600 file", defaultUnlockTTL)
 	}
 	if e.pass != nil {
 		return bytes.Clone(e.pass), nil

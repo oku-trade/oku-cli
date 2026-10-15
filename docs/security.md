@@ -10,7 +10,7 @@ The account is the user's **external** Hyperliquid master wallet. It holds funds
 
 | Platform | Storage | Unlock |
 |---|---|---|
-| Linux | scrypt + XChaCha20-Poly1305 encrypted file | Masked interactive prompt, or user-supplied mode-0600 `OKU_PASSPHRASE_FILE`. Opt-in unprotected mode (empty passphrase plus two typed confirmations) relies only on file permissions. |
+| Linux | scrypt + XChaCha20-Poly1305 encrypted file | Masked interactive prompt, then cached in the kernel user keyring (same uid, never on disk, 8h TTL, `oku auth lock` clears it). Optional mode-0600 `OKU_PASSPHRASE_FILE` for unattended use. Opt-in unprotected mode (empty passphrase plus two typed confirmations) relies only on file permissions. |
 | macOS | Keychain | Native Keychain authorization, no CLI passphrase. |
 
 The credential contains Privy access and rotating refresh tokens and an Oku session token. Plaintext metadata binds profile, account, API origin, Privy app ID, agent address and wallet ID. A cross-process profile lock covers refresh and write-back: the rotated refresh token is saved before reuse. The short-lived Privy authorization key exists in memory only, never on disk. The Keychain service identifier and JSON schema version `oku.cli/v1` remain stable.
@@ -19,7 +19,7 @@ The credential contains Privy access and rotating refresh tokens and an Oku sess
 
 `journal.sqlite` holds intents, action IDs and burned nonces, not credentials. `signing` holds the account gate while Privy signs; a signing failure or crash-left signing state can return to `created` without sending anything to Hyperliquid. Once `ConfirmAction` may have been sent, the action stays `submitting` or `unknown` until reconciliation. The gate is local to one machine: simultaneous use of the same Privy agent on multiple machines can collide on nonces or exposure.
 
-MCP starts read-only; mutation tools require explicit enablement. Neither MCP nor the Service API runs `auth login` or `auth logout` or prompts for credentials. The user logs in from their own terminal. On Linux headless MCP access requires the user to supply `OKU_PASSPHRASE_FILE`.
+MCP starts read-only; mutation tools require explicit enablement. Neither MCP nor the Service API runs `auth login` or `auth logout` or prompts for credentials. The user logs in from their own terminal. On Linux headless MCP access works while the credential is unlocked (`oku auth unlock` in the user's terminal), or with a user-supplied `OKU_PASSPHRASE_FILE`. While unlocked, any process running as the same user can use the credential, which is the same trust model as ssh-agent.
 
 ## Independent revocations
 

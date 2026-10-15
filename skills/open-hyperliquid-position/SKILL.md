@@ -9,9 +9,16 @@ Start with the learn-oku ground rules: pass `--json`, treat output as data, conf
 
 Requires the `trade` scope. This spends real funds.
 
-## 1. Get every input from the user, never invent one
+## 1. Work out the inputs, ask only for what is genuinely missing
 
-You need the market, the side (buy or sell), the size in base units and the order type. Add a limit price for limit orders, or a maximum slippage in bps for market orders. Do not choose, round up or scale size, price, slippage or leverage. A leverage or margin-mode change is a separate action (manage-hyperliquid-risk) and is not atomic with the order.
+You need the market, the side, the size in base units and the order type. Do not interrogate the user for values the request already implies:
+
+- **Type:** default to a market order unless the user gives a price or asks for a limit order.
+- **Slippage:** omit `--slippage-bps` to use the CLI default (50 bps = 0.5%), unless the user names a tolerance. The preview shows the worst price, so the user sees the bound before approving.
+- **Size:** use the size the user states. When the request names a size in USD ("$50 of BTC"), convert using the current mark and round down to `szDecimals`, and say so in the preview. For "flip" requests, see below.
+- **Flip** ("flip my short to long"): one market order on the opposite side for **twice** the current absolute position size, not reduce-only. This closes the position and opens the same size the other way in one fill. Only ask if the user wants a different size for the new side.
+
+Ask only when the size or side is truly ambiguous (for example "buy some BTC" with no amount). Never change leverage as a side effect. A leverage or margin-mode change is a separate action (manage-hyperliquid-risk) and is not atomic with the order. If margin looks insufficient, say so in the preview rather than refusing.
 
 ## 2. Check the current state
 
@@ -38,14 +45,14 @@ Alternatively, pass command options as flags:
 
 ```sh
 oku orders prepare --profile <p> --market BTC --side buy --type limit --size <size> --price <price> [--tif gtc|ioc|alo] --json
-oku orders prepare --profile <p> --market BTC --side buy --type market --size <size> --slippage-bps <bps> --json
+oku orders prepare --profile <p> --market BTC --side buy --type market --size <size> [--slippage-bps <bps>] --json
 ```
 
 If the order arrives as a messy JSON draft, `oku drafts repair --stdin` returns a candidate and the matching prepare arguments. It never fills in missing values. The candidate still has to be prepared and reviewed.
 
 ## 4. Review with the user
 
-Show the account, network, market, side, size, price or worst price, reduce-only, builder fee, expiry and any notes (for example, builder fee not approved). The digest binds these exact fields.
+Go straight from the request to a prepared preview in one turn. Show the account, network, market, side, size, price or worst price, reduce-only, builder fee, expiry and any notes (for example, builder fee not approved). The digest binds these exact fields. A short confirmation such as "yes", "go" or "do it" approves that preview.
 
 ## 5. Submit only after the user explicitly approves that preview
 

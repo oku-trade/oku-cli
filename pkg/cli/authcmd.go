@@ -22,6 +22,65 @@ func authLoginFlags() []urfave.Flag {
 func authStatusFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.BoolFlag{Name: "verify", Usage: "refresh the credential and check Hyperliquid agent approval"}}
 }
+func authUnlockFlags() []urfave.Flag {
+	return []urfave.Flag{&urfave.DurationFlag{Name: "for", Value: defaultUnlockTTL, Usage: "how long to stay unlocked (kernel keyring, cleared on reboot or 'oku auth lock')"}}
+}
+
+// cmdAuthUnlock prompts once in the user's terminal and caches the verified
+// passphrase so agents and MCP can sign without OKU_PASSPHRASE_FILE.
+func (a *App) cmdAuthUnlock(e *env) (*result, error) {
+	p, err := e.profile()
+	if err != nil {
+		return nil, err
+	}
+	if p.Name == "" {
+		return nil, output.Errorf(output.CodeProfileNotFound, "no profile selected")
+	}
+	ttl := e.cmd.Duration("for")
+	if ttl <= 0 || ttl > 7*24*time.Hour {
+		return nil, output.Errorf(output.CodeInvalidArgument, "--for must be between 1s and 168h")
+	}
+	md, err := auth.LoadPrivyMetadata(p.Name)
+	if errors.Is(err, auth.ErrNoCredentials) {
+		return nil, output.Errorf(output.CodeAuthRequired, "run oku auth login")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if md.Unprotected || e.app.UnlockCache == nil {
+		return &result{data: map[string]any{"profile": p.Name, "unlocked": true, "cached": false}, human: func(w io.Writer) {
+			fmt.Fprintln(w, "No unlock needed on this credential.")
+		}}, nil
+	}
+	if !e.app.StdinIsTTY && e.app.Getenv("OKU_PASSPHRASE_FILE") == "" {
+		return nil, output.Errorf(output.CodeUsage, "auth unlock requires an interactive terminal")
+	}
+	e.forgetPassphrase(p.Name)
+	_, _, pass, err := e.unlockCredential(p.Name)
+	if err != nil {
+		return nil, err
+	}
+	if !e.rememberPassphrase(p.Name, pass, ttl) {
+		return nil, output.Errorf(output.CodeSignerUnavailable, "could not store the unlock in the kernel keyring")
+	}
+	until := e.app.Now().Add(ttl)
+	return &result{data: map[string]any{"profile": p.Name, "unlocked": true, "cached": true, "until": until.UTC().Format(time.RFC3339)}, human: func(w io.Writer) {
+		fmt.Fprintf(w, "Unlocked profile %s until %s. Run 'oku auth lock' to lock now.\n", p.Name, until.Local().Format("Jan 2 15:04"))
+	}}, nil
+}
+func (a *App) cmdAuthLock(e *env) (*result, error) {
+	p, err := e.profile()
+	if err != nil {
+		return nil, err
+	}
+	if p.Name == "" {
+		return nil, output.Errorf(output.CodeProfileNotFound, "no profile selected")
+	}
+	e.forgetPassphrase(p.Name)
+	return &result{data: map[string]any{"profile": p.Name, "locked": true}, human: func(w io.Writer) {
+		fmt.Fprintf(w, "Locked profile %s.\n", p.Name)
+	}}, nil
+}
 
 var boundaries = map[string]string{
 	"mode":        "Privy delegated embedded-wallet signing",
@@ -215,6 +274,10 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "saving credential")
 	}
 	saved = true
+	e.forgetPassphrase(p.Name)
+	if !np.unprotected && e.rememberPassphrase(p.Name, np.pass, e.unlockTTL()) {
+		e.diag("Unlocked for %s so agents can trade without asking again. Run 'oku auth lock' to lock now.", e.unlockTTL())
+	}
 	return statusResult(&md, true), nil
 }
 func statusResult(md *auth.Metadata, verified bool) *result {
@@ -315,6 +378,7 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 	if err = auth.DeletePrivy(p.Name); err != nil {
 		return nil, err
 	}
+	e.forgetPassphrase(p.Name)
 	return &result{data: map[string]any{"local_credentials": "deleted", "oku_session": remote, "privy_grant": grant, "boundaries": boundaries}, human: func(w io.Writer) {
 		fmt.Fprintf(w, "Local credential deleted; %s; Privy grant %s.\n%s\n", remote, grant, boundaries["not_revoked"])
 	}}, nil

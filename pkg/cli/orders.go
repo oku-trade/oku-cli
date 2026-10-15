@@ -21,6 +21,9 @@ import (
 const (
 	defaultIntentTTL = 5 * time.Minute
 	maxIntentTTL     = time.Hour
+	// defaultSlippageBps bounds market orders when the caller gives no
+	// slippage. The worst price is always shown in the preview.
+	defaultSlippageBps = 50
 )
 
 func prepareFlags() []urfave.Flag {
@@ -31,7 +34,7 @@ func prepareFlags() []urfave.Flag {
 		&urfave.StringFlag{Name: "size", Usage: "base size as a decimal string (required)"},
 		&urfave.StringFlag{Name: "price", Usage: "limit price (limit orders)"},
 		&urfave.StringFlag{Name: "tif", Value: "gtc", Usage: "time in force for limit orders: gtc, ioc, alo"},
-		&urfave.IntFlag{Name: "slippage-bps", Usage: "max slippage in basis points from the current mid (market orders, required)"},
+		&urfave.IntFlag{Name: "slippage-bps", Usage: "max slippage in basis points from the current mid (market orders; default 50 = 0.5%)"},
 		&urfave.BoolFlag{Name: "reduce-only", Usage: "only reduce an existing position"},
 		&urfave.StringFlag{Name: "intent-id", Usage: "caller-chosen idempotency id (default: random)"},
 		&urfave.DurationFlag{Name: "expires", Value: defaultIntentTTL, Usage: "intent lifetime (max 1h)"},
@@ -168,8 +171,11 @@ func (a *App) cmdOrdersPrepare(e *env) (*result, error) {
 		if str(e, "price") != "" {
 			return nil, output.Errorf(output.CodeInvalidArgument, "--price is not allowed for market orders; use --slippage-bps")
 		}
+		if slip == 0 {
+			slip = defaultSlippageBps
+		}
 		if slip <= 0 || slip > 1000 {
-			return nil, output.Errorf(output.CodeInvalidArgument, "--slippage-bps is required for market orders (1-1000)")
+			return nil, output.Errorf(output.CodeInvalidArgument, "--slippage-bps must be 1-1000")
 		}
 		var q api.GetMarketPriceResponse
 		if err := e.perpsRead(p, "GetMarketPrice", map[string]string{"coin": coin}, &q); err != nil {

@@ -24,7 +24,7 @@
 
 ## Credentials
 
-- **Linux:** an encrypted local file. You unlock it with an interactive masked TTY prompt or, for automation, `OKU_PASSPHRASE_FILE=<path>` pointing at a file readable only by you (mode 0600). Never pass the passphrase as an argument. A short, mismatched, or wrong passphrase re-prompts (up to 5 tries). At login you may leave the passphrase empty to store the credential unprotected; this asks twice and is insecure, since anyone who can read the file can sign as your agent.
+- **Linux:** an encrypted local file. You unlock it with an interactive masked TTY prompt. A successful unlock (including login) is cached in the kernel user keyring for 8 hours, like `sudo`, so agents and MCP can use the credential without prompting. `oku auth unlock [--for 2h]` refreshes it, `oku auth lock` forgets it, `OKU_UNLOCK_TTL=0` disables caching. The cache never touches disk and is cleared on reboot. For unattended servers, `OKU_PASSPHRASE_FILE=<path>` pointing at a mode-0600 file still works. Never pass the passphrase as an argument. A short, mismatched, or wrong passphrase re-prompts (up to 5 tries). At login you may leave the passphrase empty to store the credential unprotected; this asks twice and is insecure, since anyone who can read the file can sign as your agent.
 - **macOS:** the native Keychain. No passphrase is requested. Official macOS builds need CGO and are built natively.
 - Neither platform has a plaintext fallback. See [security](security.md#credential-storage-by-platform).
 
@@ -119,7 +119,7 @@ oku orders prepare --market BTC --side buy|sell --type limit|market --size <dec>
   [--price <dec>] [--tif gtc|ioc|alo] [--slippage-bps N] [--reduce-only] \
   [--expires 5m] [--intent-id ID]
 #   no exchange submission; may read current market data. Returns intent_id and digest.
-#   --price for limit orders. --slippage-bps is required for market orders.
+#   --price for limit orders. Market orders default to --slippage-bps 50 (0.5%).
 oku orders submit --intent ID --digest SHA
 oku orders status --intent ID
 oku orders reconcile
@@ -193,7 +193,7 @@ The server runs over stdio. Stdout carries only MCP protocol frames, and logs go
 - **Tools:** read-only by default. Mutation tools are exposed only with `--allow-mutations`. Login, logout and profile edits are never exposed.
 - **Resources:** bundled docs and skills are available as `oku://docs/...` and `oku://skills/...`. There is also a local `drafts_repair` tool.
 - **Profile:** `oku --profile NAME mcp serve` pins the server to that profile. Tools use it, and a tool call naming a different profile is refused. Start a separate server for another profile. Without a launch profile, tools use a per-call `profile`, then `$OKU_PROFILE`, then the config default.
-- **Login:** the server never prompts. Run `oku auth login` in a terminal first. On Linux, unlocking needs `OKU_PASSPHRASE_FILE`. Otherwise tools return an auth error.
+- **Login:** the server never prompts. Run `oku auth login` in a terminal first. On Linux, the login (or `oku auth unlock`) keeps the credential unlocked for 8 hours in the kernel keyring; after that, tools return an auth error until the user runs `oku auth unlock` again.
 - **Approval:** a digest proves payload integrity, not human approval. Clients must get explicit user approval before calling `orders_submit`. Unknown outcomes follow the same reconcile-never-resend rules as the CLI.
 
 ## Local journal
