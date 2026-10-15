@@ -139,6 +139,12 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 		accountv2connect.NewPerpsServiceClient(doer, base, opts...),
 		accountv2connect.NewCliDeviceServiceClient(doer, base, opts...),
 		accountv1connect.NewAuthServiceClient(doer, base, opts...),
+		fundsClients{
+			swap:    accountv2connect.NewSimpleSwapServiceV2Client(doer, base, opts...),
+			bridge:  accountv2connect.NewBridgeServiceClient(doer, base, opts...),
+			onchain: accountv2connect.NewOnchainServiceClient(doer, base, opts...),
+			token:   accountv2connect.NewTokenServiceClient(doer, base, opts...),
+		},
 		body, hdr)
 	if err != nil {
 		classified := classify(ctx, st, err, sensitive)
