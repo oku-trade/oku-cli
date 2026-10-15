@@ -36,9 +36,8 @@ func TestRouteExecutionAuthorization(t *testing.T) {
 				_, err := verifyExecution(source, "100", info, []*v2.ApprovalPayloadV2{approval(source.Amount)})
 				return err
 			}
-			templates, err := verifyExecution(source, "100", info, []*v2.ApprovalPayloadV2{approval(source.Amount)})
-			if err != nil || len(templates) != 2 || templates[0].To != token || templates[1].To != router {
-				t.Fatalf("valid route refused: %v %+v", err, templates)
+			if templates, err := verifyExecution(source, "100", info, []*v2.ApprovalPayloadV2{approval(source.Amount)}); err == nil || !strings.Contains(err.Error(), "submission disabled") || len(templates) != 0 {
+				t.Fatalf("arbitrary router calldata must fail closed: %v %+v", err, templates)
 			}
 			cases := []struct {
 				name    string
@@ -60,10 +59,10 @@ func TestRouteExecutionAuthorization(t *testing.T) {
 					}
 				})
 			}
-			if _, err = verifyExecution(source, "99", info, []*v2.ApprovalPayloadV2{approval(source.Amount)}); err == nil {
+			if _, err := verifyExecution(source, "99", info, []*v2.ApprovalPayloadV2{approval(source.Amount)}); err == nil {
 				t.Fatal("worse JIT quote accepted")
 			}
-			if _, err = verifyExecution(source, "100", info, []*v2.ApprovalPayloadV2{approval("10000001")}); err == nil {
+			if _, err := verifyExecution(source, "100", info, []*v2.ApprovalPayloadV2{approval("10000001")}); err == nil {
 				t.Fatal("approval greater than exact input accepted")
 			}
 		})

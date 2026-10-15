@@ -14,9 +14,8 @@ import (
 	"github.com/oku-trade/oku-cli/pkg/output"
 )
 
-// verifyExecution is the final authorization boundary. Only transaction-based,
-// exact-in routes whose output beneficiary and minimum are visible in calldata
-// are supported. An unrecognized router encoding is deliberately rejected.
+// verifyExecution is the final authorization boundary. Until router calldata
+// can be decoded by an audited selector-specific adapter, execution fails closed.
 func verifyExecution(in journal.OnchainIntent, quoteMin string, info *v2.ExecutionInformation, approvals []*v2.ApprovalPayloadV2) ([]journal.OnchainTemplate, error) {
 	fail := func(reason string) ([]journal.OnchainTemplate, error) {
 		return nil, fmt.Errorf("execution does not match prepared intent: %s", reason)
@@ -32,8 +31,7 @@ func verifyExecution(in journal.OnchainIntent, quoteMin string, info *v2.Executi
 	if err != nil || got.Cmp(min) < 0 {
 		return fail("JIT quote worsens minimum output")
 	}
-	amount, err := positiveRaw(in.Amount)
-	if err != nil {
+	if _, err := positiveRaw(in.Amount); err != nil {
 		return fail("invalid input amount")
 	}
 	trade := info.Trade
@@ -54,35 +52,10 @@ func verifyExecution(in journal.OnchainIntent, quoteMin string, info *v2.Executi
 	if err != nil || len(data) < 4 {
 		return fail("invalid trade calldata")
 	}
-	// Merely finding a beneficiary word is a necessary check, not a general ABI
-	// decoder. Limit to zero-padded ABI words, and reject routes without one.
-	recipientWord := strings.Repeat("0", 24) + strings.ToLower(in.Recipient[2:])
-	minWord := fmt.Sprintf("%064x", min)
-	if !strings.Contains(strings.ToLower(raw[8:]), recipientWord) {
-		return fail("dst_address != recipient or not provable from calldata")
-	}
-	if !strings.Contains(strings.ToLower(raw[8:]), minWord) {
-		return fail("minimum output bound not provable from calldata")
-	}
-	if len(approvals) != 1 {
-		return fail("expected one exact ERC-20 approval")
-	}
-	ap := approvals[0]
-	if ap == nil || ap.FunctionName != "approve" || !strings.EqualFold(ap.To, in.Token) || ap.Values == nil {
-		return fail("unexpected approval token or method")
-	}
-	values := ap.Values.AsMap()
-	spender, ok := values["spender"].(string)
-	if !ok || !strings.EqualFold(spender, in.Spender) {
-		return fail("approval spender differs")
-	}
-	approvalAmount := fmt.Sprint(values["amount"])
-	if approvalAmount != amount.String() {
-		return fail("approval amount differs from exact input")
-	}
-	approval := journal.OnchainTemplate{ChainID: in.ChainID, To: in.Token, Value: "0x0", Data: "0x095ea7b3000000000000000000000000" + strings.ToLower(in.Spender[2:]) + fmt.Sprintf("%064x", amount), Token: in.Token, Amount: onchain.Hex(amount)}
-	swap := journal.OnchainTemplate{ChainID: in.ChainID, To: in.Target, Value: "0x0", Data: trade.Data, Token: in.Token, Amount: onchain.Hex(amount), Spender: in.Spender}
-	return []journal.OnchainTemplate{approval, swap}, nil
+	// A matching 32-byte word in arbitrary calldata does not establish ABI semantics.
+	// Until each supported router selector has a decoded and audited recipient and
+	// minimum-output field, no swap or bridge transaction may be broadcast.
+	return fail("router calldata semantics are not verified; submission disabled")
 }
 func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	if str(e, "intent") == "" || str(e, "digest") == "" {
