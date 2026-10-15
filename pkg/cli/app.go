@@ -158,6 +158,9 @@ func (a *App) commands() map[string]*handler {
 
 func (a *App) commandTable() map[string]*handler {
 	m := map[string]*handler{
+		"wallet address":     {summary: "Show the enrolled agent wallet and master EOA", run: a.cmdWalletAddress},
+		"wallet balances":    {summary: "Read the agent's EVM native balance", flags: walletBalancesFlags, run: a.cmdWalletBalances},
+		"deposit address":    {summary: "Read a master-bound HyperUnit deposit address", flags: depositAddressFlags, run: a.cmdDepositAddress},
 		"version":            {summary: "Print version information", run: a.cmdVersion},
 		"doctor":             {summary: "Check configuration, connectivity and credentials", run: a.cmdDoctor},
 		"config path":        {summary: "Print config, credential and state paths", run: a.cmdConfigPath},

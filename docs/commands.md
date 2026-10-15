@@ -69,6 +69,17 @@ Print config, credential and state paths
 
 Show configuration (no secrets)
 
+## `oku deposit address`
+
+Read a master-bound HyperUnit deposit address
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--asset` | HyperUnit asset symbol | `` |
+| `--source-chain` | HyperUnit source chain CAIP-2 identifier | `` |
+
 ## `oku docs commands`
 
 List commands of this binary; --markdown prints the full reference
@@ -328,3 +339,17 @@ Remove installed skills that match the bundled version
 ## `oku version`
 
 Print version information
+
+## `oku wallet address`
+
+Show the enrolled agent wallet and master EOA
+
+## `oku wallet balances`
+
+Read the agent's EVM native balance
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain: eip155:42161, eip155:8453 or eip155:1 | `` |

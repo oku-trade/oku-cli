@@ -32,6 +32,7 @@ type Service struct {
 // ServiceReads are commands a Service runs by default. They never sign,
 // submit or change user configuration.
 var ServiceReads = map[string]bool{
+	"wallet address": true, "wallet balances": true, "deposit address": true,
 	"version": true, "doctor": true, "auth status": true, "profiles list": true,
 	"markets list": true, "markets quote": true, "markets funding": true,
 	"account summary": true, "positions list": true, "orders list": true,
