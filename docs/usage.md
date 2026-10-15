@@ -8,6 +8,8 @@
 
 A timeout or ambiguous Privy broadcast becomes `OUTCOME_UNKNOWN`. Never repeat `submit`; inspect `status` and the source-chain explorer. An unknown transaction without a returned hash cannot be automatically reconciled and blocks new transfers until investigated. The Privy OAuth `eth_sendTransaction` wire shape is based on the published recipe but remains unverified with a funded wallet in this CLI.
 
+Preflight failures return `INSUFFICIENT_GAS` or `INSUFFICIENT_BALANCE` before broadcast. A failed preflight intent is terminal; replenish the wallet and prepare a fresh intent.
+
 > `oku --help`, `oku docs commands` and the [generated command reference](commands.md) describe the urfave/cli v3 command tree of the binary you run. `make docs-check` detects drift between the committed reference and the tree.
 
 ## Output contract
