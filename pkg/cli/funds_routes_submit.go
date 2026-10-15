@@ -276,7 +276,7 @@ func (a *App) cmdRouteStatus(e *env, kind string) (*result, error) {
 	if backend.OrderId != record.OrderID {
 		return nil, output.Errorf(output.CodePayloadMismatch, "backend order ID differs")
 	}
-	return &result{data: map[string]any{"source": record, "backend": &backend, "destination_settled": kind == "bridge" && record.State == "confirmed" && strings.EqualFold(backend.Status, "completed")}, human: func(out io.Writer) {
+	return &result{data: map[string]any{"source": record, "backend": &backend, "destination_settled": false, "settlement_note": "backend order status is informational; verify destination-chain receipt or balance independently"}, human: func(out io.Writer) {
 		fmt.Fprintf(out, "%s source: %s; backend: %s (%s); order: %s\n", kind, record.State, backend.Status, backend.Stage, record.OrderID)
 	}}, nil
 }
