@@ -88,7 +88,7 @@ func ToolName(path string) string { return strings.ReplaceAll(path, " ", "_") }
 func NewServer(b Backend, cfg Config) *sdk.Server {
 	s := sdk.NewServer(&sdk.Implementation{Name: "oku", Version: cfg.Version}, &sdk.ServerOptions{
 		Instructions: "Oku Agent for Hyperliquid mainnet perps. Read the oku://docs and oku://skills resources first. " +
-			"Never invent trade parameters. Mutations use prepare, then an explicit user-approved submit bound to the returned digest. " +
+			"Infer only what the request implies (full size to close, twice the size to flip, market type, default slippage); ask when size or side is ambiguous. Mutations use prepare, then an explicit user-approved submit bound to the returned digest. " +
 			"An unknown outcome is not a failure: reconcile, never resend.",
 	})
 	cmds := b.Commands()

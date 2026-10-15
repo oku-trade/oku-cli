@@ -517,6 +517,21 @@ func TestDefiniteRejectIsRejected(t *testing.T) {
 	}
 }
 
+// A flip as the skills describe it: one non-reduce-only market order on the
+// opposite side for twice the position, with the default slippage bound.
+func TestFlipPrepareUsesDefaultSlippage(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	r := h.run("orders", "prepare", "--market", "BTC", "--side", "buy", "--type", "market", "--size", "0.002", "--json")
+	if r.code != 0 {
+		t.Fatalf("flip prepare: %s %s", r.stdout, r.stderr)
+	}
+	in := r.data()["intent"].(map[string]any)
+	if in["size"] != "0.002" || in["side"] != "buy" || in["reduce_only"] == true || in["slippage_bps"] != float64(50) || in["worst_px"] != "50250" {
+		t.Fatalf("flip intent: %v", in)
+	}
+}
+
 func TestMarketOrderSlippageBound(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()

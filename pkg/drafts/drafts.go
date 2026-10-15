@@ -127,7 +127,7 @@ func Repair(r io.Reader) (*Candidate, error) {
 		if o.TIF != "" {
 			input["tif"] = strings.ToLower(o.TIF)
 		}
-	} else {
+	} else if o.SlippageBps != 0 {
 		input["slippage-bps"] = o.SlippageBps
 	}
 	if o.ReduceOnly {
@@ -238,8 +238,8 @@ func validate(o *Order) error {
 		if o.Price != "" || o.TIF != "" {
 			return errors.New("price and tif are not allowed for market orders")
 		}
-		if o.SlippageBps <= 0 || o.SlippageBps > 1000 {
-			return errors.New("slippage_bps (1-1000) is required for market orders; it is never inferred")
+		if o.SlippageBps < 0 || o.SlippageBps > 1000 {
+			return errors.New("slippage_bps must be 1-1000; omit it to use the prepare default")
 		}
 	default:
 		return fmt.Errorf("type must be limit or market (got %q)", o.Type)
@@ -273,7 +273,7 @@ func prepareArgs(o *Order) []string {
 		if o.TIF != "" {
 			a = append(a, "--tif", strings.ToLower(o.TIF))
 		}
-	} else {
+	} else if o.SlippageBps != 0 {
 		a = append(a, "--slippage-bps", fmt.Sprint(o.SlippageBps))
 	}
 	if o.ReduceOnly {

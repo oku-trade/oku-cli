@@ -21,6 +21,14 @@ func TestRepairAcceptsSyntaxOnlyFixes(t *testing.T) {
 	if err != nil || c.Repaired {
 		t.Fatalf("valid draft: %+v %v", c, err)
 	}
+	// A market draft without slippage leaves it to the prepare default.
+	c, err = Repair(strings.NewReader(`{"market":"ETH","side":"buy","type":"market","size":"1"}`))
+	if err != nil {
+		t.Fatalf("market draft without slippage: %v", err)
+	}
+	if _, ok := c.Input["slippage-bps"]; ok || strings.Contains(strings.Join(c.PrepareArgs, " "), "slippage") {
+		t.Fatalf("default slippage should be omitted: %+v", c)
+	}
 }
 
 func TestRepairRefusesAmbiguousOrUnsafeDrafts(t *testing.T) {
@@ -29,7 +37,7 @@ func TestRepairRefusesAmbiguousOrUnsafeDrafts(t *testing.T) {
 		"unknown field":    `{"market":"BTC","side":"buy","type":"limit","size":"1","price":"1","leverage":50}`,
 		"missing size":     `{"market":"BTC","side":"buy","type":"limit","price":"1"}`,
 		"missing price":    `{"market":"BTC","side":"buy","type":"limit","size":"1"}`,
-		"missing slippage": `{"market":"BTC","side":"buy","type":"market","size":"1"}`,
+		"bad slippage":     `{"market":"BTC","side":"buy","type":"market","size":"1","slippage_bps":5000}`,
 		"truncated amount": `{"market":"BTC","side":"buy","type":"limit","price":"60000","size":"0.05`,
 		"truncated price":  `{"market":"BTC","side":"buy","type":"limit","size":"1","price":600`,
 		"scientific":       `{"market":"BTC","side":"buy","type":"limit","size":1e3,"price":"1"}`,
