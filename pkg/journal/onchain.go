@@ -23,6 +23,15 @@ type OnchainIntent struct {
 	Token     string            `json:"token"`
 	Amount    string            `json:"amount"`
 	Templates []OnchainTemplate `json:"templates"`
+	OrderID   string            `json:"order_id,omitempty"`
+	QuoteID   string            `json:"quote_id,omitempty"`
+	Route     string            `json:"route,omitempty"`
+	Target    string            `json:"target,omitempty"`
+	Spender   string            `json:"spender,omitempty"`
+	OutToken  string            `json:"out_token,omitempty"`
+	OutChain  uint64            `json:"out_chain,omitempty"`
+	MinOut    string            `json:"min_out,omitempty"`
+	ExpiresAt string            `json:"expires_at,omitempty"`
 	CreatedAt string            `json:"created_at"`
 }
 type OnchainTemplate struct {

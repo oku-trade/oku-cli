@@ -51,7 +51,27 @@ func (c *Client) Onchain(ctx context.Context, method string, req, resp any, auth
 	return c.call(ctx, h, req, resp, authed, false)
 }
 
+func (c *Client) TokenRPC(ctx context.Context, method string, req, resp any, authed bool) error {
+	h, ok := tokenMethods[method]
+	if !ok {
+		return &Error{Code: "unimplemented", Message: "TokenService/" + method + " is not supported"}
+	}
+	return c.call(ctx, h, req, resp, authed, false)
+}
+
+var tokenMethods = map[string]handler{
+	"SearchTokens": fundsRPC[accountv2.SearchTokensRequest, accountv2.SearchTokensResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.SearchTokensRequest]) (*connect.Response[accountv2.SearchTokensResponse], error) {
+		return f.token.SearchTokens
+	}),
+}
+
 var swapMethods = map[string]handler{
+	"Ping": fundsRPC[accountv2.PingRequest, accountv2.PingResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.PingRequest]) (*connect.Response[accountv2.PingResponse], error) {
+		return f.swap.Ping
+	}),
+	"Cancel": fundsRPC[accountv2.CancelRequest, accountv2.CancelResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.CancelRequest]) (*connect.Response[accountv2.CancelResponse], error) {
+		return f.swap.Cancel
+	}),
 	"Create": fundsRPC[accountv2.SwapCreateRequest, accountv2.SwapCreateResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.SwapCreateRequest]) (*connect.Response[accountv2.SwapCreateResponse], error) {
 		return f.swap.Create
 	}),
@@ -75,6 +95,12 @@ var swapMethods = map[string]handler{
 	}),
 }
 var bridgeMethods = map[string]handler{
+	"Ping": fundsRPC[accountv2.PingRequest, accountv2.PingResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.PingRequest]) (*connect.Response[accountv2.PingResponse], error) {
+		return f.bridge.Ping
+	}),
+	"Cancel": fundsRPC[accountv2.CancelRequest, accountv2.CancelResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.CancelRequest]) (*connect.Response[accountv2.CancelResponse], error) {
+		return f.bridge.Cancel
+	}),
 	"Create": fundsRPC[accountv2.BridgeCreateRequest, accountv2.BridgeCreateResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.BridgeCreateRequest]) (*connect.Response[accountv2.BridgeCreateResponse], error) {
 		return f.bridge.Create
 	}),

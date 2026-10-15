@@ -4,7 +4,7 @@
 
 The account is the user's **external** Hyperliquid master wallet. It holds funds and signs `approveAgent` and builder-fee approval on the Oku authorization page, not in this binary. The trading agent is a distinct Privy **embedded** Ethereum wallet, approved by the master as a Hyperliquid named agent. Oku Agent stores no local agent private key. `oku orders submit` requests `eth_signTypedData_v4` from Privy for the Hyperliquid Agent domain (`Exchange`, version `1`, chainId `1337`, zero verifying contract), and locally recovers the signature against the approved embedded-wallet address before sending it to Oku.
 
-**A readable credential permits signing anything the Privy grant allows on that embedded wallet until revoked.** Revocation may leave an existing access JWT valid for up to 15 minutes. Recommend a Privy policy limiting the wallet to `eth_signTypedData_v4` on that Agent domain. Host compromise, a leaked Linux passphrase file, or a compromised macOS Keychain item can bypass CLI safeguards. The CLI's digest, risk checks and confirmations are guardrails, not a security boundary. The embedded wallet must never be used as a funded trading account.
+**A readable credential permits signing anything the Privy grant allows on that embedded wallet until revoked.** Revocation may leave an existing access JWT valid for up to 15 minutes. Recommend a Privy policy limiting the wallet to `eth_signTypedData_v4` on that Agent domain. Host compromise, a leaked Linux passphrase file, or a compromised macOS Keychain item can bypass CLI safeguards. The CLI's digest, risk checks and confirmations are guardrails, not a security boundary. The embedded wallet should hold only funds deliberately allocated to agent EVM operations, with a strict Privy policy and minimal gas. Never mistake those balances for Hyperliquid master collateral.
 
 ## Credential storage
 
@@ -20,6 +20,10 @@ The credential contains Privy access and rotating refresh tokens and an Oku sess
 `journal.sqlite` holds intents, action IDs and burned nonces, not credentials. `signing` holds the account gate while Privy signs; a signing failure or crash-left signing state can return to `created` without sending anything to Hyperliquid. Once `ConfirmAction` may have been sent, the action stays `submitting` or `unknown` until reconciliation. The gate is local to one machine: simultaneous use of the same Privy agent on multiple machines can collide on nonces or exposure.
 
 MCP starts read-only; mutation tools require explicit enablement. Neither MCP nor the Service API runs `auth login` or `auth logout` or prompts for credentials. The user logs in from their own terminal. On Linux headless MCP access works while the credential is unlocked (`oku auth unlock` in the user's terminal), or with a user-supplied `OKU_PASSPHRASE_FILE`. While unlocked, any process running as the same user can use the credential, which is the same trust model as ssh-agent.
+
+## Swap and bridge authorization limits
+
+The EVM sender independently holds tokens and gas on each source chain. The master does not sign these transactions. Prepared intents bind a route, quote, recipient, source/destination chains, exact input and minimum output; submission rejects changed quote parameters, non-EVM deposit addresses, PSBT and unrecognized typed-data routes. Approval is limited to exactly the input amount. Only routes exposing an explicit recipient and minimum output in calldata are considered; this byte-level check alone is **not a semantic ABI proof** for arbitrary router contracts. Operators must restrict Privy policies to audited contract targets/selectors and validate the actual route ABI before funding the wallet or attempting a live swap/bridge. Source receipts prove only source execution, never destination settlement. A timeout or unknown broadcast is not permission to retry. If a route has not been independently verified, do not submit it.
 
 ## Independent revocations
 

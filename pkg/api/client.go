@@ -18,6 +18,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v1/accountv1connect"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2/accountv2connect"
 )
@@ -158,7 +159,11 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 	}
 	out, err := protojson.Marshal(msg)
 	if err == nil {
-		err = json.Unmarshal(out, respBody)
+		if typed, ok := respBody.(proto.Message); ok {
+			err = protojson.Unmarshal(out, typed)
+		} else {
+			err = json.Unmarshal(out, respBody)
+		}
 	}
 	if err != nil {
 		// Success status but unreadable result: a mutation's effect is unknown.

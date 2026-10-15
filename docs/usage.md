@@ -175,9 +175,33 @@ This turns malformed order-draft JSON (code fences, single quotes, unquoted keys
 - It rejects duplicate keys, unknown fields, invalid decimals and missing required financial fields. It never fills in missing market, side, size, price or leverage.
 - Review the candidate, then run `orders prepare` yourself. The resulting digest is what gets approved.
 
+## Agent EVM swaps and bridges
+
+The embedded Privy wallet is an EVM wallet, **not** the Hyperliquid master account. Use `wallet address` to confirm both addresses. `wallet balances` reads native gas on the selected EVM chain. Only Arbitrum (42161), Base (8453) and Ethereum (1) are supported for these flows.
+
+```sh
+oku swap quote --chain 42161 --from USDC --to WETH --amount 10 --slippage-bps 50
+oku swap prepare --chain 42161 --from USDC --to WETH --amount 10 [--recipient 0x...] [--intent-id ID]
+oku swap submit --intent ID --digest SHA
+oku swap status --intent ID
+
+oku bridge quote --chain 42161 --destination-chain 8453 --from USDC --to USDC --amount 10
+oku bridge prepare --chain 42161 --destination-chain 8453 --from USDC --to USDC --amount 10 [--recipient 0x...]
+oku bridge submit --intent ID --digest SHA
+oku bridge status --intent ID
+```
+
+Amounts are exact input decimals. The slippage default is 50 bps, maximum 300 bps. Token symbols resolve through TokenService; when a symbol is ambiguous, specify an address. The recipient defaults to the agent EVM wallet on the destination chain. Verify an explicit recipient and chain carefully. Quote returns an order, quote, target and minimum bound, and quote-only orders are canceled best-effort. Prepare journals a short-lived digest binding the chain, route, spender, recipient, amount and minimum. Submit refuses changed targets, incorrect chain, larger approvals, non-EVM deposit-address/PSBT routes, and unprovable recipient or minimum in calldata. Unsupported Permit2 signatures and unfamiliar router encodings are skipped rather than guessed. Only the exact-amount ERC-20 approval path is currently supported, so many quotes may not be preparable. An approval and trade are separate transactions requiring source-chain native gas and a token balance; the destination wallet needs native gas for later actions.
+
+A successful source-chain bridge receipt does **not** prove delivery on the destination chain. Inspect backend order status and destination-chain balances separately. Unknown broadcast outcomes must be reconciled and never resubmitted automatically. The Privy OAuth `eth_sendTransaction` chain field, grant policies, and funded-wallet behavior require a controlled integration test before live use.
+
+## Agent-to-master deposits
+
+`oku deposit prepare --amount N` prepares an Arbitrum USDC transfer **from agent to master EOA**, not a deposit to Hyperliquid. The master then deposits from its own wallet. `oku deposit address --asset ... --source-chain ...` reads a HyperUnit address explicitly bound to the master for external funding. Never send agent-held USDC directly to the HL bridge.
+
 ## Agent skills
 
-Eight task skills are bundled:
+Nine task skills are bundled:
 
 - `learn-oku`
 - `ensure-hyperliquid-authentication`
@@ -186,6 +210,7 @@ Eight task skills are bundled:
 - `manage-hyperliquid-orders`
 - `close-hyperliquid-position`
 - `manage-hyperliquid-risk`
+- `move-agent-funds`
 - `reconcile-hyperliquid-actions`
 
 Their source is the repository's `skills/` directory.

@@ -43,6 +43,7 @@ The error object has `code`, `message`, `retryable` and sometimes `execution_sta
 | Check, cancel or replace orders | manage-hyperliquid-orders |
 | Close or reduce a position | close-hyperliquid-position |
 | Leverage, margin mode, isolated margin | manage-hyperliquid-risk |
+| Agent wallet balances, EVM sends, swaps, bridges and master-bound deposit steps | move-agent-funds |
 | Unknown outcomes, recovery | reconcile-hyperliquid-actions |
 
 ## Agent integration
