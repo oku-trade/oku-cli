@@ -9,8 +9,10 @@ import (
 
 // Transaction is a Privy OAuth eth_sendTransaction request. Privy signs and
 // broadcasts the transaction; callers must never retry an ambiguous error.
-// The OAuth chain_id wire field is from Privy's published recipe and remains
-// unverified against a funded wallet in this CLI.
+// Shape follows Privy's published wallet RPC schema (EthereumSendTransactionRpcInput):
+// a required top-level caip2 ("eip155:<chain>") plus params.transaction with
+// chain_id. The OAuth route is not in the OpenAPI document, so live behavior
+// with a funded wallet remains unverified in this CLI.
 type Transaction struct {
 	To      string
 	Value   string
@@ -31,7 +33,7 @@ func (s *Session) SendTransaction(ctx context.Context, walletID string, tx Trans
 			Hash string `json:"hash"`
 		} `json:"data"`
 	}
-	if err := s.SignedRPC(ctx, walletID, map[string]any{"method": "eth_sendTransaction", "params": map[string]any{"transaction": transaction}}, &response); err != nil {
+	if err := s.SignedRPC(ctx, walletID, map[string]any{"method": "eth_sendTransaction", "caip2": fmt.Sprintf("eip155:%d", tx.ChainID), "params": map[string]any{"transaction": transaction}}, &response); err != nil {
 		return "", err
 	}
 	if !validHash(response.Data.Hash) {

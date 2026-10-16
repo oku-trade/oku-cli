@@ -6,7 +6,7 @@
 
 `oku deposit prepare --amount 10` prepares **only** an Arbitrum native-USDC transfer from the agent to the profile master EOA. After reviewing it, run `oku deposit submit --intent ID --digest SHA` and `oku deposit status --intent ID`. This does **not** deposit into Hyperliquid. The master must deposit from its own wallet on the Oku web deposit page (`https://oku.trade/perps`). For a master-bound HyperUnit address use `oku deposit address --asset ASSET --source-chain CHAIN` and fund that address externally. Never transfer USDC from the agent to the Hyperliquid bridge: that credits the agent, not the master.
 
-A timeout or ambiguous Privy broadcast becomes `OUTCOME_UNKNOWN`. Never repeat `submit`; inspect `status` and the source-chain explorer. An unknown transaction without a returned hash cannot be automatically reconciled and blocks new transfers until investigated. The Privy OAuth `eth_sendTransaction` wire shape is based on the published recipe but remains unverified with a funded wallet in this CLI.
+A timeout or ambiguous Privy broadcast becomes `OUTCOME_UNKNOWN`. Never repeat `submit`; inspect `status` and the source-chain explorer. An unknown transaction without a returned hash cannot be automatically reconciled and blocks new transfers until investigated. The Privy OAuth `eth_sendTransaction` request follows Privy's published wallet RPC schema (top-level `caip2` such as `eip155:42161`, plus `params.transaction` with `chain_id`); the OAuth route itself is not in Privy's OpenAPI document, so it remains unverified with a funded wallet in this CLI.
 
 Preflight failures return `INSUFFICIENT_GAS` or `INSUFFICIENT_BALANCE` before broadcast. A failed preflight intent is terminal; replenish the wallet and prepare a fresh intent.
 

@@ -27,6 +27,7 @@ func TestSendTransactionOAuthWire(t *testing.T) {
 		}
 		var body struct {
 			Method string `json:"method"`
+			CAIP2  string `json:"caip2"`
 			Params struct {
 				Transaction map[string]any `json:"transaction"`
 			} `json:"params"`
@@ -35,7 +36,7 @@ func TestSendTransactionOAuthWire(t *testing.T) {
 			t.Error(err)
 		}
 		tx := body.Params.Transaction
-		if body.Method != "eth_sendTransaction" || tx["chain_id"] != float64(8453) || tx["to"] != "0x1111111111111111111111111111111111111111" || tx["value"] != "0x0" || tx["data"] != "0x1234" {
+		if body.Method != "eth_sendTransaction" || body.CAIP2 != "eip155:8453" || tx["chain_id"] != float64(8453) || tx["to"] != "0x1111111111111111111111111111111111111111" || tx["value"] != "0x0" || tx["data"] != "0x1234" {
 			t.Errorf("unexpected transaction: %+v", body)
 		}
 		fmt.Fprintf(w, `{"method":"eth_sendTransaction","data":{"hash":"0x%s"}}`, strings.Repeat("a", 64))
