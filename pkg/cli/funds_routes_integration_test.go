@@ -38,13 +38,13 @@ func TestSwapSubmitBroadcastsOnlyVerifiedRouterCall(t *testing.T) {
 			arguments := []any{input, output, target, target, []byte{1}, amount, big.NewInt(0), recipient, warrant}
 			token := input.Hex()
 			spender := okuRouter
-			value := "0x0"
+			value := "0"
 			if native {
 				method = "fillQuoteEthToToken"
 				arguments = []any{output, target, []byte{1}, big.NewInt(0), recipient, warrant}
 				token = "native"
 				spender = ""
-				value = "0x989680"
+				value = "10000000"
 			}
 			packed, e := parsed.Pack(method, arguments...)
 			if e != nil {

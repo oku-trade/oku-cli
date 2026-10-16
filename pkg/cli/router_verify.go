@@ -18,6 +18,25 @@ const routerABI = `[{"type":"function","name":"fillQuoteEthToToken","inputs":[{"
 
 const okuRouter = "0xb1f3a7B816B0681188F54dFa400991B93ADf00ed"
 
+func backendValue(s string) (*big.Int, error) {
+	if strings.HasPrefix(s, "0x") {
+		return onchain.Quantity(s)
+	}
+	if s == "" {
+		return nil, fmt.Errorf("missing transaction value")
+	}
+	for _, ch := range s {
+		if ch < '0' || ch > '9' {
+			return nil, fmt.Errorf("invalid transaction value")
+		}
+	}
+	n, ok := new(big.Int).SetString(s, 10)
+	if !ok || n.Sign() < 0 || n.BitLen() > 256 {
+		return nil, fmt.Errorf("invalid transaction value")
+	}
+	return n, nil
+}
+
 func verifyExecution(in journal.OnchainIntent, quoteMin string, info *v2.ExecutionInformation, approvals []*v2.ApprovalPayloadV2) ([]journal.OnchainTemplate, error) {
 	fail := func(reason string) ([]journal.OnchainTemplate, error) {
 		return nil, fmt.Errorf("execution does not match prepared intent: %s", reason)
@@ -87,7 +106,7 @@ func verifyExecution(in journal.OnchainIntent, quoteMin string, info *v2.Executi
 	if !match(recipient, in.Recipient) {
 		return fail("recipient differs")
 	}
-	value, e := onchain.Quantity(info.Trade.Value)
+	value, e := backendValue(info.Trade.Value)
 	if e != nil || (nativeIn && value.Cmp(amount) != 0) || (!nativeIn && value.Sign() != 0) {
 		return fail("native value differs")
 	}
