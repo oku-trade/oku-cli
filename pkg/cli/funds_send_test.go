@@ -17,6 +17,14 @@ func TestDepositPrepareRejectsOtherRecipient(t *testing.T) {
 		t.Fatalf("expected master-only refusal: %s", r.stdout)
 	}
 }
+func TestSendPrepareRejectsHyperliquidBridge(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	r := h.run("send", "prepare", "--chain", "42161", "--token", "native", "--amount", "0.01", "--to", "0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7", "--json")
+	if r.errCode() != "INVALID_ARGUMENT" || h.privy.rpcCalls != 0 {
+		t.Fatalf("bridge recipient accepted: %s", r.stdout)
+	}
+}
 func TestSendSubmitRejectsWrongDigestBeforeSigning(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
@@ -46,6 +54,18 @@ func TestSendSubmitPersistsBeforeReceiptAndReconciles(t *testing.T) {
 			t.Error(err)
 		}
 		switch request.Method {
+		case "eth_chainId":
+			fmt.Fprint(w, `{"result":"0xa4b1"}`)
+		case "eth_estimateGas":
+			fmt.Fprint(w, `{"result":"0x5208"}`)
+		case "eth_feeHistory":
+			fmt.Fprint(w, `{"result":{"baseFeePerGas":["0x1","0x1"]}}`)
+		case "eth_maxPriorityFeePerGas":
+			fmt.Fprint(w, `{"result":"0x1"}`)
+		case "eth_blockNumber":
+			fmt.Fprint(w, `{"result":"0x30"}`)
+		case "eth_getBlockByNumber":
+			fmt.Fprint(w, `{"result":{"hash":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}`)
 		case "eth_getBalance":
 			fmt.Fprint(w, `{"jsonrpc":"2.0","id":1,"result":"0xde0b6b3a7640000"}`)
 		case "eth_gasPrice":
@@ -62,7 +82,7 @@ func TestSendSubmitPersistsBeforeReceiptAndReconciles(t *testing.T) {
 			if err != nil || rec.State != "sent" || len(rec.Hashes) != 1 {
 				t.Errorf("receipt observed before durable hash: %+v %v", rec, err)
 			}
-			fmt.Fprint(w, `{"jsonrpc":"2.0","id":1,"result":{"status":"0x1"}}`)
+			fmt.Fprint(w, `{"jsonrpc":"2.0","id":1,"result":{"status":"0x1","transactionHash":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","blockHash":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","blockNumber":"0x10"}}`)
 		default:
 			t.Errorf("unexpected RPC %s", request.Method)
 		}
@@ -88,6 +108,14 @@ func TestSendUnknownBlocksNextSubmission(t *testing.T) {
 		}
 		_ = json.NewDecoder(r.Body).Decode(&request)
 		switch request.Method {
+		case "eth_chainId":
+			fmt.Fprint(w, `{"result":"0xa4b1"}`)
+		case "eth_estimateGas":
+			fmt.Fprint(w, `{"result":"0x5208"}`)
+		case "eth_feeHistory":
+			fmt.Fprint(w, `{"result":{"baseFeePerGas":["0x1","0x1"]}}`)
+		case "eth_maxPriorityFeePerGas":
+			fmt.Fprint(w, `{"result":"0x1"}`)
 		case "eth_getBalance":
 			fmt.Fprint(w, `{"result":"0xde0b6b3a7640000"}`)
 		case "eth_gasPrice":
@@ -129,6 +157,14 @@ func TestSendInsufficientGasBeforeBroadcast(t *testing.T) {
 		}
 		_ = json.NewDecoder(r.Body).Decode(&request)
 		switch request.Method {
+		case "eth_chainId":
+			fmt.Fprint(w, `{"result":"0xa4b1"}`)
+		case "eth_estimateGas":
+			fmt.Fprint(w, `{"result":"0x5208"}`)
+		case "eth_feeHistory":
+			fmt.Fprint(w, `{"result":{"baseFeePerGas":["0x1","0x1"]}}`)
+		case "eth_maxPriorityFeePerGas":
+			fmt.Fprint(w, `{"result":"0x1"}`)
 		case "eth_getBalance":
 			fmt.Fprint(w, `{"result":"0x0"}`)
 		case "eth_gasPrice":

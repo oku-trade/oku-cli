@@ -16,6 +16,12 @@ import (
 )
 
 const arbitrumUSDC = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
+const hyperliquidBridge2 = "0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7"
+
+func forbiddenSendRecipient(recipient, agent string) bool {
+	return strings.EqualFold(recipient, hyperliquidBridge2) || strings.EqualFold(recipient, agent)
+}
+
 const depositNext = "After this transfer confirms, the master must deposit to Hyperliquid from its own wallet at https://oku.trade/perps. For HyperUnit use 'oku deposit address'. Never send agent USDC to the Hyperliquid bridge."
 
 func sendPrepareFlags() []urfave.Flag {
@@ -73,6 +79,9 @@ func (a *App) cmdFundsPrepare(e *env, kind string) (*result, error) {
 			return nil, output.Errorf(output.CodeInvalidArgument, "invalid recipient EVM address")
 		}
 		recipient = to
+	}
+	if forbiddenSendRecipient(recipient, w.agent) {
+		return nil, output.Errorf(output.CodeInvalidArgument, "recipient is the agent or a Hyperliquid deposit contract")
 	}
 	if kind == "deposit" && !strings.EqualFold(recipient, w.profile.Account) {
 		return nil, output.Errorf(output.CodeInvalidArgument, "deposit recipient must equal profile master EOA")
@@ -166,6 +175,9 @@ func (a *App) cmdFundsSubmit(e *env, kind string) (*result, error) {
 	}
 	if r.State != "prepared" {
 		return nil, output.Errorf(output.CodeIntentState, "intent is %s; never resubmit; use status", r.State)
+	}
+	if forbiddenSendRecipient(r.Recipient, w.agent) {
+		return nil, output.Errorf(output.CodePayloadMismatch, "recipient is the agent or a Hyperliquid deposit contract")
 	}
 	if kind == "deposit" && (r.ChainID != 42161 || !strings.EqualFold(r.Token, arbitrumUSDC) || !strings.EqualFold(r.Recipient, w.profile.Account)) {
 		return nil, output.Errorf(output.CodePayloadMismatch, "deposit must send Arbitrum USDC to master")
