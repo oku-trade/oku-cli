@@ -7,6 +7,7 @@ import (
 
 	"github.com/oku-trade/oku-cli/pkg/auth"
 	"github.com/oku-trade/oku-cli/pkg/config"
+	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
 	urfave "github.com/urfave/cli/v3"
 )
@@ -70,7 +71,11 @@ func (a *App) cmdWalletBalances(e *env) (*result, error) {
 	if err = e.client(w.profile).Onchain(ctx, "GetNativeBalance", map[string]any{"chain": chain, "address": w.agent}, &native, false); err != nil {
 		return nil, apiError(err, "GetNativeBalance")
 	}
-	data := map[string]any{"agent": w.agent, "chain": chain, "native": native, "source": "oku:OnchainService/GetNativeBalance"}
+	var tokens map[string]any
+	if err = e.client(w.profile).Onchain(ctx, "GetOnchainTokenBalances", map[string]any{"walletAddress": w.agent, "includeRecommendedDefaultToken": true, "recommendChains": []string{chain}}, &tokens, false); err != nil {
+		return nil, apiError(err, "GetOnchainTokenBalances")
+	}
+	data := map[string]any{"agent": w.agent, "chain": chain, "native": native, "tokens": tokens, "source": "oku:OnchainService"}
 	return &result{data: data, human: func(out io.Writer) { fmt.Fprintf(out, "%s on %s: %v\n", w.agent, chain, native["balance"]) }}, nil
 }
 func (a *App) cmdDepositAddress(e *env) (*result, error) {
@@ -96,10 +101,52 @@ func (a *App) cmdDepositAddress(e *env) (*result, error) {
 	if err = e.perpsRead(w.profile, "GenerateDepositAddress", map[string]any{"hlAddress": w.profile.Account, "asset": asset, "sourceChain": chain}, &response); err != nil {
 		return nil, err
 	}
-	if !strings.EqualFold(response.HLAddress, w.profile.Account) || response.DepositAddress == "" || response.SourceChain != chain {
+	validDeposit := false
+	switch {
+	case strings.HasPrefix(chain, "eip155:"):
+		validDeposit = onchain.ValidAddress(response.DepositAddress)
+	case strings.HasPrefix(chain, "solana:"):
+		validDeposit = validBase58Address(response.DepositAddress)
+	case strings.HasPrefix(chain, "bip122:"):
+		validDeposit = validBitcoinAddress(response.DepositAddress)
+	}
+	if !strings.EqualFold(response.HLAddress, w.profile.Account) || !strings.EqualFold(response.Asset, asset) || !validDeposit || response.SourceChain != chain {
 		return nil, output.Errorf(output.CodeInvalidArgument, "deposit response does not bind address to master and requested chain")
 	}
 	return &result{data: response, human: func(out io.Writer) {
 		fmt.Fprintf(out, "Master-bound %s deposit address (%s): %s\nMinimum: %s\nFund externally from your own wallet; agent transfers do not credit the master.\n", asset, chain, response.DepositAddress, response.MinDeposit)
 	}}, nil
+}
+
+func validBase58Address(s string) bool {
+	if len(s) < 32 || len(s) > 44 {
+		return false
+	}
+	for _, c := range s {
+		if !strings.ContainsRune("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz", c) {
+			return false
+		}
+	}
+	return true
+}
+
+func validBitcoinAddress(s string) bool {
+	if len(s) >= 14 && len(s) <= 90 && (strings.HasPrefix(s, "bc1q") || strings.HasPrefix(s, "bc1p")) {
+		for _, c := range s[4:] {
+			if !strings.ContainsRune("023456789acdefghjklmnpqrstuvwxyz", c) {
+				return false
+			}
+		}
+		return true
+	}
+	return len(s) >= 26 && len(s) <= 35 && (strings.HasPrefix(s, "1") || strings.HasPrefix(s, "3")) && validBase58Alphabet(s)
+}
+
+func validBase58Alphabet(s string) bool {
+	for _, c := range s {
+		if !strings.ContainsRune("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz", c) {
+			return false
+		}
+	}
+	return true
 }
