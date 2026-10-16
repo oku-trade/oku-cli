@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
 	"github.com/oku-trade/oku-cli/pkg/journal"
 	"google.golang.org/protobuf/proto"
@@ -72,7 +73,8 @@ func TestRouteExecutionAuthorization(t *testing.T) {
 			*a = approval(target.Hex())
 		}},
 		{"permit selector", func(i *journal.OnchainIntent, tx *v2.TransactionPayload, a **v2.ApprovalPayloadV2) {
-			tx.Data = "0xdeadbeef" + data[10:]
+			signature := "fillQuoteTokenToTokenWithPermit(address,address,address,address,bytes,uint256,uint256,address,(uint256,uint256,uint256,uint8,uint8,bytes32,bytes32),(uint160,uint48,uint48,address,bytes))"
+			tx.Data = fmt.Sprintf("0x%x", crypto.Keccak256([]byte(signature))[:4]) + data[10:]
 		}},
 		{"chain mismatch", func(i *journal.OnchainIntent, tx *v2.TransactionPayload, a **v2.ApprovalPayloadV2) { tx.ChainId = 8453 }},
 	}
