@@ -31,7 +31,10 @@ type MCPBackend struct {
 func (b MCPBackend) Commands() []mcp.Command {
 	out := []mcp.Command{}
 	for path, h := range b.S.app.commands() {
-		if !b.S.allowed(path) {
+		// Every command is listed so its input schema can be published as a
+		// resource. Tool exposure is decided by mcp.NewServer, and Service.Call
+		// independently refuses anything outside the Service allowlist.
+		if path == "auth login" || path == "auth logout" {
 			continue
 		}
 		c := mcp.Command{Path: path, Summary: h.summary}

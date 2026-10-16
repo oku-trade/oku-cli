@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/oku-trade/oku-cli/pkg/api"
+	"github.com/oku-trade/oku-cli/pkg/auth"
 	"github.com/oku-trade/oku-cli/pkg/output"
 	urfave "github.com/urfave/cli/v3"
 )
@@ -44,6 +45,9 @@ type App struct {
 	Sleep   func(ctx context.Context, d time.Duration) error
 	OpenURL func(string) error
 	Version string
+	// UnlockCache keeps unlocked passphrases between invocations (Linux
+	// kernel keyring). Nil disables caching.
+	UnlockCache unlockCache
 
 	// wrapHandlers, when set by tests, may replace handlers after the
 	// command table is built (flags are preserved by the caller).
@@ -73,8 +77,18 @@ func NewApp(version string) *App {
 			go func() { _ = cmd.Wait() }()
 			return nil
 		},
-		Version: version,
+		Version:     version,
+		UnlockCache: defaultUnlockCache(),
 	}
+}
+
+// defaultUnlockCache is a variable so tests can keep the real kernel keyring
+// out of the suite.
+var defaultUnlockCache = func() unlockCache {
+	if auth.UnlockCacheSupported() {
+		return keyringCache{}
+	}
+	return nil
 }
 
 func sleepCtx(ctx context.Context, d time.Duration) error {
@@ -154,6 +168,8 @@ func (a *App) commandTable() map[string]*handler {
 		"profiles remove":    {summary: "Remove a profile without credentials: profiles remove NAME", run: a.cmdProfilesRemove},
 		"auth login":         {summary: "Authorize a Privy embedded-wallet agent on the Oku website", flags: authLoginFlags, run: a.cmdAuthLogin},
 		"auth status":        {summary: "Show Privy agent credential (--verify checks approval)", flags: authStatusFlags, run: a.cmdAuthStatus},
+		"auth unlock":        {summary: "Unlock the credential for a while so agents and MCP can use it (Linux)", flags: authUnlockFlags, run: a.cmdAuthUnlock},
+		"auth lock":          {summary: "Forget the cached unlock for the profile", run: a.cmdAuthLock},
 		"drafts repair":      {summary: "Repair malformed order-draft JSON from --stdin into a reviewable candidate (local only; never prepares or submits)", flags: draftFlags, run: a.cmdDraftsRepair},
 		"mcp serve":          {summary: "Run the MCP server on stdio (reads only unless --allow-mutations)", flags: mcpFlags, run: a.cmdMCPServe},
 		"auth logout":        {summary: "Log out and delete the local Privy agent credential", run: a.cmdAuthLogout},

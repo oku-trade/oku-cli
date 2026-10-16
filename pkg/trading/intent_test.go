@@ -79,9 +79,13 @@ func TestMarketWorstPriceBound(t *testing.T) {
 		want string
 	}{
 		{"0.123457", false, 50, 6, "0.12284"}, // 0.122839715 -> ceil
-		{"0.123457", true, 50, 6, "0.124074"}, // 0.124074285 -> floor
+		{"0.123457", true, 50, 6, "0.12407"},  // 0.124074285 -> floor, 5 sig figs
 		{"3.33333", true, 1, 1, "3.3"},        // 3.3336666 -> floor
 		{"3.33333", false, 1, 1, "3.4"},       // 3.3329999 -> ceil
+		{"54.852", true, 50, 4, "55.126"},     // 55.12626 -> 5 sig figs, floor
+		{"54.852", false, 50, 4, "54.578"},    // 54.577740 -> 5 sig figs, ceil
+		{"2.10925", true, 50, 5, "2.1197"},    // 2.11979625 -> floor
+		{"123456", true, 50, 1, "124073"},     // integral prices are always valid
 	}
 	for _, b := range bounds {
 		got, err := WorstPrice(b.ref, b.buy, b.bps, b.dec)

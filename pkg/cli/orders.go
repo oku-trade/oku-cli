@@ -8,6 +8,7 @@ import (
 	urfave "github.com/urfave/cli/v3"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/oku-trade/oku-cli/pkg/api"
@@ -21,6 +22,9 @@ import (
 const (
 	defaultIntentTTL = 5 * time.Minute
 	maxIntentTTL     = time.Hour
+	// defaultSlippageBps bounds market orders when the caller gives no
+	// slippage. The worst price is always shown in the preview.
+	defaultSlippageBps = 50
 )
 
 func prepareFlags() []urfave.Flag {
@@ -31,7 +35,7 @@ func prepareFlags() []urfave.Flag {
 		&urfave.StringFlag{Name: "size", Usage: "base size as a decimal string (required)"},
 		&urfave.StringFlag{Name: "price", Usage: "limit price (limit orders)"},
 		&urfave.StringFlag{Name: "tif", Value: "gtc", Usage: "time in force for limit orders: gtc, ioc, alo"},
-		&urfave.IntFlag{Name: "slippage-bps", Usage: "max slippage in basis points from the current mid (market orders, required)"},
+		&urfave.IntFlag{Name: "slippage-bps", Usage: "max slippage in basis points from the current mid (market orders; default 50 = 0.5%)"},
 		&urfave.BoolFlag{Name: "reduce-only", Usage: "only reduce an existing position"},
 		&urfave.StringFlag{Name: "intent-id", Usage: "caller-chosen idempotency id (default: random)"},
 		&urfave.DurationFlag{Name: "expires", Value: defaultIntentTTL, Usage: "intent lifetime (max 1h)"},
@@ -79,17 +83,60 @@ func (e *env) tradeAccount(p *resolved) (string, error) {
 	return strings.ToLower(p.Account), nil
 }
 
+// market resolves a market. A bare symbol that is not a core perp (for
+// example RKLB) is looked up across HIP-3 dexes, so callers need not know
+// the "xyz:" prefix. It fails if the symbol is ambiguous across dexes.
+// Callers must use the returned Coin, not their input.
 func (e *env) market(p *resolved, coin string) (*api.Market, error) {
 	var resp api.GetMarketsResponse
-	if err := e.perpsRead(p, "GetMarkets", map[string]string{"coin": coin}, &resp); err != nil {
-		return nil, err
-	}
-	for i := range resp.Markets {
-		if resp.Markets[i].Coin == coin {
-			return &resp.Markets[i], nil
+	err := e.perpsRead(p, "GetMarkets", map[string]string{"coin": coin}, &resp)
+	if err == nil {
+		for i := range resp.Markets {
+			if resp.Markets[i].Coin == coin {
+				return &resp.Markets[i], nil
+			}
 		}
 	}
-	return nil, output.Errorf(output.CodeNotFound, "market %s not found", coin)
+	if oe := output.As(err); err != nil && oe.Code != output.CodeNotFound {
+		return nil, err
+	}
+	if strings.Contains(coin, ":") {
+		return nil, output.Errorf(output.CodeNotFound, "market %s not found", coin)
+	}
+	dexes := e.hip3Dexes()
+	results := make([][]api.Market, len(dexes))
+	var wg sync.WaitGroup
+	for i, dex := range dexes {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var r api.GetMarketsResponse
+			if e.perpsRead(p, "GetMarkets", map[string]string{"coin": dex + ":" + coin}, &r) != nil {
+				return
+			}
+			for _, m := range r.Markets {
+				if m.Coin == dex+":"+coin {
+					results[i] = append(results[i], m)
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	var found []api.Market
+	for _, r := range results {
+		found = append(found, r...)
+	}
+	switch len(found) {
+	case 0:
+		return nil, output.Errorf(output.CodeNotFound, "market %s not found", coin)
+	case 1:
+		return &found[0], nil
+	}
+	names := make([]string, len(found))
+	for i, m := range found {
+		names[i] = m.Coin
+	}
+	return nil, output.Errorf(output.CodeInvalidArgument, "market %s exists on several dexes: %s; pass one of them", coin, strings.Join(names, ", "))
 }
 
 func (a *App) cmdOrdersPrepare(e *env) (*result, error) {
@@ -141,7 +188,8 @@ func (a *App) cmdOrdersPrepare(e *env) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	in.AssetID = m.AssetID
+	coin = m.Coin
+	in.Market, in.AssetID = m.Coin, m.AssetID
 	if err := decimal.ValidateSize(size, m.SzDecimals); err != nil {
 		return nil, output.Wrap(output.CodeInvalidDecimal, err, "--size")
 	}
@@ -168,8 +216,11 @@ func (a *App) cmdOrdersPrepare(e *env) (*result, error) {
 		if str(e, "price") != "" {
 			return nil, output.Errorf(output.CodeInvalidArgument, "--price is not allowed for market orders; use --slippage-bps")
 		}
+		if slip == 0 {
+			slip = defaultSlippageBps
+		}
 		if slip <= 0 || slip > 1000 {
-			return nil, output.Errorf(output.CodeInvalidArgument, "--slippage-bps is required for market orders (1-1000)")
+			return nil, output.Errorf(output.CodeInvalidArgument, "--slippage-bps must be 1-1000")
 		}
 		var q api.GetMarketPriceResponse
 		if err := e.perpsRead(p, "GetMarketPrice", map[string]string{"coin": coin}, &q); err != nil {
@@ -456,10 +507,17 @@ func createRequest(in *trading.Intent) api.CreateActionRequest {
 	req := api.CreateActionRequest{Address: in.Account}
 	switch in.Kind {
 	case trading.KindOrder:
-		req.Params.Order = &api.OrderActionMetadata{
+		o := &api.OrderActionMetadata{
 			Coin: in.Market, Side: in.Side, OrderType: in.OrderType, Sz: in.Size,
 			LimitPx: in.Price, Tif: in.TIF, ReduceOnly: in.ReduceOnly, SlippageBps: in.SlippageBps,
 		}
+		if in.OrderType == "market" && in.WorstPx != "" {
+			// Send the approved bound itself as an IOC limit. The server would
+			// otherwise re-price from the live mid at submit, and any adverse
+			// tick since prepare would exceed the approved bound and fail.
+			o.OrderType, o.LimitPx, o.Tif, o.SlippageBps = "limit", in.WorstPx, "IOC", 0
+		}
+		req.Params.Order = o
 	case trading.KindCancel:
 		req.Params.Cancel = &api.CancelActionMetadata{Coin: in.Market, Oid: api.Int64(in.OrderID)}
 	case trading.KindLeverage:
@@ -554,7 +612,7 @@ func (a *App) cmdOrdersCancel(e *env) (*result, error) {
 	now := e.app.Now().UTC()
 	in := trading.Intent{
 		Version: 1, ID: id, Kind: trading.KindCancel, Network: p.Network, Account: acct, APIURL: p.APIURL,
-		Market: coin, AssetID: m.AssetID, OrderID: oid,
+		Market: m.Coin, AssetID: m.AssetID, OrderID: oid,
 		CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(defaultIntentTTL).Format(time.RFC3339),
 	}
 	j, err := openJournal(p)

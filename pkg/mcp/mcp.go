@@ -88,17 +88,14 @@ func ToolName(path string) string { return strings.ReplaceAll(path, " ", "_") }
 func NewServer(b Backend, cfg Config) *sdk.Server {
 	s := sdk.NewServer(&sdk.Implementation{Name: "oku", Version: cfg.Version}, &sdk.ServerOptions{
 		Instructions: "Oku Agent for Hyperliquid mainnet perps. Read the oku://docs and oku://skills resources first. " +
-			"Never invent trade parameters. Mutations use prepare, then an explicit user-approved submit bound to the returned digest. " +
+			"Infer only what the request implies (full size to close, twice the size to flip, market type, default slippage); ask when size or side is ambiguous. Mutations use prepare, then an explicit user-approved submit bound to the returned digest. " +
 			"An unknown outcome is not a failure: reconcile, never resend.",
 	})
 	cmds := b.Commands()
 	sort.Slice(cmds, func(i, j int) bool { return cmds[i].Path < cmds[j].Path })
 	for _, c := range cmds {
-		mut := mutationTools[c.Path]
-		if !readTools[c.Path] && !(mut && cfg.AllowMutations) {
-			continue
-		}
-		addCommandTool(s, b, c, mut)
+		// Schemas are documentation: publish them even when the tool itself is not
+		// exposed, so an agent can draft --input JSON for a command it hands to the user.
 		if c.Schema != nil {
 			uri := "oku://schemas/" + strings.ReplaceAll(c.Path, " ", "-")
 			data, _ := json.MarshalIndent(c.Schema, "", "  ")
@@ -106,6 +103,11 @@ func NewServer(b Backend, cfg Config) *sdk.Server {
 				return &sdk.ReadResourceResult{Contents: []*sdk.ResourceContents{{URI: uri, MIMEType: "application/schema+json", Text: string(data)}}}, nil
 			})
 		}
+		mut := mutationTools[c.Path]
+		if !readTools[c.Path] && !(mut && cfg.AllowMutations) {
+			continue
+		}
+		addCommandTool(s, b, c, mut)
 	}
 	addDraftTool(s)
 	addDocs(s, cfg.Docs)

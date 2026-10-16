@@ -33,6 +33,7 @@ type fakePrivy struct {
 	authorizations, pending, refreshes, rpcCalls int
 	failSign                                     bool
 	wrongSigner                                  bool
+	grantCalls                                   int
 }
 
 func newFakePrivy(t *testing.T) *fakePrivy {
@@ -181,6 +182,7 @@ func (f *fakePrivy) serve(w http.ResponseWriter, r *http.Request) {
 		raw := append(append(rb, sb...), byte(sig.V))
 		reply(map[string]any{"signature": "0x" + hex.EncodeToString(raw)})
 	case strings.Contains(r.URL.Path, "/grants"):
+		f.grantCalls++
 		reply(map[string]any{"grants": []any{}})
 	default:
 		w.WriteHeader(404)

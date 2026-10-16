@@ -50,6 +50,35 @@ func TestSealRoundTripAndNoPlaintext(t *testing.T) {
 	}
 }
 
+func TestUnprotectedCredential(t *testing.T) {
+	setup(t)
+	md := Metadata{Profile: "p", Kind: KindPrivy, Unprotected: true}
+	if err := SavePrivy("p", md, Secrets{RefreshToken: "r"}, []byte("correct horse")); err == nil {
+		t.Fatal("unprotected credential accepted a passphrase")
+	}
+	if err := SavePrivy("p", md, Secrets{RefreshToken: "r"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, s, err := UnlockPrivy("p", nil); err != nil || s.RefreshToken != "r" {
+		t.Fatalf("unlock: %v", err)
+	}
+	// A protected credential cannot be downgraded by flipping the flag or KDF.
+	if err := SavePrivy("q", Metadata{Profile: "q", Kind: KindPrivy}, Secrets{RefreshToken: "r"}, []byte("correct horse")); err != nil {
+		t.Fatal(err)
+	}
+	p, _ := PrivyPath("q")
+	raw, _ := os.ReadFile(p)
+	var doc map[string]any
+	_ = json.Unmarshal(raw, &doc)
+	doc["kdf"] = map[string]any{"name": "none"}
+	doc["metadata"].(map[string]any)["unprotected"] = true
+	tampered, _ := json.Marshal(doc)
+	_ = os.WriteFile(p, tampered, 0o600)
+	if _, _, err := UnlockPrivy("q", nil); !errors.Is(err, ErrBadPassphrase) {
+		t.Fatalf("downgraded credential unlocked: %v", err)
+	}
+}
+
 func TestCorruptCredentialFilesFailClosed(t *testing.T) {
 	setup(t)
 	if err := SavePrivy("p", Metadata{Profile: "p"}, Secrets{RefreshToken: "secret"}, []byte("correct horse")); err != nil {

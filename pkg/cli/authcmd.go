@@ -22,6 +22,65 @@ func authLoginFlags() []urfave.Flag {
 func authStatusFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.BoolFlag{Name: "verify", Usage: "refresh the credential and check Hyperliquid agent approval"}}
 }
+func authUnlockFlags() []urfave.Flag {
+	return []urfave.Flag{&urfave.DurationFlag{Name: "for", Value: defaultUnlockTTL, Usage: "how long to stay unlocked (kernel keyring, cleared on reboot or 'oku auth lock')"}}
+}
+
+// cmdAuthUnlock prompts once in the user's terminal and caches the verified
+// passphrase so agents and MCP can sign without OKU_PASSPHRASE_FILE.
+func (a *App) cmdAuthUnlock(e *env) (*result, error) {
+	p, err := e.profile()
+	if err != nil {
+		return nil, err
+	}
+	if p.Name == "" {
+		return nil, output.Errorf(output.CodeProfileNotFound, "no profile selected")
+	}
+	ttl := e.cmd.Duration("for")
+	if ttl <= 0 || ttl > 7*24*time.Hour {
+		return nil, output.Errorf(output.CodeInvalidArgument, "--for must be between 1s and 168h")
+	}
+	md, err := auth.LoadPrivyMetadata(p.Name)
+	if errors.Is(err, auth.ErrNoCredentials) {
+		return nil, output.Errorf(output.CodeAuthRequired, "run oku auth login")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if md.Unprotected || e.app.UnlockCache == nil {
+		return &result{data: map[string]any{"profile": p.Name, "unlocked": true, "cached": false}, human: func(w io.Writer) {
+			fmt.Fprintln(w, "No unlock needed on this credential.")
+		}}, nil
+	}
+	if !e.app.StdinIsTTY && e.app.Getenv("OKU_PASSPHRASE_FILE") == "" {
+		return nil, output.Errorf(output.CodeUsage, "auth unlock requires an interactive terminal")
+	}
+	e.forgetPassphrase(p.Name)
+	_, _, pass, err := e.unlockCredential(p.Name)
+	if err != nil {
+		return nil, err
+	}
+	if !e.rememberPassphrase(p.Name, pass, ttl) {
+		return nil, output.Errorf(output.CodeSignerUnavailable, "could not store the unlock in the kernel keyring")
+	}
+	until := e.app.Now().Add(ttl)
+	return &result{data: map[string]any{"profile": p.Name, "unlocked": true, "cached": true, "until": until.UTC().Format(time.RFC3339)}, human: func(w io.Writer) {
+		fmt.Fprintf(w, "Unlocked profile %s until %s. Run 'oku auth lock' to lock now.\n", p.Name, until.Local().Format("Jan 2 15:04"))
+	}}, nil
+}
+func (a *App) cmdAuthLock(e *env) (*result, error) {
+	p, err := e.profile()
+	if err != nil {
+		return nil, err
+	}
+	if p.Name == "" {
+		return nil, output.Errorf(output.CodeProfileNotFound, "no profile selected")
+	}
+	e.forgetPassphrase(p.Name)
+	return &result{data: map[string]any{"profile": p.Name, "locked": true}, human: func(w io.Writer) {
+		fmt.Fprintf(w, "Locked profile %s.\n", p.Name)
+	}}, nil
+}
 
 var boundaries = map[string]string{
 	"mode":        "Privy delegated embedded-wallet signing",
@@ -87,6 +146,12 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	if timeout <= 0 {
 		return nil, output.Errorf(output.CodeInvalidArgument, "timeout must be positive")
 	}
+	// Choose the passphrase before anything is authorized remotely, so a typo
+	// here can never leave an approved session or grant behind.
+	np, err := e.choosePassphrase()
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithTimeout(e.ctx, timeout)
 	defer cancel()
 	da, err := pc.StartDeviceAuthorization(ctx)
@@ -97,7 +162,12 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	if url == "" {
 		url = da.VerificationURI
 	}
+	expires := e.app.Now().Add(time.Duration(da.ExpiresIn) * time.Second)
+	if dl, ok := ctx.Deadline(); ok && dl.Before(expires) {
+		expires = dl
+	}
 	e.diag("Open %s and enter code %s", url, da.UserCode)
+	e.diag("The code expires in %s (at %s).", expires.Sub(e.app.Now()).Round(time.Second), expires.Local().Format("15:04:05"))
 	if !e.cmd.Bool("no-open") && e.app.OpenURL != nil {
 		if openErr := e.app.OpenURL(url); openErr != nil {
 			e.diag("Browser did not open: %v", openErr)
@@ -109,6 +179,28 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeAuthRequired, err, "Privy authorization was not approved")
 	}
+	// From here on the device grant (and later the Oku session) exist remotely.
+	// Any failure before the credential is saved revokes them so a failed login
+	// never leaves an authorized session behind.
+	var exchange api.PrivySessionExchangeResponse
+	saved := false
+	defer func() {
+		if saved {
+			return
+		}
+		cctx, ccancel := context.WithTimeout(context.WithoutCancel(e.ctx), 15*time.Second)
+		defer ccancel()
+		if exchange.Session != nil && exchange.Session.SessionID != "" && exchange.Session.Token != "" {
+			c := e.client(p)
+			c.SessionID, c.SessionToken = exchange.Session.SessionID, exchange.Session.Token
+			if lerr := c.Auth(cctx, "Logout", struct{}{}, nil, true); lerr != nil {
+				e.diag("Login failed and the Oku session could not be logged out: %s", api.Redact(lerr.Error()))
+			}
+		}
+		if rerr := pc.RevokeGrant(cctx, tok.AccessToken); rerr != nil {
+			e.diag("Login failed and the Privy grant could not be revoked: %s", api.Redact(rerr.Error()))
+		}
+	}()
 	ps, err := pc.Authenticate(ctx, tok.AccessToken)
 	if err != nil {
 		return nil, output.Wrap(output.CodeAuthUnavailable, err, "authenticating embedded wallet")
@@ -132,16 +224,11 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	}
 	p.Account = strings.ToLower(master)
 	c := e.client(p)
-	var exchange api.PrivySessionExchangeResponse
 	if err = c.Auth(ctx, "PrivySessionExchange", map[string]string{"accessToken": tok.AccessToken}, &exchange, false); err != nil {
 		return nil, apiError(err, "PrivySessionExchange")
 	}
 	if exchange.Session == nil || exchange.Session.SessionID == "" || exchange.Session.Token == "" {
 		return nil, output.Errorf(output.CodeAuthUnavailable, "Oku returned an incomplete session")
-	}
-	pass, err := e.passphrase(true)
-	if err != nil {
-		return nil, err
 	}
 	release, err := auth.LockProfile(p.Name)
 	if err != nil {
@@ -181,10 +268,15 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 			}
 		}
 	}
-	md := auth.Metadata{Kind: auth.KindPrivy, Profile: p.Name, Network: p.Network, APIURL: p.APIURL, PrivyAppID: pc.AppID, AccountAddress: strings.ToLower(p.Account), AgentAddress: strings.ToLower(wallet.Address), PrivyWalletID: wallet.ID, AccessExpiresAt: tok.AccessExpiresAt.UTC().Format(time.RFC3339), SessionID: exchange.Session.SessionID, SessionExpiresAt: exchange.Session.ExpiresAt, CreatedAt: e.app.Now().UTC().Format(time.RFC3339), Status: "active", Generation: 1}
+	md := auth.Metadata{Kind: auth.KindPrivy, Profile: p.Name, Network: p.Network, APIURL: p.APIURL, PrivyAppID: pc.AppID, AccountAddress: strings.ToLower(p.Account), AgentAddress: strings.ToLower(wallet.Address), PrivyWalletID: wallet.ID, AccessExpiresAt: tok.AccessExpiresAt.UTC().Format(time.RFC3339), SessionID: exchange.Session.SessionID, SessionExpiresAt: exchange.Session.ExpiresAt, CreatedAt: e.app.Now().UTC().Format(time.RFC3339), Status: "active", Generation: 1, Unprotected: np.unprotected}
 	sec := auth.Secrets{AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken, SessionToken: exchange.Session.Token}
-	if err = auth.SavePrivy(p.Name, md, sec, pass); err != nil {
+	if err = auth.SavePrivy(p.Name, md, sec, np.pass); err != nil {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "saving credential")
+	}
+	saved = true
+	e.forgetPassphrase(p.Name)
+	if !np.unprotected && e.rememberPassphrase(p.Name, np.pass, e.unlockTTL()) {
+		e.diag("Unlocked for %s so agents can trade without asking again. Run 'oku auth lock' to lock now.", e.unlockTTL())
 	}
 	return statusResult(&md, true), nil
 }
@@ -255,11 +347,7 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 			fmt.Fprintln(w, "Local credential deleted; binding changed, remote grants were not revoked. "+boundaries["not_revoked"])
 		}}, nil
 	}
-	pass, err := e.passphrase(false)
-	if err != nil {
-		return nil, err
-	}
-	md, sec, err := auth.UnlockPrivy(p.Name, pass)
+	md, sec, _, err := e.unlockCredential(p.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -290,6 +378,7 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 	if err = auth.DeletePrivy(p.Name); err != nil {
 		return nil, err
 	}
+	e.forgetPassphrase(p.Name)
 	return &result{data: map[string]any{"local_credentials": "deleted", "oku_session": remote, "privy_grant": grant, "boundaries": boundaries}, human: func(w io.Writer) {
 		fmt.Fprintf(w, "Local credential deleted; %s; Privy grant %s.\n%s\n", remote, grant, boundaries["not_revoked"])
 	}}, nil
