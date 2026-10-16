@@ -94,11 +94,8 @@ func NewServer(b Backend, cfg Config) *sdk.Server {
 	cmds := b.Commands()
 	sort.Slice(cmds, func(i, j int) bool { return cmds[i].Path < cmds[j].Path })
 	for _, c := range cmds {
-		mut := mutationTools[c.Path]
-		if !readTools[c.Path] && !(mut && cfg.AllowMutations) {
-			continue
-		}
-		addCommandTool(s, b, c, mut)
+		// Schemas are documentation: publish them even when the tool itself is not
+		// exposed, so an agent can draft --input JSON for a command it hands to the user.
 		if c.Schema != nil {
 			uri := "oku://schemas/" + strings.ReplaceAll(c.Path, " ", "-")
 			data, _ := json.MarshalIndent(c.Schema, "", "  ")
@@ -106,6 +103,11 @@ func NewServer(b Backend, cfg Config) *sdk.Server {
 				return &sdk.ReadResourceResult{Contents: []*sdk.ResourceContents{{URI: uri, MIMEType: "application/schema+json", Text: string(data)}}}, nil
 			})
 		}
+		mut := mutationTools[c.Path]
+		if !readTools[c.Path] && !(mut && cfg.AllowMutations) {
+			continue
+		}
+		addCommandTool(s, b, c, mut)
 	}
 	addDraftTool(s)
 	addDocs(s, cfg.Docs)
