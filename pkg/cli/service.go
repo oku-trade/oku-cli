@@ -37,7 +37,7 @@ var ServiceReads = map[string]bool{
 	"send prepare": true, "send status": true, "deposit prepare": true, "deposit status": true,
 	"swap quote": true, "swap prepare": true, "swap status": true,
 	"bridge quote": true,
-	"version": true, "doctor": true, "auth status": true, "profiles list": true,
+	"version":      true, "doctor": true, "auth status": true, "profiles list": true,
 	"markets list": true, "markets quote": true, "markets funding": true,
 	"account summary": true, "positions list": true, "orders list": true,
 	"orders status": true, "fills list": true,
