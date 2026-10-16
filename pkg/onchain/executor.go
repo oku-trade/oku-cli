@@ -71,6 +71,22 @@ func (x Executor) Execute(ctx context.Context, in journal.OnchainIntent) error {
 	if !Allowed(in.ChainID) || !ValidAddress(in.Sender) || len(in.Templates) == 0 {
 		return errors.New("unsupported or invalid onchain intent")
 	}
+	// Reserve for every remaining step before the first broadcast.
+	if estimator, ok := x.RPC.(interface {
+		Estimate(context.Context, uint64, string, []journal.OnchainTemplate) (*big.Int, error)
+	}); ok {
+		native, err := x.RPC.Balance(ctx, in.ChainID, in.Sender)
+		if err != nil {
+			return err
+		}
+		reserve, err := estimator.Estimate(ctx, in.ChainID, in.Sender, in.Templates)
+		if err != nil {
+			return err
+		}
+		if native.Cmp(reserve) < 0 {
+			return ErrGas
+		}
+	}
 	for i, t := range in.Templates {
 		if !Allowed(t.ChainID) || t.ChainID != in.ChainID || !ValidAddress(t.To) {
 			return errors.New("transaction chain or target mismatch")
@@ -87,9 +103,16 @@ func (x Executor) Execute(ctx context.Context, in journal.OnchainIntent) error {
 		if err != nil {
 			return err
 		}
-		// Conservative fixed reserve (500k gas) prevents signing a transaction the
-		// wallet cannot pay for; the wallet/provider chooses the actual gas limit.
 		reserve := new(big.Int).Mul(price, big.NewInt(500000))
+		if estimator, ok := x.RPC.(interface {
+			Estimate(context.Context, uint64, string, []journal.OnchainTemplate) (*big.Int, error)
+		}); ok {
+			reserve, err = estimator.Estimate(ctx, t.ChainID, in.Sender, in.Templates[i:])
+			if err != nil {
+				return err
+			}
+			value = new(big.Int)
+		}
 		if native.Cmp(new(big.Int).Add(reserve, value)) < 0 {
 			return ErrGas
 		}
@@ -191,6 +214,16 @@ type HTTPRPC struct {
 }
 
 func (r HTTPRPC) call(ctx context.Context, chain uint64, method string, params any, out any) error {
+	if method != "eth_chainId" {
+		var actual string
+		if err := r.call(ctx, chain, "eth_chainId", []any{}, &actual); err != nil {
+			return err
+		}
+		id, err := Quantity(actual)
+		if err != nil || !id.IsUint64() || id.Uint64() != chain {
+			return errors.New("RPC chain ID differs from requested chain")
+		}
+	}
 	urls := map[uint64]string{42161: "https://arbitrum-one-rpc.publicnode.com", 8453: "https://base-rpc.publicnode.com", 1: "https://ethereum-rpc.publicnode.com"}
 	url := urls[chain]
 	if !Allowed(chain) {
@@ -251,6 +284,47 @@ func (r HTTPRPC) Balance(ctx context.Context, c uint64, a string) (*big.Int, err
 func (r HTTPRPC) GasPrice(ctx context.Context, c uint64) (*big.Int, error) {
 	return r.quantity(ctx, c, "eth_gasPrice", []any{})
 }
+func (r HTTPRPC) Estimate(ctx context.Context, c uint64, from string, templates []journal.OnchainTemplate) (*big.Int, error) {
+	fee, err := r.GasPrice(ctx, c)
+	if err != nil {
+		return nil, err
+	}
+	var history struct {
+		BaseFeePerGas []string `json:"baseFeePerGas"`
+	}
+	if err = r.call(ctx, c, "eth_feeHistory", []any{"0x1", "latest", []int{50}}, &history); err == nil && len(history.BaseFeePerGas) > 0 {
+		base, e := Quantity(history.BaseFeePerGas[len(history.BaseFeePerGas)-1])
+		if e == nil {
+			priority, e := r.quantity(ctx, c, "eth_maxPriorityFeePerGas", []any{})
+			if e == nil {
+				cap := new(big.Int).Add(new(big.Int).Mul(base, big.NewInt(2)), priority)
+				if cap.Cmp(fee) > 0 {
+					fee = cap
+				}
+			}
+		}
+	}
+	total := new(big.Int)
+	for _, t := range templates {
+		call := map[string]string{"from": from, "to": t.To, "value": t.Value}
+		if t.Data != "" {
+			call["data"] = t.Data
+		}
+		gas, e := r.quantity(ctx, c, "eth_estimateGas", []any{call})
+		if e != nil {
+			return nil, e
+		}
+		gas.Mul(gas, big.NewInt(130))
+		gas.Add(gas, big.NewInt(99))
+		gas.Div(gas, big.NewInt(100))
+		value, e := Quantity(t.Value)
+		if e != nil {
+			return nil, e
+		}
+		total.Add(total, new(big.Int).Add(new(big.Int).Mul(gas, fee), value))
+	}
+	return total, nil
+}
 func (r HTTPRPC) Call(ctx context.Context, c uint64, to, data string) (*big.Int, error) {
 	return r.quantity(ctx, c, "eth_call", []any{map[string]string{"to": to, "data": data}, "latest"})
 }
@@ -263,7 +337,10 @@ func (r HTTPRPC) Receipt(ctx context.Context, c uint64, hash string) (*bool, err
 		return nil, nil
 	}
 	var receipt struct {
-		Status string `json:"status"`
+		Status          string `json:"status"`
+		TransactionHash string `json:"transactionHash"`
+		BlockHash       string `json:"blockHash"`
+		BlockNumber     string `json:"blockNumber"`
 	}
 	if err := json.Unmarshal(raw, &receipt); err != nil {
 		return nil, err
@@ -271,6 +348,77 @@ func (r HTTPRPC) Receipt(ctx context.Context, c uint64, hash string) (*bool, err
 	if receipt.Status != "0x1" && receipt.Status != "0x0" {
 		return nil, errors.New("invalid receipt status")
 	}
+	block, err := Quantity(receipt.BlockNumber)
+	if err != nil || block.Sign() == 0 || len(receipt.BlockHash) != 66 || !strings.EqualFold(receipt.TransactionHash, hash) || len(receipt.BlockHash) < 2 {
+		return nil, errors.New("receipt identity or block missing")
+	}
+	if _, err = hex.DecodeString(receipt.BlockHash[2:]); err != nil {
+		return nil, errors.New("invalid receipt block hash")
+	}
+	depth := uint64(20)
+	if c == 1 {
+		depth = 12
+	}
+	getenv := r.Getenv
+	if getenv == nil {
+		getenv = os.Getenv
+	}
+	if custom := getenv("OKU_RPC_CONFIRMATIONS_" + strconv.FormatUint(c, 10)); custom != "" {
+		n, e := strconv.ParseUint(custom, 10, 64)
+		if e != nil || n == 0 {
+			return nil, errors.New("invalid confirmation depth")
+		}
+		depth = n
+	}
+	latest, err := r.quantity(ctx, c, "eth_blockNumber", []any{})
+	if err != nil {
+		return nil, err
+	}
+	if latest.Cmp(block) < 0 || new(big.Int).Sub(latest, block).Cmp(new(big.Int).SetUint64(depth-1)) < 0 {
+		return nil, nil
+	}
+	var canonical struct {
+		Hash string `json:"hash"`
+	}
+	if err := r.call(ctx, c, "eth_getBlockByNumber", []any{Hex(block), false}, &canonical); err != nil {
+		return nil, err
+	}
+	if !strings.EqualFold(canonical.Hash, receipt.BlockHash) {
+		return nil, errors.New("receipt block is not canonical")
+	}
 	ok := receipt.Status == "0x1"
 	return &ok, nil
+}
+
+// VerifyTransaction rejects hashes that do not identify the exact journaled call.
+func (r HTTPRPC) VerifyTransaction(ctx context.Context, chain uint64, hash, sender string, t journal.OnchainTemplate) error {
+	var tx struct {
+		Hash    string `json:"hash"`
+		From    string `json:"from"`
+		To      string `json:"to"`
+		Input   string `json:"input"`
+		Value   string `json:"value"`
+		ChainID string `json:"chainId"`
+	}
+	if err := r.call(ctx, chain, "eth_getTransactionByHash", []any{hash}, &tx); err != nil {
+		return err
+	}
+	value, err := Quantity(tx.Value)
+	if err != nil {
+		return err
+	}
+	expected, err := Quantity(t.Value)
+	if err != nil {
+		return err
+	}
+	if !strings.EqualFold(tx.Hash, hash) || !strings.EqualFold(tx.From, sender) || !strings.EqualFold(tx.To, t.To) || value.Cmp(expected) != 0 || !strings.EqualFold(tx.Input, t.Data) && !(t.Data == "" && tx.Input == "0x") {
+		return errors.New("transaction differs from journaled template")
+	}
+	if tx.ChainID != "" {
+		id, err := Quantity(tx.ChainID)
+		if err != nil || !id.IsUint64() || id.Uint64() != chain {
+			return errors.New("transaction chain mismatch")
+		}
+	}
+	return nil
 }
