@@ -177,23 +177,21 @@ This turns malformed order-draft JSON (code fences, single quotes, unquoted keys
 
 ## Agent EVM swaps and bridges
 
-The embedded Privy wallet is an EVM wallet, **not** the Hyperliquid master account. Use `wallet address` to confirm both addresses. `wallet balances` reads native gas on the selected EVM chain. Only Arbitrum (42161), Base (8453) and Ethereum (1) are supported for these flows.
+The embedded Privy wallet is an EVM wallet, **not** the Hyperliquid master account. Use `wallet address` to confirm both addresses. `wallet balances` reads native gas and recommended token balances on the selected EVM chain. Only Arbitrum (42161), Base (8453) and Ethereum (1) are supported.
 
 ```sh
 oku swap quote --chain 42161 --from USDC --to WETH --amount 10 --slippage-bps 50
 oku swap prepare --chain 42161 --from USDC --to WETH --amount 10 [--recipient 0x...] [--intent-id ID]
 oku swap submit --intent ID --digest SHA
 oku swap status --intent ID
+oku swap reconcile --intent ID --tx-hash 0x... # only for unknown outcome with a recovered hash
 
 oku bridge quote --chain 42161 --destination-chain 8453 --from USDC --to USDC --amount 10
-oku bridge prepare --chain 42161 --destination-chain 8453 --from USDC --to USDC --amount 10 [--recipient 0x...]
-oku bridge submit --intent ID --digest SHA
-oku bridge status --intent ID
 ```
 
-Amounts are exact input decimals. The slippage default is 50 bps, maximum 300 bps. Token symbols resolve through TokenService; when a symbol is ambiguous, specify an address. The recipient defaults to the agent EVM wallet on the destination chain. Verify an explicit recipient and chain carefully. Quote returns an order, quote, target and minimum bound, and quote-only orders are canceled best-effort. Prepare journals a short-lived digest binding the chain, route, spender, recipient, amount and minimum. Submit refuses changed targets, incorrect chain, larger approvals, non-EVM deposit-address/PSBT routes, and unprovable recipient or minimum in calldata. Unsupported Permit2 signatures and unfamiliar router encodings are skipped rather than guessed. Only the exact-amount ERC-20 approval path is currently supported, so many quotes may not be preparable. An approval and trade are separate transactions requiring source-chain native gas and a token balance; the destination wallet needs native gas for later actions.
+Amounts are exact input decimals. The slippage default is 50 bps, maximum 300 bps. Token symbols resolve through TokenService; when ambiguous, specify an address. Swap quote and prepare default to the enrolled agent address using credential metadata without unlocking. Prepare journals a short-lived digest binding chain, OkuRouter, recipient, exact input and minimum output. Submit verifies the non-permit OkuRouter selector and decoded arguments, and exact-amount router approval. Quoted output and simulation are checked; the minimum in aggregator calldata is backend-built and not independently decoded. See security.md. Bridge execution is unavailable; `bridge quote` is read-only.
 
-A successful source-chain bridge receipt does **not** prove delivery on the destination chain. Inspect backend order status and destination-chain balances separately. Unknown broadcast outcomes must be reconciled and never resubmitted automatically. The Privy OAuth `eth_sendTransaction` chain field, grant policies, and funded-wallet behavior require a controlled integration test before live use.
+Unknown broadcasts must never be resubmitted. Recover a transaction hash using independent evidence, then use `send reconcile` or `swap reconcile` to match the exact journal template and wait for confirmations. Gas reserves include estimated gas plus 30% at the fee cap, but L2 data fees and Privy fee choices remain uncertain. The Privy OAuth `eth_sendTransaction` chain field, grant policies and funded-wallet behavior require a controlled integration test before live use.
 
 ## Agent-to-master deposits
 

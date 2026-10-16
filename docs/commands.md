@@ -57,23 +57,6 @@ Unlock the credential for a while so agents and MCP can use it (Linux)
 | --- | --- | --- |
 | `--for` | how long to stay unlocked (kernel keyring, cleared on reboot or 'oku auth lock') | `8h0m0s` |
 
-## `oku bridge prepare`
-
-Prepare an agent EVM bridge
-
-### Options
-
-| Flag | Description | Default |
-| --- | --- | --- |
-| `--chain` | source EVM chain ID (42161, 8453, 1) | `` |
-| `--from` | input token address or unambiguous symbol | `` |
-| `--to` | output token address or unambiguous symbol | `` |
-| `--amount` | exact input decimal amount | `` |
-| `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
-| `--recipient` | EVM recipient (default: agent wallet) | `` |
-| `--destination-chain` | destination EVM chain ID | `` |
-| `--intent-id` | optional unique intent ID | `` |
-
 ## `oku bridge quote`
 
 Quote EVM-to-EVM bridge routes
@@ -89,27 +72,6 @@ Quote EVM-to-EVM bridge routes
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
 | `--destination-chain` | destination EVM chain ID | `` |
-
-## `oku bridge status`
-
-Reconcile an EVM bridge
-
-### Options
-
-| Flag | Description | Default |
-| --- | --- | --- |
-| `--intent` | intent id (required) | `` |
-
-## `oku bridge submit`
-
-Submit a verified EVM bridge
-
-### Options
-
-| Flag | Description | Default |
-| --- | --- | --- |
-| `--intent` | intent id from 'orders prepare' (required) | `` |
-| `--digest` | intent digest from 'orders prepare' (required) | `` |
 
 ## `oku completion bash|zsh|fish`
 
@@ -409,6 +371,17 @@ Prepare an agent EVM transfer
 | `--to` | recipient EVM address (defaults to profile master) | `` |
 | `--intent-id` | optional idempotency ID | `` |
 
+## `oku send reconcile`
+
+Attach and verify a recovered transfer hash
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | unresolved intent ID | `` |
+| `--tx-hash` | recovered onchain transaction hash | `` |
+
 ## `oku send status`
 
 Reconcile a transfer receipt
@@ -488,6 +461,17 @@ Quote exact-in EVM swap routes
 | `--amount` | exact input decimal amount | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
+
+## `oku swap reconcile`
+
+Attach and verify a recovered swap transaction hash
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | unresolved intent ID | `` |
+| `--tx-hash` | recovered onchain transaction hash | `` |
 
 ## `oku swap status`
 

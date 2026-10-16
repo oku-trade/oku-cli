@@ -1,6 +1,6 @@
 ---
 name: move-agent-funds
-description: Move funds in the Oku Agent embedded EVM wallet with explicit journaled send, swap, bridge and master-bound deposit steps.
+description: Move agent EVM funds via send, swap and master-bound deposit; bridge quotes are read-only.
 ---
 
 # Move Oku Agent Funds
@@ -15,23 +15,22 @@ oku wallet balances --chain eip155:42161 --json
 oku swap quote --chain 42161 --from USDC --to WETH --amount 10 --json
 oku bridge quote --chain 42161 --destination-chain 8453 --from USDC --to USDC --amount 10 --json
 oku swap prepare --chain 42161 --from USDC --to WETH --amount 10 --json
-oku bridge prepare --chain 42161 --destination-chain 8453 --from USDC --to USDC --amount 10 --json
 oku send prepare --chain 42161 --token 0x... --amount 10 --json
 oku deposit address --asset usdc --source-chain eip155:42161 --json
 oku deposit prepare --amount 10 --json
 ```
 
-Resolve ambiguous token symbols with explicit contract addresses. Default destination is the agent wallet. Use an explicit `--recipient` only after checking the full EVM address and destination chain. Quotes are read-only but prepare writes a journal intent. Show the prepared recipient, chains, router, spender, minimum output, expiry and digest to the user before submitting. The agent needs enough gas on the source chain for approval and execution, and gas on the destination chain for subsequent transfers. Bridge settlement is not established by a successful source receipt alone.
+Resolve ambiguous token symbols with explicit contract addresses. Swap quote and prepare default to the enrolled agent wallet. Bridge quote is informational; bridge execution is unavailable. Prepare writes a journal intent. Show the recipient, chain, router, minimum output, expiry and digest before submitting. Gas estimates include a buffer but cannot guarantee L2 data fees.
 
 ## Submit and reconcile
 
 ```sh
 oku swap submit --intent ID --digest SHA --json
-oku bridge submit --intent ID --digest SHA --json
 oku send submit --intent ID --digest SHA --json
 oku deposit submit --intent ID --digest SHA --json
 oku swap status --intent ID --json
-oku bridge status --intent ID --json
+oku send reconcile --intent ID --tx-hash 0x... --json
+oku swap reconcile --intent ID --tx-hash 0x... --json
 ```
 
-Submitting signs and broadcasts with Privy, so ask for explicit approval first. A failed or timed-out broadcast may have succeeded. If the outcome is unknown, **never retry submit or create a replacement transfer automatically**. Inspect the journal and receipts with status and wait for reconciliation. Never treat a source bridge receipt as proof of destination delivery. MCP exposes submit only with `--allow-mutations`. Privy wallet spending permissions are independent of Hyperliquid agent trading limits.
+Submitting signs and broadcasts with Privy, so ask for explicit approval first. If the outcome is unknown, **never retry submit**. Reconcile a recovered hash only after verifying its source and exact transaction against the journal. MCP exposes submit and reconcile only with `--allow-mutations`. Privy wallet spending permissions are independent of Hyperliquid agent trading limits.
