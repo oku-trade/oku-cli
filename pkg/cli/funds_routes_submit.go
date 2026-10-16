@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -14,49 +13,6 @@ import (
 	"github.com/oku-trade/oku-cli/pkg/output"
 )
 
-// verifyExecution is the final authorization boundary. Until router calldata
-// can be decoded by an audited selector-specific adapter, execution fails closed.
-func verifyExecution(in journal.OnchainIntent, quoteMin string, info *v2.ExecutionInformation, approvals []*v2.ApprovalPayloadV2) ([]journal.OnchainTemplate, error) {
-	fail := func(reason string) ([]journal.OnchainTemplate, error) {
-		return nil, fmt.Errorf("execution does not match prepared intent: %s", reason)
-	}
-	if !safeInfo(info) || !onchain.Allowed(in.ChainID) || !onchain.Allowed(in.OutChain) || !onchain.ValidAddress(in.Recipient) || !onchain.ValidAddress(in.Target) || !onchain.ValidAddress(in.Token) || !onchain.ValidAddress(in.Spender) {
-		return fail("unsupported route or missing bound addresses")
-	}
-	min, err := positiveRaw(in.MinOut)
-	if err != nil {
-		return fail("invalid minimum output")
-	}
-	got, err := positiveRaw(quoteMin)
-	if err != nil || got.Cmp(min) < 0 {
-		return fail("JIT quote worsens minimum output")
-	}
-	if _, err := positiveRaw(in.Amount); err != nil {
-		return fail("invalid input amount")
-	}
-	trade := info.Trade
-	if trade.ChainId != int64(in.ChainID) || !strings.EqualFold(trade.To, in.Target) {
-		return fail("trade chain or router differs")
-	}
-	if len(info.Transactions) > 0 {
-		tx := info.Transactions[0]
-		if tx == nil || tx.ChainId != trade.ChainId || !strings.EqualFold(tx.To, trade.To) || tx.Data != trade.Data || tx.Value != trade.Value {
-			return fail("extra or divergent backend transaction")
-		}
-	}
-	if trade.Value != "" && trade.Value != "0" && trade.Value != "0x0" {
-		return fail("ERC-20 route sends native value")
-	}
-	raw := strings.TrimPrefix(trade.Data, "0x")
-	data, err := hex.DecodeString(raw)
-	if err != nil || len(data) < 4 {
-		return fail("invalid trade calldata")
-	}
-	// A matching 32-byte word in arbitrary calldata does not establish ABI semantics.
-	// Until each supported router selector has a decoded and audited recipient and
-	// minimum-output field, no swap or bridge transaction may be broadcast.
-	return fail("router calldata semantics are not verified; submission disabled")
-}
 func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	if str(e, "intent") == "" || str(e, "digest") == "" {
 		return nil, output.Errorf(output.CodeUsage, "--intent and --digest required")
@@ -119,8 +75,11 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 				quote = entry.Quote
 			}
 		}
-		if quote == nil || quote.IntentBased || len(quote.SigningRequest.GetTypedData()) > 0 {
+		if quote == nil || quote.IntentBased || quote.Simulation == nil || quote.Simulation.Error != "" || len(quote.SigningRequest.GetTypedData()) > 0 {
 			return nil, output.Errorf(output.CodePayloadMismatch, "unsupported changed quote")
+		}
+		if _, e := positiveRaw(quote.Simulation.AmountOutRaw); e != nil {
+			return nil, output.Errorf(output.CodePayloadMismatch, "swap quote simulation has no successful output")
 		}
 		min = quote.MinAmountOutRaw
 		approvals = quote.ApprovalsV2
@@ -182,7 +141,11 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	if !bound {
 		return nil, output.Errorf(output.CodeSignerUnavailable, "authenticated Privy wallet differs from agent")
 	}
-	if err = j.BeginOnchain(r.ID, r.Digest, w.agent); err != nil {
+	finalDigest, err := j.BindOnchainExecution(r.ID, r.Digest, templates)
+	if err != nil {
+		return nil, output.Wrap(output.CodeIntentState, err, "binding verified execution")
+	}
+	if err = j.BeginOnchain(r.ID, finalDigest, w.agent); err != nil {
 		return nil, output.Wrap(output.CodeIntentState, err, "starting onchain intent")
 	}
 	executing := r.OnchainIntent

@@ -138,6 +138,41 @@ func (j *Journal) BeginOnchain(id, digest, agent string) error {
 	return tx.Commit()
 }
 
+// BindOnchainExecution replaces placeholder templates only while prepared and
+// atomically seals the final, verified transactions under a fresh digest.
+func (j *Journal) BindOnchainExecution(id, digest string, templates []OnchainTemplate) (string, error) {
+	if len(templates) == 0 {
+		return "", ErrConflict
+	}
+	r, err := j.GetOnchain(id)
+	if err != nil {
+		return "", err
+	}
+	if r.State != "prepared" || r.Digest != digest {
+		return "", ErrConflict
+	}
+	r.Templates = templates
+	b, err := json.Marshal(r.OnchainIntent)
+	if err != nil {
+		return "", err
+	}
+	newDigest := r.OnchainIntent.Digest()
+	tx, err := j.begin()
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+	res, err := tx.Exec(`UPDATE onchain_intents SET intent_json=?,digest=?,updated_at=? WHERE profile=? AND intent_id=? AND digest=? AND state='prepared'`, string(b), newDigest, j.now().UTC().Format(time.RFC3339Nano), j.binding.Profile, id, digest)
+	if err != nil {
+		return "", err
+	}
+	n, err := res.RowsAffected()
+	if err != nil || n != 1 {
+		return "", ErrConflict
+	}
+	return newDigest, tx.Commit()
+}
+
 // AdvanceOnchain is a durable transition. Hash append commits before receipt polling.
 func (j *Journal) AdvanceOnchain(id, from, to, hash string) error {
 	tx, err := j.begin()

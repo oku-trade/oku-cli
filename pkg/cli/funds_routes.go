@@ -68,6 +68,9 @@ func safeInfo(info *v2.ExecutionInformation) bool {
 	return info != nil && info.Trade != nil && info.DepositAddress == "" && info.PsbtHex == "" && info.OpReturnData == "" && len(info.Transactions) <= 1 && len(info.Approvals) == 0
 }
 func (a *App) resolveRouteToken(ctx context.Context, c *api.Client, chain uint64, name string) (string, error) {
+	if strings.EqualFold(name, "native") {
+		return "native", nil
+	}
 	if onchain.ValidAddress(name) {
 		return name, nil
 	}
@@ -103,20 +106,19 @@ func compactAddresses(in []string) []string {
 func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *api.Client, routeQuote, error) {
 	var w *resolvedWallet
 	var err error
-	if prepare {
-		w, err = agentWalletMetadata(e)
-	} else {
-		p, pErr := e.profile()
-		if pErr != nil {
-			return nil, nil, routeQuote{}, pErr
+	w, err = agentWalletMetadata(e)
+	if err != nil {
+		if prepare || str(e, "recipient") == "" {
+			return nil, nil, routeQuote{}, err
+		}
+		p, profileErr := e.profile()
+		if profileErr != nil {
+			return nil, nil, routeQuote{}, profileErr
 		}
 		if !onchain.ValidAddress(p.Account) {
 			return nil, nil, routeQuote{}, output.Errorf(output.CodeAccountRequired, "quote profile needs an EVM account")
 		}
 		w = &resolvedWallet{profile: p, agent: p.Account}
-	}
-	if err != nil {
-		return nil, nil, routeQuote{}, err
 	}
 	chain, err := strconv.ParseUint(str(e, "chain"), 10, 64)
 	if err != nil || !onchain.Allowed(chain) {
@@ -154,9 +156,12 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 	if from == to && chain == dst {
 		return nil, nil, routeQuote{}, output.Errorf(output.CodeInvalidArgument, "input and output token must differ")
 	}
-	decimals, err := onchain.HTTPRPC{Getenv: a.Getenv}.Call(ctx, chain, from, "0x313ce567")
-	if err != nil {
-		return nil, nil, routeQuote{}, output.Wrap(output.CodeUpstream, err, "token decimals")
+	decimals := big.NewInt(18)
+	if from != "native" {
+		decimals, err = onchain.HTTPRPC{Getenv: a.Getenv}.Call(ctx, chain, from, "0x313ce567")
+		if err != nil {
+			return nil, nil, routeQuote{}, output.Wrap(output.CodeUpstream, err, "token decimals")
+		}
 	}
 	if !decimals.IsInt64() || decimals.Int64() < 0 || decimals.Int64() > 36 {
 		return nil, nil, routeQuote{}, output.Errorf(output.CodeInvalidArgument, "unsupported token decimals")
@@ -210,12 +215,15 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 				if v.IntentBased || v.ChainId != int32(q.Chain) || !v.IsExactIn || v.Simulation == nil || v.Simulation.Error != "" || math.IsNaN(v.PriceImpact) || v.PriceImpact > 0.15 || v.PriceImpact < 0 || math.IsNaN(v.NetUsdValue) {
 					continue
 				}
-				input, ie := positiveRaw(v.InAmountRaw)
-				min, me := positiveRaw(v.MinAmountOutRaw)
-				if ie != nil || me != nil || input.String() != q.InAmount || !safeInfo(v.ExecutionInfo) || !onchain.ValidAddress(routeTarget(v.ExecutionInfo)) {
+				if simulated, se := positiveRaw(v.Simulation.AmountOutRaw); se != nil || simulated.Sign() <= 0 {
 					continue
 				}
-				if v.InToken == nil || v.OutToken == nil || !strings.EqualFold(v.InToken.Address, q.InToken) || !strings.EqualFold(v.OutToken.Address, q.OutToken) {
+				input, ie := positiveRaw(v.InAmountRaw)
+				min, me := positiveRaw(v.MinAmountOutRaw)
+				if ie != nil || me != nil || input.String() != q.InAmount || !safeInfo(v.ExecutionInfo) || !strings.EqualFold(routeTarget(v.ExecutionInfo), okuRouter) {
+					continue
+				}
+				if v.InToken == nil || v.OutToken == nil || q.InToken != "native" && !strings.EqualFold(v.InToken.Address, q.InToken) || q.OutToken != "native" && !strings.EqualFold(v.OutToken.Address, q.OutToken) {
 					continue
 				}
 				if len(v.SigningRequest.GetTypedData()) > 0 || len(v.Approvals) > 0 {
@@ -361,14 +369,21 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if q.Spender == "" {
-		return nil, output.Errorf(output.CodeRejected, "route has no verifiable exact-amount approval spender")
+	if !strings.EqualFold(q.Target, okuRouter) || q.InToken != "native" && q.Spender != "" && !strings.EqualFold(q.Spender, okuRouter) {
+		return nil, output.Errorf(output.CodeRejected, "swap route or approval spender is not OkuRouter")
+	}
+	if q.InToken != "native" {
+		q.Spender = okuRouter
 	}
 	id := str(e, "intent-id")
 	if id == "" {
 		id = randomID()
 	}
-	in := journal.OnchainIntent{ID: id, Kind: kind, ChainID: q.Chain, OutChain: q.OutChain, Sender: w.agent, Recipient: q.Recipient, Token: q.InToken, OutToken: q.OutToken, Amount: q.InAmount, OrderID: q.OrderID, QuoteID: q.QuoteID, Route: q.Route, Target: q.Target, Spender: q.Spender, MinOut: q.MinOut, ExpiresAt: q.ExpiresAt, CreatedAt: a.Now().UTC().Format(time.RFC3339Nano), Templates: []journal.OnchainTemplate{{ChainID: q.Chain, To: q.InToken, Value: "0x0", Token: q.InToken, Amount: onchain.Hex(mustRaw(q.InAmount))}, {ChainID: q.Chain, To: q.Target, Value: "0x0", Token: q.InToken, Amount: onchain.Hex(mustRaw(q.InAmount)), Spender: q.Spender}}}
+	placeholders := []journal.OnchainTemplate{{ChainID: q.Chain, To: q.Target, Value: "0x0"}}
+	if q.InToken != "native" {
+		placeholders = append([]journal.OnchainTemplate{{ChainID: q.Chain, To: q.InToken, Value: "0x0", Token: q.InToken, Amount: onchain.Hex(mustRaw(q.InAmount))}}, placeholders...)
+	}
+	in := journal.OnchainIntent{ID: id, Kind: kind, ChainID: q.Chain, OutChain: q.OutChain, Sender: w.agent, Recipient: q.Recipient, Token: q.InToken, OutToken: q.OutToken, Amount: q.InAmount, OrderID: q.OrderID, QuoteID: q.QuoteID, Route: q.Route, Target: q.Target, Spender: q.Spender, MinOut: q.MinOut, ExpiresAt: q.ExpiresAt, CreatedAt: a.Now().UTC().Format(time.RFC3339Nano), Templates: placeholders}
 	j, err := openJournal(w.profile)
 	if err != nil {
 		return nil, err
