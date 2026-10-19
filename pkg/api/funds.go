@@ -113,6 +113,12 @@ var bridgeMethods = map[string]handler{
 	"Create": fundsRPC[accountv2.BridgeCreateRequest, accountv2.BridgeCreateResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.BridgeCreateRequest]) (*connect.Response[accountv2.BridgeCreateResponse], error) {
 		return f.bridge.Create
 	}),
+	"UpdateQuoteParams": fundsRPC[accountv2.BridgeUpdateQuoteParamsRequest, accountv2.BridgeUpdateQuoteParamsResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.BridgeUpdateQuoteParamsRequest]) (*connect.Response[accountv2.BridgeUpdateQuoteParamsResponse], error) {
+		return f.bridge.UpdateQuoteParams
+	}),
+	"GetNewQuotes": fundsRPC[accountv2.BridgeGetNewQuotesRequest, accountv2.BridgeGetQuotesResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.BridgeGetNewQuotesRequest]) (*connect.Response[accountv2.BridgeGetQuotesResponse], error) {
+		return f.bridge.GetNewQuotes
+	}),
 	"GetQuotes": fundsRPC[accountv2.BridgeGetQuotesRequest, accountv2.BridgeGetQuotesResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.BridgeGetQuotesRequest]) (*connect.Response[accountv2.BridgeGetQuotesResponse], error) {
 		return f.bridge.GetQuotes
 	}),
