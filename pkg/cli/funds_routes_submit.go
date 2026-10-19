@@ -167,6 +167,14 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 			}
 			return nil, output.Wrap(output.CodeInsufficientBalance, err, "onchain preflight")
 		}
+		// The executor leaves the intent in "sending" with no hash only when it
+		// failed before the first broadcast (an ambiguous broadcast moves it to
+		// "unknown"), so nothing reached the chain and the intent can be closed.
+		if current, readErr := j.GetOnchain(r.ID); readErr == nil && current.State == "sending" && len(current.Hashes) == 0 {
+			if jerr := j.AdvanceOnchain(r.ID, "sending", "failed", ""); jerr == nil {
+				return nil, output.Wrap(output.CodeRejected, err, "preflight failed before any broadcast; nothing was sent, prepare a new "+kind)
+			}
+		}
 		return nil, output.Wrap(output.CodeOutcomeUnknown, err, "never resubmit; inspect status and receipt")
 	}
 	r, err = j.GetOnchain(r.ID)

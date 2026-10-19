@@ -25,6 +25,10 @@ var ErrGas = errors.New("INSUFFICIENT_GAS")
 var ErrBalance = errors.New("INSUFFICIENT_BALANCE")
 var ErrReverted = errors.New("transaction reverted")
 
+// dependentStepGas reserves gas for a step that cannot be simulated until the
+// preceding step is mined.
+const dependentStepGas = 3_000_000
+
 func Allowed(id uint64) bool { return id == 42161 || id == 8453 || id == 1 }
 func ValidAddress(a string) bool {
 	if len(a) != 42 || !strings.HasPrefix(a, "0x") {
@@ -321,14 +325,20 @@ func (r HTTPRPC) Estimate(ctx context.Context, c uint64, from string, templates 
 		}
 	}
 	total := new(big.Int)
-	for _, t := range templates {
+	for i, t := range templates {
 		call := map[string]string{"from": from, "to": t.To, "value": t.Value}
 		if t.Data != "" {
 			call["data"] = t.Data
 		}
 		gas, e := r.quantity(ctx, c, "eth_estimateGas", []any{call})
 		if e != nil {
-			return nil, e
+			if i == 0 {
+				return nil, e
+			}
+			// Later steps depend on earlier ones (a swap needs its approval mined),
+			// so they cannot be simulated yet. Reserve a conservative limit; each
+			// step is estimated for real immediately before its own broadcast.
+			gas = big.NewInt(dependentStepGas)
 		}
 		gas.Mul(gas, big.NewInt(130))
 		gas.Add(gas, big.NewInt(99))
