@@ -7,12 +7,14 @@ external master wallet ──approveAgent─────────────
                                                     ▼
 Oku Agent (Go) ──Oku session──> Accounts AuthService + PerpsService──> Hyperliquid
        │
-       ├─ Privy embedded Ethereum agent wallet RPC (typed-data signing)
+       ├─ Privy embedded Ethereum agent wallet RPC (typed-data signing;
+       │    eth_sendTransaction and wallet_sendCalls for agent-wallet funds)
+       ├─ EVM JSON-RPC (balances, gas, receipts, batch lookup by nonce)
        ├─ encrypted credential / macOS Keychain (tokens only; no wallet private key)
        └─ SQLite journal (intents, nonces, signing/submission states)
 ```
 
-Module `github.com/oku-trade/oku-cli`, binary `oku`, JSON schema `oku.cli/v1`. `pkg/cli` owns commands, profile/session renewal and signing integration. `pkg/privy` owns OAuth device grant, refresh, HPKE wallet authorization and signed wallet RPC. `pkg/auth` stores profile-bound credentials and takes a cross-process lock over refresh-token rotation. `pkg/api` wraps generated Connect clients for Accounts AuthService and PerpsService. `pkg/signing` computes the Hyperliquid action hash and typed-data digest and recovers signatures. `pkg/journal` owns SQLite persistence. `pkg/mcp` exposes a read-only-by-default agent interface but never interactive login/logout.
+Module `github.com/oku-trade/oku-cli`, binary `oku`, JSON schema `oku.cli/v1`. `pkg/cli` owns commands, profile/session renewal and signing integration. `pkg/privy` owns OAuth device grant, refresh, HPKE wallet authorization and signed wallet RPC. `pkg/auth` stores profile-bound credentials and takes a cross-process lock over refresh-token rotation. `pkg/api` wraps generated Connect clients for Accounts AuthService and PerpsService. `pkg/signing` computes the Hyperliquid action hash and typed-data digest and recovers signatures. `pkg/journal` owns SQLite persistence, including onchain intents for agent-wallet funds. `pkg/onchain` executes verified onchain intents: preflight checks, single transactions or one atomic EIP-7702 batch, and receipt confirmation. `pkg/mcp` exposes a read-only-by-default agent interface but never interactive login/logout.
 
 ## Login and session renewal
 
@@ -24,6 +26,10 @@ Run `oku auth login` without an account address. Login prints the Privy device a
 
 The journal gate is machine-local. Sharing one embedded agent across machines can cause nonce collisions or simultaneous exposure. Revoking an Oku session or Privy device grant does not remove Hyperliquid agent approval.
 
+## Agent-wallet funds lifecycle
+
+`send`, `deposit` and `swap` share one onchain journal. `prepare` records an intent binding chain, recipient, token, exact amount and (for swaps) the Oku Router route and minimum output, and returns a digest. Swap quotes come from the backend `GetFlowstreamQuotes` long-poll. `submit` re-fetches execution info, decodes and verifies the router calldata and exact approval, seals the final transactions into the intent, and marks it `sending` (one unresolved onchain intent per agent blocks the next). A single step is sent with Privy `eth_sendTransaction`. Approve+swap is sent as one atomic `wallet_sendCalls` batch: the agent nonce and block are journaled before the handoff, and because Privy returns only a batch ID, the mined transaction is located by that nonce and accepted only if it decodes to exactly the journaled Kernel calls. Failures before the handoff close the intent; anything ambiguous after it stays `unknown` until `status` or `reconcile` resolves it from chain evidence.
+
 ## Outstanding integration
 
-Staging acceptance on 2026-10-14 verified Privy login, chainId 1337 typed-data signed submission, order list and cancel. Accounts multi-app verifier account#530 and authorize page trade#3569 are merged. Production deployment and remaining operational checks are separate (see [deployment](deployment.md)).
+Staging acceptance on 2026-10-14 verified Privy login, chainId 1337 typed-data signed submission, order list and cancel. Agent-wallet send, deposit, single-step swap and approve+swap batch were exercised live on Arbitrum on 2026-10-19. Bridge execution is not implemented. Accounts multi-app verifier account#530 and authorize page trade#3569 are merged. Production deployment and remaining operational checks are separate (see [deployment](deployment.md)).

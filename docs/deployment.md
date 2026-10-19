@@ -8,7 +8,8 @@
 2. The dedicated Privy app **Oku Trade Agents** has ID `cmv72u7fa001m0gk200vq97nd`, built into the CLI. `--privy-app-id` and `OKU_PRIVY_APP_ID` override it. Staging's verification URI currently points to `https://unitrade.lat.gfx.town/agent/authorize`; change it to `https://oku.trade/agent/authorize` for production.
 3. Accounts multi-app verifier account#530 and the authorization page trade#3569 are merged. Staging accepts this app's device-grant JWT (verified 2026-10-14); verify production deployment independently.
 4. Staging Privy OAuth wallet RPC accepted `eth_signTypedData_v4` for Hyperliquid Agent typed data including chainId 1337 on 2026-10-14. Apply a grant policy limiting the wallet to that domain if available; verify production separately.
-5. Backend agent-session lifetime and attribution, and recovery-to-approved-agent validation must be reviewed. A generic user session is not an equivalent substitute for a scoped device session.
+5. Agent-wallet funds use Privy OAuth wallet RPC `eth_sendTransaction` (sends, deposits, single-step swaps) and `wallet_sendCalls` (approve+swap batches, which upgrade the embedded wallet via EIP-7702 to a Kernel account). Both worked on Arbitrum mainnet on 2026-10-19. Any grant policy must allow these methods for the intended chains and contracts (token approvals to, and calls on, Oku Router `0xb1f3a7B816B0681188F54dFa400991B93ADf00ed`).
+6. Backend agent-session lifetime and attribution, and recovery-to-approved-agent validation must be reviewed. A generic user session is not an equivalent substitute for a scoped device session.
 
 ## Web onboarding
 

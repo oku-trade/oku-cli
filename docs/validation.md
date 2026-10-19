@@ -1,5 +1,18 @@
 # Validation
 
+## 2026-10-19 agent-wallet funds (Arbitrum mainnet, small amounts)
+
+Operator-run live checks with the staging profile's Privy agent wallet `0x04ea…e027` and `OKU_RPC_URL_42161` pointed at a full RPC:
+
+| Check | Evidence |
+|---|---|
+| `send` 1 USDC agent → master | confirmed, tx `0x102968b8…` |
+| `deposit` 1 USDC agent → master (no Hyperliquid deposit) | confirmed, tx `0xa09a1c86…` |
+| `swap` 1 USDC → WETH, sequential approve then swap (pre-batch build) | approve `0x6d071652…`, swap `0x03b1287c…`; output above minimum |
+| `swap` 0.5 USDC → WETH as one `wallet_sendCalls` batch | tx `0xfb353197…0e2dae` (type 4, EIP-7702 authorization, self-call to Kernel `execute`), located by journaled nonce 5 and confirmed; output 0.000208362 WETH above minimum 0.000207323; allowance back to 0 |
+
+Earlier failures found and fixed during this run: backend `GetQuote` 500 (submit now re-reads via `GetQuotes`); gas estimation of a dependent swap step before its approval mined; submit timeouts under the 15s request budget (execution now has its own budget). Two independent fund-safety reviews' findings are fixed (strict Kernel calldata decoding, nonce-race-safe lookup, unknown on journal failure). Not verified: Base/Ethereum, sponsored gas, bridge execution (not implemented).
+
 ## 2026-10-14 staging acceptance
 
 Operator-reported live staging checks: Privy agent login via the merged authorize page (trade#3569), device-grant acceptance by the merged Accounts multi-app verifier (account#530, default-on for Oku Trade Agents), Privy-signed order submit (chainId 1337), order list and cancel all succeeded. This is staging evidence, not production approval. The staging verification URI is `https://unitrade.lat.gfx.town/agent/authorize`; production must use `https://oku.trade/agent/authorize`. Device-enrollment entries below document the historical removed implementation and are not current CLI capabilities.
