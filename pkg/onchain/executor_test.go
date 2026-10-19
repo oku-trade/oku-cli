@@ -125,6 +125,7 @@ type fakeBatch struct {
 	pending        uint64
 	mined          *ChainTx // returned once latest > nonce
 	afterSendMined bool
+	nonceErr       map[uint64]error
 }
 
 func (f *fakeBatch) SendCalls(context.Context, string, uint64, []privy.Call) (string, error) {
@@ -139,6 +140,9 @@ func (f *fakeBatch) Nonces(context.Context, uint64, string) (uint64, uint64, err
 }
 func (f *fakeBatch) BlockNumber(context.Context, uint64) (uint64, error) { return 100, nil }
 func (f *fakeBatch) FindNonceTx(_ context.Context, _ uint64, _ string, nonce, _ uint64) (*ChainTx, error) {
+	if err, ok := f.nonceErr[nonce]; ok {
+		return nil, err
+	}
 	if f.mined == nil || nonce != f.mined.Nonce {
 		return nil, nil
 	}
@@ -155,13 +159,8 @@ func swapIntent() journal.OnchainIntent {
 	}}
 }
 
-// kernelInput mimics a Kernel execute() self-call carrying both calls.
 func kernelInput(in journal.OnchainIntent) string {
-	s := "0xe9ae5c53"
-	for _, t := range in.Templates {
-		s += strings.Repeat("0", 24) + strings.ToLower(t.To[2:]) + strings.TrimPrefix(t.Data, "0x")
-	}
-	return s
+	return encodeKernel(kernelBatchMode, templateCalls(in))
 }
 
 // The approval and swap go out as one wallet_sendCalls handoff. The nonce and
@@ -177,7 +176,7 @@ func TestExecuteBatchSendsOnceAndConfirmsByNonce(t *testing.T) {
 	if err := x.ExecuteBatch(context.Background(), in, b, b); err != nil {
 		t.Fatal(err)
 	}
-	if b.sends != 1 || j.state != "confirmed" || strings.Join(j.hashes, ",") != hash || len(j.batch) == 0 || j.batch[0].Nonce != 5 || j.batch[0].FromBlock != 100 {
+	if b.sends != 1 || j.state != "confirmed" || strings.Join(j.hashes, ",") != hash || len(j.batch) == 0 || j.batch[0].Nonce != 5 || j.batch[0].FromBlock != 100-batchBlockMargin {
 		t.Fatalf("sends=%d state=%s hashes=%v batch=%+v", b.sends, j.state, j.hashes, j.batch)
 	}
 }
@@ -243,5 +242,35 @@ func TestExecuteLaterStepPreflightClosesPartial(t *testing.T) {
 	err := x.Execute(context.Background(), in)
 	if !errors.Is(err, ErrNotBroadcast) || !errors.Is(err, ErrBalance) || j.state != "failed" || s.calls != 1 || len(j.hashes) != 1 {
 		t.Fatalf("err=%v state=%s sends=%d hashes=%v", err, j.state, s.calls, j.hashes)
+	}
+}
+
+// A concurrent agent transaction can take the reserved nonce before the batch.
+// Lookup must skip it and find the batch at the next nonce, not fail forever.
+func TestLocateBatchSkipsNonceTakenByConcurrentTx(t *testing.T) {
+	in := swapIntent()
+	b := &fakeBatch{latest: 7, pending: 7, nonceErr: map[uint64]error{5: ErrNonceBeforeBlock},
+		mined: &ChainTx{Hash: hash, From: agent, To: agent, Input: kernelInput(in), Nonce: 6}}
+	got, err := LocateBatch(context.Background(), in, journal.Batch{Nonce: 5, FromBlock: 100}, b)
+	if err != nil || got != hash {
+		t.Fatalf("hash=%q err=%v", got, err)
+	}
+}
+
+type failingJournal struct{ fakeJournal }
+
+func (j *failingJournal) AdvanceOnchain(string, string, string, string) error {
+	return errors.New("disk full")
+}
+
+// If the preflight closure cannot be journaled, the intent still blocks: the
+// caller must see OUTCOME_UNKNOWN, never "nothing broadcast, prepare again".
+func TestPreflightJournalFailureIsUnknown(t *testing.T) {
+	j := &failingJournal{fakeJournal{state: "sending"}}
+	b := &fakeBatch{latest: 5, pending: 5}
+	x := Executor{RPC: fakeRPC{gas: big.NewInt(0)}, Journal: j}
+	err := x.ExecuteBatch(context.Background(), swapIntent(), b, b)
+	if !errors.Is(err, ErrUnknown) || errors.Is(err, ErrNotBroadcast) || b.sends != 0 {
+		t.Fatalf("err=%v sends=%d", err, b.sends)
 	}
 }

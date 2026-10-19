@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/oku-trade/oku-cli/pkg/journal"
+	"github.com/oku-trade/oku-cli/pkg/onchain/onchaintest"
 )
 
 // A swap that needs an approval must go out as one atomic wallet_sendCalls
@@ -92,7 +93,7 @@ func TestSwapSubmitBatchesApprovalAndSwap(t *testing.T) {
 			fmt.Fprintf(w, `{"result":%q}`, n)
 		case "eth_getBlockByNumber":
 			if full, _ := req.Params[1].(bool); full {
-				input := "0xe9ae5c53" + strings.Repeat("0", 24) + strings.ToLower(input.Hex()[2:]) + approveData[2:] + strings.Repeat("0", 24) + strings.ToLower(okuRouter[2:]) + swapData[2:]
+				input := onchaintest.KernelBatch([]onchaintest.Call{{To: input.Hex(), Data: approveData}, {To: okuRouter, Data: swapData}})
 				fmt.Fprintf(w, `{"result":{"transactions":[{"hash":%q,"from":%q,"to":%q,"input":%q,"nonce":"0x5"}]}}`, batchHash, agent, agent, input)
 				return
 			}

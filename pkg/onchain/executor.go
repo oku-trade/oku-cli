@@ -75,8 +75,8 @@ type BatchLocator interface {
 
 // ChainTx is the subset of an on-chain transaction used to verify a batch.
 type ChainTx struct {
-	Hash, From, To, Input string
-	Nonce                 uint64
+	Hash, From, To, Input, Value string
+	Nonce                        uint64
 }
 type Journal interface {
 	AdvanceOnchain(id, from, to, hash string) error
@@ -101,8 +101,9 @@ var ErrNotBroadcast = errors.New("not broadcast")
 // the intent is closed as failed with those hashes kept for the record.
 func (x Executor) preflight(in journal.OnchainIntent, from string, err error) error {
 	if jerr := x.Journal.AdvanceOnchain(in.ID, from, "failed", ""); jerr != nil {
-		// Unable to record the closure: leave it unresolved, but nothing was sent.
-		return fmt.Errorf("%w: %v; journal update failed: %v", ErrNotBroadcast, err, jerr)
+		// The closure was not recorded, so the intent still blocks and callers
+		// must not be told it is safe to prepare a new one.
+		return fmt.Errorf("%w: preflight failed (%v) but journal update failed: %v", ErrUnknown, err, jerr)
 	}
 	return fmt.Errorf("%w: %w", ErrNotBroadcast, err)
 }
@@ -172,8 +173,16 @@ func (x Executor) Execute(ctx context.Context, in journal.OnchainIntent) error {
 }
 
 // batchNonceScan bounds how many agent nonces after the reserved one are
-// searched for the batch, covering an RPC that lagged a concurrent send.
-const batchNonceScan = 8
+// searched for the batch, covering concurrent sends from the same wallet.
+const batchNonceScan = 32
+
+// batchBlockMargin backs the recorded search start off from the observed head
+// to tolerate load-balanced RPC nodes that lag each other.
+const batchBlockMargin = 64
+
+// ErrNonceBeforeBlock reports that a nonce was consumed before the batch's
+// recorded start block, so that transaction cannot be the batch.
+var ErrNonceBeforeBlock = errors.New("nonce used before the batch was submitted")
 
 // ExecuteBatch sends every template as one atomic wallet_sendCalls batch
 // (EIP-7702). Before the handoff it records the agent nonce and block, so the
@@ -195,6 +204,13 @@ func (x Executor) ExecuteBatch(ctx context.Context, in journal.OnchainIntent, se
 	if err := x.checkBatch(ctx, in); err != nil {
 		return x.preflight(in, "sending", err)
 	}
+	// Read the block first, then the nonce, and back the block off by a margin
+	// for load-balanced RPC lag: the batch can only be mined after both reads,
+	// so it is always found at or after FromBlock.
+	block, err := locator.BlockNumber(ctx, in.ChainID)
+	if err != nil {
+		return x.preflight(in, "sending", err)
+	}
 	latest, pending, err := locator.Nonces(ctx, in.ChainID, in.Sender)
 	if err != nil {
 		return x.preflight(in, "sending", err)
@@ -202,9 +218,10 @@ func (x Executor) ExecuteBatch(ctx context.Context, in journal.OnchainIntent, se
 	if latest != pending {
 		return x.preflight(in, "sending", errors.New("agent has a pending transaction; wait for it to confirm"))
 	}
-	block, err := locator.BlockNumber(ctx, in.ChainID)
-	if err != nil {
-		return x.preflight(in, "sending", err)
+	if block > batchBlockMargin {
+		block -= batchBlockMargin
+	} else {
+		block = 0
 	}
 	batch := journal.Batch{Nonce: latest, FromBlock: block}
 	if err = x.Journal.SetOnchainBatch(in.ID, "sending", batch); err != nil {
@@ -279,17 +296,23 @@ var errBatchNotMined = errors.New("batch not mined")
 func IsBatchNotMined(err error) bool { return errors.Is(err, errBatchNotMined) }
 
 // VerifyBatchTransaction checks a user-supplied hash is the intent's batch.
-func (r HTTPRPC) VerifyBatchTransaction(ctx context.Context, in journal.OnchainIntent, hash string) error {
+func (r HTTPRPC) VerifyBatchTransaction(ctx context.Context, in journal.OnchainIntent, b journal.Batch, hash string) error {
 	var tx struct {
 		Hash  string `json:"hash"`
 		From  string `json:"from"`
 		To    string `json:"to"`
 		Input string `json:"input"`
+		Value string `json:"value"`
+		Nonce string `json:"nonce"`
 	}
 	if err := r.call(ctx, in.ChainID, "eth_getTransactionByHash", []any{hash}, &tx); err != nil {
 		return err
 	}
-	if !strings.EqualFold(tx.Hash, hash) || !BatchMatches(in, &ChainTx{Hash: tx.Hash, From: tx.From, To: tx.To, Input: tx.Input}) {
+	nonce, err := Quantity(tx.Nonce)
+	if err != nil || !nonce.IsUint64() || nonce.Uint64() < b.Nonce || nonce.Uint64() >= b.Nonce+batchNonceScan {
+		return errors.New("transaction nonce is outside this batch's reserved range")
+	}
+	if !strings.EqualFold(tx.Hash, hash) || !BatchMatches(in, &ChainTx{Hash: tx.Hash, From: tx.From, To: tx.To, Input: tx.Input, Value: tx.Value, Nonce: nonce.Uint64()}) {
 		return errors.New("transaction is not this intent's batch")
 	}
 	return nil
@@ -306,6 +329,9 @@ func LocateBatch(ctx context.Context, in journal.OnchainIntent, b journal.Batch,
 	}
 	for n := b.Nonce; n < latest && n < b.Nonce+batchNonceScan; n++ {
 		tx, err := locator.FindNonceTx(ctx, in.ChainID, in.Sender, n, b.FromBlock)
+		if errors.Is(err, ErrNonceBeforeBlock) {
+			continue // a concurrent transaction took this nonce first
+		}
 		if err != nil {
 			return "", err
 		}
@@ -316,18 +342,128 @@ func LocateBatch(ctx context.Context, in journal.OnchainIntent, b journal.Batch,
 	return "", errBatchNotMined
 }
 
-// BatchMatches reports whether an on-chain transaction is the agent's EIP-7702
-// self-call whose calldata carries every journaled call target and payload.
+// kernelExecute is ERC-7579 execute(bytes32 mode, bytes executionCalldata),
+// which Privy's EIP-7702 Kernel account uses for wallet_sendCalls.
+const kernelExecute = "e9ae5c53"
+
+// kernelBatchMode is ERC-7579 mode: callType batch (0x01), execType default
+// (0x00, reverts the whole batch if any call fails), no selector or payload.
+const kernelBatchMode = "01" + "00000000000000000000000000000000000000000000000000000000000000"
+
+// BatchMatches reports whether an on-chain transaction is exactly the agent's
+// batch: a zero-value self-call to execute(batch mode, abi.encode(Execution[]))
+// whose decoded calls equal the journaled templates in order (target, value,
+// calldata) with nothing extra.
 func BatchMatches(in journal.OnchainIntent, tx *ChainTx) bool {
 	if tx == nil || !strings.EqualFold(tx.From, in.Sender) || !strings.EqualFold(tx.To, in.Sender) {
 		return false
 	}
-	input := strings.ToLower(strings.TrimPrefix(tx.Input, "0x"))
-	for _, t := range in.Templates {
-		if !strings.Contains(input, strings.ToLower(t.To[2:])) {
+	if tx.Value != "" {
+		if v, err := Quantity(tx.Value); err != nil || v.Sign() != 0 {
 			return false
 		}
-		if data := strings.ToLower(strings.TrimPrefix(t.Data, "0x")); data != "" && !strings.Contains(input, data) {
+	}
+	calls, ok := decodeKernelBatch(tx.Input)
+	if !ok || len(calls) != len(in.Templates) {
+		return false
+	}
+	for i, t := range in.Templates {
+		want, err := Quantity(t.Value)
+		if err != nil || !strings.EqualFold(calls[i].To, t.To) || calls[i].Value.Cmp(want) != 0 || !strings.EqualFold(calls[i].Data, strings.TrimPrefix(t.Data, "0x")) {
+			return false
+		}
+	}
+	return true
+}
+
+type kernelCall struct {
+	To    string
+	Value *big.Int
+	Data  string // hex without 0x
+}
+
+// decodeKernelBatch strictly decodes execute(bytes32,bytes) in batch mode with
+// executionCalldata = abi.encode((address,uint256,bytes)[]). It rejects any
+// non-canonical layout or trailing bytes.
+func decodeKernelBatch(input string) ([]kernelCall, bool) {
+	raw, err := hex.DecodeString(strings.TrimPrefix(input, "0x"))
+	if err != nil || len(raw) < 4+64 || hex.EncodeToString(raw[:4]) != kernelExecute {
+		return nil, false
+	}
+	args := raw[4:]
+	word := func(b []byte, off uint64) (*big.Int, bool) {
+		if off+32 > uint64(len(b)) {
+			return nil, false
+		}
+		return new(big.Int).SetBytes(b[off : off+32]), true
+	}
+	small := func(b []byte, off uint64) (uint64, bool) {
+		v, ok := word(b, off)
+		if !ok || !v.IsUint64() || v.Uint64() > uint64(len(b)) {
+			return 0, false
+		}
+		return v.Uint64(), true
+	}
+	if hex.EncodeToString(args[:32]) != kernelBatchMode {
+		return nil, false
+	}
+	// bytes executionCalldata: offset must be 0x40, then length, then data.
+	if off, ok := small(args, 32); !ok || off != 64 {
+		return nil, false
+	}
+	n, ok := small(args, 64)
+	if !ok || 96+n > uint64(len(args)) || uint64(len(args)) != 96+(n+31)/32*32 {
+		return nil, false
+	}
+	exec := args[96 : 96+n]
+	// abi.encode(Execution[]): head offset 0x20, then array length.
+	if off, ok := small(exec, 0); !ok || off != 32 {
+		return nil, false
+	}
+	count, ok := small(exec, 32)
+	if !ok || count == 0 || count > 16 {
+		return nil, false
+	}
+	arr := exec[64:]
+	calls := make([]kernelCall, 0, count)
+	end := uint64(32 * count)
+	for i := uint64(0); i < count; i++ {
+		off, ok := small(arr, 32*i)
+		if !ok || off != end {
+			return nil, false // elements must be contiguous and in order
+		}
+		el := arr[off:]
+		if len(el) < 96 {
+			return nil, false
+		}
+		if !allZero(el[:12]) {
+			return nil, false
+		}
+		value, _ := word(el, 32)
+		dataOff, ok := small(el, 64)
+		if !ok || dataOff != 96 {
+			return nil, false
+		}
+		dlen, ok := small(el, 96)
+		if !ok || 128+dlen > uint64(len(el)) {
+			return nil, false
+		}
+		padded := (dlen + 31) / 32 * 32
+		if 128+padded > uint64(len(el)) || !allZero(el[128+dlen:128+padded]) {
+			return nil, false
+		}
+		calls = append(calls, kernelCall{To: "0x" + hex.EncodeToString(el[12:32]), Value: value, Data: hex.EncodeToString(el[128 : 128+dlen])})
+		end = off + 128 + padded
+	}
+	if end != uint64(len(arr)) || !allZero(args[96+n:]) {
+		return nil, false
+	}
+	return calls, true
+}
+
+func allZero(b []byte) bool {
+	for _, c := range b {
+		if c != 0 {
 			return false
 		}
 	}
@@ -670,7 +806,7 @@ func (r HTTPRPC) FindNonceTx(ctx context.Context, c uint64, sender string, nonce
 	if n, err := countAt(lo); err != nil {
 		return nil, err
 	} else if n > nonce {
-		return nil, errors.New("batch nonce was used before the recorded block")
+		return nil, ErrNonceBeforeBlock
 	}
 	// Invariant: count(lo) <= nonce < count(hi); the transaction is in the first
 	// block whose count exceeds nonce.
@@ -692,6 +828,7 @@ func (r HTTPRPC) FindNonceTx(ctx context.Context, c uint64, sender string, nonce
 			From  string `json:"from"`
 			To    string `json:"to"`
 			Input string `json:"input"`
+			Value string `json:"value"`
 			Nonce string `json:"nonce"`
 		} `json:"transactions"`
 	}
@@ -703,7 +840,7 @@ func (r HTTPRPC) FindNonceTx(ctx context.Context, c uint64, sender string, nonce
 		if err != nil || !strings.EqualFold(tx.From, sender) || !n.IsUint64() || n.Uint64() != nonce {
 			continue
 		}
-		return &ChainTx{Hash: tx.Hash, From: tx.From, To: tx.To, Input: tx.Input, Nonce: nonce}, nil
+		return &ChainTx{Hash: tx.Hash, From: tx.From, To: tx.To, Input: tx.Input, Value: tx.Value, Nonce: nonce}, nil
 	}
 	return nil, errors.New("nonce transaction missing from its block")
 }

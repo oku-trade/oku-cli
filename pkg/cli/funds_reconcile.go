@@ -55,7 +55,7 @@ func (a *App) cmdFundsReconcile(e *env, kind string) (*result, error) {
 	ctx, cancel := e.requestCtx()
 	defer cancel()
 	if r.Batch != nil {
-		err = rpc.VerifyBatchTransaction(ctx, r.OnchainIntent, hash)
+		err = rpc.VerifyBatchTransaction(ctx, r.OnchainIntent, *r.Batch, hash)
 	} else {
 		err = rpc.VerifyTransaction(ctx, r.ChainID, hash, w.agent, r.Templates[len(r.Hashes)])
 	}
