@@ -12,14 +12,27 @@ if [[ $CHECK -eq 0 ]]; then
   : "${ACCOUNT_REPO:?set ACCOUNT_REPO to a local oku-trade/account checkout}"
   FILES=(
     gfxcafe/oku/account/v1/validate.proto
+    gfxcafe/oku/account/v1/auth.proto
+    gfxcafe/oku/account/v1/common.proto
     gfxcafe/oku/account/v2/validate.proto
     gfxcafe/oku/account/v2/perps.proto
     gfxcafe/oku/account/v2/cli_device.proto
+    gfxcafe/oku/account/v2/orders.proto
+    gfxcafe/oku/account/v2/simpleswap.proto
+    gfxcafe/oku/account/v2/bridge.proto
+    gfxcafe/oku/account/v2/token.proto
+    gfxcafe/oku/account/v2/onchain.proto
   )
   rm -rf proto/gfxcafe proto/buf
   for f in "${FILES[@]}"; do
     mkdir -p "proto/$(dirname "$f")"
-    cp "$ACCOUNT_REPO/proto/$f" "proto/$f"
+    if [[ -f "$ACCOUNT_REPO/proto/$f" ]]; then
+      cp "$ACCOUNT_REPO/proto/$f" "proto/$f"
+    elif [[ "$f" == gfxcafe/oku/account/v2/cli_device.proto || "$f" == gfxcafe/oku/account/v1/auth.proto || "$f" == gfxcafe/oku/account/v1/common.proto ]]; then
+      git show "HEAD:proto/$f" > "proto/$f"
+    else
+      echo "missing upstream proto: $f" >&2; exit 1
+    fi
   done
   mkdir -p proto/buf/validate
   cp "$ACCOUNT_REPO/third_party/protovalidate/buf/validate/validate.proto" proto/buf/validate/

@@ -57,6 +57,22 @@ Unlock the credential for a while so agents and MCP can use it (Linux)
 | --- | --- | --- |
 | `--for` | how long to stay unlocked (kernel keyring, cleared on reboot or 'oku auth lock') | `8h0m0s` |
 
+## `oku bridge quote`
+
+Quote EVM-to-EVM bridge routes
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | source EVM chain ID (42161, 8453, 1) | `` |
+| `--from` | input token address or unambiguous symbol | `` |
+| `--to` | output token address or unambiguous symbol | `` |
+| `--amount` | exact input decimal amount | `` |
+| `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
+| `--recipient` | EVM recipient (default: agent wallet) | `` |
+| `--destination-chain` | destination EVM chain ID | `` |
+
 ## `oku completion bash|zsh|fish`
 
 Print a shell completion script; no network or credential access
@@ -68,6 +84,50 @@ Print config, credential and state paths
 ## `oku config show`
 
 Show configuration (no secrets)
+
+## `oku deposit address`
+
+Read a master-bound HyperUnit deposit address
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--asset` | HyperUnit asset symbol | `` |
+| `--source-chain` | HyperUnit source chain CAIP-2 identifier | `` |
+
+## `oku deposit prepare`
+
+Prepare Arbitrum USDC transfer from agent to master
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--amount` | USDC amount on Arbitrum | `` |
+| `--to` | must equal profile master address if supplied | `` |
+| `--intent-id` | optional idempotency ID | `` |
+
+## `oku deposit status`
+
+Reconcile agent-to-master USDC transfer
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id (required) | `` |
+
+## `oku deposit submit`
+
+Transfer agent USDC to master EOA
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id from 'deposit prepare' (required) | `` |
+| `--digest` | intent digest from 'deposit prepare' (required) | `` |
 
 ## `oku docs commands`
 
@@ -297,6 +357,52 @@ Remove a profile without credentials: profiles remove NAME
 
 Set the default profile: profiles use NAME
 
+## `oku send prepare`
+
+Prepare an agent EVM transfer
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | chain ID 42161, 8453, or 1 | `` |
+| `--token` | ERC-20 contract address or native | `` |
+| `--amount` | exact decimal amount | `` |
+| `--to` | recipient EVM address (defaults to profile master) | `` |
+| `--intent-id` | optional idempotency ID | `` |
+
+## `oku send reconcile`
+
+Attach and verify a recovered transfer hash
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | unresolved intent ID | `` |
+| `--tx-hash` | recovered onchain transaction hash | `` |
+
+## `oku send status`
+
+Reconcile a transfer receipt
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id (required) | `` |
+
+## `oku send submit`
+
+Broadcast an approved EVM transfer
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id from 'send prepare' (required) | `` |
+| `--digest` | intent digest from 'send prepare' (required) | `` |
+
 ## `oku skills install`
 
 Install skills: --target jcode|claude|codex or --dir PATH [--force]
@@ -325,6 +431,83 @@ Remove installed skills that match the bundled version
 | `--dir` | explicit skills directory (overrides --target) | `` |
 | `--force` | overwrite or remove files that differ from the bundled version | `false` |
 
+## `oku swap prepare`
+
+Prepare an agent EVM swap
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | source EVM chain ID (42161, 8453, 1) | `` |
+| `--from` | input token address or unambiguous symbol | `` |
+| `--to` | output token address or unambiguous symbol | `` |
+| `--amount` | exact input decimal amount | `` |
+| `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
+| `--recipient` | EVM recipient (default: agent wallet) | `` |
+| `--intent-id` | optional unique intent ID | `` |
+
+## `oku swap quote`
+
+Quote exact-in EVM swap routes
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | source EVM chain ID (42161, 8453, 1) | `` |
+| `--from` | input token address or unambiguous symbol | `` |
+| `--to` | output token address or unambiguous symbol | `` |
+| `--amount` | exact input decimal amount | `` |
+| `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
+| `--recipient` | EVM recipient (default: agent wallet) | `` |
+
+## `oku swap reconcile`
+
+Attach and verify a recovered swap transaction hash
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | unresolved intent ID | `` |
+| `--tx-hash` | recovered onchain transaction hash | `` |
+
+## `oku swap status`
+
+Reconcile an EVM swap
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id (required) | `` |
+
+## `oku swap submit`
+
+Submit a verified EVM swap
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id from 'swap prepare' (required) | `` |
+| `--digest` | intent digest from 'swap prepare' (required) | `` |
+
 ## `oku version`
 
 Print version information
+
+## `oku wallet address`
+
+Show the enrolled agent wallet and master EOA
+
+## `oku wallet balances`
+
+Read the agent's EVM native balance
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain: 42161, 8453, 1 (or eip155: prefixed) | `` |

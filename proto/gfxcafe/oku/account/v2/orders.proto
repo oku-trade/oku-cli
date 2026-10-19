@@ -1,0 +1,279 @@
+syntax = "proto3";
+
+package gfxcafe.oku.account.v2;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/any.proto";
+import "gfxcafe/oku/account/v1/validate.proto";
+import "gfxcafe/oku/account/v2/validate.proto";
+
+option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v2;accountv2";
+
+// ============================================================================
+// Core Types and Data Structures
+// ============================================================================
+
+// Common error type for all order workflows
+message OrderError {
+  string data = 1;
+  string message = 2;
+  bool retryable = 3;
+}
+
+// Common state type for order tracking
+message OrderState {
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+  string user_id = 2;
+  int64 last_updated = 3;
+  string stage = 4;
+}
+
+// Common Viem error type for transaction execution errors
+message ViemError {
+  string name = 1;
+  string cause = 2;
+  string details = 3;
+  string docs_path = 4;
+  string meta_messages = 5;
+  string short_message = 6;
+  string version = 7;
+}
+
+// Token metadata
+message TokenMetadata {
+  // Deprecated: use chain instead.
+  int64 chain_id = 1;
+  string address = 2;
+  int32 decimals = 3;
+  string name = 4;
+  string symbol = 5;
+  double price = 6;
+  // CAIP-2 chain identifier, e.g. "eip155:1".
+  string chain = 7;
+}
+
+// Token difference
+message TokenDiff {
+  string token = 1 ;
+  double decimal_amount = 2;
+  string raw_amount = 3;
+}
+
+// AccessListEntry represents an entry in the EIP-2930 access list
+message AccessListEntry {
+  string address = 1 ;
+  repeated string storage_keys = 2 ;
+}
+
+// Transaction payload
+message TransactionPayload {
+  int64 chain_id = 1;
+  repeated AccessListEntry access_list = 2;
+  string value = 3 [(buf.validate.field).string.(gfxcafe.oku.account.v2.integer_string) = true];
+  string to = 4 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
+  string data = 5 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_hex_data) = true];
+}
+
+// Approval payload
+message ApprovalPayload {
+  int64 chain_id = 1;
+  string approvee = 2 ;
+  string address = 3 ;
+  string amount = 4;
+}
+
+// Transaction analysis
+message TransactionAnalysis {
+  string error = 1;
+  bool verified = 2;
+  repeated TokenDiff token_diffs = 3;
+  repeated google.protobuf.Struct raw = 4;
+}
+
+// TypedData represents EIP-712 typed data
+message TypedData {
+  google.protobuf.Struct types = 1;
+  google.protobuf.Struct domain = 2;
+  google.protobuf.Struct message = 3;
+  string primary_type = 4;
+}
+
+// TypedDataSignature represents typed data signature
+message TypedDataSignature {
+  TypedData payload = 1;
+  string signature = 2;
+}
+
+// SigningRequest represents a signing request
+message SigningRequest {
+  repeated TypedDataSignature typed_data = 1;
+  string permit2_address = 2;
+}
+
+// SimulationResult represents simulation results
+message SimulationResult {
+  string data = 1;
+  string error = 2;
+  string amount_out = 3;
+  string gas = 4;
+  string amount_out_raw = 5;
+}
+
+// ExecutionInformation represents execution information
+message ExecutionInformation {
+  repeated ApprovalPayload approvals = 1 [deprecated = true];
+  repeated TransactionPayload transactions = 2;
+  TransactionPayload trade = 3;
+  map<string, TransactionAnalysis> analysis = 4 [deprecated = true];
+  string order_id = 5;  // Router specific - e.g. Cowswap order UID
+
+  // Deposit-address flow for non-EVM source chains (e.g. Bitcoin -> EVM via
+  // BOB Gateway): instead of executing trade calldata, the user sends the
+  // input amount to deposit_address on the source chain. Empty for EVM-source
+  // orders.
+  string deposit_address = 6;
+  // OP_RETURN data the Bitcoin deposit transaction must include, if any.
+  string op_return_data = 7;
+  // Hex-encoded Bitcoin PSBT prepared for the sender (only present when a
+  // source address was provided on the quote).
+  string psbt_hex = 8;
+}
+
+// Coupon represents a coupon
+message Coupon {
+  // Deprecated: use chain instead.
+  int64 chain_id = 1;
+  string account = 2;
+  RawCoupon raw = 3;
+  // CAIP-2 chain identifier, e.g. "eip155:1".
+  string chain = 4;
+}
+
+// RawCoupon represents a coupon with execution and quote information
+message RawCoupon {
+  ExecutionInformation execution_info = 1;
+  google.protobuf.Struct quote = 2;
+  string quote_id = 3;
+  google.protobuf.Struct quote_params = 4;
+}
+
+// ExecutionRequest represents an execution request
+// Consumer only needs to send signing_request and blockaid_sim
+// The workflow handles forwarding coupon/executionInfo/approvals internally
+message ExecutionRequest {
+  // DEPRECATED: Workflow handles forwarding internally, consumer doesn't need to send this
+  Coupon coupon = 1 [deprecated = true];
+  SigningRequest signing_request = 2;
+  reserved 3;
+  reserved "blockaid_sim";
+}
+
+// OrderMetadata represents optional metadata about order execution
+// All fields are optional - used for supplementary execution details
+message OrderMetadata {
+  string calldata = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_hex_data) = true];
+  string to = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
+  string gas = 3 [(buf.validate.field).string.(gfxcafe.oku.account.v2.integer_string) = true];
+  string value = 4 [(buf.validate.field).string.(gfxcafe.oku.account.v2.integer_string) = true];
+  string current_page = 5;
+}
+
+// ============================================================================
+// V2 Types (new format during migration)
+// ============================================================================
+
+// ApprovalType represents the type of approval
+enum ApprovalType {
+  APPROVAL_TYPE_UNSPECIFIED = 0;
+  APPROVAL_TYPE_PERMIT2 = 1;
+  APPROVAL_TYPE_ERC20 = 2;
+}
+
+// ApprovalPayloadV2 represents the new approval format using ABI encoding
+message ApprovalPayloadV2 {
+  ApprovalType type = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string to = 2;
+  string function_name = 3;
+  repeated string args = 4;               // Ordered parameter names: ["spender", "amount"]
+  google.protobuf.Struct values = 5;      // Named values: {"spender": "0x...", "amount": "1000"}
+  string abi = 6;
+}
+
+// ============================================================================
+// Request/Response Message Pairs
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// Ping: Pings an order and returns its current state
+// ----------------------------------------------------------------------------
+
+message PingRequest {
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message PingResponse {
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+  string user_id = 2;
+  int64 last_updated = 3;
+  string stage = 4;
+  string status = 5;
+  string error = 6;
+}
+
+// ----------------------------------------------------------------------------
+// Cancel: Cancels an order
+// ----------------------------------------------------------------------------
+
+message CancelRequest {
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+  string source = 2;
+  ViemError error = 3;
+}
+
+message CancelResponse {}
+
+// ----------------------------------------------------------------------------
+// RefreshQuotes: Refreshes quotes for an order
+// ----------------------------------------------------------------------------
+
+message RefreshQuotesRequest {
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message RefreshQuotesResponse {
+  int32 generation = 1;
+}
+
+
+// ----------------------------------------------------------------------------
+// GetExecutionInfo: Gets execution information for a quote
+// ----------------------------------------------------------------------------
+
+message GetExecutionInfoRequest {
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+  string quote_id = 2 [(buf.validate.field).string.uuid = true];
+  ExecutionRequest request = 3 ;
+}
+
+message GetExecutionInfoResponse {
+  ExecutionInformation info = 1;
+}
+
+// ----------------------------------------------------------------------------
+// Finish: Finishes an order with execution metadata
+// ----------------------------------------------------------------------------
+
+message FinishRequest {
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+  string tx_hash = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_tx_hash) = true
+  ];
+  OrderMetadata metadata = 3;  // Optional - for supplementary execution details
+}
+
+message FinishResponse {}

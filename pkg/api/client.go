@@ -18,6 +18,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v1/accountv1connect"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2/accountv2connect"
 )
@@ -139,6 +140,12 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 		accountv2connect.NewPerpsServiceClient(doer, base, opts...),
 		accountv2connect.NewCliDeviceServiceClient(doer, base, opts...),
 		accountv1connect.NewAuthServiceClient(doer, base, opts...),
+		fundsClients{
+			swap:    accountv2connect.NewSimpleSwapServiceV2Client(doer, base, opts...),
+			bridge:  accountv2connect.NewBridgeServiceClient(doer, base, opts...),
+			onchain: accountv2connect.NewOnchainServiceClient(doer, base, opts...),
+			token:   accountv2connect.NewTokenServiceClient(doer, base, opts...),
+		},
 		body, hdr)
 	if err != nil {
 		classified := classify(ctx, st, err, sensitive)
@@ -152,7 +159,11 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 	}
 	out, err := protojson.Marshal(msg)
 	if err == nil {
-		err = json.Unmarshal(out, respBody)
+		if typed, ok := respBody.(proto.Message); ok {
+			err = protojson.Unmarshal(out, typed)
+		} else {
+			err = json.Unmarshal(out, respBody)
+		}
 	}
 	if err != nil {
 		// Success status but unreadable result: a mutation's effect is unknown.

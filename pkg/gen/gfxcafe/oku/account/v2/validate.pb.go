@@ -168,13 +168,13 @@ var File_gfxcafe_oku_account_v2_validate_proto protoreflect.FileDescriptor
 
 const file_gfxcafe_oku_account_v2_validate_proto_rawDesc = "" +
 	"\n" +
-	"%gfxcafe/oku/account/v2/validate.proto\x12\x16gfxcafe.oku.account.v2\x1a\x1bbuf/validate/validate.proto:\x80\x03\n" +
-	"\tbridge_id\x12\x19.buf.validate.StringRules\x18\xd1\x0f \x01(\bB\xc6\x02\xc2H\xc2\x02\n" +
-	"\xbf\x02\n" +
-	"\x10string.bridge_id\x1a\xaa\x02rule && this != '' && !(this in ['deswap', 'bungee', 'lifi', 'across', 'orbiter', 'wormhole', 'rhinofi', 'chainlink', 'squidrouter', 'wanbridge', 'stargate', 'mayan', 'relay', 'enso','layerzero', 'circleStandard', 'circleFast', 'bobGateway', 'aori']) ? 'invalid bridge ID: `%s`'.format([this]) : ''R\bbridgeId:\x9d\x03\n" +
-	"\trouter_id\x12\x19.buf.validate.StringRules\x18\xd2\x0f \x01(\bB\xe3\x02\xc2H\xdf\x02\n" +
-	"\xdc\x02\n" +
-	"\x10string.router_id\x1a\xc7\x02rule && this != '' && !(this in ['native', 'directwrap', 'directswap', 'airswap', 'enso', 'kyberswap', 'odos', 'okx', 'oneinch', 'oneinchfusion', 'openocean', 'paraswap', 'usor', 'zeroex', 'cowswap', 'icecreamswap', 'unizen', 'threeroute', 'fabric', 'fynd', 'binance', 'bitget']) ? 'invalid router ID: `%s`'.format([this]) : ''R\brouterId:\xcc\x01\n" +
+	"%gfxcafe/oku/account/v2/validate.proto\x12\x16gfxcafe.oku.account.v2\x1a\x1bbuf/validate/validate.proto:\x89\x03\n" +
+	"\tbridge_id\x12\x19.buf.validate.StringRules\x18\xd1\x0f \x01(\bB\xcf\x02\xc2H\xcb\x02\n" +
+	"\xc8\x02\n" +
+	"\x10string.bridge_id\x1a\xb3\x02rule && this != '' && !(this in ['deswap', 'bungee', 'lifi', 'across', 'orbiter', 'wormhole', 'rhinofi', 'chainlink', 'squidrouter', 'wanbridge', 'stargate', 'mayan', 'relay', 'enso','layerzero', 'circleStandard', 'circleFast', 'bobGateway', 'aori', 'rango']) ? 'invalid bridge ID: `%s`'.format([this]) : ''R\bbridgeId:\xae\x03\n" +
+	"\trouter_id\x12\x19.buf.validate.StringRules\x18\xd2\x0f \x01(\bB\xf4\x02\xc2H\xf0\x02\n" +
+	"\xed\x02\n" +
+	"\x10string.router_id\x1a\xd8\x02rule && this != '' && !(this in ['native', 'directwrap', 'directswap', 'airswap', 'enso', 'kyberswap', 'odos', 'okx', 'oneinch', 'oneinchfusion', 'openocean', 'paraswap', 'usor', 'zeroex', 'cowswap', 'icecreamswap', 'unizen', 'threeroute', 'fabric', 'fynd', 'binance', 'bitget', 'akka', 'rango']) ? 'invalid router ID: `%s`'.format([this]) : ''R\brouterId:\xcc\x01\n" +
 	"\x15hyperliquid_onramp_id\x12\x19.buf.validate.StringRules\x18\xd8\x0f \x01(\bB|\xc2Hy\n" +
 	"w\n" +
 	"\x1cstring.hyperliquid_onramp_id\x1aWrule && !(this in ['enso']) ? 'invalid hyperliquid onramp ID: `%s`'.format([this]) : ''R\x13hyperliquidOnrampId:\xd1\x01\n" +

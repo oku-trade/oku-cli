@@ -1,0 +1,398 @@
+syntax = "proto3";
+
+package gfxcafe.oku.account.v2;
+
+import "buf/validate/validate.proto";
+import "gfxcafe/oku/account/v1/validate.proto";
+import "gfxcafe/oku/account/v2/orders.proto";
+import "gfxcafe/oku/account/v2/validate.proto";
+
+option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v2;accountv2";
+
+// ============================================================================
+// Service Definition
+// ============================================================================
+
+// BridgeService provides bridge workflow operations
+service BridgeService {
+  // Create creates a new bridge order
+  rpc Create(BridgeCreateRequest) returns (BridgeCreateResponse);
+
+  // Ping pings a bridge order and returns its current state
+  rpc Ping(PingRequest) returns (PingResponse);
+
+  // Cancel cancels a bridge order
+  rpc Cancel(CancelRequest) returns (CancelResponse);
+
+  // UpdateQuoteParams updates quote parameters
+  rpc UpdateQuoteParams(BridgeUpdateQuoteParamsRequest) returns (BridgeUpdateQuoteParamsResponse);
+
+  // RefreshQuotes refreshes quotes for a bridge order
+  rpc RefreshQuotes(RefreshQuotesRequest) returns (RefreshQuotesResponse);
+
+  // GetNewQuotes gets new quotes that have become available since last fetch
+  rpc GetNewQuotes(BridgeGetNewQuotesRequest) returns (BridgeGetQuotesResponse);
+
+  // GetQuotes gets all quotes for a bridge order
+  rpc GetQuotes(BridgeGetQuotesRequest) returns (BridgeGetQuotesResponse);
+
+  // GetQuote gets a specific quote for a bridge
+  rpc GetQuote(BridgeGetQuoteRequest) returns (BridgeGetQuoteResponse);
+
+  // UpdateQuoteSelect selects a quote
+  rpc UpdateQuoteSelect(BridgeUpdateQuoteSelectRequest) returns (BridgeUpdateQuoteSelectResponse);
+
+  // ConfirmQuoteSelect confirms quote selection
+  rpc ConfirmQuoteSelect(BridgeConfirmQuoteSelectRequest) returns (BridgeConfirmQuoteSelectResponse);
+
+  // GetExecutionInfo gets execution information
+  rpc GetExecutionInfo(GetExecutionInfoRequest) returns (GetExecutionInfoResponse);
+
+  // Finish finishes the order with transaction details
+  rpc Finish(FinishRequest) returns (FinishResponse);
+
+  // FinishClaim finishes a bridge claim with the destination transaction hash
+  rpc FinishClaim(FinishClaimRequest) returns (FinishClaimResponse);
+
+  // GetSupportedBridges returns active bridges and their supported chains.
+  rpc GetSupportedBridges(GetSupportedBridgesRequest) returns (GetSupportedBridgesResponse);
+
+  // GetSupportedTokens returns supported bridge tokens. The behavior depends on
+  // which parameters are set:
+  //   - in_chain only: all in-tokens bridgeable from the source to any destination.
+  //   - in_chain + out_chain: in-tokens bridgeable for the chain pair.
+  //   - in_chain + out_chain + in_token_address: out-tokens reachable for the input token.
+  rpc GetSupportedTokens(GetSupportedTokensRequest) returns (GetSupportedTokensResponse);
+
+  // CheckOutChainSupport returns which out chains are reachable for an input token.
+  rpc CheckOutChainSupport(CheckOutChainSupportRequest) returns (CheckOutChainSupportResponse);
+
+  // GetBitcoinMaxSpendable returns the maximum spendable BTC (in sats) for a
+  // Bitcoin address, as reported by BOB Gateway (fee-adjusted, confirmed
+  // UTXOs only).
+  rpc GetBitcoinMaxSpendable(GetBitcoinMaxSpendableRequest) returns (GetBitcoinMaxSpendableResponse);
+}
+
+// ----------------------------------------------------------------------------
+// GetBitcoinMaxSpendable: fee-adjusted max spendable sats for a BTC address.
+// ----------------------------------------------------------------------------
+
+message GetBitcoinMaxSpendableRequest {
+  // Bitcoin address to check.
+  string address = 1 [(buf.validate.field).string = {min_len: 14, max_len: 90}];
+}
+
+message GetBitcoinMaxSpendableResponse {
+  // Maximum spendable amount in satoshis (decimal string).
+  string max_spendable_sats = 1;
+}
+
+// ----------------------------------------------------------------------------
+// CheckOutChainSupport: per-out-chain reachability for an input token.
+// ----------------------------------------------------------------------------
+
+message CheckOutChainSupportRequest {
+  // Source chain, CAIP-2 (e.g. "eip155:1").
+  string in_chain = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true];
+  // Input token address on the source chain.
+  string in_token_address = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
+  // Candidate destination chains, CAIP-2. Each is checked independently.
+  repeated string out_chains = 3 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 100,
+    (buf.validate.field).repeated.items.string.(gfxcafe.oku.account.v2.caip2) = true
+  ];
+  // Optional list of bridges to restrict the check to.
+  repeated string enabled_bridges = 4 [
+    (buf.validate.field).repeated.max_items = 50,
+    (buf.validate.field).repeated.items.string.(gfxcafe.oku.account.v2.bridge_id) = true
+  ];
+}
+
+message CheckOutChainSupportResponse {
+  // Subset of out_chains (CAIP-2) that are reachable for the input token.
+  repeated string supported_out_chains = 1;
+}
+
+// ----------------------------------------------------------------------------
+// GetSupportedTokens: supported bridge token lists. The server dispatches to
+// the appropriate lookup based on which parameters are provided.
+// ----------------------------------------------------------------------------
+
+message GetSupportedTokensRequest {
+  // Source chain, CAIP-2 (e.g. "eip155:1").
+  string in_chain = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true];
+  // Destination chain, CAIP-2 (e.g. "eip155:42161"). Empty returns all
+  // bridgeable in-tokens from the source to any destination.
+  string out_chain = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true];
+  // Input token address on the source chain. When set (with out_chain),
+  // returns out-tokens reachable for this input token.
+  string in_token_address = 3 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
+  // Optional list of bridges to restrict the result to.
+  repeated string enabled_bridges = 4 [
+    (buf.validate.field).repeated.max_items = 50,
+    (buf.validate.field).repeated.items.string.(gfxcafe.oku.account.v2.bridge_id) = true
+  ];
+}
+
+message GetSupportedTokensResponse {
+  // Supported token addresses. Empty when all is true.
+  repeated string addresses = 1;
+  // True when every token is supported (canoe returned ["*"]); addresses is
+  // then empty.
+  bool all = 2;
+}
+
+// ----------------------------------------------------------------------------
+// GetSupportedBridges: Returns which bridges are active and which chains they
+// support.
+// ----------------------------------------------------------------------------
+
+message GetSupportedBridgesRequest {}
+
+message BridgeStatus {
+  // Bridge identifier (e.g. "across", "relay", "stargate")
+  string name = 1;
+  // Whether the bridge is currently active
+  bool active = 2;
+  // Chains where this bridge is available, CAIP-2 (e.g. "eip155:1")
+  repeated string supported_chains = 3;
+}
+
+message GetSupportedBridgesResponse {
+  // Status of each known bridge
+  repeated BridgeStatus bridges = 1;
+}
+
+// ============================================================================
+// Core Types and Data Structures
+// ============================================================================
+
+// BridgeQuoteParams represents bridge quote parameters
+message BridgeQuoteParams {
+  // Deprecated: use in_chain_caip2 instead. Numeric ids cannot represent
+  // non-EVM chains (e.g. Bitcoin, whose id is 0).
+  int64 in_chain = 1;
+  // Deprecated: use out_chain_caip2 instead.
+  int64 out_chain = 2;
+  repeated string enabled_bridges = 3;
+
+  string account = 4;
+  string dst_address = 5;
+
+  string in_token_address = 6;
+  string out_token_address = 7;
+
+  string in_token_amount = 8;
+  // Deprecated: use slippage_ppm instead. Slippage tolerance in basis points (e.g. 50 = 0.5%).
+  double slippage = 9 [deprecated = true];
+  bool skip_simulation = 10;
+
+  // Slippage tolerance in parts per million (e.g. 5000 = 50 bps = 0.5%).
+  // Canonical field — prefer over deprecated slippage (bps). Cannot be set together with slippage.
+  int32 slippage_ppm = 11 [(buf.validate.field).int32.gte = 0];
+
+  // CAIP-2 chain identifiers (e.g. "eip155:1", "bip122:..."). Authoritative
+  // chain identity; preferred over in_chain/out_chain, which are EVM-only and
+  // use a placeholder (0) for non-EVM chains. When set, these take precedence.
+  // The caip2 validator allows empty (optional) but rejects malformed values.
+  string in_chain_caip2 = 12 [(buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true];
+  string out_chain_caip2 = 13 [(buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true];
+
+  // Source-chain sender/refund address for non-EVM source chains (e.g. the
+  // Bitcoin sender address for a BOB Gateway onramp, used for refunds and to
+  // build a PSBT). Plain string like dst_address — may be a non-EVM address.
+  // Ignored for EVM source chains, where account is the sender.
+  string src_address = 14;
+}
+
+// BridgeQuoteInformation contains quote information
+message BridgeQuoteInformation {
+  string bridge = 1;
+  bool fetched = 2;
+  string quote_id = 3 [(buf.validate.field).string.uuid = true];
+  int32 generation = 4;
+  int64 start_time = 5;
+  OrderError error = 6;
+  BridgeQuote quote = 7;
+  int32 timeline = 8;
+}
+
+// BridgeQuote represents a bridge quote
+message BridgeQuote {
+  string in_amount = 1;
+  string out_amount = 2;
+  int32 estimated_time = 3;
+  repeated string used_bridges = 4;
+  BridgeGas gas = 5;
+
+  // DEPRECATED: Workflow handles coupon internally, will be removed in Phase 2
+  Coupon coupon = 6 [deprecated = true];
+  SigningRequest signing_request = 7;
+
+  // Deprecated: use in_chain instead.
+  int32 in_chain_id = 8;
+  // Deprecated: use out_chain instead.
+  int32 out_chain_id = 9;
+  string bridge = 10;
+  TokenMetadata in_token = 11;
+  TokenMetadata out_token = 12;
+  TokenMetadata gas_in_token = 13;
+
+  double in_usd_value = 14;
+  double out_usd_value = 15;
+  double fees_usd_value = 16;
+  double gas_usd_value = 17;
+
+  repeated Step steps = 18;
+  string min_amount_out = 19; // Minimum amount of tokens expected to receive
+  optional int64 effective_slippage = 20; // Effective slippage in basis points (bps)
+  BridgeSimulationResult simulation = 21; // Simulation results with gas estimate
+
+  // V2 fields
+  repeated ApprovalPayloadV2 approvals = 22;
+  ExecutionInformation execution_info = 23;
+
+  // CAIP-2 chain identifiers, e.g. "eip155:1".
+  string in_chain = 24;
+  string out_chain = 25;
+
+  // Whether this quote is intent-based rather than transaction-based.
+  bool intent_based = 26;
+}
+
+// BridgeGas represents gas costs for bridge operations
+message BridgeGas {
+  string gas_usd = 1;
+  string src_gas_amount = 2;
+  string dst_gas_amount = 3;
+}
+
+// BridgeSimulationResult represents bridge simulation results
+message BridgeSimulationResult {
+  bool success = 1;
+  string error = 2;
+  string gas = 3;
+  string data = 4;
+}
+
+// Step represents a single step in a bridge operation
+message Step {
+  string type = 1; // Step type: "swap", "bridge", or "deposit"
+  string chain = 2;
+  string token_in = 3;
+  string amount_in = 4;
+  string protocol = 5;
+  string token_out = 6;
+  string amount_out = 7;
+  string dst_chain = 8;
+}
+
+// ============================================================================
+// Request/Response Message Pairs
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// Create: Creates a new bridge order
+// ----------------------------------------------------------------------------
+
+message BridgeCreateRequest {
+  BridgeQuoteParams params = 1;
+  string integration = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v2.integration_id) = true];
+}
+
+message BridgeCreateResponse {
+  string order_id = 1;
+  int32 timeline = 2;
+}
+
+// ----------------------------------------------------------------------------
+// UpdateQuoteParams: Updates quote parameters for a bridge order
+// ----------------------------------------------------------------------------
+
+message BridgeUpdateQuoteParamsRequest {
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+  BridgeQuoteParams params = 2;
+}
+
+message BridgeUpdateQuoteParamsResponse {
+  int64 generation = 1;
+  string order_id = 2;
+  int32 timeline = 3;
+}
+
+// ----------------------------------------------------------------------------
+// GetNewQuotes: Gets new quotes that have become available since last fetch
+// ----------------------------------------------------------------------------
+
+message BridgeGetNewQuotesRequest {
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+  repeated string fetched_bridges = 2 [(buf.validate.field).repeated.items.string.(gfxcafe.oku.account.v2.bridge_id) = true];
+  int64 wait_time = 3;
+  int32 generation = 4;
+}
+
+message BridgeGetQuotesResponse {
+  map<string, BridgeQuoteInformation> quotes = 1;
+}
+
+// ----------------------------------------------------------------------------
+// GetQuotes: Gets all quotes for a bridge order
+// ----------------------------------------------------------------------------
+
+message BridgeGetQuotesRequest {
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+  int32 generation = 2;
+}
+
+// ----------------------------------------------------------------------------
+// GetQuote: Gets a specific quote for a bridge
+// ----------------------------------------------------------------------------
+
+message BridgeGetQuoteRequest {
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+  string bridge = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v2.bridge_id) = true];
+}
+
+message BridgeGetQuoteResponse {
+  map<string, BridgeQuoteInformation> quotes = 1;
+}
+
+// ----------------------------------------------------------------------------
+// UpdateQuoteSelect: Selects a quote for a bridge order
+// ----------------------------------------------------------------------------
+
+message BridgeUpdateQuoteSelectRequest {
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+  string bridge = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v2.bridge_id) = true];
+  string quote_id = 3 [(buf.validate.field).string.uuid = true];
+}
+
+message BridgeUpdateQuoteSelectResponse {
+  string quote_id = 1;
+  string bridge = 2;
+}
+
+// ----------------------------------------------------------------------------
+// ConfirmQuoteSelect: Confirms the selected bridge quote
+// ----------------------------------------------------------------------------
+
+message BridgeConfirmQuoteSelectRequest {
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+  string bridge = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v2.bridge_id) = true];
+  string quote_id = 3 [(buf.validate.field).string.uuid = true];
+}
+
+message BridgeConfirmQuoteSelectResponse {}
+
+// ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// FinishClaim: Finishes a claim with transaction details
+// ----------------------------------------------------------------------------
+
+message FinishClaimRequest {
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+  string tx_hash = 2;
+}
+
+message FinishClaimResponse {}

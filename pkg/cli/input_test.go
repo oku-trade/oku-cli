@@ -37,7 +37,7 @@ func TestJSONInputDispatch(t *testing.T) {
 		args        []string
 		ok          bool
 	}{
-		{"stdin", good, nil, true},
+		{"stdin", strings.Replace(good, `"input-test"`, `"stdin-test"`, 1), nil, true},
 		{"wrong type", `{"market":"BTC","side":"buy","type":"limit","size":0.001,"price":"50000"}`, nil, false},
 		{"unknown key", `{"market":"BTC","side":"buy","type":"limit","size":"0.001","price":"50000","bogus":1}`, nil, false},
 		{"global key", `{"market":"BTC","side":"buy","type":"limit","size":"0.001","price":"50000","profile":"main"}`, nil, false},

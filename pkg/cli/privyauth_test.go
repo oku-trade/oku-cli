@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -34,6 +35,7 @@ type fakePrivy struct {
 	failSign                                     bool
 	wrongSigner                                  bool
 	grantCalls                                   int
+	batches                                      [][]map[string]string
 }
 
 func newFakePrivy(t *testing.T) *fakePrivy {
@@ -134,6 +136,32 @@ func (f *fakePrivy) serve(w http.ResponseWriter, r *http.Request) {
 		reply(map[string]any{"encrypted_authorization_key": map[string]string{"encapsulated_key": base64.StdEncoding.EncodeToString(enc), "ciphertext": base64.StdEncoding.EncodeToString(ciphertext)}, "expires_at": time.Now().Add(time.Hour).UnixMilli(), "wallets": []map[string]string{{"id": "agent-wallet", "address": f.signer.Address(), "chain_type": "ethereum"}}})
 	case strings.HasSuffix(r.URL.Path, "/rpc"):
 		f.rpcCalls++
+		var envelope struct {
+			Method string `json:"method"`
+		}
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &envelope)
+		if envelope.Method == "wallet_sendCalls" {
+			var batch struct {
+				Caip2  string `json:"caip2"`
+				Params struct {
+					Calls []map[string]string `json:"calls"`
+				} `json:"params"`
+			}
+			_ = json.Unmarshal(body, &batch)
+			f.batches = append(f.batches, batch.Params.Calls)
+			reply(map[string]any{"data": map[string]string{"transaction_id": "b4966a89-8983-4b1b-a93a-b104799527f5", "caip2": batch.Caip2}})
+			return
+		}
+		if envelope.Method == "eth_sendTransaction" {
+			if f.failSign {
+				w.WriteHeader(503)
+				reply(map[string]string{"error": "broadcast_timeout"})
+				return
+			}
+			reply(map[string]any{"data": map[string]string{"hash": "0x" + strings.Repeat("a", 64)}})
+			return
+		}
 		if f.failSign {
 			w.WriteHeader(503)
 			reply(map[string]string{"error": "signing_unavailable"})
@@ -148,7 +176,7 @@ func (f *fakePrivy) serve(w http.ResponseWriter, r *http.Request) {
 				} `json:"typed_data"`
 			} `json:"params"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		if err := json.Unmarshal(body, &data); err != nil {
 			f.t.Error(err)
 			return
 		}

@@ -1,5 +1,15 @@
 # Usage
 
+## Agent EVM transfers and master deposits
+
+`oku send prepare --chain 42161 --token native --amount 0.01` prepares an agent-wallet transfer to the enrolled master by default. For ERC-20 use `--token TOKEN_ADDRESS`; specify `--to RECIPIENT_ADDRESS` explicitly to send elsewhere. Review the returned recipient, amount, chain, calldata and digest, then run `oku send submit --intent ID --digest SHA`. Use `oku send status --intent ID` to check a receipt. Allowed chains are Arbitrum 42161, Base 8453 and Ethereum 1. Override the chain RPC with `OKU_RPC_URL_42161`, `OKU_RPC_URL_8453` or `OKU_RPC_URL_1` when necessary. Keep native gas (ETH on Arbitrum) in the agent wallet for sends and swaps.
+
+`oku deposit prepare --amount 10` prepares **only** an Arbitrum native-USDC transfer from the agent to the profile master EOA. After reviewing it, run `oku deposit submit --intent ID --digest SHA` and `oku deposit status --intent ID`. This does **not** deposit into Hyperliquid. The master must deposit from its own wallet on the Oku web deposit page (`https://oku.trade/perps`). For a master-bound HyperUnit address use `oku deposit address --asset ASSET --source-chain CHAIN` and fund that address externally. Never transfer USDC from the agent to the Hyperliquid bridge: that credits the agent, not the master.
+
+A timeout or ambiguous Privy broadcast becomes `OUTCOME_UNKNOWN`. Never repeat `submit` or prepare a replacement. Inspect `status` and the source-chain explorer. For an approval+swap batch, `oku swap status --intent ID` can locate a transaction by its recorded agent nonce even if Privy returned no onchain hash, then confirm its receipt. Alternatively, `oku swap reconcile --intent ID --tx-hash TX_HASH` verifies an independently recovered hash against the journal. An unresolved intent blocks new onchain intents for the agent until resolved. The Privy OAuth `eth_sendTransaction` request follows Privy's published wallet RPC schema (top-level `caip2` such as `eip155:42161`, plus `params.transaction` with `chain_id`); it has been exercised live on Arbitrum, as has the `wallet_sendCalls` batch used for approval+swap.
+
+`INSUFFICIENT_GAS`, `INSUFFICIENT_BALANCE`, or `REJECTED` with “nothing broadcast” means the preflight intent is closed. Correct the cause, then prepare a fresh intent. A post-broadcast receipt lookup error requires `status`, never resubmission.
+
 > `oku --help`, `oku docs commands` and the [generated command reference](commands.md) describe the urfave/cli v3 command tree of the binary you run. `make docs-check` detects drift between the committed reference and the tree.
 
 ## Output contract
@@ -165,9 +175,31 @@ This turns malformed order-draft JSON (code fences, single quotes, unquoted keys
 - It rejects duplicate keys, unknown fields, invalid decimals and missing required financial fields. It never fills in missing market, side, size, price or leverage.
 - Review the candidate, then run `orders prepare` yourself. The resulting digest is what gets approved.
 
+## Agent EVM swaps and bridges
+
+The embedded Privy wallet is an EVM wallet, **not** the Hyperliquid master account. Use `wallet address` to confirm both addresses. `wallet balances` reads native gas and recommended token balances on the selected EVM chain. Only Arbitrum (42161), Base (8453) and Ethereum (1) are supported.
+
+```sh
+oku swap quote --chain 42161 --from USDC --to WETH --amount 10 --slippage-bps 50
+oku swap prepare --chain 42161 --from USDC --to WETH --amount 10
+oku swap submit --intent ID --digest SHA
+oku swap status --intent ID
+oku swap reconcile --intent ID --tx-hash TX_HASH # only for unknown outcome with an independently recovered hash
+
+oku bridge quote --chain 42161 --destination-chain 8453 --from USDC --to USDC --amount 10
+```
+
+Amounts are exact input decimals. The slippage default is 50 bps, maximum 300 bps. Token symbols resolve through TokenService; when ambiguous, specify an address. Swap quote and prepare default to the enrolled agent address using credential metadata without unlocking. Without enrolled credentials, a quote requires explicit `--recipient`. Quotes use the backend `GetFlowstreamQuotes` long-poll, as the web app does, and can take up to about 8 seconds to collect routes. Prepare journals a digest binding chain, OkuRouter, recipient, exact input and minimum output; the intent expires about 3 minutes after prepare, so review and submit promptly. Submit verifies the non-permit OkuRouter selector and decoded arguments, and exact-amount router approval. When approval is needed, one atomic Privy `wallet_sendCalls` batch `[approve exact amount to OkuRouter, swap]` executes via EIP-7702. On the first batch the agent wallet upgrades to a Kernel smart account without changing its address, and a partial approve-only outcome cannot happen. A single-step route (such as native ETH input) sends one normal transaction. Submit waits for confirmations, often 10-60 seconds. Quoted output and simulation are checked; the minimum in aggregator calldata is backend-built and not independently decoded. See security.md. Bridge execution is unavailable; `bridge quote` is read-only.
+
+Unknown broadcasts must never be resubmitted. Start with `swap status --intent ID`: for an approval batch it searches by nonce and confirms by receipt even if no hash was returned. If a hash is recovered independently, use `swap reconcile --intent ID --tx-hash TX_HASH` (or `send reconcile` for a send) to match the exact journaled call(s) and wait for confirmations. Batch lookup needs a full RPC serving recent historical state: set `OKU_RPC_URL_42161` (or the selected chain ID) to a suitable endpoint, since the public default can return 403 or lack archive state. Gas reserves include estimated gas plus 30% at the fee cap, but L2 data fees and Privy fee choices remain uncertain. Sends, deposits, single-step swaps and approval+swap batches have been exercised live on Arbitrum with small amounts; other chains have not.
+
+## Agent-to-master deposits
+
+`oku deposit prepare --amount N` prepares an Arbitrum USDC transfer **from agent to master EOA**, not a deposit to Hyperliquid. The master then deposits from its own wallet. `oku deposit address --asset ... --source-chain ...` reads a HyperUnit address explicitly bound to the master for external funding. Never send agent-held USDC directly to the HL bridge.
+
 ## Agent skills
 
-Eight task skills are bundled:
+Nine task skills are bundled:
 
 - `learn-oku`
 - `ensure-hyperliquid-authentication`
@@ -176,6 +208,7 @@ Eight task skills are bundled:
 - `manage-hyperliquid-orders`
 - `close-hyperliquid-position`
 - `manage-hyperliquid-risk`
+- `move-agent-funds`
 - `reconcile-hyperliquid-actions`
 
 Their source is the repository's `skills/` directory.

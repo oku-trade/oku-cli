@@ -29,10 +29,15 @@ type Service struct {
 	allowMutations bool
 }
 
-// ServiceReads are commands a Service runs by default. They never sign,
-// submit or change user configuration.
+// ServiceReads are commands a Service runs by default. Prepare commands may
+// create backend orders and journal records, but never sign or broadcast.
+// They do not submit onchain transactions or change user configuration.
 var ServiceReads = map[string]bool{
-	"version": true, "doctor": true, "auth status": true, "profiles list": true,
+	"wallet address": true, "wallet balances": true, "deposit address": true,
+	"send prepare": true, "send status": true, "deposit prepare": true, "deposit status": true,
+	"swap quote": true, "swap prepare": true, "swap status": true,
+	"bridge quote": true,
+	"version":      true, "doctor": true, "auth status": true, "profiles list": true,
 	"markets list": true, "markets quote": true, "markets funding": true,
 	"account summary": true, "positions list": true, "orders list": true,
 	"orders status": true, "fills list": true,
@@ -45,6 +50,7 @@ var ServiceReads = map[string]bool{
 var ServiceMutations = map[string]bool{
 	"orders prepare": true, "positions leverage": true, "positions margin": true,
 	"orders submit": true, "orders cancel": true, "orders reconcile": true, "orders abandon": true,
+	"send submit": true, "deposit submit": true, "swap submit": true, "send reconcile": true, "swap reconcile": true,
 }
 
 // AllowMutations enables the ServiceMutations commands.
