@@ -65,9 +65,11 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 		if err = c.Swap(ctx, "ConfirmQuoteSelect", &v2.SwapConfirmQuoteSelectRequest{OrderId: r.OrderID, Router: r.Route, QuoteId: r.QuoteID}, &confirmed, true); err != nil {
 			return nil, apiError(err, "ConfirmQuoteSelect")
 		}
-		var fetched v2.SwapGetQuoteResponse
-		if err = c.Swap(ctx, "GetQuote", &v2.SwapGetQuoteRequest{OrderId: r.OrderID, Router: r.Route}, &fetched, true); err != nil {
-			return nil, apiError(err, "GetQuote")
+		// Re-read the selected quote through GetQuotes. The backend's single-router
+		// GetQuote decodes the Temporal query result into the wrong type and 500s.
+		var fetched v2.SwapGetQuotesResponse
+		if err = c.Swap(ctx, "GetQuotes", &v2.SwapGetQuotesRequest{OrderId: r.OrderID}, &fetched, true); err != nil {
+			return nil, apiError(err, "GetQuotes")
 		}
 		var quote *v2.SimpleSwapQuote
 		for _, entry := range fetched.Quotes {

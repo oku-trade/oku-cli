@@ -20,6 +20,13 @@ import (
 	urfave "github.com/urfave/cli/v3"
 )
 
+// Swap quotes stream in per router. Collect for up to swapQuoteWindow (bounded by
+// the request deadline) with long polls of at most swapFlowstreamPoll each.
+const (
+	swapQuoteWindow    = 8 * time.Second
+	swapFlowstreamPoll = 3 * time.Second
+)
+
 func routeFlags(bridge bool) []urfave.Flag {
 	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID (42161, 8453, 1)"}, &urfave.StringFlag{Name: "from", Usage: "input token address or unambiguous symbol"}, &urfave.StringFlag{Name: "to", Usage: "output token address or unambiguous symbol"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}}
 	if bridge {
@@ -252,12 +259,73 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			return q, nil, apiError(err, "swap Create")
 		}
 		q.OrderID = created.OrderId
-		for attempt := 0; attempt < 5; attempt++ {
-			var quotes v2.SwapGetQuotesResponse
-			err = c.Swap(ctx, "GetQuotes", &v2.SwapGetQuotesRequest{OrderId: q.OrderID}, &quotes, prepare)
-			if err != nil {
-				return q, nil, apiError(err, "swap GetQuotes")
+		// Same quote stream the web app uses: long-poll GetFlowstreamQuotes from the
+		// Create timeline, accumulating routers until every enabled market has
+		// answered or the overall quote deadline passes, then pick the best.
+		collected := map[string]*v2.SimpleSwapQuoteInformation{}
+		timeline := created.Timeline
+		deadline := time.Now().Add(swapQuoteWindow)
+		if d, ok := ctx.Deadline(); ok && time.Until(d)-time.Second < time.Until(deadline) {
+			// Leave headroom so a final long-poll never outlives the command budget.
+			deadline = d.Add(-time.Second)
+		}
+		requested := map[string]bool{}
+		for _, m := range markets {
+			requested[m] = true
+		}
+		// Done once every enabled market answered, or the server substituted its own
+		// router set (e.g. DirectWrap for wraps) and every router it reports is fetched.
+		done := func() bool {
+			fetched, substituted := 0, false
+			for router, entry := range collected {
+				if !entry.Fetched {
+					return false
+				}
+				fetched++
+				if !requested[router] {
+					substituted = true
+				}
 			}
+			return fetched >= len(markets) || substituted
+		}
+		for !done() && time.Now().Before(deadline) {
+			wait := time.Until(deadline)
+			if wait > swapFlowstreamPoll {
+				wait = swapFlowstreamPoll
+			}
+			// The server returns every router's state; only finished ones count as fetched.
+			fetchedRouters := make([]string, 0, len(collected))
+			for router, entry := range collected {
+				if entry.Fetched {
+					fetchedRouters = append(fetchedRouters, router)
+				}
+			}
+			sort.Strings(fetchedRouters)
+			var stream v2.SwapGetFlowstreamQuotesResponse
+			err = c.Swap(ctx, "GetFlowstreamQuotes", &v2.SwapGetFlowstreamQuotesRequest{OrderId: q.OrderID, Timeline: timeline, FetchedRouters: fetchedRouters, WaitTime: int32(wait.Milliseconds())}, &stream, prepare)
+			if err != nil {
+				if len(fetchedRouters) > 0 {
+					// Keep the quotes already collected; a late poll failure should not discard them.
+					break
+				}
+				return q, nil, apiError(err, "swap GetFlowstreamQuotes")
+			}
+			if stream.Timeline != timeline {
+				// Params changed server-side: quotes from the old timeline are stale.
+				collected = map[string]*v2.SimpleSwapQuoteInformation{}
+				timeline = stream.Timeline
+			}
+			for router, entry := range stream.Quotes {
+				if entry != nil {
+					collected[router] = entry
+				}
+			}
+			if ctx.Err() != nil {
+				return q, nil, ctx.Err()
+			}
+		}
+		{
+			quotes := v2.SwapGetQuotesResponse{Quotes: collected}
 			keys := make([]string, 0, len(quotes.Quotes))
 			for key := range quotes.Quotes {
 				keys = append(keys, key)
@@ -299,16 +367,6 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					q.MinOut = min.String()
 					q.OutAmount = v.OutAmountRaw
 					q.Spender = quoteSpender(v.ApprovalsV2, q.InToken, q.InAmount)
-				}
-			}
-			if q.QuoteID != "" {
-				break
-			}
-			if attempt < 4 {
-				select {
-				case <-ctx.Done():
-					return q, nil, ctx.Err()
-				case <-time.After(350 * time.Millisecond):
 				}
 			}
 		}

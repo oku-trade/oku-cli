@@ -81,6 +81,9 @@ var swapMethods = map[string]handler{
 	"GetQuotes": fundsRPC[accountv2.SwapGetQuotesRequest, accountv2.SwapGetQuotesResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.SwapGetQuotesRequest]) (*connect.Response[accountv2.SwapGetQuotesResponse], error) {
 		return f.swap.GetQuotes
 	}),
+	"GetFlowstreamQuotes": fundsRPC[accountv2.SwapGetFlowstreamQuotesRequest, accountv2.SwapGetFlowstreamQuotesResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.SwapGetFlowstreamQuotesRequest]) (*connect.Response[accountv2.SwapGetFlowstreamQuotesResponse], error) {
+		return f.swap.GetFlowstreamQuotes
+	}),
 	"GetQuote": fundsRPC[accountv2.SwapGetQuoteRequest, accountv2.SwapGetQuoteResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.SwapGetQuoteRequest]) (*connect.Response[accountv2.SwapGetQuoteResponse], error) {
 		return f.swap.GetQuote
 	}),

@@ -58,7 +58,7 @@ func TestSwapSubmitBroadcastsOnlyVerifiedRouterCall(t *testing.T) {
 					return map[string]any{"router": "route", "quoteId": "quote"}, true
 				case "ConfirmQuoteSelect":
 					return map[string]any{}, true
-				case "GetQuote":
+				case "GetQuotes":
 					return map[string]any{"quotes": map[string]any{"route": map[string]any{"router": "route", "quoteId": "quote", "quote": map[string]any{"minAmountOutRaw": "100", "simulation": map[string]any{"amountOutRaw": "100"}}}}}, true
 				case "GetExecutionInfo":
 					return map[string]any{"info": map[string]any{"trade": trade}}, true
