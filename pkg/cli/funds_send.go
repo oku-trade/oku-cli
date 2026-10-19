@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -23,6 +24,10 @@ func forbiddenSendRecipient(recipient, agent string) bool {
 }
 
 const depositNext = "After this transfer confirms, the master must deposit to Hyperliquid from its own wallet at https://oku.trade/perps. For HyperUnit use 'oku deposit address'. Never send agent USDC to the Hyperliquid bridge."
+
+// onchainExecBudget bounds broadcasting plus confirming every step of an
+// onchain intent, independent of the short per-request --timeout.
+const onchainExecBudget = 10 * time.Minute
 
 func sendPrepareFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "chain ID 42161, 8453, or 1"}, &urfave.StringFlag{Name: "token", Usage: "ERC-20 contract address or native"}, &urfave.StringFlag{Name: "amount", Usage: "exact decimal amount"}, &urfave.StringFlag{Name: "to", Usage: "recipient EVM address (defaults to profile master)"}, &urfave.StringFlag{Name: "intent-id", Usage: "optional idempotency ID"}}
@@ -140,6 +145,8 @@ func fundsResult(r *journal.OnchainRecord) *result {
 		fmt.Fprintf(out, "%s %s: %s on chain %d to %s\nDigest: %s\nState: %s\n", r.Kind, r.ID, r.Amount, r.ChainID, r.Recipient, r.Digest, r.State)
 		if r.Kind == "deposit" {
 			fmt.Fprintln(out, depositNext)
+		} else if r.NextStep != "" {
+			fmt.Fprintln(out, r.NextStep)
 		} else if r.State == "prepared" {
 			fmt.Fprintf(out, "Submit with: oku send submit --intent %s --digest %s\n", r.ID, r.Digest)
 		}
@@ -223,8 +230,10 @@ func (a *App) cmdFundsSubmit(e *env, kind string) (*result, error) {
 		}
 		return nil, output.Wrap(output.CodeIntentState, err, "starting onchain intent")
 	}
+	execCtx, execCancel := context.WithTimeout(e.ctx, onchainExecBudget)
+	defer execCancel()
 	executor := onchain.Executor{RPC: onchain.HTTPRPC{Getenv: a.Getenv}, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
-	if err = executor.Execute(ctx, r.OnchainIntent); err != nil {
+	if err = executor.Execute(execCtx, r.OnchainIntent); err != nil {
 		if errors.Is(err, onchain.ErrReceiptUpstream) {
 			return nil, output.Wrap(output.CodeUpstream, err, "transaction hash persisted; run status to retry receipt lookup; never resubmit")
 		}
@@ -303,6 +312,7 @@ func (a *App) cmdFundsStatus(e *env, kind string) (*result, error) {
 		if err != nil {
 			return nil, output.Wrap(output.CodeUpstream, err, "receipt lookup")
 		}
+		partial := false
 		if status != nil {
 			next := "failed"
 			if *status && len(r.Hashes) == len(r.Templates) {
@@ -310,6 +320,16 @@ func (a *App) cmdFundsStatus(e *env, kind string) (*result, error) {
 			}
 			if *status && next != "confirmed" {
 				next = "unknown"
+				// Earlier steps confirmed but submit stopped before the next one.
+				// If no later transaction from the agent is mined or pending,
+				// nothing else can land, so close it instead of leaving it
+				// blocking. A live submit is safe: the journal transition is a
+				// compare-and-swap, and submit advances to "sending" before each
+				// broadcast, so whichever transition loses stops without sending.
+				if quiet, qerr := rpc.Quiescent(ctx, r.ChainID, r.Sender, r.Hashes[len(r.Hashes)-1]); qerr == nil && quiet {
+					next = "failed"
+					partial = true
+				}
 			}
 			if err = j.AdvanceOnchain(r.ID, r.State, next, ""); err != nil {
 				return nil, err
@@ -318,6 +338,9 @@ func (a *App) cmdFundsStatus(e *env, kind string) (*result, error) {
 			if err != nil {
 				return nil, err
 			}
+		}
+		if partial {
+			r.NextStep = fmt.Sprintf("%d of %d transactions confirmed; the rest were never broadcast. Prepare a new %s.", len(r.Hashes), len(r.Templates), kind)
 		}
 	}
 	return fundsResult(r), nil

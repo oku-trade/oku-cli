@@ -354,6 +354,33 @@ func (r HTTPRPC) Estimate(ctx context.Context, c uint64, from string, templates 
 func (r HTTPRPC) Call(ctx context.Context, c uint64, to, data string) (*big.Int, error) {
 	return r.quantity(ctx, c, "eth_call", []any{map[string]string{"to": to, "data": data}, "latest"})
 }
+
+// Quiescent reports whether nothing from sender after the transaction hash is
+// mined or pending: both the latest and pending nonces sit right after it.
+func (r HTTPRPC) Quiescent(ctx context.Context, c uint64, sender, hash string) (bool, error) {
+	var tx struct {
+		From  string `json:"from"`
+		Nonce string `json:"nonce"`
+	}
+	if err := r.call(ctx, c, "eth_getTransactionByHash", []any{hash}, &tx); err != nil {
+		return false, err
+	}
+	nonce, err := Quantity(tx.Nonce)
+	if err != nil || !strings.EqualFold(tx.From, sender) {
+		return false, errors.New("transaction sender or nonce mismatch")
+	}
+	next := new(big.Int).Add(nonce, big.NewInt(1))
+	for _, tag := range []string{"latest", "pending"} {
+		count, err := r.quantity(ctx, c, "eth_getTransactionCount", []any{sender, tag})
+		if err != nil {
+			return false, err
+		}
+		if count.Cmp(next) != 0 {
+			return false, nil
+		}
+	}
+	return true, nil
+}
 func (r HTTPRPC) Receipt(ctx context.Context, c uint64, hash string) (*bool, error) {
 	var raw json.RawMessage
 	if err := r.call(ctx, c, "eth_getTransactionReceipt", []any{hash}, &raw); err != nil {

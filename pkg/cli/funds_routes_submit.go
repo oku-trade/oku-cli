@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -152,8 +153,12 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	}
 	executing := r.OnchainIntent
 	executing.Templates = templates
+	// Broadcasting and confirming several transactions outlives the per-request
+	// timeout; individual RPC and Privy calls keep their own HTTP timeouts.
+	execCtx, execCancel := context.WithTimeout(e.ctx, onchainExecBudget)
+	defer execCancel()
 	executor := onchain.Executor{RPC: onchain.HTTPRPC{Getenv: a.Getenv}, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
-	if err = executor.Execute(ctx, executing); err != nil {
+	if err = executor.Execute(execCtx, executing); err != nil {
 		if errors.Is(err, onchain.ErrReceiptUpstream) {
 			return nil, output.Wrap(output.CodeUpstream, err, "transaction hash persisted; run status to retry receipt lookup; never resubmit")
 		}
@@ -185,9 +190,9 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 		req := &v2.FinishRequest{OrderId: r.OrderID, TxHash: r.Hashes[len(r.Hashes)-1]}
 		var finished v2.FinishResponse
 		if kind == "swap" {
-			err = c.Swap(ctx, "Finish", req, &finished, true)
+			err = c.Swap(execCtx, "Finish", req, &finished, true)
 		} else {
-			err = c.Bridge(ctx, "Finish", req, &finished, true)
+			err = c.Bridge(execCtx, "Finish", req, &finished, true)
 		}
 		if err != nil {
 			return routeRecord(r), nil
