@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -46,6 +47,15 @@ func (h *harness) interactiveLogin(secrets []string, stdin string) (run, int) {
 	return r, prompts
 }
 
+// skipPassphraseOnDarwin skips passphrase and unlock-cache tests on macOS,
+// where credentials live in the Keychain and no passphrase is ever prompted.
+func skipPassphraseOnDarwin(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "darwin" {
+		t.Skip("passphrase flow is Linux/Windows only; macOS uses the Keychain")
+	}
+}
+
 func (h *harness) addProfile() {
 	h.t.Helper()
 	if r := h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code != 0 {
@@ -56,6 +66,7 @@ func (h *harness) addProfile() {
 // A short or mismatched passphrase re-prompts instead of failing login, and
 // the prompt happens before any device code is issued.
 func TestLoginRepromptsBadPassphrase(t *testing.T) {
+	skipPassphraseOnDarwin(t)
 	h := newHarness(t)
 	h.addProfile()
 	r, prompts := h.interactiveLogin([]string{"short", "correct horse battery", "typo horse battery", "correct horse battery", "correct horse battery"}, "")
@@ -77,6 +88,7 @@ func TestLoginRepromptsBadPassphrase(t *testing.T) {
 
 // Giving up on the passphrase never starts a device authorization.
 func TestLoginPassphraseFailureAuthorizesNothing(t *testing.T) {
+	skipPassphraseOnDarwin(t)
 	h := newHarness(t)
 	h.addProfile()
 	r, _ := h.interactiveLogin([]string{"a", "b", "c", "d", "e"}, "")
@@ -88,6 +100,7 @@ func TestLoginPassphraseFailureAuthorizesNothing(t *testing.T) {
 // Skipping the passphrase requires both confirmations; a hesitant answer
 // returns to the passphrase prompt.
 func TestLoginSkipPassphraseNeedsDoubleConfirm(t *testing.T) {
+	skipPassphraseOnDarwin(t)
 	h := newHarness(t)
 	h.addProfile()
 	r, _ := h.interactiveLogin([]string{"", "correct horse battery", "correct horse battery"}, "yes\nno\n")
@@ -137,6 +150,7 @@ func TestFailedLoginRevokesGrant(t *testing.T) {
 
 // A wrong passphrase on unlock re-prompts instead of failing the command.
 func TestUnlockRepromptsWrongPassphrase(t *testing.T) {
+	skipPassphraseOnDarwin(t)
 	h := newHarness(t)
 	h.enroll()
 	answers := []string{"wrong passphrase", "correct horse battery"}

@@ -51,6 +51,7 @@ func swapDuringPrompt(t *testing.T, mutate func(md map[string]any)) (*resolved, 
 // Regression for M-07: binding is checked against authenticated metadata,
 // so a token can never be paired with an unauthenticated origin.
 func TestUnlockUsesAuthenticatedBinding(t *testing.T) {
+	skipPassphraseOnDarwin(t)
 	h := newHarness(t)
 	h.enroll()
 	const evil = "https://different-origin.example"
@@ -71,6 +72,7 @@ func TestUnlockUsesAuthenticatedBinding(t *testing.T) {
 // One command invocation prompts for the passphrase at most once, even though
 // unlock and the signing boundary both re-read the credential under the lock.
 func TestPassphrasePromptedOncePerInvocation(t *testing.T) {
+	skipPassphraseOnDarwin(t)
 	prompts := 0
 	app := NewApp("t")
 	app.StdinIsTTY = true

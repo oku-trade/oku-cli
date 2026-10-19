@@ -59,6 +59,7 @@ func (h *harness) agentApp(cache unlockCache, out *bytes.Buffer) *App {
 // A user unlocks in their terminal; a later non-interactive agent can then
 // use the credential without OKU_PASSPHRASE_FILE. Lock removes access.
 func TestUnlockCacheLetsAgentsUseCredential(t *testing.T) {
+	skipPassphraseOnDarwin(t)
 	h := newHarness(t)
 	h.enroll()
 	cache := newMemCache()
@@ -101,6 +102,7 @@ func TestUnlockCacheLetsAgentsUseCredential(t *testing.T) {
 
 // A wrong unlock is never cached, and a stale cached passphrase is dropped.
 func TestUnlockCacheRejectsWrongPassphrase(t *testing.T) {
+	skipPassphraseOnDarwin(t)
 	h := newHarness(t)
 	h.enroll()
 	cache := newMemCache()
@@ -122,6 +124,7 @@ func TestUnlockCacheRejectsWrongPassphrase(t *testing.T) {
 
 // Login caches the new passphrase; logout forgets it.
 func TestLoginCachesAndLogoutForgets(t *testing.T) {
+	skipPassphraseOnDarwin(t)
 	h := newHarness(t)
 	h.addProfile()
 	cache := newMemCache()
