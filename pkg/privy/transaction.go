@@ -11,8 +11,7 @@ import (
 // broadcasts the transaction; callers must never retry an ambiguous error.
 // Shape follows Privy's published wallet RPC schema (EthereumSendTransactionRpcInput):
 // a required top-level caip2 ("eip155:<chain>") plus params.transaction with
-// chain_id. The OAuth route is not in the OpenAPI document, so live behavior
-// with a funded wallet remains unverified in this CLI.
+// chain_id. Verified live on Arbitrum with a funded agent wallet.
 type Transaction struct {
 	To      string
 	Value   string
