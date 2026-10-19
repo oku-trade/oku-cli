@@ -74,7 +74,37 @@ func TestReceiptTimeoutAfterHash(t *testing.T) {
 	defer cancel()
 	x := Executor{RPC: fakeRPC{gas: big.NewInt(10000000), receipt: func() (*bool, error) { return nil, nil }}, Sender: s, Journal: j, Poll: time.Millisecond}
 	err := x.Execute(ctx, intent())
-	if !errors.Is(err, ErrUnknown) || j.state != "unknown" || strings.Join(j.hashes, ",") != hash || s.calls != 1 {
+	if !errors.Is(err, ErrUnknown) || j.state != "sent" || strings.Join(j.hashes, ",") != hash || s.calls != 1 {
 		t.Fatalf("err=%v state=%s hashes=%v calls=%d", err, j.state, j.hashes, s.calls)
+	}
+}
+
+func TestReceiptRPCFailureThenSuccessDoesNotRebroadcast(t *testing.T) {
+	j := &fakeJournal{state: "sending"}
+	s := &fakeSender{send: func() (string, error) { return hash, nil }}
+	calls := 0
+	x := Executor{RPC: fakeRPC{gas: big.NewInt(10000000), receipt: func() (*bool, error) {
+		calls++
+		if calls == 1 {
+			return nil, errors.New("RPC HTTP 403")
+		}
+		ok := true
+		return &ok, nil
+	}}, Sender: s, Journal: j, Poll: time.Millisecond}
+	if err := x.Execute(context.Background(), intent()); err != nil || j.state != "confirmed" || calls != 2 || s.calls != 1 || len(j.hashes) != 1 {
+		t.Fatalf("err=%v state=%s receiptCalls=%d sends=%d hashes=%v", err, j.state, calls, s.calls, j.hashes)
+	}
+}
+
+func TestReceiptRPCFailurePreservesSentHash(t *testing.T) {
+	j := &fakeJournal{state: "sending"}
+	s := &fakeSender{send: func() (string, error) { return hash, nil }}
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Millisecond)
+	defer cancel()
+	x := Executor{RPC: fakeRPC{gas: big.NewInt(10000000), receipt: func() (*bool, error) {
+		return nil, errors.New("RPC HTTP 403")
+	}}, Sender: s, Journal: j, Poll: time.Millisecond}
+	if err := x.Execute(ctx, intent()); !errors.Is(err, ErrReceiptUpstream) || j.state != "sent" || len(j.hashes) != 1 || s.calls != 1 {
+		t.Fatalf("err=%v state=%s hashes=%v sends=%d", err, j.state, j.hashes, s.calls)
 	}
 }

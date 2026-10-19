@@ -13,7 +13,7 @@ import (
 )
 
 func walletBalancesFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain: eip155:42161, eip155:8453 or eip155:1"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain: 42161, 8453, 1 (or eip155: prefixed)"}}
 }
 func depositAddressFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.StringFlag{Name: "asset", Usage: "HyperUnit asset symbol"}, &urfave.StringFlag{Name: "source-chain", Usage: "HyperUnit source chain CAIP-2 identifier"}}
@@ -59,6 +59,9 @@ func (a *App) cmdWalletBalances(e *env) (*result, error) {
 	chain := e.cmd.String("chain")
 	if chain == "" {
 		chain = "eip155:42161"
+	}
+	if chain == "42161" || chain == "8453" || chain == "1" {
+		chain = "eip155:" + chain
 	}
 	switch chain {
 	case "eip155:42161", "eip155:8453", "eip155:1":

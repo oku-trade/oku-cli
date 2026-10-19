@@ -152,6 +152,9 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	executing.Templates = templates
 	executor := onchain.Executor{RPC: onchain.HTTPRPC{Getenv: a.Getenv}, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
 	if err = executor.Execute(ctx, executing); err != nil {
+		if errors.Is(err, onchain.ErrReceiptUpstream) {
+			return nil, output.Wrap(output.CodeUpstream, err, "transaction hash persisted; run status to retry receipt lookup; never resubmit")
+		}
 		if errors.Is(err, onchain.ErrGas) || errors.Is(err, onchain.ErrBalance) {
 			current, readErr := j.GetOnchain(r.ID)
 			if readErr != nil || len(current.Hashes) > 0 {

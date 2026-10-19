@@ -103,6 +103,56 @@ func compactAddresses(in []string) []string {
 	}
 	return out
 }
+func supportedMarkets(status []*v2.MarketStatus, chain uint64) []string {
+	var names []string
+	for _, market := range status {
+		if market == nil || !market.Active || market.Name == "" {
+			continue
+		}
+		for _, id := range market.SupportedChainIds {
+			if uint64(id) == chain {
+				names = append(names, market.Name)
+				break
+			}
+		}
+	}
+	return names
+}
+func supportedBridges(status []*v2.BridgeStatus, from, to uint64) []string {
+	var names []string
+	for _, bridge := range status {
+		if bridge == nil || !bridge.Active || bridge.Name == "" {
+			continue
+		}
+		fromOK, toOK := false, false
+		for _, chain := range bridge.SupportedChains {
+			fromOK = fromOK || chain == fmt.Sprintf("eip155:%d", from)
+			toOK = toOK || chain == fmt.Sprintf("eip155:%d", to)
+		}
+		if fromOK && toOK {
+			names = append(names, bridge.Name)
+		}
+	}
+	return names
+}
+func consistentSwapApprovals(legacy []*v2.ApprovalPayload, modern []*v2.ApprovalPayloadV2, chain uint64, token, amount string) bool {
+	if len(legacy) == 0 {
+		return true
+	}
+	spender := quoteSpender(modern, token, amount)
+	if !strings.EqualFold(spender, okuRouter) || len(modern) == 0 {
+		return false
+	}
+	for _, approval := range legacy {
+		if approval == nil || approval.ChainId != int64(chain) || !strings.EqualFold(approval.Address, token) || !strings.EqualFold(approval.Approvee, spender) || approval.Amount != amount {
+			return false
+		}
+	}
+	return true
+}
+func acceptablePriceImpact(impact float64) bool {
+	return !math.IsNaN(impact) && impact <= 0.15
+}
 func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *api.Client, routeQuote, error) {
 	var w *resolvedWallet
 	var err error
@@ -188,8 +238,16 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 	defer cancel()
 	ppm := int32(e.cmd.Int("slippage-bps") * 100)
 	if kind == "swap" {
+		var supported v2.GetSupportedMarketsResponse
+		if err = c.Swap(ctx, "GetSupportedMarkets", &v2.GetSupportedMarketsRequest{}, &supported, prepare); err != nil {
+			return q, nil, apiError(err, "GetSupportedMarkets")
+		}
+		markets := supportedMarkets(supported.Markets, q.Chain)
+		if len(markets) == 0 {
+			return q, nil, output.Errorf(output.CodeRejected, "no active swap markets support chain %d", q.Chain)
+		}
 		var created v2.SwapCreateResponse
-		req := &v2.SwapCreateRequest{Integration: "", Params: &v2.SwapQuoteParams{Chain: int64(q.Chain), Account: w.agent, IsExactIn: true, InTokenAddress: q.InToken, OutTokenAddress: q.OutToken, TokenAmount: q.InAmount, SlippagePpm: ppm, DstAddress: q.Recipient, UsePermit2: false, EnableJit: false}}
+		req := &v2.SwapCreateRequest{Integration: "", Params: &v2.SwapQuoteParams{Chain: int64(q.Chain), EnabledMarkets: markets, Account: w.agent, IsExactIn: true, InTokenAddress: q.InToken, OutTokenAddress: q.OutToken, TokenAmount: str(e, "amount"), SlippagePpm: ppm, DstAddress: q.Recipient, UseOkuRouter: true, UsePermit2: false, EnableJit: false}}
 		if err = c.Swap(ctx, "Create", req, &created, prepare); err != nil {
 			return q, nil, apiError(err, "swap Create")
 		}
@@ -212,7 +270,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					continue
 				}
 				v := entry.Quote
-				if v.IntentBased || v.ChainId != int32(q.Chain) || !v.IsExactIn || v.Simulation == nil || v.Simulation.Error != "" || math.IsNaN(v.PriceImpact) || v.PriceImpact > 0.15 || v.PriceImpact < 0 || math.IsNaN(v.NetUsdValue) {
+				if v.IntentBased || v.ChainId != int32(q.Chain) || !v.IsExactIn || v.Simulation == nil || v.Simulation.Error != "" || !acceptablePriceImpact(v.PriceImpact) || math.IsNaN(v.NetUsdValue) {
 					continue
 				}
 				if simulated, se := positiveRaw(v.Simulation.AmountOutRaw); se != nil || simulated.Sign() <= 0 {
@@ -226,7 +284,11 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 				if v.InToken == nil || v.OutToken == nil || q.InToken != "native" && !strings.EqualFold(v.InToken.Address, q.InToken) || q.OutToken != "native" && !strings.EqualFold(v.OutToken.Address, q.OutToken) {
 					continue
 				}
-				if len(v.SigningRequest.GetTypedData()) > 0 || len(v.Approvals) > 0 {
+				if len(v.SigningRequest.GetTypedData()) > 0 || !consistentSwapApprovals(v.Approvals, v.ApprovalsV2, q.Chain, q.InToken, q.InAmount) {
+					continue
+				}
+				spender := quoteSpender(v.ApprovalsV2, q.InToken, q.InAmount)
+				if q.InToken != "native" && (len(v.ApprovalsV2) > 0 || len(v.Approvals) > 0) && !strings.EqualFold(spender, okuRouter) {
 					continue
 				}
 				if v.NetUsdValue > best {
@@ -251,8 +313,16 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			}
 		}
 	} else {
+		var supported v2.GetSupportedBridgesResponse
+		if err = c.Bridge(ctx, "GetSupportedBridges", &v2.GetSupportedBridgesRequest{}, &supported, prepare); err != nil {
+			return q, nil, apiError(err, "GetSupportedBridges")
+		}
+		bridges := supportedBridges(supported.Bridges, q.Chain, q.OutChain)
+		if len(bridges) == 0 {
+			return q, nil, output.Errorf(output.CodeRejected, "no active bridge supports both chains")
+		}
 		var created v2.BridgeCreateResponse
-		req := &v2.BridgeCreateRequest{Integration: "", Params: &v2.BridgeQuoteParams{InChain: int64(q.Chain), OutChain: int64(q.OutChain), InChainCaip2: fmt.Sprintf("eip155:%d", q.Chain), OutChainCaip2: fmt.Sprintf("eip155:%d", q.OutChain), Account: w.agent, DstAddress: q.Recipient, InTokenAddress: q.InToken, OutTokenAddress: q.OutToken, InTokenAmount: q.InAmount, SlippagePpm: ppm}}
+		req := &v2.BridgeCreateRequest{Integration: "", Params: &v2.BridgeQuoteParams{InChain: int64(q.Chain), OutChain: int64(q.OutChain), EnabledBridges: bridges, InChainCaip2: fmt.Sprintf("eip155:%d", q.Chain), OutChainCaip2: fmt.Sprintf("eip155:%d", q.OutChain), Account: w.agent, DstAddress: q.Recipient, InTokenAddress: q.InToken, OutTokenAddress: q.OutToken, InTokenAmount: str(e, "amount"), SlippagePpm: ppm}}
 		if err = c.Bridge(ctx, "Create", req, &created, prepare); err != nil {
 			return q, nil, apiError(err, "bridge Create")
 		}

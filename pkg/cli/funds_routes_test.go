@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 	"testing"
@@ -96,5 +97,28 @@ func TestRouteExecutionAuthorization(t *testing.T) {
 	ethTx := &v2.TransactionPayload{ChainId: 42161, To: okuRouter, Value: "0x989680", Data: pack("fillQuoteEthToToken", output, target, []byte{1}, big.NewInt(0), recipient, warrant)}
 	if templates, err := verifyExecution(eth, "100", &v2.ExecutionInformation{Trade: ethTx}, nil); err != nil || len(templates) != 1 {
 		t.Fatalf("ETH swap refused: %v %+v", err, templates)
+	}
+}
+
+func TestSwapMarketSelectionAndLegacyApproval(t *testing.T) {
+	if !acceptablePriceImpact(-0.0039) || acceptablePriceImpact(math.NaN()) || acceptablePriceImpact(0.16) {
+		t.Fatal("favourable price impact rejected or unsafe impact accepted")
+	}
+	markets := supportedMarkets([]*v2.MarketStatus{{Name: "zeroex", Active: true, SupportedChainIds: []int32{42161}}, {Name: "inactive", SupportedChainIds: []int32{42161}}, {Name: "other", Active: true, SupportedChainIds: []int32{8453}}}, 42161)
+	if len(markets) != 1 || markets[0] != "zeroex" {
+		t.Fatalf("enabled markets for Arbitrum: %v", markets)
+	}
+	values, err := structpb.NewStruct(map[string]any{"spender": okuRouter, "amount": "1000000"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	modern := []*v2.ApprovalPayloadV2{{To: arbitrumUSDC, FunctionName: "approve", Values: values}}
+	legacy := []*v2.ApprovalPayload{{ChainId: 42161, Address: arbitrumUSDC, Approvee: okuRouter, Amount: "1000000"}}
+	if !consistentSwapApprovals(legacy, modern, 42161, arbitrumUSDC, "1000000") {
+		t.Fatal("matching legacy and v2 approval rejected")
+	}
+	legacy[0].Approvee = "0x1111111111111111111111111111111111111111"
+	if consistentSwapApprovals(legacy, modern, 42161, arbitrumUSDC, "1000000") {
+		t.Fatal("divergent legacy spender accepted")
 	}
 }

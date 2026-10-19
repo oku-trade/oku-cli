@@ -66,6 +66,9 @@ var tokenMethods = map[string]handler{
 }
 
 var swapMethods = map[string]handler{
+	"GetSupportedMarkets": fundsRPC[accountv2.GetSupportedMarketsRequest, accountv2.GetSupportedMarketsResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.GetSupportedMarketsRequest]) (*connect.Response[accountv2.GetSupportedMarketsResponse], error) {
+		return f.swap.GetSupportedMarkets
+	}),
 	"Ping": fundsRPC[accountv2.PingRequest, accountv2.PingResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.PingRequest]) (*connect.Response[accountv2.PingResponse], error) {
 		return f.swap.Ping
 	}),
@@ -95,6 +98,9 @@ var swapMethods = map[string]handler{
 	}),
 }
 var bridgeMethods = map[string]handler{
+	"GetSupportedBridges": fundsRPC[accountv2.GetSupportedBridgesRequest, accountv2.GetSupportedBridgesResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.GetSupportedBridgesRequest]) (*connect.Response[accountv2.GetSupportedBridgesResponse], error) {
+		return f.bridge.GetSupportedBridges
+	}),
 	"Ping": fundsRPC[accountv2.PingRequest, accountv2.PingResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.PingRequest]) (*connect.Response[accountv2.PingResponse], error) {
 		return f.bridge.Ping
 	}),

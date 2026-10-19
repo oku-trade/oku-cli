@@ -20,6 +20,7 @@ import (
 )
 
 var ErrUnknown = errors.New("OUTCOME_UNKNOWN: reconcile transaction receipt; never resubmit")
+var ErrReceiptUpstream = errors.New("receipt lookup failed after broadcast; run status to retry")
 var ErrGas = errors.New("INSUFFICIENT_GAS")
 var ErrBalance = errors.New("INSUFFICIENT_BALANCE")
 var ErrReverted = errors.New("transaction reverted")
@@ -163,7 +164,6 @@ func (x Executor) Execute(ctx context.Context, in journal.OnchainIntent) error {
 		}
 		result, err := x.Wait(ctx, t.ChainID, hash)
 		if err != nil {
-			_ = x.Journal.AdvanceOnchain(in.ID, "sent", "unknown", "")
 			return err
 		}
 		if !result {
@@ -189,18 +189,34 @@ func (x Executor) Wait(ctx context.Context, chain uint64, hash string) (bool, er
 	if poll <= 0 {
 		poll = 3 * time.Second
 	}
+	backoff := poll
+	if backoff > time.Second {
+		backoff = time.Second
+	}
+	var lastErr error
 	for {
 		status, err := x.RPC.Receipt(ctx, chain, hash)
 		if err != nil {
-			return false, fmt.Errorf("%w: %v", ErrUnknown, err)
-		}
-		if status != nil {
+			lastErr = err
+		} else if status != nil {
 			return *status, nil
+		} else {
+			lastErr = nil
 		}
-		timer := time.NewTimer(poll)
+		delay := poll
+		if lastErr != nil {
+			delay = backoff
+			if backoff < 8*time.Second {
+				backoff *= 2
+			}
+		}
+		timer := time.NewTimer(delay)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
+			if lastErr != nil {
+				return false, fmt.Errorf("%w: %v", ErrReceiptUpstream, lastErr)
+			}
 			return false, fmt.Errorf("%w: %v", ErrUnknown, ctx.Err())
 		case <-timer.C:
 		}

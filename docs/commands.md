@@ -126,8 +126,8 @@ Transfer agent USDC to master EOA
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--intent` | intent id from 'orders prepare' (required) | `` |
-| `--digest` | intent digest from 'orders prepare' (required) | `` |
+| `--intent` | intent id from 'deposit prepare' (required) | `` |
+| `--digest` | intent digest from 'deposit prepare' (required) | `` |
 
 ## `oku docs commands`
 
@@ -400,8 +400,8 @@ Broadcast an approved EVM transfer
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--intent` | intent id from 'orders prepare' (required) | `` |
-| `--digest` | intent digest from 'orders prepare' (required) | `` |
+| `--intent` | intent id from 'send prepare' (required) | `` |
+| `--digest` | intent digest from 'send prepare' (required) | `` |
 
 ## `oku skills install`
 
@@ -491,8 +491,8 @@ Submit a verified EVM swap
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--intent` | intent id from 'orders prepare' (required) | `` |
-| `--digest` | intent digest from 'orders prepare' (required) | `` |
+| `--intent` | intent id from 'swap prepare' (required) | `` |
+| `--digest` | intent digest from 'swap prepare' (required) | `` |
 
 ## `oku version`
 
@@ -510,4 +510,4 @@ Read the agent's EVM native balance
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain: eip155:42161, eip155:8453 or eip155:1 | `` |
+| `--chain` | EVM chain: 42161, 8453, 1 (or eip155: prefixed) | `` |

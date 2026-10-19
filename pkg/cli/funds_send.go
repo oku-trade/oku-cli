@@ -225,6 +225,9 @@ func (a *App) cmdFundsSubmit(e *env, kind string) (*result, error) {
 	}
 	executor := onchain.Executor{RPC: onchain.HTTPRPC{Getenv: a.Getenv}, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
 	if err = executor.Execute(ctx, r.OnchainIntent); err != nil {
+		if errors.Is(err, onchain.ErrReceiptUpstream) {
+			return nil, output.Wrap(output.CodeUpstream, err, "transaction hash persisted; run status to retry receipt lookup; never resubmit")
+		}
 		if errors.Is(err, onchain.ErrGas) || errors.Is(err, onchain.ErrBalance) {
 			if jerr := j.AdvanceOnchain(r.ID, "sending", "failed", ""); jerr != nil {
 				return nil, output.Wrap(output.CodeOutcomeUnknown, jerr, "journal update failed; investigate before retry")
