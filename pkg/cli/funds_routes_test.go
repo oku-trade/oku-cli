@@ -122,3 +122,23 @@ func TestSwapMarketSelectionAndLegacyApproval(t *testing.T) {
 		t.Fatal("divergent legacy spender accepted")
 	}
 }
+
+// Routers come from the shared chain-config package, not a local table:
+// chains with their own deployment resolve to it, and deprecated or
+// router-less chains (zkSync, Blast) are refused rather than defaulted.
+func TestRouterForUsesChainConfig(t *testing.T) {
+	for chain, want := range map[uint64]string{
+		42161:  okuRouter,
+		5000:   "0x86d61277970685075a0BF66023c219dc4A6e3F6d", // Mantle
+		1329:   "0x7B060A98BA242Ae42D6027a60937787eBe33DEBe", // Sei
+		30:     "0x0906896E8564c61F40778E2B7A46E1269Aaa681e", // Rootstock
+		324:    "",                                           // zkSync: deprecated, no router
+		81457:  "",                                           // Blast: deprecated
+		1:      okuRouter,
+		999999: "",
+	} {
+		if got := routerFor(chain); !strings.EqualFold(got, want) {
+			t.Fatalf("chain %d: router %q, want %q", chain, got, want)
+		}
+	}
+}

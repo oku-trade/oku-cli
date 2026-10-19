@@ -6,6 +6,7 @@ require (
 	connectrpc.com/connect v1.19.1
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0
 	github.com/ethereum/go-ethereum v1.16.5
+	github.com/gfx-labs/chain-config/dist/networks v1.18.0
 	github.com/gowebpki/jcs v1.0.2
 	github.com/kaptinlin/jsonrepair v0.4.9
 	github.com/keybase/go-keychain v0.0.1

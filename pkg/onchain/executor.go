@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gfx-labs/chain-config/dist/networks"
 	"github.com/oku-trade/oku-cli/pkg/journal"
 	"github.com/oku-trade/oku-cli/pkg/privy"
 )
@@ -63,14 +64,11 @@ func confirmationDepth(chain uint64) uint64 {
 	return 20
 }
 
-// blockSeconds is a conservative average block time used only to size the
-// confirmation wait.
+// blockSeconds is the chain's block time from the shared chain-config
+// package, used only to size the confirmation wait. Unknown chains assume 2s.
 func blockSeconds(chain uint64) float64 {
-	switch chain {
-	case 1:
-		return 12
-	case 56, 137, 43114:
-		return 2.5
+	if n, err := networks.NetworkByNumber(chain); err == nil && n != nil && n.BlockTimeSeconds > 0 {
+		return n.BlockTimeSeconds
 	}
 	return 2
 }
