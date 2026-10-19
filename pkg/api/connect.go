@@ -22,7 +22,7 @@ import (
 // encoded as JSON; it is decoded strictly (unknown fields rejected) into the
 // generated request message so handwritten request shapes cannot drift from
 // the vendored proto silently.
-type handler func(ctx context.Context, perps accountv2connect.PerpsServiceClient, dev accountv2connect.CliDeviceServiceClient, auth accountv1connect.AuthServiceClient, in []byte, h http.Header) (proto.Message, error)
+type handler func(ctx context.Context, perps accountv2connect.PerpsServiceClient, dev accountv2connect.CliDeviceServiceClient, auth accountv1connect.AuthServiceClient, _ fundsClients, in []byte, h http.Header) (proto.Message, error)
 
 var strictJSON = protojson.UnmarshalOptions{DiscardUnknown: false}
 
@@ -60,7 +60,7 @@ func perps[Req, Resp any, PReq interface {
 	*Req
 	proto.Message
 }](pick func(accountv2connect.PerpsServiceClient) func(context.Context, *connect.Request[Req]) (*connect.Response[Resp], error)) handler {
-	return func(ctx context.Context, p accountv2connect.PerpsServiceClient, _ accountv2connect.CliDeviceServiceClient, _ accountv1connect.AuthServiceClient, in []byte, h http.Header) (proto.Message, error) {
+	return func(ctx context.Context, p accountv2connect.PerpsServiceClient, _ accountv2connect.CliDeviceServiceClient, _ accountv1connect.AuthServiceClient, _ fundsClients, in []byte, h http.Header) (proto.Message, error) {
 		return unary[Req, Resp, PReq](pick(p), ctx, in, h)
 	}
 }
@@ -69,7 +69,7 @@ func device[Req, Resp any, PReq interface {
 	*Req
 	proto.Message
 }](pick func(accountv2connect.CliDeviceServiceClient) func(context.Context, *connect.Request[Req]) (*connect.Response[Resp], error)) handler {
-	return func(ctx context.Context, _ accountv2connect.PerpsServiceClient, d accountv2connect.CliDeviceServiceClient, _ accountv1connect.AuthServiceClient, in []byte, h http.Header) (proto.Message, error) {
+	return func(ctx context.Context, _ accountv2connect.PerpsServiceClient, d accountv2connect.CliDeviceServiceClient, _ accountv1connect.AuthServiceClient, _ fundsClients, in []byte, h http.Header) (proto.Message, error) {
 		return unary[Req, Resp, PReq](pick(d), ctx, in, h)
 	}
 }
@@ -81,7 +81,7 @@ func authRPC[Req, Resp any, PReq interface {
 	*Req
 	proto.Message
 }](pick func(accountv1connect.AuthServiceClient) func(context.Context, *connect.Request[Req]) (*connect.Response[Resp], error)) handler {
-	return func(ctx context.Context, _ accountv2connect.PerpsServiceClient, _ accountv2connect.CliDeviceServiceClient, a accountv1connect.AuthServiceClient, in []byte, h http.Header) (proto.Message, error) {
+	return func(ctx context.Context, _ accountv2connect.PerpsServiceClient, _ accountv2connect.CliDeviceServiceClient, a accountv1connect.AuthServiceClient, _ fundsClients, in []byte, h http.Header) (proto.Message, error) {
 		return unary[Req, Resp, PReq](pick(a), ctx, in, h)
 	}
 }
@@ -100,6 +100,12 @@ var authMethods = map[string]handler{
 
 // Methods the CLI is allowed to call. Anything else is refused locally.
 var perpsMethods = map[string]handler{
+	"GenerateDepositAddress": perps[accountv2.GenerateDepositAddressRequest, accountv2.GenerateDepositAddressResponse](func(c P) func(context.Context, *connect.Request[accountv2.GenerateDepositAddressRequest]) (*connect.Response[accountv2.GenerateDepositAddressResponse], error) {
+		return c.GenerateDepositAddress
+	}),
+	"GetDepositTokens": perps[accountv2.GetDepositTokensRequest, accountv2.GetDepositTokensResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetDepositTokensRequest]) (*connect.Response[accountv2.GetDepositTokensResponse], error) {
+		return c.GetDepositTokens
+	}),
 	"ValidateAgentKey": perps[accountv2.ValidateAgentKeyRequest, accountv2.ValidateAgentKeyResponse](func(c P) func(context.Context, *connect.Request[accountv2.ValidateAgentKeyRequest]) (*connect.Response[accountv2.ValidateAgentKeyResponse], error) {
 		return c.ValidateAgentKey
 	}),

@@ -1,0 +1,236 @@
+syntax = "proto3";
+
+package gfxcafe.oku.account.v2;
+
+import "buf/validate/validate.proto";
+import "gfxcafe/oku/account/v1/validate.proto";
+import "gfxcafe/oku/account/v2/token.proto";
+import "gfxcafe/oku/account/v2/validate.proto";
+
+option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v2;accountv2";
+
+// OnchainService provides onchain data retrieval via RPC
+service OnchainService {
+  // GetOnchainTokenBalances retrieves onchain token balances for a wallet address using multicall
+  rpc GetOnchainTokenBalances(GetOnchainTokenBalancesRequest) returns (GetOnchainTokenBalancesResponse);
+
+  // Get native token balance (ETH, etc.) for an address
+  rpc GetNativeBalance(GetNativeBalanceRequest) returns (GetNativeBalanceResponse);
+
+  // Get real-time ERC20 token info (balances and allowances) via RPC
+  rpc GetTokenInfo(GetTokenInfoRequest) returns (GetTokenInfoResponse);
+
+  // Get current gas pricing for a chain (legacy + EIP-1559)
+  rpc GetGasPrice(GetGasPriceRequest) returns (GetGasPriceResponse);
+
+  // Get transaction receipt (status, block number, gas used)
+  rpc GetTransactionReceipt(GetTransactionReceiptRequest) returns (GetTransactionReceiptResponse);
+}
+
+// GetOnchainTokenBalancesRequest for retrieving multiple token balances onchain
+message GetOnchainTokenBalancesRequest {
+  // Wallet address to check balances for
+  string wallet_address = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true
+  ];
+
+  // List of token addresses and chain IDs to check balances for. May be empty
+  // when include_recommended_default_token is set and recommend_chains is
+  // provided.
+  repeated TokenIdentifier token_identifiers = 2 [
+    (buf.validate.field).repeated = {max_items: 100}
+  ];
+
+  // When true, compute and return a recommended default token per chain.
+  bool include_recommended_default_token = 3;
+
+  // CAIP-2 chain identifiers to recommend a default token for. When
+  // include_recommended_default_token is set, the recommendation is computed
+  // for the union of these chains and the chains referenced by
+  // token_identifiers.
+  repeated string recommend_chains = 4 [
+    (buf.validate.field).repeated.max_items = 20,
+    (buf.validate.field).repeated.items.string.(gfxcafe.oku.account.v2.caip2) = true
+  ];
+}
+
+// GetOnchainTokenBalancesResponse containing the token balances
+message GetOnchainTokenBalancesResponse {
+  // List of token balances
+  repeated TokenBalance balances = 1;
+
+  // Wallet address the balances are for
+  string wallet_address = 2;
+
+  // Timestamp when the balances were fetched
+  int64 fetched_at_unix = 3;
+
+  // Recommended default token per chain, present only when requested and found
+  repeated RecommendedDefaultToken recommended_default_tokens = 4;
+}
+
+// RecommendedDefaultToken is the configured base token with the highest wallet
+// USD value on a chain.
+message RecommendedDefaultToken {
+  // CAIP-2 chain identifier (e.g., "eip155:1")
+  string chain = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true
+  ];
+
+  // Recommended token metadata
+  TokenInfo token = 2;
+
+  // Whether the recommended token is the chain's native asset
+  bool is_native = 3;
+
+  // USD notional value of the wallet's holding of this token, i.e. the value
+  // that won the recommendation (balance * price). Zero if unknown.
+  double usd_value = 4;
+}
+
+// TokenBalance represents a token balance for a specific address and chain
+message TokenBalance {
+  // Token address
+  string token_address = 1;
+
+  // Chain ID
+  int32 chain_id = 2;
+
+  // Balance in raw units (wei for ETH-like chains)
+  string balance = 3;
+
+  // Balance formatted with decimals as a string (e.g., "1.5")
+  string formatted_balance = 4;
+
+  // Token info if available
+  TokenInfo token_info = 5;
+
+  // Error message if balance fetch failed for this token
+  string error = 6;
+}
+
+// === GetNativeBalance ===
+
+message GetNativeBalanceRequest {
+  // Chain identifier (e.g., "1", "ethereum", "eip155:1")
+  string chain = 1 [(buf.validate.field).required = true];
+
+  // Wallet address
+  string address = 2 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+}
+
+message GetNativeBalanceResponse {
+  // Balance as decimal string (wei)
+  string balance = 1;
+}
+
+// === GetTokenInfo ===
+
+message GetTokenInfoRequest {
+  // Chain identifier (e.g., "1", "ethereum", "eip155:1")
+  string chain = 1 [(buf.validate.field).required = true];
+
+  // Wallet address to check balances/allowances for
+  string address = 2 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Token queries (max 50)
+  repeated TokenInfoQuery tokens = 3 [(buf.validate.field).repeated.max_items = 50];
+}
+
+message TokenInfoQuery {
+  // ERC20 token contract address
+  string token = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Spender address to check allowance for (optional)
+  optional string spender = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
+}
+
+message GetTokenInfoResponse {
+  repeated TokenInfoResult tokens = 1;
+}
+
+message TokenInfoResult {
+  // ERC20 token contract address
+  string token = 1;
+
+  // Balance as decimal string (wei)
+  string balance = 2;
+
+  // Balance error message, only present if fetch failed
+  optional string balance_error = 3;
+
+  // Spender address (if requested)
+  optional string spender = 4;
+
+  // Allowance as decimal string (wei), only present if spender was requested
+  optional string allowance = 5;
+
+  // Allowance error message, only present if fetch failed
+  optional string allowance_error = 6;
+}
+
+// === GetGasPrice ===
+
+message GetGasPriceRequest {
+  // Chain identifier (e.g., "1", "ethereum", "eip155:1")
+  string chain = 1 [(buf.validate.field).required = true];
+}
+
+// GetGasPriceResponse returns gas pricing info.
+// Always includes gas_price (legacy). On EIP-1559 chains, also includes
+// base_fee_per_gas, max_priority_fee_per_gas, and max_fee_per_gas.
+message GetGasPriceResponse {
+  // Legacy gas price as decimal string (wei) — always set
+  string gas_price = 1;
+
+  // EIP-1559 fields (only set on chains that support EIP-1559)
+
+  // Current base fee per gas from the latest block (wei, decimal string)
+  optional string base_fee_per_gas = 2;
+
+  // Suggested max priority fee (tip) per gas (wei, decimal string)
+  optional string max_priority_fee_per_gas = 3;
+
+  // Suggested max fee per gas: 2 * base_fee + max_priority_fee (wei, decimal string)
+  optional string max_fee_per_gas = 4;
+}
+
+// === GetTransactionReceipt ===
+
+enum TransactionStatus {
+  TRANSACTION_STATUS_UNSPECIFIED = 0;
+  TRANSACTION_STATUS_PENDING = 1;
+  TRANSACTION_STATUS_SUCCESS = 2;
+  TRANSACTION_STATUS_REVERTED = 3;
+}
+
+message GetTransactionReceiptRequest {
+  // Chain identifier (e.g., "1", "ethereum", "eip155:1")
+  string chain = 1 [(buf.validate.field).required = true];
+
+  // Transaction hash
+  string transaction_hash = 2 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_tx_hash) = true,
+    (buf.validate.field).required = true
+  ];
+}
+
+message GetTransactionReceiptResponse {
+  // Transaction status
+  TransactionStatus status = 1;
+
+  // Block number the transaction was included in (only set if mined)
+  optional uint64 block_number = 2;
+
+  // Gas used by the transaction (wei, decimal string, only set if mined)
+  optional string gas_used = 3;
+}

@@ -276,6 +276,19 @@ message PerpMarket {
   // mark_px * shares outstanding, USD. Equity markets only; empty when the
   // share count is unknown.
   string implied_market_cap = 20;
+
+  // UNSPECIFIED when HL gives no usable category; clients should not guess.
+  PerpMarketCategory category = 21;
+}
+
+enum PerpMarketCategory {
+  PERP_MARKET_CATEGORY_UNSPECIFIED = 0;
+  PERP_MARKET_CATEGORY_CRYPTO = 1;
+  PERP_MARKET_CATEGORY_STOCK = 2;
+  PERP_MARKET_CATEGORY_ETF = 3;
+  PERP_MARKET_CATEGORY_COMMODITY = 4;
+  PERP_MARKET_CATEGORY_FOREX = 5;
+  PERP_MARKET_CATEGORY_INDEX = 6;
 }
 
 // PerpPosition represents an open perpetual position.
@@ -323,17 +336,6 @@ message PerpOrder {
   int32 asset_id = 15;            // exchange asset id when known
   string tif = 16;                // time-in-force: "Gtc", "Ioc", "Alo"
   repeated PerpOrder children = 17; // nested TP/SL orders attached to this order
-  // Server-verified origin. Unset when the order was not placed through an
-  // authenticated Oku CLI device (external or unknown).
-  OrderOrigin origin = 18;
-}
-
-// OrderOrigin is authenticated order attribution, derived only from the
-// server-side device credential that created the action, never from client
-// headers. It survives device revocation.
-message OrderOrigin {
-  string cli_device_id = 1;
-  string cli_device_name = 2;
 }
 
 // PerpTwap represents a Hyperliquid TWAP lifecycle entry.
@@ -395,9 +397,6 @@ message PerpTrade {
   PerpTradeKind kind = 16;
   PerpLiquidation liquidation = 17;
   int64 twap_id = 18;         // HL TWAP id this fill belongs to; 0 when not a TWAP fill
-  // Server-verified origin of the order this fill belongs to; unset when
-  // external or unknown.
-  OrderOrigin origin = 19;
 }
 
 enum PerpTradeKind {
@@ -444,6 +443,9 @@ message PerpDepositWithdraw {
   string fee = 7;
   // HL ledger nonce; for withdrawals it is the signed action time (ms) * 1000.
   int64 nonce = 8;
+  // Oku Bridge (onramp) order that produced this credit, when it can be joined.
+  // Only ever set on inbound USDC "spotTransfer" rows from 0x2000000000000000000000000000000000000000, never on "deposit".
+  string onramp_order_id = 9;
 }
 
 // MarginSummary contains margin/balance information.
@@ -904,6 +906,7 @@ message ActionParams {
     ScaleActionMetadata scale = 8;
     CancelOrdersActionMetadata cancel_orders = 9;
     ConvertToUsdcActionMetadata convert_to_usdc = 10;
+    TrailingStopActionMetadata trailing_stop = 12;
   }
 }
 
@@ -945,7 +948,7 @@ message ConfirmActionRequest {
 
 message ConfirmActionResponse {
   string status = 1;          // "submitted", "filled", "completed", "error"
-  int64 hl_oid = 2;           // Hyperliquid order ID (for order/modify actions)
+  int64 hl_oid = 2;           // Hyperliquid order ID (for order/modify/trailing_stop actions)
   string error_message = 3;
 }
 
@@ -1012,8 +1015,6 @@ message GetActionResponse {
   string state = 3;           // "pending", "submitted", "completed", "filled", "cancelled", "error"
   int64 hl_oid = 4;           // Hyperliquid order ID (if applicable)
   string error_message = 5;   // error details (if state == "error")
-  // Authenticated CLI device that created the action; empty otherwise.
-  string cli_device_id = 6;
 }
 
 message GetOrderStatusesRequest {
@@ -1352,6 +1353,24 @@ message TWAPActionMetadata {
   string trigger_px = 7 [(buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.canonical_decimal_string) = true];
   bool trigger_activate_above = 8;
   string stop_px = 9 [(buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.canonical_decimal_string) = true];
+}
+
+// TrailingStopActionMetadata is metadata for placing a trailing stop.
+// Builds a Hyperliquid trailingStop action: a market order that fires when the
+// mark price retraces from its best level since activation by the retracement.
+// side is the side of the resulting market order ("sell" closes a long).
+message TrailingStopActionMetadata {
+  string coin = 1 [(buf.validate.field).required = true];
+  string side = 2 [(buf.validate.field).required = true];
+  string sz = 3 [(buf.validate.field).required = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.canonical_decimal_string) = true];
+  bool reduce_only = 4;
+  // Mark price at which tracking starts. Empty starts tracking immediately.
+  string activation_px = 5 [(buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.canonical_decimal_string) = true];
+  // Exactly one of retracement_pct or retracement_px must be set.
+  // Percent of the watermark, e.g. "5" or "2.5". At most 4 decimal places.
+  string retracement_pct = 6 [(buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.canonical_decimal_string) = true];
+  // Fixed price distance from the watermark.
+  string retracement_px = 7 [(buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.canonical_decimal_string) = true];
 }
 
 // ScaleActionMetadata is metadata for placing a scale order. Scale orders are

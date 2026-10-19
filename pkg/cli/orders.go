@@ -43,9 +43,13 @@ func prepareFlags() []urfave.Flag {
 }
 
 func submitFlags() []urfave.Flag {
+	return submitFlagsFor("orders")
+}
+
+func submitFlagsFor(kind string) []urfave.Flag {
 	return []urfave.Flag{
-		&urfave.StringFlag{Name: "intent", Usage: "intent id from 'orders prepare' (required)"},
-		&urfave.StringFlag{Name: "digest", Usage: "intent digest from 'orders prepare' (required)"},
+		&urfave.StringFlag{Name: "intent", Usage: "intent id from '" + kind + " prepare' (required)"},
+		&urfave.StringFlag{Name: "digest", Usage: "intent digest from '" + kind + " prepare' (required)"},
 	}
 }
 

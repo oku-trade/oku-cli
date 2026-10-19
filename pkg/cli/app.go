@@ -158,6 +158,22 @@ func (a *App) commands() map[string]*handler {
 
 func (a *App) commandTable() map[string]*handler {
 	m := map[string]*handler{
+		"wallet address":     {summary: "Show the enrolled agent wallet and master EOA", run: a.cmdWalletAddress},
+		"wallet balances":    {summary: "Read the agent's EVM native balance", flags: walletBalancesFlags, run: a.cmdWalletBalances},
+		"deposit address":    {summary: "Read a master-bound HyperUnit deposit address", flags: depositAddressFlags, run: a.cmdDepositAddress},
+		"send prepare":       {summary: "Prepare an agent EVM transfer", flags: sendPrepareFlags, run: a.cmdSendPrepare},
+		"send submit":        {summary: "Broadcast an approved EVM transfer", flags: func() []urfave.Flag { return submitFlagsFor("send") }, run: a.cmdSendSubmit},
+		"send status":        {summary: "Reconcile a transfer receipt", flags: statusFlags, run: a.cmdSendStatus},
+		"send reconcile":     {summary: "Attach and verify a recovered transfer hash", flags: reconcileFlags, run: a.cmdSendReconcile},
+		"deposit prepare":    {summary: "Prepare Arbitrum USDC transfer from agent to master", flags: depositPrepareFlags, run: a.cmdDepositPrepare},
+		"deposit submit":     {summary: "Transfer agent USDC to master EOA", flags: func() []urfave.Flag { return submitFlagsFor("deposit") }, run: a.cmdDepositSubmit},
+		"deposit status":     {summary: "Reconcile agent-to-master USDC transfer", flags: statusFlags, run: a.cmdDepositStatus},
+		"swap quote":         {summary: "Quote exact-in EVM swap routes", flags: func() []urfave.Flag { return routeFlags(false) }, run: a.cmdSwapQuote},
+		"swap prepare":       {summary: "Prepare an agent EVM swap", flags: func() []urfave.Flag { return routePrepareFlags(false) }, run: a.cmdSwapPrepare},
+		"swap submit":        {summary: "Submit a verified EVM swap", flags: func() []urfave.Flag { return submitFlagsFor("swap") }, run: a.cmdSwapSubmit},
+		"swap status":        {summary: "Reconcile an EVM swap", flags: statusFlags, run: a.cmdSwapStatus},
+		"swap reconcile":     {summary: "Attach and verify a recovered swap transaction hash", flags: reconcileFlags, run: a.cmdSwapReconcile},
+		"bridge quote":       {summary: "Quote EVM-to-EVM bridge routes", flags: func() []urfave.Flag { return routeFlags(true) }, run: a.cmdBridgeQuote},
 		"version":            {summary: "Print version information", run: a.cmdVersion},
 		"doctor":             {summary: "Check configuration, connectivity and credentials", run: a.cmdDoctor},
 		"config path":        {summary: "Print config, credential and state paths", run: a.cmdConfigPath},

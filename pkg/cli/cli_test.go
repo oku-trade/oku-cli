@@ -39,6 +39,7 @@ type fakeOku struct {
 	// actionJSON overrides the order action the server builds.
 	actionJSON func(meta map[string]any) string
 	confirm    func() (int, string)
+	routeReply func(method string, body map[string]any) (any, bool)
 	actions    map[string]string // id -> state
 	oids       map[string]string // id -> hl oid, when acknowledged
 	confirms   int
@@ -65,6 +66,12 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	authed := r.Header.Get("x-oku-account-session") == "session-1" && r.Header.Get("x-oku-account-session-token") == "session-token"
 	reply := func(v any) { json.NewEncoder(w).Encode(v) }
+	if f.routeReply != nil {
+		if response, handled := f.routeReply(method, body); handled {
+			reply(response)
+			return
+		}
+	}
 	if r.URL.Path == "/info" {
 		if body["type"] == "perpDexs" {
 			reply([]any{nil, map[string]string{"name": "xyz"}, map[string]string{"name": "flx"}})
@@ -236,6 +243,9 @@ type harness struct {
 	stdin  string
 	passFn string
 	privy  *fakePrivy
+	rpcURL string
+	// rpcChain additionally routes OKU_RPC_URL_<rpcChain> to rpcURL.
+	rpcChain string
 }
 
 func newHarness(t *testing.T) *harness {
@@ -284,6 +294,9 @@ func (h *harness) run(args ...string) run {
 			}
 			if k == "OKU_HYPERLIQUID_INFO_URL" {
 				return h.srv.URL + "/info"
+			}
+			if k == "OKU_RPC_URL_42161" || k == "OKU_RPC_URL_"+h.rpcChain {
+				return h.rpcURL
 			}
 			return ""
 		},

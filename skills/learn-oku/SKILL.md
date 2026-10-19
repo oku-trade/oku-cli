@@ -31,7 +31,7 @@ Everything above is read-only. All but `doctor` work offline.
 
 ## Exit codes and errors
 
-The error object has `code`, `message`, `retryable` and sometimes `execution_state` and `details.hint`. Honor `retryable`. Exit 3 is authentication: stop and hand off to the user (see ensure-hyperliquid-authentication). Exit 6 / `OUTCOME_UNKNOWN` is not a failure: see reconcile-hyperliquid-actions. Exit 7 (rejected or conflict) is never retried automatically.
+The error object has `code`, `message`, `retryable` and sometimes `execution_state` and `details.hint`. Honor `retryable`. Exit 3 is authentication: stop and hand off to the user (see ensure-hyperliquid-authentication). Exit 6 / `OUTCOME_UNKNOWN` is not proof of failure: never resubmit. For Hyperliquid actions see reconcile-hyperliquid-actions; for onchain funds see move-agent-funds (`swap status` can locate a batch by nonce). Exit 7 (rejected or conflict) is never retried automatically; an onchain `REJECTED` explicitly stating nothing was broadcast closes its intent and permits a new prepare.
 
 ## Pick the task skill
 
@@ -43,7 +43,9 @@ The error object has `code`, `message`, `retryable` and sometimes `execution_sta
 | Check, cancel or replace orders | manage-hyperliquid-orders |
 | Close or reduce a position | close-hyperliquid-position |
 | Leverage, margin mode, isolated margin | manage-hyperliquid-risk |
-| Unknown outcomes, recovery | reconcile-hyperliquid-actions |
+| Agent wallet balances, EVM sends, swaps, bridges and master-bound deposit steps | move-agent-funds |
+| Unknown Hyperliquid outcomes, recovery | reconcile-hyperliquid-actions |
+| Unknown onchain send/swap/deposit outcomes, recovery | move-agent-funds |
 
 ## Agent integration
 

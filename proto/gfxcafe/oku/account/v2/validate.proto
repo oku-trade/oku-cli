@@ -13,7 +13,7 @@ extend buf.validate.StringRules {
   optional bool bridge_id = 2001 [
     (buf.validate.predefined).cel = {
       id: "string.bridge_id"
-      expression: "rule && this != '' && !(this in ['deswap', 'bungee', 'lifi', 'across', 'orbiter', 'wormhole', 'rhinofi', 'chainlink', 'squidrouter', 'wanbridge', 'stargate', 'mayan', 'relay', 'enso','layerzero', 'circleStandard', 'circleFast', 'bobGateway', 'aori']) ? 'invalid bridge ID: `%s`'.format([this]) : ''"
+      expression: "rule && this != '' && !(this in ['deswap', 'bungee', 'lifi', 'across', 'orbiter', 'wormhole', 'rhinofi', 'chainlink', 'squidrouter', 'wanbridge', 'stargate', 'mayan', 'relay', 'enso','layerzero', 'circleStandard', 'circleFast', 'bobGateway', 'aori', 'rango']) ? 'invalid bridge ID: `%s`'.format([this]) : ''"
     }
   ];
 
@@ -21,7 +21,7 @@ extend buf.validate.StringRules {
   optional bool router_id = 2002 [
     (buf.validate.predefined).cel = {
       id: "string.router_id"
-      expression: "rule && this != '' && !(this in ['native', 'directwrap', 'directswap', 'airswap', 'enso', 'kyberswap', 'odos', 'okx', 'oneinch', 'oneinchfusion', 'openocean', 'paraswap', 'usor', 'zeroex', 'cowswap', 'icecreamswap', 'unizen', 'threeroute', 'fabric', 'fynd', 'binance', 'bitget']) ? 'invalid router ID: `%s`'.format([this]) : ''"
+      expression: "rule && this != '' && !(this in ['native', 'directwrap', 'directswap', 'airswap', 'enso', 'kyberswap', 'odos', 'okx', 'oneinch', 'oneinchfusion', 'openocean', 'paraswap', 'usor', 'zeroex', 'cowswap', 'icecreamswap', 'unizen', 'threeroute', 'fabric', 'fynd', 'binance', 'bitget', 'akka', 'rango']) ? 'invalid router ID: `%s`'.format([this]) : ''"
     }
   ];
 
