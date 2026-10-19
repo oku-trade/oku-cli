@@ -65,7 +65,7 @@ Quote EVM-to-EVM bridge routes
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | source EVM chain ID (42161, 8453, 1) | `` |
+| `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
 | `--from` | input token address or unambiguous symbol | `` |
 | `--to` | output token address or unambiguous symbol | `` |
 | `--amount` | exact input decimal amount | `` |
@@ -365,7 +365,7 @@ Prepare an agent EVM transfer
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | chain ID 42161, 8453, or 1 | `` |
+| `--chain` | EVM chain ID, e.g. 42161 (needs an RPC: built-in or OKU_RPC_URL_<id>) | `` |
 | `--token` | ERC-20 contract address or native | `` |
 | `--amount` | exact decimal amount | `` |
 | `--to` | recipient EVM address (defaults to profile master) | `` |
@@ -439,7 +439,7 @@ Prepare an agent EVM swap
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | source EVM chain ID (42161, 8453, 1) | `` |
+| `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
 | `--from` | input token address or unambiguous symbol | `` |
 | `--to` | output token address or unambiguous symbol | `` |
 | `--amount` | exact input decimal amount | `` |
@@ -455,7 +455,7 @@ Quote exact-in EVM swap routes
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | source EVM chain ID (42161, 8453, 1) | `` |
+| `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
 | `--from` | input token address or unambiguous symbol | `` |
 | `--to` | output token address or unambiguous symbol | `` |
 | `--amount` | exact input decimal amount | `` |
@@ -510,4 +510,4 @@ Read the agent's EVM native balance
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain: 42161, 8453, 1 (or eip155: prefixed) | `` |
+| `--chain` | EVM chain ID, e.g. 42161 (or eip155: prefixed); default 42161 | `` |

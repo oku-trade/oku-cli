@@ -29,7 +29,94 @@ var ErrReverted = errors.New("transaction reverted")
 // preceding step is mined.
 const dependentStepGas = 3_000_000
 
-func Allowed(id uint64) bool { return id == 42161 || id == 8453 || id == 1 }
+// defaultRPC lists built-in public endpoints (each verified to report its
+// chain ID). Any other EVM chain works once OKU_RPC_URL_<CHAINID> is set.
+var defaultRPC = map[uint64]string{
+	1:      "https://ethereum-rpc.publicnode.com",
+	10:     "https://optimism-rpc.publicnode.com",
+	56:     "https://bsc-rpc.publicnode.com",
+	100:    "https://gnosis-rpc.publicnode.com",
+	130:    "https://unichain-rpc.publicnode.com",
+	137:    "https://polygon-bor-rpc.publicnode.com",
+	146:    "https://sonic-rpc.publicnode.com",
+	999:    "https://hyperliquid-rpc.publicnode.com",
+	1329:   "https://sei-evm-rpc.publicnode.com",
+	5000:   "https://mantle-rpc.publicnode.com",
+	8453:   "https://base-rpc.publicnode.com",
+	42161:  "https://arbitrum-one-rpc.publicnode.com",
+	42220:  "https://celo-rpc.publicnode.com",
+	43114:  "https://avalanche-c-chain-rpc.publicnode.com",
+	59144:  "https://linea-rpc.publicnode.com",
+	81457:  "https://blast-rpc.publicnode.com",
+	534352: "https://scroll-rpc.publicnode.com",
+}
+
+// confirmationDepth is the default number of blocks a receipt must be buried
+// under. Chains with historically deeper reorgs wait longer.
+func confirmationDepth(chain uint64) uint64 {
+	switch chain {
+	case 1:
+		return 12
+	case 56, 137:
+		return 64
+	}
+	return 20
+}
+
+// blockSeconds is a conservative average block time used only to size the
+// confirmation wait.
+func blockSeconds(chain uint64) float64 {
+	switch chain {
+	case 1:
+		return 12
+	case 56, 137, 43114:
+		return 2.5
+	}
+	return 2
+}
+
+// ReceiptWait bounds how long submit waits for a receipt to reach the chain's
+// confirmation depth: inclusion plus depth blocks with a 2x margin, at least
+// two minutes.
+func ReceiptWait(chain uint64, getenv func(string) string) time.Duration {
+	depth := confirmationDepth(chain)
+	if getenv == nil {
+		getenv = os.Getenv
+	}
+	if custom := getenv("OKU_RPC_CONFIRMATIONS_" + strconv.FormatUint(chain, 10)); custom != "" {
+		if n, err := strconv.ParseUint(custom, 10, 64); err == nil && n > 0 {
+			depth = n
+		}
+	}
+	wait := time.Duration(2*float64(depth+5)*blockSeconds(chain)) * time.Second
+	if wait < 2*time.Minute {
+		wait = 2 * time.Minute
+	}
+	return wait
+}
+
+// ErrNoRPC reports a chain with no built-in endpoint and no override.
+var ErrNoRPC = errors.New("no RPC endpoint for chain")
+
+// Allowed reports whether id is a plausible EVM chain ID. Real support is
+// decided by the backend (active swap markets) and by RPCURL; every RPC
+// response is also checked against eth_chainId.
+func Allowed(id uint64) bool { return id > 0 && id < 1<<53 }
+
+// RPCURL returns the endpoint for chain: OKU_RPC_URL_<CHAINID> if set,
+// otherwise the built-in default, otherwise ErrNoRPC.
+func RPCURL(getenv func(string) string, chain uint64) (string, error) {
+	if getenv == nil {
+		getenv = os.Getenv
+	}
+	if custom := getenv("OKU_RPC_URL_" + strconv.FormatUint(chain, 10)); custom != "" {
+		return custom, nil
+	}
+	if url, ok := defaultRPC[chain]; ok {
+		return url, nil
+	}
+	return "", fmt.Errorf("%w %d: set OKU_RPC_URL_%d", ErrNoRPC, chain, chain)
+}
 func ValidAddress(a string) bool {
 	if len(a) != 42 || !strings.HasPrefix(a, "0x") {
 		return false
@@ -83,6 +170,8 @@ type Journal interface {
 	SetOnchainBatch(id, state string, b journal.Batch) error
 }
 type Executor struct {
+	// Getenv reads confirmation overrides when sizing receipt waits.
+	Getenv   func(string) string
 	RPC      RPC
 	Sender   Sender
 	Journal  Journal
@@ -584,7 +673,7 @@ func (x Executor) checkStep(ctx context.Context, in journal.OnchainIntent, t jou
 	return nil
 }
 func (x Executor) Wait(ctx context.Context, chain uint64, hash string) (bool, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, ReceiptWait(chain, x.Getenv))
 	defer cancel()
 	poll := x.Poll
 	if poll <= 0 {
@@ -641,17 +730,12 @@ func (r HTTPRPC) call(ctx context.Context, chain uint64, method string, params a
 			return errors.New("RPC chain ID differs from requested chain")
 		}
 	}
-	urls := map[uint64]string{42161: "https://arbitrum-one-rpc.publicnode.com", 8453: "https://base-rpc.publicnode.com", 1: "https://ethereum-rpc.publicnode.com"}
-	url := urls[chain]
 	if !Allowed(chain) {
 		return errors.New("unsupported chain")
 	}
-	getenv := r.Getenv
-	if getenv == nil {
-		getenv = os.Getenv
-	}
-	if custom := getenv("OKU_RPC_URL_" + strconv.FormatUint(chain, 10)); custom != "" {
-		url = custom
+	url, err := RPCURL(r.Getenv, chain)
+	if err != nil {
+		return err
 	}
 	body, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
@@ -750,6 +834,15 @@ func (r HTTPRPC) Estimate(ctx context.Context, c uint64, from string, templates 
 }
 func (r HTTPRPC) Call(ctx context.Context, c uint64, to, data string) (*big.Int, error) {
 	return r.quantity(ctx, c, "eth_call", []any{map[string]string{"to": to, "data": data}, "latest"})
+}
+
+// HasCode reports whether address has deployed contract code.
+func (r HTTPRPC) HasCode(ctx context.Context, c uint64, address string) (bool, error) {
+	var code string
+	if err := r.call(ctx, c, "eth_getCode", []any{address, "latest"}, &code); err != nil {
+		return false, err
+	}
+	return len(strings.TrimPrefix(code, "0x")) > 0, nil
 }
 
 // Nonces returns the agent's confirmed and pending transaction counts.
@@ -871,10 +964,7 @@ func (r HTTPRPC) Receipt(ctx context.Context, c uint64, hash string) (*bool, err
 	if _, err = hex.DecodeString(receipt.BlockHash[2:]); err != nil {
 		return nil, errors.New("invalid receipt block hash")
 	}
-	depth := uint64(20)
-	if c == 1 {
-		depth = 12
-	}
+	depth := confirmationDepth(c)
 	getenv := r.Getenv
 	if getenv == nil {
 		getenv = os.Getenv

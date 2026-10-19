@@ -49,7 +49,7 @@ func executionError(err error, kind string) error {
 const onchainExecBudget = 10 * time.Minute
 
 func sendPrepareFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "chain ID 42161, 8453, or 1"}, &urfave.StringFlag{Name: "token", Usage: "ERC-20 contract address or native"}, &urfave.StringFlag{Name: "amount", Usage: "exact decimal amount"}, &urfave.StringFlag{Name: "to", Usage: "recipient EVM address (defaults to profile master)"}, &urfave.StringFlag{Name: "intent-id", Usage: "optional idempotency ID"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID, e.g. 42161 (needs an RPC: built-in or OKU_RPC_URL_<id>)"}, &urfave.StringFlag{Name: "token", Usage: "ERC-20 contract address or native"}, &urfave.StringFlag{Name: "amount", Usage: "exact decimal amount"}, &urfave.StringFlag{Name: "to", Usage: "recipient EVM address (defaults to profile master)"}, &urfave.StringFlag{Name: "intent-id", Usage: "optional idempotency ID"}}
 }
 func depositPrepareFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.StringFlag{Name: "amount", Usage: "USDC amount on Arbitrum"}, &urfave.StringFlag{Name: "to", Usage: "must equal profile master address if supplied"}, &urfave.StringFlag{Name: "intent-id", Usage: "optional idempotency ID"}}
@@ -91,7 +91,10 @@ func (a *App) cmdFundsPrepare(e *env, kind string) (*result, error) {
 	if kind == "send" {
 		chain, err = strconv.ParseUint(str(e, "chain"), 10, 64)
 		if err != nil || !onchain.Allowed(chain) {
-			return nil, output.Errorf(output.CodeInvalidArgument, "--chain must be 42161, 8453, or 1")
+			return nil, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
+		}
+		if _, rerr := onchain.RPCURL(a.Getenv, chain); rerr != nil {
+			return nil, output.Wrap(output.CodeConfigError, rerr, "chain RPC")
 		}
 		token = str(e, "token")
 		if token != "native" && !onchain.ValidAddress(token) {
@@ -251,7 +254,7 @@ func (a *App) cmdFundsSubmit(e *env, kind string) (*result, error) {
 	}
 	execCtx, execCancel := context.WithTimeout(e.ctx, onchainExecBudget)
 	defer execCancel()
-	executor := onchain.Executor{RPC: onchain.HTTPRPC{Getenv: a.Getenv}, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
+	executor := onchain.Executor{Getenv: a.Getenv, RPC: onchain.HTTPRPC{Getenv: a.Getenv}, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
 	if err = executor.Execute(execCtx, r.OnchainIntent); err != nil {
 		return nil, executionError(err, "send")
 	}

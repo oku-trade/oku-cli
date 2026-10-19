@@ -16,10 +16,18 @@ import (
 )
 
 func TestSwapSubmitBroadcastsOnlyVerifiedRouterCall(t *testing.T) {
-	for _, native := range []bool{false, true} {
+	for _, tc := range []struct {
+		native, noCode bool
+	}{{false, false}, {true, false}, {true, true}} {
+		native := tc.native
 		name := "token"
 		if native {
 			name = "eth"
+		}
+		if tc.noCode {
+			// A router address without code would accept native value as a
+			// plain transfer: submit must refuse before any Privy call.
+			name = "eth-router-without-code"
 		}
 		t.Run(name, func(t *testing.T) {
 			h := newHarness(t)
@@ -75,6 +83,12 @@ func TestSwapSubmitBroadcastsOnlyVerifiedRouterCall(t *testing.T) {
 				switch req.Method {
 				case "eth_chainId":
 					fmt.Fprint(w, `{"result":"0xa4b1"}`)
+				case "eth_getCode":
+					if tc.noCode {
+						fmt.Fprint(w, `{"result":"0x"}`)
+						return
+					}
+					fmt.Fprint(w, `{"result":"0x6080"}`)
 				case "eth_getBalance":
 					fmt.Fprint(w, `{"result":"0xde0b6b3a7640000"}`)
 				case "eth_gasPrice", "eth_maxPriorityFeePerGas":
@@ -108,6 +122,12 @@ func TestSwapSubmitBroadcastsOnlyVerifiedRouterCall(t *testing.T) {
 			}
 			j.Close()
 			result := h.run("swap", "submit", "--intent", record.ID, "--digest", record.Digest, "--json")
+			if tc.noCode {
+				if result.errCode() != "PAYLOAD_MISMATCH" || h.privy.rpcCalls != 0 || !strings.Contains(result.stdout, "no OkuRouter contract") {
+					t.Fatalf("router without code must be refused before signing: %s; privy sends=%d", result.stdout, h.privy.rpcCalls)
+				}
+				return
+			}
 			if result.code != 0 || result.data()["state"] != "confirmed" || h.privy.rpcCalls != 1 {
 				t.Fatalf("swap submit: %s; privy sends=%d", result.stdout, h.privy.rpcCalls)
 			}

@@ -2,7 +2,7 @@
 
 `oku` is a Go command-line client for trading Hyperliquid perps through the Oku account service (`gfxcafe.oku.account.v2.PerpsService`), and for moving funds held by the Oku Agent's embedded EVM wallet (balances, sends, master-bound deposits and Oku Router swaps). It is built for people and coding agents. It prints human-readable tables by default and offers a versioned JSON contract (`oku.cli/v1`) with `--json`. It also ships offline docs (`oku docs`), bundled task skills (`oku skills`) and a stdio MCP server (`oku mcp serve`).
 
-It supports Hyperliquid **mainnet** only. Agent-wallet EVM commands support Arbitrum (42161), Base (8453) and Ethereum (1).
+It supports Hyperliquid **mainnet** only. Agent-wallet EVM commands work on any EVM chain. Swaps work on every chain where Oku's swap markets are active and an official Oku Router deployment exists (about 30 chains; the CLI pins each chain's router address from `oku-trade/oku-router` deployments and checks its code on chain before signing). Common chains have a built-in public RPC; for others set `OKU_RPC_URL_<CHAINID>`.
 
 For user-operated authentication, run `oku auth login` in a terminal. Sign on the Oku authorization page with the wallet you want to use as the account. The CLI derives that account from Hyperliquid's approved agent and creates a `default` profile if none exists; no account flag is needed. For production, use `oku auth login --api-url https://accounts.icarus.tools` on a fresh configuration.
 

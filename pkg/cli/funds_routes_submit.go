@@ -122,6 +122,13 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodePayloadMismatch, err, "refusing unverified execution")
 	}
+	// The router must be a deployed contract on this chain. Calling an
+	// undeployed address would "succeed" as a plain transfer and lose value.
+	if hasCode, cerr := (onchain.HTTPRPC{Getenv: a.Getenv}).HasCode(ctx, r.ChainID, r.Target); cerr != nil {
+		return nil, output.Wrap(output.CodeUpstream, cerr, "router code check")
+	} else if !hasCode {
+		return nil, output.Errorf(output.CodePayloadMismatch, "no OkuRouter contract at %s on chain %d", r.Target, r.ChainID)
+	}
 	pc, err := e.privyClient(w.profile)
 	if err != nil {
 		return nil, err
@@ -157,7 +164,7 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	execCtx, execCancel := context.WithTimeout(e.ctx, onchainExecBudget)
 	defer execCancel()
 	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
-	executor := onchain.Executor{RPC: rpc, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
+	executor := onchain.Executor{Getenv: a.Getenv, RPC: rpc, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
 	// Multi-step routes (approve + swap) run as one atomic EIP-7702 batch, so
 	// an approval can never confirm without its swap.
 	if len(executing.Templates) > 1 {

@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/oku-trade/oku-cli/pkg/auth"
@@ -13,7 +14,7 @@ import (
 )
 
 func walletBalancesFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain: 42161, 8453, 1 (or eip155: prefixed)"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID, e.g. 42161 (or eip155: prefixed); default 42161"}}
 }
 func depositAddressFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.StringFlag{Name: "asset", Usage: "HyperUnit asset symbol"}, &urfave.StringFlag{Name: "source-chain", Usage: "HyperUnit source chain CAIP-2 identifier"}}
@@ -60,14 +61,11 @@ func (a *App) cmdWalletBalances(e *env) (*result, error) {
 	if chain == "" {
 		chain = "eip155:42161"
 	}
-	if chain == "42161" || chain == "8453" || chain == "1" {
-		chain = "eip155:" + chain
-	}
-	switch chain {
-	case "eip155:42161", "eip155:8453", "eip155:1":
-	default:
+	id, perr := strconv.ParseUint(strings.TrimPrefix(chain, "eip155:"), 10, 64)
+	if perr != nil || !onchain.Allowed(id) {
 		return nil, output.Errorf(output.CodeInvalidArgument, "unsupported EVM chain %q", chain)
 	}
+	chain = fmt.Sprintf("eip155:%d", id)
 	ctx, cancel := e.requestCtx()
 	defer cancel()
 	var native map[string]any

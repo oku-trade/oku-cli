@@ -65,6 +65,8 @@ func TestSwapSubmitBatchesApprovalAndSwap(t *testing.T) {
 		switch req.Method {
 		case "eth_chainId":
 			fmt.Fprint(w, `{"result":"0xa4b1"}`)
+		case "eth_getCode":
+			fmt.Fprint(w, `{"result":"0x6080"}`)
 		case "eth_getBalance":
 			fmt.Fprint(w, `{"result":"0xde0b6b3a7640000"}`)
 		case "eth_gasPrice", "eth_maxPriorityFeePerGas":

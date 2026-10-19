@@ -11,7 +11,7 @@ Operator-run live checks with the staging profile's Privy agent wallet `0x04ea�
 | `swap` 1 USDC → WETH, sequential approve then swap (pre-batch build) | approve `0x6d071652…`, swap `0x03b1287c…`; output above minimum |
 | `swap` 0.5 USDC → WETH as one `wallet_sendCalls` batch | tx `0xfb353197…0e2dae` (type 4, EIP-7702 authorization, self-call to Kernel `execute`), located by journaled nonce 5 and confirmed; output 0.000208362 WETH above minimum 0.000207323; allowance back to 0 |
 
-Earlier failures found and fixed during this run: backend `GetQuote` 500 (submit now re-reads via `GetQuotes`); gas estimation of a dependent swap step before its approval mined; submit timeouts under the 15s request budget (execution now has its own budget). Two independent fund-safety reviews' findings are fixed (strict Kernel calldata decoding, nonce-race-safe lookup, unknown on journal failure). Not verified: Base/Ethereum, sponsored gas, bridge execution (not implemented).
+Earlier failures found and fixed during this run: backend `GetQuote` 500 (submit now re-reads via `GetQuotes`); gas estimation of a dependent swap step before its approval mined; submit timeouts under the 15s request budget (execution now has its own budget). Two independent fund-safety reviews' findings are fixed (strict Kernel calldata decoding, nonce-race-safe lookup, unknown on journal failure). Not verified live: any chain other than Arbitrum (all EVM chains are accepted since the allowlist was removed), sponsored gas, bridge execution (not implemented).
 
 ## 2026-10-14 staging acceptance
 

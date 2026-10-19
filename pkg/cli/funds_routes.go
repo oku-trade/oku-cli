@@ -28,7 +28,7 @@ const (
 )
 
 func routeFlags(bridge bool) []urfave.Flag {
-	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID (42161, 8453, 1)"}, &urfave.StringFlag{Name: "from", Usage: "input token address or unambiguous symbol"}, &urfave.StringFlag{Name: "to", Usage: "output token address or unambiguous symbol"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}}
+	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137"}, &urfave.StringFlag{Name: "from", Usage: "input token address or unambiguous symbol"}, &urfave.StringFlag{Name: "to", Usage: "output token address or unambiguous symbol"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}}
 	if bridge {
 		flags = append(flags, &urfave.StringFlag{Name: "destination-chain", Usage: "destination EVM chain ID"})
 	}
@@ -143,11 +143,12 @@ func supportedBridges(status []*v2.BridgeStatus, from, to uint64) []string {
 	return names
 }
 func consistentSwapApprovals(legacy []*v2.ApprovalPayload, modern []*v2.ApprovalPayloadV2, chain uint64, token, amount string) bool {
+	router := routerFor(chain)
 	if len(legacy) == 0 {
 		return true
 	}
 	spender := quoteSpender(modern, token, amount)
-	if !strings.EqualFold(spender, okuRouter) || len(modern) == 0 {
+	if router == "" || !strings.EqualFold(spender, router) || len(modern) == 0 {
 		return false
 	}
 	for _, approval := range legacy {
@@ -179,13 +180,17 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 	}
 	chain, err := strconv.ParseUint(str(e, "chain"), 10, 64)
 	if err != nil || !onchain.Allowed(chain) {
-		return nil, nil, routeQuote{}, output.Errorf(output.CodeInvalidArgument, "--chain must be 42161, 8453, or 1")
+		return nil, nil, routeQuote{}, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
+	}
+	// Token decimals, gas and receipts are read from the chain directly.
+	if _, rerr := onchain.RPCURL(a.Getenv, chain); rerr != nil {
+		return nil, nil, routeQuote{}, output.Wrap(output.CodeConfigError, rerr, "chain RPC")
 	}
 	dst := chain
 	if kind == "bridge" {
 		dst, err = strconv.ParseUint(str(e, "destination-chain"), 10, 64)
 		if err != nil || !onchain.Allowed(dst) || dst == chain {
-			return nil, nil, routeQuote{}, output.Errorf(output.CodeInvalidArgument, "destination must be a different allowlisted EVM chain")
+			return nil, nil, routeQuote{}, output.Errorf(output.CodeInvalidArgument, "destination must be a different EVM chain ID")
 		}
 	}
 	bps := e.cmd.Int("slippage-bps")
@@ -346,7 +351,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 				}
 				input, ie := positiveRaw(v.InAmountRaw)
 				min, me := positiveRaw(v.MinAmountOutRaw)
-				if ie != nil || me != nil || input.String() != q.InAmount || !safeInfo(v.ExecutionInfo) || !strings.EqualFold(routeTarget(v.ExecutionInfo), okuRouter) {
+				if ie != nil || me != nil || input.String() != q.InAmount || !safeInfo(v.ExecutionInfo) || !strings.EqualFold(routeTarget(v.ExecutionInfo), routerFor(q.Chain)) {
 					continue
 				}
 				if v.InToken == nil || v.OutToken == nil || q.InToken != "native" && !strings.EqualFold(v.InToken.Address, q.InToken) || q.OutToken != "native" && !strings.EqualFold(v.OutToken.Address, q.OutToken) {
@@ -356,7 +361,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					continue
 				}
 				spender := quoteSpender(v.ApprovalsV2, q.InToken, q.InAmount)
-				if q.InToken != "native" && (len(v.ApprovalsV2) > 0 || len(v.Approvals) > 0) && !strings.EqualFold(spender, okuRouter) {
+				if q.InToken != "native" && (len(v.ApprovalsV2) > 0 || len(v.Approvals) > 0) && !strings.EqualFold(spender, routerFor(q.Chain)) {
 					continue
 				}
 				if v.NetUsdValue > best {
@@ -497,11 +502,12 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !strings.EqualFold(q.Target, okuRouter) || q.InToken != "native" && q.Spender != "" && !strings.EqualFold(q.Spender, okuRouter) {
+	router := routerFor(q.Chain)
+	if kind == "swap" && (router == "" || !strings.EqualFold(q.Target, router) || q.InToken != "native" && q.Spender != "" && !strings.EqualFold(q.Spender, router)) {
 		return nil, output.Errorf(output.CodeRejected, "swap route or approval spender is not OkuRouter")
 	}
 	if q.InToken != "native" {
-		q.Spender = okuRouter
+		q.Spender = router
 	}
 	id := str(e, "intent-id")
 	if id == "" {

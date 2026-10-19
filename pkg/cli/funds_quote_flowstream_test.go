@@ -144,3 +144,74 @@ func TestSwapQuoteStopsWhenServerSubstitutesRouters(t *testing.T) {
 		t.Fatalf("route = %v, want directwrap", route)
 	}
 }
+
+// Swaps work on any chain with active Oku markets and a pinned OkuRouter, not
+// a fixed list, and use that chain's router (Mantle's differs from the common
+// address). A chain without any RPC fails before contacting the backend, and
+// a chain without an official router is refused.
+func TestSwapQuoteUsesPerChainRouter(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	input := "0x3333333333333333333333333333333333333333"
+	output := "0x2222222222222222222222222222222222222222"
+	backend := 0
+	var chain int
+	var router string
+	h.fake.routeReply = func(method string, _ map[string]any) (any, bool) {
+		backend++
+		switch method {
+		case "GetSupportedMarkets":
+			return map[string]any{"markets": []any{map[string]any{"name": "zeroex", "active": true, "supportedChainIds": []int{5000, 324}}}}, true
+		case "Create":
+			return map[string]any{"orderId": "01a15585-427e-70f2-a7e4-7457069b9c0c", "timeline": 1}, true
+		case "GetFlowstreamQuotes":
+			return map[string]any{"timeline": 1, "quotes": map[string]any{"zeroex": map[string]any{"router": "zeroex", "fetched": true, "quoteId": "q", "quote": map[string]any{
+				"chainId": chain, "isExactIn": true, "inAmountRaw": "10000000", "minAmountOutRaw": "90", "outAmountRaw": "100", "netUsdValue": "10", "priceImpact": 0,
+				"inToken": map[string]any{"address": input}, "outToken": map[string]any{"address": output},
+				"simulation":    map[string]any{"amountOutRaw": "100"},
+				"executionInfo": map[string]any{"trade": map[string]any{"chainId": fmt.Sprint(chain), "to": router, "value": "0", "data": "0x"}},
+			}}}}, true
+		}
+		return nil, false
+	}
+	missing := h.run("swap", "quote", "--chain", "1101", "--from", input, "--to", output, "--amount", "10", "--json")
+	if missing.errCode() != "CONFIG_ERROR" || !strings.Contains(missing.stdout, "OKU_RPC_URL_1101") || backend != 0 {
+		t.Fatalf("chain without RPC must fail before the backend: %s (backend calls %d)", missing.stdout, backend)
+	}
+	rpc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Method string `json:"method"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		switch req.Method {
+		case "eth_chainId":
+			fmt.Fprintf(w, `{"result":"0x%x"}`, chain)
+		case "eth_call":
+			fmt.Fprint(w, `{"result":"0x0000000000000000000000000000000000000000000000000000000000000006"}`)
+		default:
+			t.Errorf("unexpected RPC %s", req.Method)
+		}
+	}))
+	defer rpc.Close()
+	h.rpcURL = rpc.URL
+	mantleRouter := "0x86d61277970685075a0BF66023c219dc4A6e3F6d"
+	for _, tc := range []struct {
+		chain  int
+		router string
+		ok     bool
+		why    string
+	}{
+		{5000, mantleRouter, true, "Mantle's own router"},
+		{5000, okuRouter, false, "the common address is not Mantle's router"},
+		{324, okuRouter, false, "zkSync has no official OkuRouter"},
+	} {
+		chain, router, h.rpcChain = tc.chain, tc.router, fmt.Sprint(tc.chain)
+		r := h.run("swap", "quote", "--chain", fmt.Sprint(tc.chain), "--from", input, "--to", output, "--amount", "10", "--json")
+		if tc.ok != (r.code == 0) {
+			t.Fatalf("%s: %s %s", tc.why, r.stdout, r.stderr)
+		}
+		if tc.ok && !strings.EqualFold(r.data()["target"].(string), tc.router) {
+			t.Fatalf("%s: target %v", tc.why, r.data()["target"])
+		}
+	}
+}

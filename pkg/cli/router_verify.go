@@ -16,7 +16,48 @@ import (
 // Derived from BaseAggregator.sol and CanoeHelper.Warrant. Permit variants are intentionally absent.
 const routerABI = `[{"type":"function","name":"fillQuoteEthToToken","inputs":[{"name":"buyTokenAddress","type":"address"},{"name":"target","type":"address"},{"name":"swapCallData","type":"bytes"},{"name":"feeAmount","type":"uint256"},{"name":"recipient","type":"address"},{"name":"warrant","type":"tuple","components":[{"name":"nonce","type":"uint160"},{"name":"validBefore","type":"uint48"},{"name":"validAfter","type":"uint48"},{"name":"verifyingSigner","type":"address"},{"name":"signature","type":"bytes"}]}]},{"type":"function","name":"fillQuoteTokenToToken","inputs":[{"name":"sellTokenAddress","type":"address"},{"name":"buyTokenAddress","type":"address"},{"name":"target","type":"address"},{"name":"approvalTarget","type":"address"},{"name":"swapCallData","type":"bytes"},{"name":"sellAmount","type":"uint256"},{"name":"feeAmount","type":"uint256"},{"name":"recipient","type":"address"},{"name":"warrant","type":"tuple","components":[{"name":"nonce","type":"uint160"},{"name":"validBefore","type":"uint48"},{"name":"validAfter","type":"uint48"},{"name":"verifyingSigner","type":"address"},{"name":"signature","type":"bytes"}]}]},{"type":"function","name":"fillQuoteTokenToEth","inputs":[{"name":"sellTokenAddress","type":"address"},{"name":"target","type":"address"},{"name":"approvalTarget","type":"address"},{"name":"swapCallData","type":"bytes"},{"name":"sellAmount","type":"uint256"},{"name":"feePercentageBasisPoints","type":"uint256"},{"name":"recipient","type":"address"},{"name":"warrant","type":"tuple","components":[{"name":"nonce","type":"uint160"},{"name":"validBefore","type":"uint48"},{"name":"validAfter","type":"uint48"},{"name":"verifyingSigner","type":"address"},{"name":"signature","type":"bytes"}]}]}]`
 
+// okuRouter is the canonical OkuRouter address used on most chains.
 const okuRouter = "0xb1f3a7B816B0681188F54dFa400991B93ADf00ed"
+
+// okuRouters maps chain ID to the current OkuRouter deployment, copied from
+// oku-trade/oku-router smart-contracts/deployments/*.json (current.OkuRouter,
+// repo commit 2cdf887). Chains absent here are refused for swaps: a router
+// address must never be inferred.
+var okuRouters = map[uint64]string{
+	1:      okuRouter,                                    // mainnet
+	10:     okuRouter,                                    // op
+	40:     "0x7B060A98BA242Ae42D6027a60937787eBe33DEBe", // telos
+	56:     okuRouter,                                    // bsc
+	100:    okuRouter,                                    // gnosis
+	130:    okuRouter,                                    // unichain
+	137:    okuRouter,                                    // polygon
+	143:    okuRouter,                                    // monad
+	151:    "0x44a81236E892faEdc1f7c08362a4A0eC90dDd203", // redbelly
+	288:    "0x7bf7770Ecd4fd573C32272Ef80c8818A8E8e289A", // boba
+	314:    "0x4Ae4041BFa135413A845b803226943198a2F1BeE", // filecoin
+	480:    okuRouter,                                    // worldchain
+	999:    okuRouter,                                    // hyperevm
+	1329:   "0x7B060A98BA242Ae42D6027a60937787eBe33DEBe", // sei
+	1672:   okuRouter,                                    // pharos
+	4663:   okuRouter,                                    // robinhood
+	5000:   "0x86d61277970685075a0BF66023c219dc4A6e3F6d", // mantle
+	5464:   "0x2D8261402d4777975AE43877A189b0Ab6b526e26", // saga
+	6900:   "0x7B060A98BA242Ae42D6027a60937787eBe33DEBe", // nibiru
+	8453:   okuRouter,                                    // base
+	9745:   okuRouter,                                    // plasma
+	16661:  "0x7B060A98BA242Ae42D6027a60937787eBe33DEBe", // zerog
+	42161:  okuRouter,                                    // arbitrum
+	42220:  okuRouter,                                    // celo
+	42793:  "0x7B060A98BA242Ae42D6027a60937787eBe33DEBe", // etherlink
+	43111:  "0x7B060A98BA242Ae42D6027a60937787eBe33DEBe", // hemi
+	43114:  okuRouter,                                    // avax
+	59144:  okuRouter,                                    // linea
+	60808:  "0x3132f599bde0e251ba12d5FF95E256FbBeCbDA83", // bob
+	685689: okuRouter,                                    // gensyn
+}
+
+// routerFor returns the OkuRouter address for chain, or "" when unknown.
+func routerFor(chain uint64) string { return okuRouters[chain] }
 
 func backendValue(s string) (*big.Int, error) {
 	if strings.HasPrefix(s, "0x") {
@@ -41,7 +82,8 @@ func verifyExecution(in journal.OnchainIntent, quoteMin string, info *v2.Executi
 	fail := func(reason string) ([]journal.OnchainTemplate, error) {
 		return nil, fmt.Errorf("execution does not match prepared intent: %s", reason)
 	}
-	if in.Kind != "swap" || !onchain.Allowed(in.ChainID) || in.OutChain != in.ChainID || !safeInfo(info) || !onchain.ValidAddress(in.Recipient) || !strings.EqualFold(in.Target, okuRouter) || !strings.EqualFold(info.Trade.To, okuRouter) || info.Trade.ChainId != int64(in.ChainID) {
+	router := routerFor(in.ChainID)
+	if in.Kind != "swap" || router == "" || !onchain.Allowed(in.ChainID) || in.OutChain != in.ChainID || !safeInfo(info) || !onchain.ValidAddress(in.Recipient) || !strings.EqualFold(in.Target, router) || !strings.EqualFold(info.Trade.To, router) || info.Trade.ChainId != int64(in.ChainID) {
 		return fail("router, chain or route differs")
 	}
 	min, e := positiveRaw(in.MinOut)
@@ -122,7 +164,7 @@ func verifyExecution(in journal.OnchainIntent, quoteMin string, info *v2.Executi
 			return fail("ETH must not have approval")
 		}
 	} else {
-		if !match(in.Spender, okuRouter) || len(approvals) > 1 {
+		if !match(in.Spender, router) || len(approvals) > 1 {
 			return fail("approval spender differs")
 		}
 		if len(approvals) == 1 {
@@ -132,18 +174,18 @@ func verifyExecution(in journal.OnchainIntent, quoteMin string, info *v2.Executi
 			}
 			values := ap.Values.AsMap()
 			spender, _ := values["spender"].(string)
-			if !match(spender, okuRouter) || fmt.Sprint(values["amount"]) != in.Amount {
+			if !match(spender, router) || fmt.Sprint(values["amount"]) != in.Amount {
 				return fail("approval amount or spender differs")
 			}
-			approvalData := "0x095ea7b3" + strings.Repeat("0", 24) + strings.ToLower(okuRouter[2:]) + fmt.Sprintf("%064x", amount)
+			approvalData := "0x095ea7b3" + strings.Repeat("0", 24) + strings.ToLower(router[2:]) + fmt.Sprintf("%064x", amount)
 			templates = append(templates, journal.OnchainTemplate{ChainID: in.ChainID, To: in.Token, Value: "0x0", Data: approvalData, Token: in.Token, Amount: onchain.Hex(amount)})
 		}
 	}
-	trade := journal.OnchainTemplate{ChainID: in.ChainID, To: okuRouter, Data: info.Trade.Data, Value: onchain.Hex(value)}
+	trade := journal.OnchainTemplate{ChainID: in.ChainID, To: router, Data: info.Trade.Data, Value: onchain.Hex(value)}
 	if !nativeIn {
 		trade.Token = in.Token
 		trade.Amount = onchain.Hex(amount)
-		trade.Spender = okuRouter
+		trade.Spender = router
 	}
 	templates = append(templates, trade)
 	return templates, nil

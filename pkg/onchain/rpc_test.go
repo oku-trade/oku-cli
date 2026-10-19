@@ -3,11 +3,13 @@ package onchain
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/oku-trade/oku-cli/pkg/journal"
 )
@@ -114,5 +116,42 @@ func TestEstimateReservesDependentStepsThatCannotSimulateYet(t *testing.T) {
 	firstFails = true
 	if _, err := rpc.Estimate(context.Background(), 42161, agent, steps); err == nil {
 		t.Fatal("a reverting first step must fail preflight")
+	}
+}
+
+// Any EVM chain resolves: built-in endpoints for common chains, an override
+// for anything else, and a clear error naming the variable when neither exists.
+func TestRPCURLResolvesAnyChain(t *testing.T) {
+	env := map[string]string{"OKU_RPC_URL_324": "https://zk.example", "OKU_RPC_URL_10": "https://op.example"}
+	getenv := func(k string) string { return env[k] }
+	for chain, want := range map[uint64]string{137: defaultRPC[137], 10: "https://op.example", 324: "https://zk.example"} {
+		if got, err := RPCURL(getenv, chain); err != nil || got != want {
+			t.Fatalf("chain %d: %q %v", chain, got, err)
+		}
+	}
+	if _, err := RPCURL(getenv, 1101); !errors.Is(err, ErrNoRPC) || !strings.Contains(err.Error(), "OKU_RPC_URL_1101") {
+		t.Fatalf("missing RPC must name the override: %v", err)
+	}
+}
+
+// Submit's receipt wait must outlast the confirmation depth: Polygon's 64
+// blocks at ~2.5s exceed the old fixed 2 minutes, which returned
+// OUTCOME_UNKNOWN for successful transactions.
+func TestReceiptWaitCoversConfirmationDepth(t *testing.T) {
+	none := func(string) string { return "" }
+	for _, chain := range []uint64{1, 137, 56, 42161} {
+		need := time.Duration(float64(confirmationDepth(chain))*blockSeconds(chain)) * time.Second
+		if got := ReceiptWait(chain, none); got <= need || got < 2*time.Minute {
+			t.Fatalf("chain %d: wait %s does not cover %s", chain, got, need)
+		}
+	}
+	deep := func(k string) string {
+		if k == "OKU_RPC_CONFIRMATIONS_42161" {
+			return "300"
+		}
+		return ""
+	}
+	if ReceiptWait(42161, deep) <= ReceiptWait(42161, none) {
+		t.Fatal("a confirmation override must lengthen the wait")
 	}
 }
