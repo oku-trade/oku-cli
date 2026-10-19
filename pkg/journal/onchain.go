@@ -56,9 +56,20 @@ type OnchainRecord struct {
 	Digest         string   `json:"digest"`
 	State          string   `json:"state"`
 	Hashes         []string `json:"tx_hashes"`
+	Batch          *Batch   `json:"batch,omitempty"`
 	NextStep       string   `json:"next_step,omitempty"`
 	BackendOrderID string   `json:"backend_order_id,omitempty"`
 	UpdatedAt      string   `json:"updated_at"`
+}
+
+// Batch records an atomic wallet_sendCalls execution. Nonce is the agent's
+// confirmed and pending nonce observed before submission: the batch is the
+// agent's transaction at exactly that nonce, which lets status and reconcile
+// find it on chain without a Privy transaction lookup.
+type Batch struct {
+	Nonce         uint64 `json:"nonce"`
+	FromBlock     uint64 `json:"from_block"`
+	TransactionID string `json:"transaction_id,omitempty"`
 }
 
 func (j *Journal) CreateOnchain(in OnchainIntent) (*OnchainRecord, error) {
@@ -85,8 +96,8 @@ func (j *Journal) GetOnchain(id string) (*OnchainRecord, error) {
 	if !trading.ValidIntentID(id) {
 		return nil, ErrNotFound
 	}
-	var raw, hashes, digest, state, order, updated string
-	err := j.db.QueryRow(`SELECT intent_json,tx_hashes,digest,state,COALESCE(backend_order_id,''),updated_at FROM onchain_intents WHERE profile=? AND intent_id=?`, j.binding.Profile, id).Scan(&raw, &hashes, &digest, &state, &order, &updated)
+	var raw, hashes, digest, state, order, updated, batch string
+	err := j.db.QueryRow(`SELECT intent_json,tx_hashes,digest,state,COALESCE(backend_order_id,''),updated_at,COALESCE(batch_json,'') FROM onchain_intents WHERE profile=? AND intent_id=?`, j.binding.Profile, id).Scan(&raw, &hashes, &digest, &state, &order, &updated, &batch)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -100,10 +111,33 @@ func (j *Journal) GetOnchain(id string) (*OnchainRecord, error) {
 	if err = json.Unmarshal([]byte(hashes), &r.Hashes); err != nil {
 		return nil, err
 	}
+	if batch != "" {
+		r.Batch = &Batch{}
+		if err = json.Unmarshal([]byte(batch), r.Batch); err != nil {
+			return nil, err
+		}
+	}
 	if r.ID != id || r.OnchainIntent.Digest() != digest {
 		return nil, errors.New("corrupt onchain intent digest")
 	}
 	return r, nil
+}
+
+// SetOnchainBatch durably records batch metadata while the intent is in state.
+// The pre-submission record (nonce, block) must commit before wallet_sendCalls.
+func (j *Journal) SetOnchainBatch(id, state string, b Batch) error {
+	raw, err := json.Marshal(b)
+	if err != nil {
+		return err
+	}
+	res, err := j.db.Exec(`UPDATE onchain_intents SET batch_json=?,updated_at=? WHERE profile=? AND intent_id=? AND state=?`, string(raw), j.now().UTC().Format(time.RFC3339Nano), j.binding.Profile, id, state)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err != nil || n != 1 {
+		return ErrConflict
+	}
+	return nil
 }
 
 // BeginOnchain atomically checks the agent-wide unresolved gate and marks the intent

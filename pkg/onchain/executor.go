@@ -59,8 +59,28 @@ type RPC interface {
 type Sender interface {
 	SendTransaction(context.Context, string, privy.Transaction) (string, error)
 }
+
+// BatchSender submits an atomic wallet_sendCalls batch and returns Privy's
+// transaction ID.
+type BatchSender interface {
+	SendCalls(context.Context, string, uint64, []privy.Call) (string, error)
+}
+
+// BatchLocator finds the agent's transaction at a nonce on chain.
+type BatchLocator interface {
+	Nonces(ctx context.Context, chain uint64, sender string) (latest, pending uint64, err error)
+	BlockNumber(ctx context.Context, chain uint64) (uint64, error)
+	FindNonceTx(ctx context.Context, chain uint64, sender string, nonce, fromBlock uint64) (*ChainTx, error)
+}
+
+// ChainTx is the subset of an on-chain transaction used to verify a batch.
+type ChainTx struct {
+	Hash, From, To, Input string
+	Nonce                 uint64
+}
 type Journal interface {
 	AdvanceOnchain(id, from, to, hash string) error
+	SetOnchainBatch(id, state string, b journal.Batch) error
 }
 type Executor struct {
 	RPC      RPC
@@ -70,11 +90,30 @@ type Executor struct {
 	Poll     time.Duration
 }
 
+// ErrNotBroadcast wraps failures that provably happened before the current
+// step was handed to Privy. Combined with the journal state it tells callers
+// whether nothing (state "failed", no hashes) or only earlier, confirmed steps
+// reached the chain.
+var ErrNotBroadcast = errors.New("not broadcast")
+
+// preflight wraps a pre-broadcast failure. For the first step the executor
+// closes the intent; for later steps the earlier steps already confirmed, so
+// the intent is closed as failed with those hashes kept for the record.
+func (x Executor) preflight(in journal.OnchainIntent, from string, err error) error {
+	if jerr := x.Journal.AdvanceOnchain(in.ID, from, "failed", ""); jerr != nil {
+		// Unable to record the closure: leave it unresolved, but nothing was sent.
+		return fmt.Errorf("%w: %v; journal update failed: %v", ErrNotBroadcast, err, jerr)
+	}
+	return fmt.Errorf("%w: %w", ErrNotBroadcast, err)
+}
+
 // Execute sends ordered already-verified templates, never retrying an ambiguous
 // broadcast. Each hash is durably appended before the first receipt read.
+// Every failure before a step is handed to Privy closes the intent as failed
+// and is wrapped in ErrNotBroadcast; after a handoff, ambiguity stays unknown.
 func (x Executor) Execute(ctx context.Context, in journal.OnchainIntent) error {
 	if !Allowed(in.ChainID) || !ValidAddress(in.Sender) || len(in.Templates) == 0 {
-		return errors.New("unsupported or invalid onchain intent")
+		return x.preflight(in, "sending", errors.New("unsupported or invalid onchain intent"))
 	}
 	// Reserve for every remaining step before the first broadcast.
 	if estimator, ok := x.RPC.(interface {
@@ -82,79 +121,24 @@ func (x Executor) Execute(ctx context.Context, in journal.OnchainIntent) error {
 	}); ok {
 		native, err := x.RPC.Balance(ctx, in.ChainID, in.Sender)
 		if err != nil {
-			return err
+			return x.preflight(in, "sending", err)
 		}
 		reserve, err := estimator.Estimate(ctx, in.ChainID, in.Sender, in.Templates)
 		if err != nil {
-			return err
+			return x.preflight(in, "sending", err)
 		}
 		if native.Cmp(reserve) < 0 {
-			return ErrGas
+			return x.preflight(in, "sending", ErrGas)
 		}
 	}
 	for i, t := range in.Templates {
-		if !Allowed(t.ChainID) || t.ChainID != in.ChainID || !ValidAddress(t.To) {
-			return errors.New("transaction chain or target mismatch")
-		}
-		value, err := Quantity(t.Value)
-		if err != nil {
-			return err
-		}
-		native, err := x.RPC.Balance(ctx, t.ChainID, in.Sender)
-		if err != nil {
-			return err
-		}
-		price, err := x.RPC.GasPrice(ctx, t.ChainID)
-		if err != nil {
-			return err
-		}
-		reserve := new(big.Int).Mul(price, big.NewInt(500000))
-		if estimator, ok := x.RPC.(interface {
-			Estimate(context.Context, uint64, string, []journal.OnchainTemplate) (*big.Int, error)
-		}); ok {
-			reserve, err = estimator.Estimate(ctx, t.ChainID, in.Sender, in.Templates[i:])
-			if err != nil {
-				return err
-			}
-			value = new(big.Int)
-		}
-		if native.Cmp(new(big.Int).Add(reserve, value)) < 0 {
-			return ErrGas
-		}
-		if t.Token != "" {
-			if !ValidAddress(t.Token) {
-				return errors.New("invalid token")
-			}
-			required, err := Quantity(t.Amount)
-			if err != nil {
-				return err
-			}
-			balance, err := x.RPC.Call(ctx, t.ChainID, t.Token, "0x70a08231000000000000000000000000"+strings.ToLower(in.Sender[2:]))
-			if err != nil {
-				return err
-			}
-			if balance.Cmp(required) < 0 {
-				return ErrBalance
-			}
-			if t.Spender != "" {
-				if !ValidAddress(t.Spender) {
-					return errors.New("invalid spender")
-				}
-				allowance, err := x.RPC.Call(ctx, t.ChainID, t.Token, "0xdd62ed3e000000000000000000000000"+strings.ToLower(in.Sender[2:])+"000000000000000000000000"+strings.ToLower(t.Spender[2:]))
-				if err != nil {
-					return err
-				}
-				if allowance.Cmp(required) < 0 {
-					return ErrBalance
-				}
-			}
-		} else if native.Cmp(value) < 0 {
-			return ErrBalance
+		if err := x.checkStep(ctx, in, t, in.Templates[i:]); err != nil {
+			return x.preflight(in, "sending", err)
 		}
 		hash, err := x.Sender.SendTransaction(ctx, x.WalletID, privy.Transaction{To: t.To, Data: t.Data, Value: t.Value, ChainID: t.ChainID})
 		if err != nil {
 			if jerr := x.Journal.AdvanceOnchain(in.ID, "sending", "unknown", ""); jerr != nil {
-				return fmt.Errorf("broadcast ambiguous: %v; journal failure: %w", err, jerr)
+				return fmt.Errorf("%w: broadcast ambiguous: %v; journal failure: %v", ErrUnknown, err, jerr)
 			}
 			return fmt.Errorf("%w: %v", ErrUnknown, err)
 		}
@@ -164,7 +148,7 @@ func (x Executor) Execute(ctx context.Context, in journal.OnchainIntent) error {
 			return ErrUnknown
 		}
 		if err = x.Journal.AdvanceOnchain(in.ID, "sending", "sent", hash); err != nil {
-			return fmt.Errorf("hash %s may have broadcast; journal persistence failed: %w", hash, err)
+			return fmt.Errorf("%w: hash %s may have broadcast; journal persistence failed: %v", ErrUnknown, hash, err)
 		}
 		result, err := x.Wait(ctx, t.ChainID, hash)
 		if err != nil {
@@ -183,6 +167,283 @@ func (x Executor) Execute(ctx context.Context, in journal.OnchainIntent) error {
 		if err = x.Journal.AdvanceOnchain(in.ID, "sent", next, ""); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// batchNonceScan bounds how many agent nonces after the reserved one are
+// searched for the batch, covering an RPC that lagged a concurrent send.
+const batchNonceScan = 8
+
+// ExecuteBatch sends every template as one atomic wallet_sendCalls batch
+// (EIP-7702). Before the handoff it records the agent nonce and block, so the
+// batch can be found on chain later; Privy returns no chain hash. Failures
+// before the handoff close the intent (ErrNotBroadcast); afterwards the batch
+// is located by nonce, its calldata is checked to contain every journaled
+// call, and its receipt decides confirmed or failed.
+func (x Executor) ExecuteBatch(ctx context.Context, in journal.OnchainIntent, sender BatchSender, locator BatchLocator) error {
+	if !Allowed(in.ChainID) || !ValidAddress(in.Sender) || len(in.Templates) == 0 {
+		return x.preflight(in, "sending", errors.New("unsupported or invalid onchain intent"))
+	}
+	calls := make([]privy.Call, 0, len(in.Templates))
+	for _, t := range in.Templates {
+		if t.ChainID != in.ChainID || !ValidAddress(t.To) {
+			return x.preflight(in, "sending", errors.New("transaction chain or target mismatch"))
+		}
+		calls = append(calls, privy.Call{To: t.To, Value: t.Value, Data: t.Data})
+	}
+	if err := x.checkBatch(ctx, in); err != nil {
+		return x.preflight(in, "sending", err)
+	}
+	latest, pending, err := locator.Nonces(ctx, in.ChainID, in.Sender)
+	if err != nil {
+		return x.preflight(in, "sending", err)
+	}
+	if latest != pending {
+		return x.preflight(in, "sending", errors.New("agent has a pending transaction; wait for it to confirm"))
+	}
+	block, err := locator.BlockNumber(ctx, in.ChainID)
+	if err != nil {
+		return x.preflight(in, "sending", err)
+	}
+	batch := journal.Batch{Nonce: latest, FromBlock: block}
+	if err = x.Journal.SetOnchainBatch(in.ID, "sending", batch); err != nil {
+		return x.preflight(in, "sending", err)
+	}
+	id, err := sender.SendCalls(ctx, x.WalletID, in.ChainID, calls)
+	if err != nil {
+		if jerr := x.Journal.AdvanceOnchain(in.ID, "sending", "unknown", ""); jerr != nil {
+			return fmt.Errorf("%w: batch ambiguous: %v; journal failure: %v", ErrUnknown, err, jerr)
+		}
+		return fmt.Errorf("%w: %v", ErrUnknown, err)
+	}
+	batch.TransactionID = id
+	_ = x.Journal.SetOnchainBatch(in.ID, "sending", batch) // informational only
+	hash, err := x.WaitBatch(ctx, in, batch, locator)
+	if err != nil {
+		if jerr := x.Journal.AdvanceOnchain(in.ID, "sending", "unknown", ""); jerr != nil {
+			return fmt.Errorf("%w: %v; journal failure: %v", ErrUnknown, err, jerr)
+		}
+		return err
+	}
+	if err = x.Journal.AdvanceOnchain(in.ID, "sending", "sent", hash); err != nil {
+		return fmt.Errorf("%w: batch %s found; journal persistence failed: %v", ErrUnknown, hash, err)
+	}
+	ok, err := x.Wait(ctx, in.ChainID, hash)
+	if err != nil {
+		return err
+	}
+	next := "confirmed"
+	if !ok {
+		next = "failed"
+	}
+	if err = x.Journal.AdvanceOnchain(in.ID, "sent", next, ""); err != nil {
+		return err
+	}
+	if !ok {
+		return ErrReverted
+	}
+	return nil
+}
+
+// WaitBatch polls until the agent's batch transaction is mined and returns its
+// hash. It never treats absence as failure.
+func (x Executor) WaitBatch(ctx context.Context, in journal.OnchainIntent, b journal.Batch, locator BatchLocator) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	poll := x.Poll
+	if poll <= 0 {
+		poll = 2 * time.Second
+	}
+	for {
+		hash, err := LocateBatch(ctx, in, b, locator)
+		if err != nil && !errors.Is(err, errBatchNotMined) {
+			return "", fmt.Errorf("%w: %v", ErrUnknown, err)
+		}
+		if err == nil {
+			return hash, nil
+		}
+		timer := time.NewTimer(poll)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return "", fmt.Errorf("%w: batch not yet mined: %v", ErrUnknown, ctx.Err())
+		case <-timer.C:
+		}
+	}
+}
+
+var errBatchNotMined = errors.New("batch not mined")
+
+// IsBatchNotMined reports a lookup that found no matching mined batch yet.
+func IsBatchNotMined(err error) bool { return errors.Is(err, errBatchNotMined) }
+
+// VerifyBatchTransaction checks a user-supplied hash is the intent's batch.
+func (r HTTPRPC) VerifyBatchTransaction(ctx context.Context, in journal.OnchainIntent, hash string) error {
+	var tx struct {
+		Hash  string `json:"hash"`
+		From  string `json:"from"`
+		To    string `json:"to"`
+		Input string `json:"input"`
+	}
+	if err := r.call(ctx, in.ChainID, "eth_getTransactionByHash", []any{hash}, &tx); err != nil {
+		return err
+	}
+	if !strings.EqualFold(tx.Hash, hash) || !BatchMatches(in, &ChainTx{Hash: tx.Hash, From: tx.From, To: tx.To, Input: tx.Input}) {
+		return errors.New("transaction is not this intent's batch")
+	}
+	return nil
+}
+
+// LocateBatch returns the hash of the mined agent transaction carrying the
+// intent's batch, searching from the reserved nonce. errBatchNotMined means
+// no matching transaction is mined yet; any other error is a lookup failure
+// or a mismatch, both of which must leave the intent unresolved.
+func LocateBatch(ctx context.Context, in journal.OnchainIntent, b journal.Batch, locator BatchLocator) (string, error) {
+	latest, _, err := locator.Nonces(ctx, in.ChainID, in.Sender)
+	if err != nil {
+		return "", err
+	}
+	for n := b.Nonce; n < latest && n < b.Nonce+batchNonceScan; n++ {
+		tx, err := locator.FindNonceTx(ctx, in.ChainID, in.Sender, n, b.FromBlock)
+		if err != nil {
+			return "", err
+		}
+		if tx != nil && BatchMatches(in, tx) {
+			return tx.Hash, nil
+		}
+	}
+	return "", errBatchNotMined
+}
+
+// BatchMatches reports whether an on-chain transaction is the agent's EIP-7702
+// self-call whose calldata carries every journaled call target and payload.
+func BatchMatches(in journal.OnchainIntent, tx *ChainTx) bool {
+	if tx == nil || !strings.EqualFold(tx.From, in.Sender) || !strings.EqualFold(tx.To, in.Sender) {
+		return false
+	}
+	input := strings.ToLower(strings.TrimPrefix(tx.Input, "0x"))
+	for _, t := range in.Templates {
+		if !strings.Contains(input, strings.ToLower(t.To[2:])) {
+			return false
+		}
+		if data := strings.ToLower(strings.TrimPrefix(t.Data, "0x")); data != "" && !strings.Contains(input, data) {
+			return false
+		}
+	}
+	return true
+}
+
+// checkBatch verifies gas and token balances for the whole batch. Approvals
+// inside the batch take effect atomically, so allowance is not pre-checked.
+func (x Executor) checkBatch(ctx context.Context, in journal.OnchainIntent) error {
+	native, err := x.RPC.Balance(ctx, in.ChainID, in.Sender)
+	if err != nil {
+		return err
+	}
+	price, err := x.RPC.GasPrice(ctx, in.ChainID)
+	if err != nil {
+		return err
+	}
+	reserve := new(big.Int).Mul(price, big.NewInt(int64(dependentStepGas)*int64(len(in.Templates))))
+	if estimator, ok := x.RPC.(interface {
+		Estimate(context.Context, uint64, string, []journal.OnchainTemplate) (*big.Int, error)
+	}); ok {
+		if reserve, err = estimator.Estimate(ctx, in.ChainID, in.Sender, in.Templates); err != nil {
+			return err
+		}
+	}
+	value := new(big.Int)
+	tokens := map[string]*big.Int{}
+	for _, t := range in.Templates {
+		v, err := Quantity(t.Value)
+		if err != nil {
+			return err
+		}
+		value.Add(value, v)
+		if t.Token != "" && t.Spender != "" {
+			amount, err := Quantity(t.Amount)
+			if err != nil || !ValidAddress(t.Token) {
+				return errors.New("invalid token amount")
+			}
+			tokens[strings.ToLower(t.Token)] = amount
+		}
+	}
+	if native.Cmp(new(big.Int).Add(reserve, value)) < 0 {
+		return ErrGas
+	}
+	for token, required := range tokens {
+		balance, err := x.RPC.Call(ctx, in.ChainID, token, "0x70a08231000000000000000000000000"+strings.ToLower(in.Sender[2:]))
+		if err != nil {
+			return err
+		}
+		if balance.Cmp(required) < 0 {
+			return ErrBalance
+		}
+	}
+	return nil
+}
+
+// checkStep runs the pre-broadcast gas, balance and allowance checks for one
+// step. remaining is the step plus everything after it.
+func (x Executor) checkStep(ctx context.Context, in journal.OnchainIntent, t journal.OnchainTemplate, remaining []journal.OnchainTemplate) error {
+	if !Allowed(t.ChainID) || t.ChainID != in.ChainID || !ValidAddress(t.To) {
+		return errors.New("transaction chain or target mismatch")
+	}
+	value, err := Quantity(t.Value)
+	if err != nil {
+		return err
+	}
+	native, err := x.RPC.Balance(ctx, t.ChainID, in.Sender)
+	if err != nil {
+		return err
+	}
+	price, err := x.RPC.GasPrice(ctx, t.ChainID)
+	if err != nil {
+		return err
+	}
+	reserve := new(big.Int).Mul(price, big.NewInt(500000))
+	if estimator, ok := x.RPC.(interface {
+		Estimate(context.Context, uint64, string, []journal.OnchainTemplate) (*big.Int, error)
+	}); ok {
+		reserve, err = estimator.Estimate(ctx, t.ChainID, in.Sender, remaining)
+		if err != nil {
+			return err
+		}
+		value = new(big.Int)
+	}
+	if native.Cmp(new(big.Int).Add(reserve, value)) < 0 {
+		return ErrGas
+	}
+	if t.Token != "" {
+		if !ValidAddress(t.Token) {
+			return errors.New("invalid token")
+		}
+		required, err := Quantity(t.Amount)
+		if err != nil {
+			return err
+		}
+		balance, err := x.RPC.Call(ctx, t.ChainID, t.Token, "0x70a08231000000000000000000000000"+strings.ToLower(in.Sender[2:]))
+		if err != nil {
+			return err
+		}
+		if balance.Cmp(required) < 0 {
+			return ErrBalance
+		}
+		if t.Spender != "" {
+			if !ValidAddress(t.Spender) {
+				return errors.New("invalid spender")
+			}
+			allowance, err := x.RPC.Call(ctx, t.ChainID, t.Token, "0xdd62ed3e000000000000000000000000"+strings.ToLower(in.Sender[2:])+"000000000000000000000000"+strings.ToLower(t.Spender[2:]))
+			if err != nil {
+				return err
+			}
+			if allowance.Cmp(required) < 0 {
+				return ErrBalance
+			}
+		}
+	} else if native.Cmp(value) < 0 {
+		return ErrBalance
 	}
 	return nil
 }
@@ -355,31 +616,96 @@ func (r HTTPRPC) Call(ctx context.Context, c uint64, to, data string) (*big.Int,
 	return r.quantity(ctx, c, "eth_call", []any{map[string]string{"to": to, "data": data}, "latest"})
 }
 
-// Quiescent reports whether nothing from sender after the transaction hash is
-// mined or pending: both the latest and pending nonces sit right after it.
-func (r HTTPRPC) Quiescent(ctx context.Context, c uint64, sender, hash string) (bool, error) {
-	var tx struct {
-		From  string `json:"from"`
-		Nonce string `json:"nonce"`
-	}
-	if err := r.call(ctx, c, "eth_getTransactionByHash", []any{hash}, &tx); err != nil {
-		return false, err
-	}
-	nonce, err := Quantity(tx.Nonce)
-	if err != nil || !strings.EqualFold(tx.From, sender) {
-		return false, errors.New("transaction sender or nonce mismatch")
-	}
-	next := new(big.Int).Add(nonce, big.NewInt(1))
-	for _, tag := range []string{"latest", "pending"} {
-		count, err := r.quantity(ctx, c, "eth_getTransactionCount", []any{sender, tag})
+// Nonces returns the agent's confirmed and pending transaction counts.
+func (r HTTPRPC) Nonces(ctx context.Context, c uint64, sender string) (uint64, uint64, error) {
+	var out [2]uint64
+	for i, tag := range []string{"latest", "pending"} {
+		n, err := r.quantity(ctx, c, "eth_getTransactionCount", []any{sender, tag})
 		if err != nil {
-			return false, err
+			return 0, 0, err
 		}
-		if count.Cmp(next) != 0 {
-			return false, nil
+		if !n.IsUint64() {
+			return 0, 0, errors.New("invalid nonce")
+		}
+		out[i] = n.Uint64()
+	}
+	return out[0], out[1], nil
+}
+
+// BlockNumber returns the latest block number.
+func (r HTTPRPC) BlockNumber(ctx context.Context, c uint64) (uint64, error) {
+	n, err := r.quantity(ctx, c, "eth_blockNumber", []any{})
+	if err != nil {
+		return 0, err
+	}
+	if !n.IsUint64() {
+		return 0, errors.New("invalid block number")
+	}
+	return n.Uint64(), nil
+}
+
+// FindNonceTx returns sender's mined transaction with the given nonce, found by
+// binary-searching the block where the account nonce passed it (from fromBlock).
+// It returns nil when that nonce is not mined yet. Requires an RPC that serves
+// historical account state for the searched range.
+func (r HTTPRPC) FindNonceTx(ctx context.Context, c uint64, sender string, nonce, fromBlock uint64) (*ChainTx, error) {
+	countAt := func(block uint64) (uint64, error) {
+		n, err := r.quantity(ctx, c, "eth_getTransactionCount", []any{sender, Hex(new(big.Int).SetUint64(block))})
+		if err != nil {
+			return 0, err
+		}
+		return n.Uint64(), nil
+	}
+	hi, err := r.BlockNumber(ctx, c)
+	if err != nil {
+		return nil, err
+	}
+	if n, err := countAt(hi); err != nil || n <= nonce {
+		return nil, err
+	}
+	lo := fromBlock
+	if lo > 0 {
+		lo--
+	}
+	if n, err := countAt(lo); err != nil {
+		return nil, err
+	} else if n > nonce {
+		return nil, errors.New("batch nonce was used before the recorded block")
+	}
+	// Invariant: count(lo) <= nonce < count(hi); the transaction is in the first
+	// block whose count exceeds nonce.
+	for hi-lo > 1 {
+		mid := lo + (hi-lo)/2
+		n, err := countAt(mid)
+		if err != nil {
+			return nil, err
+		}
+		if n > nonce {
+			hi = mid
+		} else {
+			lo = mid
 		}
 	}
-	return true, nil
+	var blk struct {
+		Transactions []struct {
+			Hash  string `json:"hash"`
+			From  string `json:"from"`
+			To    string `json:"to"`
+			Input string `json:"input"`
+			Nonce string `json:"nonce"`
+		} `json:"transactions"`
+	}
+	if err := r.call(ctx, c, "eth_getBlockByNumber", []any{Hex(new(big.Int).SetUint64(hi)), true}, &blk); err != nil {
+		return nil, err
+	}
+	for _, tx := range blk.Transactions {
+		n, err := Quantity(tx.Nonce)
+		if err != nil || !strings.EqualFold(tx.From, sender) || !n.IsUint64() || n.Uint64() != nonce {
+			continue
+		}
+		return &ChainTx{Hash: tx.Hash, From: tx.From, To: tx.To, Input: tx.Input, Nonce: nonce}, nil
+	}
+	return nil, errors.New("nonce transaction missing from its block")
 }
 func (r HTTPRPC) Receipt(ctx context.Context, c uint64, hash string) (*bool, error) {
 	var raw json.RawMessage

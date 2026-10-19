@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -157,30 +156,17 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	// timeout; individual RPC and Privy calls keep their own HTTP timeouts.
 	execCtx, execCancel := context.WithTimeout(e.ctx, onchainExecBudget)
 	defer execCancel()
-	executor := onchain.Executor{RPC: onchain.HTTPRPC{Getenv: a.Getenv}, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
-	if err = executor.Execute(execCtx, executing); err != nil {
-		if errors.Is(err, onchain.ErrReceiptUpstream) {
-			return nil, output.Wrap(output.CodeUpstream, err, "transaction hash persisted; run status to retry receipt lookup; never resubmit")
-		}
-		if errors.Is(err, onchain.ErrGas) || errors.Is(err, onchain.ErrBalance) {
-			current, readErr := j.GetOnchain(r.ID)
-			if readErr != nil || len(current.Hashes) > 0 {
-				return nil, output.Wrap(output.CodeOutcomeUnknown, err, "a prior approval may already have broadcast; reconcile without retrying")
-			}
-			if jerr := j.AdvanceOnchain(r.ID, "sending", "failed", ""); jerr != nil {
-				return nil, output.Wrap(output.CodeOutcomeUnknown, jerr, "journal transition failed")
-			}
-			return nil, output.Wrap(output.CodeInsufficientBalance, err, "onchain preflight")
-		}
-		// The executor leaves the intent in "sending" with no hash only when it
-		// failed before the first broadcast (an ambiguous broadcast moves it to
-		// "unknown"), so nothing reached the chain and the intent can be closed.
-		if current, readErr := j.GetOnchain(r.ID); readErr == nil && current.State == "sending" && len(current.Hashes) == 0 {
-			if jerr := j.AdvanceOnchain(r.ID, "sending", "failed", ""); jerr == nil {
-				return nil, output.Wrap(output.CodeRejected, err, "preflight failed before any broadcast; nothing was sent, prepare a new "+kind)
-			}
-		}
-		return nil, output.Wrap(output.CodeOutcomeUnknown, err, "never resubmit; inspect status and receipt")
+	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	executor := onchain.Executor{RPC: rpc, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
+	// Multi-step routes (approve + swap) run as one atomic EIP-7702 batch, so
+	// an approval can never confirm without its swap.
+	if len(executing.Templates) > 1 {
+		err = executor.ExecuteBatch(execCtx, executing, ps, rpc)
+	} else {
+		err = executor.Execute(execCtx, executing)
+	}
+	if err != nil {
+		return nil, executionError(err, kind)
 	}
 	r, err = j.GetOnchain(r.ID)
 	if err != nil {

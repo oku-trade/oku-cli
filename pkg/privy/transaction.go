@@ -42,6 +42,60 @@ func (s *Session) SendTransaction(ctx context.Context, walletID string, tx Trans
 	return response.Data.Hash, nil
 }
 
+// Call is one entry of an atomic wallet_sendCalls batch.
+type Call struct {
+	To    string
+	Value string
+	Data  string
+}
+
+// SendCalls submits an atomic EIP-7702 batch (Privy upgrades the wallet to a
+// Kernel account on first use). It returns Privy's transaction ID, not a chain
+// hash. A successful response means the batch was broadcast; callers must
+// never retry an ambiguous error.
+func (s *Session) SendCalls(ctx context.Context, walletID string, chainID uint64, calls []Call) (string, error) {
+	if chainID == 0 || len(calls) == 0 {
+		return "", errors.New("invalid batch")
+	}
+	wire := make([]map[string]any, 0, len(calls))
+	for _, c := range calls {
+		if !validHexAddress(c.To) || !validHexQuantity(c.Value) || (c.Data != "" && !validHexBytes(c.Data)) {
+			return "", errors.New("invalid call fields")
+		}
+		call := map[string]any{"to": c.To, "value": c.Value}
+		if c.Data != "" {
+			call["data"] = c.Data
+		}
+		wire = append(wire, call)
+	}
+	var response struct {
+		Data struct {
+			TransactionID string `json:"transaction_id"`
+			Caip2         string `json:"caip2"`
+		} `json:"data"`
+	}
+	caip2 := fmt.Sprintf("eip155:%d", chainID)
+	if err := s.SignedRPC(ctx, walletID, map[string]any{"method": "wallet_sendCalls", "caip2": caip2, "chain_type": "ethereum", "params": map[string]any{"calls": wire}}, &response); err != nil {
+		return "", err
+	}
+	if !validTransactionID(response.Data.TransactionID) || response.Data.Caip2 != caip2 {
+		return "", errors.New("privy returned invalid batch transaction ID; broadcast outcome unknown")
+	}
+	return response.Data.TransactionID, nil
+}
+
+func validTransactionID(v string) bool {
+	if len(v) < 8 || len(v) > 64 {
+		return false
+	}
+	for _, c := range v {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_') {
+			return false
+		}
+	}
+	return true
+}
+
 func validHexAddress(v string) bool {
 	return len(v) == 42 && validHex(v[2:]) && strings.HasPrefix(v, "0x")
 }

@@ -35,6 +35,7 @@ type fakePrivy struct {
 	failSign                                     bool
 	wrongSigner                                  bool
 	grantCalls                                   int
+	batches                                      [][]map[string]string
 }
 
 func newFakePrivy(t *testing.T) *fakePrivy {
@@ -140,6 +141,18 @@ func (f *fakePrivy) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		body, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(body, &envelope)
+		if envelope.Method == "wallet_sendCalls" {
+			var batch struct {
+				Caip2  string `json:"caip2"`
+				Params struct {
+					Calls []map[string]string `json:"calls"`
+				} `json:"params"`
+			}
+			_ = json.Unmarshal(body, &batch)
+			f.batches = append(f.batches, batch.Params.Calls)
+			reply(map[string]any{"data": map[string]string{"transaction_id": "b4966a89-8983-4b1b-a93a-b104799527f5", "caip2": batch.Caip2}})
+			return
+		}
 		if envelope.Method == "eth_sendTransaction" {
 			if f.failSign {
 				w.WriteHeader(503)

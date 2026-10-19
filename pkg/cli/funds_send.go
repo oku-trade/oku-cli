@@ -25,6 +25,25 @@ func forbiddenSendRecipient(recipient, agent string) bool {
 
 const depositNext = "After this transfer confirms, the master must deposit to Hyperliquid from its own wallet at https://oku.trade/perps. For HyperUnit use 'oku deposit address'. Never send agent USDC to the Hyperliquid bridge."
 
+// executionError maps executor outcomes to CLI errors. Only ErrNotBroadcast
+// proves nothing reached the chain on that attempt; everything else after a
+// handoff stays OUTCOME_UNKNOWN until status or reconcile resolves it.
+func executionError(err error, kind string) error {
+	switch {
+	case errors.Is(err, onchain.ErrNotBroadcast) && errors.Is(err, onchain.ErrGas):
+		return output.Wrap(output.CodeInsufficientGas, err, "nothing broadcast; fund the agent with native gas and prepare a new "+kind)
+	case errors.Is(err, onchain.ErrNotBroadcast) && errors.Is(err, onchain.ErrBalance):
+		return output.Wrap(output.CodeInsufficientBalance, err, "nothing broadcast; prepare a new "+kind)
+	case errors.Is(err, onchain.ErrNotBroadcast):
+		return output.Wrap(output.CodeRejected, err, "preflight failed; check status (earlier steps may have confirmed) and prepare a new "+kind)
+	case errors.Is(err, onchain.ErrReceiptUpstream):
+		return output.Wrap(output.CodeUpstream, err, "transaction hash persisted; run status to retry receipt lookup; never resubmit")
+	case errors.Is(err, onchain.ErrReverted):
+		return output.Wrap(output.CodeRejected, err, "onchain transaction reverted")
+	}
+	return output.Wrap(output.CodeOutcomeUnknown, err, "never resubmit; run status, or reconcile with the transaction hash")
+}
+
 // onchainExecBudget bounds broadcasting plus confirming every step of an
 // onchain intent, independent of the short per-request --timeout.
 const onchainExecBudget = 10 * time.Minute
@@ -234,26 +253,7 @@ func (a *App) cmdFundsSubmit(e *env, kind string) (*result, error) {
 	defer execCancel()
 	executor := onchain.Executor{RPC: onchain.HTTPRPC{Getenv: a.Getenv}, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
 	if err = executor.Execute(execCtx, r.OnchainIntent); err != nil {
-		if errors.Is(err, onchain.ErrReceiptUpstream) {
-			return nil, output.Wrap(output.CodeUpstream, err, "transaction hash persisted; run status to retry receipt lookup; never resubmit")
-		}
-		if errors.Is(err, onchain.ErrGas) || errors.Is(err, onchain.ErrBalance) {
-			if jerr := j.AdvanceOnchain(r.ID, "sending", "failed", ""); jerr != nil {
-				return nil, output.Wrap(output.CodeOutcomeUnknown, jerr, "journal update failed; investigate before retry")
-			}
-			code := output.CodeInsufficientBalance
-			if errors.Is(err, onchain.ErrGas) {
-				code = output.CodeInsufficientGas
-			}
-			return nil, output.Errorf(code, "%v", err)
-		}
-		if errors.Is(err, onchain.ErrUnknown) {
-			return nil, output.Wrap(output.CodeOutcomeUnknown, err, "onchain outcome unknown; use status")
-		}
-		if errors.Is(err, onchain.ErrReverted) {
-			return nil, output.Wrap(output.CodeRejected, err, "onchain transaction reverted")
-		}
-		return nil, output.Wrap(output.CodeOutcomeUnknown, err, "onchain intent may be in-flight; inspect status before further transfers")
+		return nil, executionError(err, "send")
 	}
 	r, err = j.GetOnchain(r.ID)
 	if err != nil {
@@ -304,6 +304,25 @@ func (a *App) cmdFundsStatus(e *env, kind string) (*result, error) {
 	if r.Kind != kind || !strings.EqualFold(r.Sender, w.agent) {
 		return nil, output.Errorf(output.CodeNotFound, "intent not found")
 	}
+	// A batch whose submit stopped before it was found on chain: locate it by
+	// the reserved nonce. Absence never closes it; only a found, matching
+	// transaction and its receipt resolve the intent.
+	if r.Batch != nil && (r.State == "unknown" || r.State == "sending") && len(r.Hashes) == 0 {
+		ctx, cancel := e.requestCtx()
+		defer cancel()
+		rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+		hash, err := onchain.LocateBatch(ctx, r.OnchainIntent, *r.Batch, rpc)
+		if err == nil {
+			if err = j.AdvanceOnchain(r.ID, r.State, "unknown", hash); err != nil {
+				return nil, err
+			}
+			if r, err = j.GetOnchain(r.ID); err != nil {
+				return nil, err
+			}
+		} else if !onchain.IsBatchNotMined(err) {
+			return nil, output.Wrap(output.CodeUpstream, err, "batch lookup")
+		}
+	}
 	if (r.State == "sent" || r.State == "unknown") && len(r.Hashes) > 0 {
 		ctx, cancel := e.requestCtx()
 		defer cancel()
@@ -312,24 +331,17 @@ func (a *App) cmdFundsStatus(e *env, kind string) (*result, error) {
 		if err != nil {
 			return nil, output.Wrap(output.CodeUpstream, err, "receipt lookup")
 		}
-		partial := false
 		if status != nil {
 			next := "failed"
-			if *status && len(r.Hashes) == len(r.Templates) {
+			// One batch hash covers every call.
+			if *status && (len(r.Hashes) == len(r.Templates) || r.Batch != nil) {
 				next = "confirmed"
 			}
 			if *status && next != "confirmed" {
+				// Earlier steps confirmed but later ones were never recorded.
+				// Absence of a later transaction is not proof it cannot land, so
+				// this stays unresolved until reconciled with a hash.
 				next = "unknown"
-				// Earlier steps confirmed but submit stopped before the next one.
-				// If no later transaction from the agent is mined or pending,
-				// nothing else can land, so close it instead of leaving it
-				// blocking. A live submit is safe: the journal transition is a
-				// compare-and-swap, and submit advances to "sending" before each
-				// broadcast, so whichever transition loses stops without sending.
-				if quiet, qerr := rpc.Quiescent(ctx, r.ChainID, r.Sender, r.Hashes[len(r.Hashes)-1]); qerr == nil && quiet {
-					next = "failed"
-					partial = true
-				}
 			}
 			if err = j.AdvanceOnchain(r.ID, r.State, next, ""); err != nil {
 				return nil, err
@@ -338,9 +350,6 @@ func (a *App) cmdFundsStatus(e *env, kind string) (*result, error) {
 			if err != nil {
 				return nil, err
 			}
-		}
-		if partial {
-			r.NextStep = fmt.Sprintf("%d of %d transactions confirmed; the rest were never broadcast. Prepare a new %s.", len(r.Hashes), len(r.Templates), kind)
 		}
 	}
 	return fundsResult(r), nil
