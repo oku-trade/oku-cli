@@ -37,6 +37,7 @@ type fakePrivy struct {
 	grantCalls                                   int
 	batches                                      [][]map[string]string
 	transactions                                 []map[string]any
+	typedRequests                                []map[string]any
 }
 
 func newFakePrivy(t *testing.T) *fakePrivy {
@@ -170,6 +171,20 @@ func (f *fakePrivy) serve(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(503)
 			reply(map[string]string{"error": "signing_unavailable"})
 			return
+		}
+		var typedEnvelope struct {
+			Params struct {
+				TypedData map[string]any `json:"typed_data"`
+			} `json:"params"`
+		}
+		_ = json.Unmarshal(body, &typedEnvelope)
+		if typedEnvelope.Params.TypedData != nil {
+			msg, _ := typedEnvelope.Params.TypedData["message"].(map[string]any)
+			if _, hyperliquid := msg["connectionId"]; !hyperliquid {
+				f.typedRequests = append(f.typedRequests, typedEnvelope.Params.TypedData)
+				reply(map[string]any{"data": map[string]string{"signature": "0x" + strings.Repeat("ab", 64) + "1b"}})
+				return
+			}
 		}
 		var data struct {
 			Params struct {

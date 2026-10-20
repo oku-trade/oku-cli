@@ -28,7 +28,7 @@ const (
 )
 
 func routeFlags(bridge bool) []urfave.Flag {
-	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137"}, &urfave.StringFlag{Name: "from", Usage: "input token address or unambiguous symbol"}, &urfave.StringFlag{Name: "to", Usage: "output token address or unambiguous symbol"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}}
+	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137"}, &urfave.StringFlag{Name: "from", Usage: "input token address or unambiguous symbol"}, &urfave.StringFlag{Name: "to", Usage: "output token address or unambiguous symbol"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}, &urfave.StringFlag{Name: "route", Usage: "select only this swap router or bridge"}, &urfave.BoolFlag{Name: "no-intent", Usage: "exclude typed-data intent routes"}}
 	if bridge {
 		flags = append(flags, &urfave.StringFlag{Name: "destination-chain", Usage: "destination EVM chain ID"})
 	}
@@ -43,6 +43,7 @@ type routeQuote struct {
 	Generation int32  `json:"generation,omitempty"`
 	QuoteID    string `json:"quote_id"`
 	Route      string `json:"route"`
+	Intent     bool   `json:"intent_based"`
 	Target     string `json:"target"`
 	Spender    string `json:"spender,omitempty"`
 	MinOut     string `json:"min_out"`
@@ -259,6 +260,9 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			return q, nil, apiError(err, "GetSupportedMarkets")
 		}
 		markets := supportedMarkets(supported.Markets, q.Chain)
+		if forced := str(e, "route"); forced != "" {
+			markets = filterRoute(markets, forced)
+		}
 		if len(markets) == 0 {
 			return q, nil, output.Errorf(output.CodeRejected, "no active swap markets support chain %d", q.Chain)
 		}
@@ -347,31 +351,41 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					continue
 				}
 				v := entry.Quote
-				if v.IntentBased || v.ChainId != int32(q.Chain) || !v.IsExactIn || v.Simulation == nil || v.Simulation.Error != "" || !acceptablePriceImpact(v.PriceImpact) || math.IsNaN(v.NetUsdValue) {
-					continue
-				}
-				if simulated, se := positiveRaw(v.Simulation.AmountOutRaw); se != nil || simulated.Sign() <= 0 {
+				if e.cmd.Bool("no-intent") && v.IntentBased || v.ChainId != int32(q.Chain) || !v.IsExactIn || !v.IntentBased && !acceptablePriceImpact(v.PriceImpact) || math.IsNaN(v.NetUsdValue) {
 					continue
 				}
 				input, ie := positiveRaw(v.InAmountRaw)
 				min, me := positiveRaw(v.MinAmountOutRaw)
-				if ie != nil || me != nil || input.String() != q.InAmount || !safeInfo(v.ExecutionInfo) || !strings.EqualFold(routeTarget(v.ExecutionInfo), routerFor(q.Chain)) {
+				if ie != nil || me != nil || input.String() != q.InAmount {
 					continue
+				}
+				if v.IntentBased {
+					if len(v.SigningRequest.GetTypedData()) == 0 || v.SigningRequest.TypedData[0].GetPayload() == nil {
+						continue
+					}
+				} else {
+					if v.Simulation == nil || v.Simulation.Error != "" || !safeInfo(v.ExecutionInfo) || !strings.EqualFold(routeTarget(v.ExecutionInfo), routerFor(q.Chain)) {
+						continue
+					}
+					if _, se := positiveRaw(v.Simulation.AmountOutRaw); se != nil {
+						continue
+					}
 				}
 				if v.InToken == nil || v.OutToken == nil || q.InToken != "native" && !strings.EqualFold(v.InToken.Address, q.InToken) || q.OutToken != "native" && !strings.EqualFold(v.OutToken.Address, q.OutToken) {
 					continue
 				}
-				if len(v.SigningRequest.GetTypedData()) > 0 || !consistentSwapApprovals(v.Approvals, v.ApprovalsV2, q.Chain, q.InToken, q.InAmount) {
+				if !v.IntentBased && (len(v.SigningRequest.GetTypedData()) > 0 || !consistentSwapApprovals(v.Approvals, v.ApprovalsV2, q.Chain, q.InToken, q.InAmount)) {
 					continue
 				}
 				spender := quoteSpender(v.ApprovalsV2, q.InToken, q.InAmount)
-				if q.InToken != "native" && (len(v.ApprovalsV2) > 0 || len(v.Approvals) > 0) && !strings.EqualFold(spender, routerFor(q.Chain)) {
+				if !v.IntentBased && q.InToken != "native" && (len(v.ApprovalsV2) > 0 || len(v.Approvals) > 0) && !strings.EqualFold(spender, routerFor(q.Chain)) {
 					continue
 				}
 				if v.NetUsdValue > best {
 					best = v.NetUsdValue
 					q.QuoteID = entry.QuoteId
 					q.Route = entry.Router
+					q.Intent = v.IntentBased
 					q.Target = routeTarget(v.ExecutionInfo)
 					q.MinOut = min.String()
 					q.OutAmount = v.OutAmountRaw
@@ -385,6 +399,9 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			return q, nil, apiError(err, "GetSupportedBridges")
 		}
 		bridges := supportedBridges(supported.Bridges, q.Chain, q.OutChain)
+		if forced := str(e, "route"); forced != "" {
+			bridges = filterRoute(bridges, forced)
+		}
 		if len(bridges) == 0 {
 			return q, nil, output.Errorf(output.CodeRejected, "no active bridge supports both chains")
 		}
@@ -458,7 +475,10 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					continue
 				}
 				v := entry.Quote
-				if v.IntentBased || v.InChainId != int32(q.Chain) || v.OutChainId != int32(q.OutChain) || !bridgeInfo(v.ExecutionInfo) || !onchain.ValidAddress(routeTarget(v.ExecutionInfo)) || len(v.SigningRequest.GetTypedData()) > 0 {
+				if e.cmd.Bool("no-intent") && v.IntentBased || v.InChainId != int32(q.Chain) || v.OutChainId != int32(q.OutChain) {
+					continue
+				}
+				if v.IntentBased && (len(v.SigningRequest.GetTypedData()) == 0 || v.SigningRequest.TypedData[0].GetPayload() == nil) || !v.IntentBased && (!bridgeInfo(v.ExecutionInfo) || !onchain.ValidAddress(routeTarget(v.ExecutionInfo)) || len(v.SigningRequest.GetTypedData()) > 0) {
 					continue
 				}
 				if v.InToken == nil || v.OutToken == nil || !(strings.EqualFold(v.InToken.Address, q.InToken) || q.InToken == "native" && (strings.EqualFold(v.InToken.Address, "0x0000000000000000000000000000000000000000") || strings.EqualFold(v.InToken.Address, "native"))) || !strings.EqualFold(v.OutToken.Address, q.OutToken) {
@@ -481,6 +501,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					best = net
 					q.QuoteID = entry.QuoteId
 					q.Route = entry.Bridge
+					q.Intent = v.IntentBased
 					q.Target = routeTarget(v.ExecutionInfo)
 					q.MinOut = min.String()
 					q.OutAmount = out.String()
@@ -490,10 +511,18 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 		}
 	}
 	if q.OrderID == "" || q.QuoteID == "" {
-		return q, nil, output.Errorf(output.CodeRejected, "no safe transaction route with verified simulation and explicit target")
+		return q, nil, output.Errorf(output.CodeRejected, "no eligible route for requested tokens and amount")
 	}
 	q.ExpiresAt = a.Now().Add(3 * time.Minute).UTC().Format(time.RFC3339Nano)
 	return q, w, nil
+}
+func filterRoute(names []string, forced string) []string {
+	for _, name := range names {
+		if strings.EqualFold(name, forced) {
+			return []string{name}
+		}
+	}
+	return nil
 }
 func quoteSpender(approvals []*v2.ApprovalPayloadV2, token, amount string) string {
 	if len(approvals) == 0 {
@@ -547,10 +576,10 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 		return nil, err
 	}
 	router := routerFor(q.Chain)
-	if kind == "swap" && (router == "" || !strings.EqualFold(q.Target, router) || q.InToken != "native" && q.Spender != "" && !strings.EqualFold(q.Spender, router)) {
+	if kind == "swap" && !q.Intent && (router == "" || !strings.EqualFold(q.Target, router) || q.InToken != "native" && q.Spender != "" && !strings.EqualFold(q.Spender, router)) {
 		return nil, output.Errorf(output.CodeRejected, "swap route or approval spender is not OkuRouter")
 	}
-	if kind == "swap" && q.InToken != "native" {
+	if kind == "swap" && !q.Intent && q.InToken != "native" {
 		q.Spender = router
 	}
 	id := str(e, "intent-id")
@@ -561,7 +590,10 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 	if q.InToken != "native" {
 		placeholders = append([]journal.OnchainTemplate{{ChainID: q.Chain, To: q.InToken, Value: "0x0", Token: q.InToken, Amount: onchain.Hex(mustRaw(q.InAmount))}}, placeholders...)
 	}
-	in := journal.OnchainIntent{ID: id, Kind: kind, ChainID: q.Chain, OutChain: q.OutChain, Sender: w.agent, Recipient: q.Recipient, Token: q.InToken, OutToken: q.OutToken, Amount: q.InAmount, OrderID: q.OrderID, QuoteID: q.QuoteID, Generation: q.Generation, Route: q.Route, Target: q.Target, Spender: q.Spender, MinOut: q.MinOut, ExpiresAt: q.ExpiresAt, CreatedAt: a.Now().UTC().Format(time.RFC3339Nano), Templates: placeholders}
+	if q.Intent {
+		placeholders = nil // No source trade transaction. Approvals are bound at submit.
+	}
+	in := journal.OnchainIntent{ID: id, Kind: kind, Intent: q.Intent, ChainID: q.Chain, OutChain: q.OutChain, Sender: w.agent, Recipient: q.Recipient, Token: q.InToken, OutToken: q.OutToken, Amount: q.InAmount, OrderID: q.OrderID, QuoteID: q.QuoteID, Generation: q.Generation, Route: q.Route, Target: q.Target, Spender: q.Spender, MinOut: q.MinOut, ExpiresAt: q.ExpiresAt, CreatedAt: a.Now().UTC().Format(time.RFC3339Nano), Templates: placeholders}
 	j, err := openJournal(w.profile)
 	if err != nil {
 		return nil, err

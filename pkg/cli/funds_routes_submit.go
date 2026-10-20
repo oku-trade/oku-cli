@@ -53,6 +53,7 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	defer cancel()
 	var info v2.GetExecutionInfoResponse
 	var approvals []*v2.ApprovalPayloadV2
+	var signing *v2.SigningRequest
 	var min string
 	if kind == "swap" {
 		var selected v2.SwapUpdateQuoteSelectResponse
@@ -78,15 +79,22 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 				quote = entry.Quote
 			}
 		}
-		if quote == nil || quote.IntentBased || quote.Simulation == nil || quote.Simulation.Error != "" || len(quote.SigningRequest.GetTypedData()) > 0 {
+		if quote == nil || quote.IntentBased != r.Intent || !r.Intent && (quote.Simulation == nil || quote.Simulation.Error != "" || len(quote.SigningRequest.GetTypedData()) > 0) {
 			return nil, output.Errorf(output.CodePayloadMismatch, "unsupported changed quote")
 		}
-		if _, e := positiveRaw(quote.Simulation.AmountOutRaw); e != nil {
+		if r.Intent {
+			if quote.ChainId != int32(r.ChainID) || !quote.IsExactIn || quote.InAmountRaw != r.Amount || quote.MinAmountOutRaw != r.MinOut || quote.InToken == nil || quote.OutToken == nil || !strings.EqualFold(quote.InToken.Address, r.Token) || !strings.EqualFold(quote.OutToken.Address, r.OutToken) {
+				return nil, output.Errorf(output.CodePayloadMismatch, "selected intent economics changed")
+			}
+			signing = quote.SigningRequest
+		} else if _, e := positiveRaw(quote.Simulation.AmountOutRaw); e != nil {
 			return nil, output.Errorf(output.CodePayloadMismatch, "swap quote simulation has no successful output")
 		}
 		min = quote.MinAmountOutRaw
 		approvals = quote.ApprovalsV2
-		err = c.Swap(ctx, "GetExecutionInfo", &v2.GetExecutionInfoRequest{OrderId: r.OrderID, QuoteId: r.QuoteID, Request: &v2.ExecutionRequest{SigningRequest: quote.SigningRequest}}, &info, true)
+		if !r.Intent {
+			err = c.Swap(ctx, "GetExecutionInfo", &v2.GetExecutionInfoRequest{OrderId: r.OrderID, QuoteId: r.QuoteID, Request: &v2.ExecutionRequest{SigningRequest: quote.SigningRequest}}, &info, true)
+		}
 	} else {
 		var selected v2.BridgeUpdateQuoteSelectResponse
 		if err = c.Bridge(ctx, "UpdateQuoteSelect", &v2.BridgeUpdateQuoteSelectRequest{OrderId: r.OrderID, Bridge: r.Route, QuoteId: r.QuoteID}, &selected, true); err != nil {
@@ -109,17 +117,26 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 				quote = entry.Quote
 			}
 		}
-		if quote == nil || quote.IntentBased || len(quote.SigningRequest.GetTypedData()) > 0 {
+		if quote == nil || quote.IntentBased != r.Intent || !r.Intent && len(quote.SigningRequest.GetTypedData()) > 0 {
 			return nil, output.Errorf(output.CodePayloadMismatch, "selected bridge quote is unavailable or requires typed-data signing")
 		}
 		approvals = quote.Approvals
-		err = c.Bridge(ctx, "GetExecutionInfo", &v2.GetExecutionInfoRequest{OrderId: r.OrderID, QuoteId: r.QuoteID, Request: &v2.ExecutionRequest{}}, &info, true)
+		if r.Intent {
+			if quote.InChainId != int32(r.ChainID) || quote.OutChainId != int32(r.OutChain) || quote.InToken == nil || quote.OutToken == nil || !strings.EqualFold(quote.InToken.Address, r.Token) || !strings.EqualFold(quote.OutToken.Address, r.OutToken) {
+				return nil, output.Errorf(output.CodePayloadMismatch, "selected bridge intent changed")
+			}
+			signing = quote.SigningRequest
+		} else {
+			err = c.Bridge(ctx, "GetExecutionInfo", &v2.GetExecutionInfoRequest{OrderId: r.OrderID, QuoteId: r.QuoteID, Request: &v2.ExecutionRequest{}}, &info, true)
+		}
 	}
 	if err != nil {
 		return nil, apiError(err, "GetExecutionInfo")
 	}
 	var templates []journal.OnchainTemplate
-	if kind == "bridge" {
+	if r.Intent {
+		templates, err = intentApprovals(ctx, onchain.HTTPRPC{Getenv: a.Getenv}, r.ChainID, w.agent, approvals)
+	} else if kind == "bridge" {
 		templates, err = backendBridgeExecution(r.ChainID, info.Info, approvals)
 	} else {
 		templates, err = verifyExecution(r.OnchainIntent, min, info.Info, approvals)
@@ -127,7 +144,7 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodePayloadMismatch, err, "refusing unverified execution")
 	}
-	if kind == "swap" {
+	if kind == "swap" && !r.Intent {
 		// Swaps retain their independent deployed OkuRouter check.
 		if hasCode, cerr := (onchain.HTTPRPC{Getenv: a.Getenv}).HasCode(ctx, r.ChainID, r.Target); cerr != nil {
 			return nil, output.Wrap(output.CodeUpstream, cerr, "route target code check")
@@ -155,6 +172,9 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	}
 	if !bound {
 		return nil, output.Errorf(output.CodeSignerUnavailable, "authenticated Privy wallet differs from agent")
+	}
+	if r.Intent {
+		return a.submitSignedIntent(e, kind, r, j, c, ps, s.md.PrivyWalletID, signing, templates)
 	}
 	finalDigest, err := j.BindOnchainExecution(r.ID, r.Digest, templates)
 	if err != nil {
@@ -202,6 +222,27 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 func (a *App) cmdSwapSubmit(e *env) (*result, error)   { return a.cmdRouteSubmit(e, "swap") }
 func (a *App) cmdBridgeSubmit(e *env) (*result, error) { return a.cmdRouteSubmit(e, "bridge") }
 func (a *App) cmdRouteStatus(e *env, kind string) (*result, error) {
+	if id := str(e, "intent"); id != "" {
+		w, err := agentWalletMetadata(e)
+		if err != nil {
+			return nil, err
+		}
+		j, err := openJournal(w.profile)
+		if err != nil {
+			return nil, err
+		}
+		r, getErr := j.GetOnchain(id)
+		j.Close()
+		if getErr != nil {
+			return nil, output.Wrap(output.CodeNotFound, getErr, "intent")
+		}
+		if r.Intent {
+			if r.Kind != kind || !strings.EqualFold(r.Sender, w.agent) {
+				return nil, output.Errorf(output.CodeNotFound, "intent not found")
+			}
+			return a.intentRouteStatus(e, w, r)
+		}
+	}
 	status, err := a.cmdFundsStatus(e, kind)
 	if err != nil {
 		return nil, err

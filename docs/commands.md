@@ -81,6 +81,8 @@ Prepare a backend-built transaction bridge
 | `--amount` | exact input decimal amount | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
+| `--route` | select only this swap router or bridge | `` |
+| `--no-intent` | exclude typed-data intent routes | `false` |
 | `--destination-chain` | destination EVM chain ID | `` |
 | `--intent-id` | optional unique intent ID | `` |
 
@@ -98,6 +100,8 @@ Quote EVM-to-EVM bridge routes
 | `--amount` | exact input decimal amount | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
+| `--route` | select only this swap router or bridge | `` |
+| `--no-intent` | exclude typed-data intent routes | `false` |
 | `--destination-chain` | destination EVM chain ID | `` |
 
 ## `oku bridge reconcile`
@@ -504,6 +508,8 @@ Prepare an agent EVM swap
 | `--amount` | exact input decimal amount | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
+| `--route` | select only this swap router or bridge | `` |
+| `--no-intent` | exclude typed-data intent routes | `false` |
 | `--intent-id` | optional unique intent ID | `` |
 
 ## `oku swap quote`
@@ -520,6 +526,8 @@ Quote exact-in EVM swap routes
 | `--amount` | exact input decimal amount | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
+| `--route` | select only this swap router or bridge | `` |
+| `--no-intent` | exclude typed-data intent routes | `false` |
 
 ## `oku swap reconcile`
 

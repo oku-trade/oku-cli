@@ -17,6 +17,7 @@ import (
 type OnchainIntent struct {
 	ID           string            `json:"intent_id"`
 	Kind         string            `json:"kind"`
+	Intent       bool              `json:"intent_based,omitempty"`
 	ChainID      uint64            `json:"chain_id"`
 	Sender       string            `json:"sender"`
 	Recipient    string            `json:"recipient"`
@@ -75,7 +76,7 @@ type Batch struct {
 }
 
 func (j *Journal) CreateOnchain(in OnchainIntent) (*OnchainRecord, error) {
-	if !trading.ValidIntentID(in.ID) || len(in.Templates) == 0 {
+	if !trading.ValidIntentID(in.ID) || len(in.Templates) == 0 && !in.Intent {
 		return nil, errors.New("invalid onchain intent")
 	}
 	b, _ := json.Marshal(in)
@@ -208,14 +209,14 @@ func (j *Journal) BeginOnchain(id, digest, agent string) error {
 // BindOnchainExecution replaces placeholder templates only while prepared and
 // atomically seals the final, verified transactions under a fresh digest.
 func (j *Journal) BindOnchainExecution(id, digest string, templates []OnchainTemplate) (string, error) {
-	if len(templates) == 0 {
-		return "", ErrConflict
-	}
 	r, err := j.GetOnchain(id)
 	if err != nil {
 		return "", err
 	}
 	if r.State != "prepared" || r.Digest != digest {
+		return "", ErrConflict
+	}
+	if len(templates) == 0 && !r.Intent {
 		return "", ErrConflict
 	}
 	r.Templates = templates
@@ -238,6 +239,22 @@ func (j *Journal) BindOnchainExecution(id, digest string, templates []OnchainTem
 		return "", ErrConflict
 	}
 	return newDigest, tx.Commit()
+}
+
+// RelayOnchain stores the backend's offchain order identifier and closes the
+// source submission state. A missing response must instead remain unknown.
+func (j *Journal) RelayOnchain(id, from, orderID string) error {
+	if orderID == "" {
+		return ErrConflict
+	}
+	res, err := j.db.Exec(`UPDATE onchain_intents SET state='submitted',backend_order_id=?,updated_at=? WHERE profile=? AND intent_id=? AND state=?`, orderID, j.now().UTC().Format(time.RFC3339Nano), j.binding.Profile, id, from)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err != nil || n != 1 {
+		return ErrConflict
+	}
+	return nil
 }
 
 // AdvanceOnchain is a durable transition. Hash append commits before receipt polling.

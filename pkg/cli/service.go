@@ -36,8 +36,8 @@ var ServiceReads = map[string]bool{
 	"wallet address": true, "wallet balances": true, "deposit address": true,
 	"send prepare": true, "send status": true, "deposit prepare": true, "deposit status": true,
 	"swap quote": true, "swap prepare": true, "swap status": true,
-	"bridge quote": true,
-	"version":      true, "doctor": true, "auth status": true, "profiles list": true,
+	"bridge quote": true, "bridge prepare": true, "bridge status": true,
+	"version": true, "doctor": true, "auth status": true, "profiles list": true,
 	"markets list": true, "markets quote": true, "markets funding": true,
 	"account summary": true, "positions list": true, "orders list": true,
 	"orders status": true, "fills list": true,
@@ -51,6 +51,7 @@ var ServiceMutations = map[string]bool{
 	"orders prepare": true, "positions leverage": true, "positions margin": true,
 	"orders submit": true, "orders cancel": true, "orders reconcile": true, "orders abandon": true,
 	"send submit": true, "deposit submit": true, "swap submit": true, "send reconcile": true, "swap reconcile": true,
+	"bridge submit": true, "bridge reconcile": true, "bridge claim": true, "deposit reconcile": true,
 }
 
 // AllowMutations enables the ServiceMutations commands.
