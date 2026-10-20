@@ -137,6 +137,9 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	if r.Intent {
 		templates, err = intentApprovals(ctx, onchain.HTTPRPC{Getenv: a.Getenv}, r.ChainID, w.agent, approvals)
 	} else if kind == "bridge" {
+		if !bridgeInfo(info.Info) || !onchain.ValidAddress(routeTarget(info.Info)) {
+			return nil, output.Errorf(output.CodePayloadMismatch, "refusing unverified bridge execution target or shape")
+		}
 		templates, err = backendBridgeExecution(r.ChainID, info.Info, approvals)
 	} else {
 		templates, err = verifyExecution(r.OnchainIntent, min, info.Info, approvals)
