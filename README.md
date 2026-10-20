@@ -29,7 +29,7 @@ oku swap status  --intent ID
 - Swap quotes use the same `GetFlowstreamQuotes` stream as the web app and only route through Oku Router with exact, verified calldata.
 - When a token approval is needed, approve and swap are sent as **one atomic** Privy `wallet_sendCalls` batch (EIP-7702; the first batch upgrades the agent wallet to a Kernel smart account at the same address). An approval can never confirm without its swap.
 - `send` transfers from the agent (to the master by default); `deposit prepare` only moves agent USDC to the master on Arbitrum. The master deposits to Hyperliquid itself; never send agent USDC to the Hyperliquid bridge.
-- Keep native gas (ETH on Arbitrum) in the agent wallet, and point `OKU_RPC_URL_42161` (or the chain you use) at a full RPC: batch lookup needs recent historical state that public endpoints may refuse.
+- Keep native gas (ETH on Arbitrum) in the agent wallet. Chain RPC defaults to Oku's eRPC gateway (`https://erpc.lat.gfx.town/main/<chain>`); override any chain with `OKU_RPC_URL_<CHAINID>`.
 - `OUTCOME_UNKNOWN` means never resubmit; use `status` or `reconcile`. See [agent EVM transfers](docs/usage.md#agent-evm-transfers-and-master-deposits) and [security](docs/security.md).
 
 ## JSON input

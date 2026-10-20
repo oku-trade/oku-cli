@@ -81,7 +81,20 @@ func (a *App) cmdBridgeClaim(e *env) (*result, error) {
 	}
 	existing, err := j.ClaimForBridge(id)
 	if err == nil {
-		return claimResult("claim already recorded; never resubmit", existing, ""), nil
+		// Never resend. A claim whose receipt lookup failed earlier is finished
+		// here from its recorded hash, then reported to Oku once confirmed.
+		was := existing.State
+		if existing, err = a.resolveReceipt(e, j, existing); err != nil {
+			return nil, err
+		}
+		if existing.State != "confirmed" {
+			return claimResult("claim "+existing.State+"; never resubmit, retry later to confirm", existing, ""), nil
+		}
+		warning := ""
+		if was != "confirmed" && len(existing.Hashes) > 0 {
+			warning = a.finishClaim(e, existing.OrderID, existing.Hashes[len(existing.Hashes)-1])
+		}
+		return claimResult("claim confirmed", existing, warning), nil
 	}
 	if !errors.Is(err, journal.ErrNotFound) {
 		return nil, err
@@ -188,10 +201,34 @@ func (a *App) cmdBridgeClaim(e *env) (*result, error) {
 	}
 	warning := ""
 	if len(record.Hashes) > 0 {
-		var finished v2.FinishClaimResponse
-		if err = c.Bridge(execCtx, "FinishClaim", &v2.FinishClaimRequest{OrderId: source.OrderID, TxHash: record.Hashes[len(record.Hashes)-1]}, &finished, true); err != nil {
-			warning = "FinishClaim failed: " + err.Error()
-		}
+		warning = a.finishClaim(e, source.OrderID, record.Hashes[len(record.Hashes)-1])
 	}
 	return claimResult("claim confirmed", record, warning), nil
+}
+
+// finishClaim reports a confirmed claim to Oku, as the web app does. Failure is
+// returned as a warning: the claim itself is already final on chain.
+func (a *App) finishClaim(e *env, order, hash string) string {
+	w, err := agentWalletMetadata(e)
+	if err != nil {
+		return "FinishClaim skipped: " + err.Error()
+	}
+	c := e.client(w.profile)
+	s, err := e.unlock(w.profile, "")
+	if err != nil {
+		return "FinishClaim skipped: " + err.Error()
+	}
+	s.apply(c)
+	ctx, cancel := e.requestCtx()
+	defer cancel()
+	var finished v2.FinishClaimResponse
+	if err = c.Bridge(ctx, "FinishClaim", &v2.FinishClaimRequest{OrderId: order, TxHash: hash}, &finished, true); err != nil {
+		// The backend may already have seen the destination mint and closed
+		// the order; nothing is left to report.
+		if strings.Contains(err.Error(), "already completed") {
+			return ""
+		}
+		return "FinishClaim failed: " + err.Error()
+	}
+	return ""
 }

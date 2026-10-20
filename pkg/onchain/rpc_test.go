@@ -119,12 +119,14 @@ func TestEstimateReservesDependentStepsThatCannotSimulateYet(t *testing.T) {
 	}
 }
 
-// Any EVM chain resolves: built-in endpoints for common chains, an override
-// for anything else, and a clear error naming the variable when neither exists.
+// Any EVM chain resolves: Oku's eRPC gateway by chain-config internal name for
+// known chains, an override for anything else (or to replace the default), and
+// a clear error naming the variable when neither exists (zkSync is deprecated
+// in chain-config, so it needs an override).
 func TestRPCURLResolvesAnyChain(t *testing.T) {
 	env := map[string]string{"OKU_RPC_URL_324": "https://zk.example", "OKU_RPC_URL_10": "https://op.example"}
 	getenv := func(k string) string { return env[k] }
-	for chain, want := range map[uint64]string{137: defaultRPC[137], 10: "https://op.example", 324: "https://zk.example"} {
+	for chain, want := range map[uint64]string{137: "https://erpc.lat.gfx.town/main/polygon", 42161: "https://erpc.lat.gfx.town/main/arbitrum", 10: "https://op.example", 324: "https://zk.example"} {
 		if got, err := RPCURL(getenv, chain); err != nil || got != want {
 			t.Fatalf("chain %d: %q %v", chain, got, err)
 		}

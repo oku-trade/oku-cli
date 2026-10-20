@@ -326,36 +326,43 @@ func (a *App) cmdFundsStatus(e *env, kind string) (*result, error) {
 			return nil, output.Wrap(output.CodeUpstream, err, "batch lookup")
 		}
 	}
-	if (r.State == "sent" || r.State == "unknown") && len(r.Hashes) > 0 {
-		ctx, cancel := e.requestCtx()
-		defer cancel()
-		rpc := onchain.HTTPRPC{Getenv: a.Getenv}
-		status, err := rpc.Receipt(ctx, r.ChainID, r.Hashes[len(r.Hashes)-1])
-		if err != nil {
-			return nil, output.Wrap(output.CodeUpstream, err, "receipt lookup")
-		}
-		if status != nil {
-			next := "failed"
-			// One batch hash covers every call.
-			if *status && (len(r.Hashes) == len(r.Templates) || r.Batch != nil) {
-				next = "confirmed"
-			}
-			if *status && next != "confirmed" {
-				// Earlier steps confirmed but later ones were never recorded.
-				// Absence of a later transaction is not proof it cannot land, so
-				// this stays unresolved until reconciled with a hash.
-				next = "unknown"
-			}
-			if err = j.AdvanceOnchain(r.ID, r.State, next, ""); err != nil {
-				return nil, err
-			}
-			r, err = j.GetOnchain(r.ID)
-			if err != nil {
-				return nil, err
-			}
-		}
+	if r, err = a.resolveReceipt(e, j, r); err != nil {
+		return nil, err
 	}
 	return fundsResult(r), nil
+}
+
+// resolveReceipt advances a sent or unknown intent with a recorded hash from
+// its confirmed receipt. A missing receipt leaves it unresolved.
+func (a *App) resolveReceipt(e *env, j *journal.Journal, r *journal.OnchainRecord) (*journal.OnchainRecord, error) {
+	if (r.State != "sent" && r.State != "unknown") || len(r.Hashes) == 0 {
+		return r, nil
+	}
+	ctx, cancel := e.requestCtx()
+	defer cancel()
+	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	status, err := rpc.Receipt(ctx, r.ChainID, r.Hashes[len(r.Hashes)-1])
+	if err != nil {
+		return nil, output.Wrap(output.CodeUpstream, err, "receipt lookup")
+	}
+	if status == nil {
+		return r, nil
+	}
+	next := "failed"
+	// One batch hash covers every call.
+	if *status && (len(r.Hashes) == len(r.Templates) || r.Batch != nil) {
+		next = "confirmed"
+	}
+	if *status && next != "confirmed" {
+		// Earlier steps confirmed but later ones were never recorded.
+		// Absence of a later transaction is not proof it cannot land, so
+		// this stays unresolved until reconciled with a hash.
+		next = "unknown"
+	}
+	if err = j.AdvanceOnchain(r.ID, r.State, next, ""); err != nil {
+		return nil, err
+	}
+	return j.GetOnchain(r.ID)
 }
 func (a *App) cmdSendStatus(e *env) (*result, error)    { return a.cmdFundsStatus(e, "send") }
 func (a *App) cmdDepositStatus(e *env) (*result, error) { return a.cmdFundsStatus(e, "deposit") }

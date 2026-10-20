@@ -110,3 +110,79 @@ func TestBridgeClaimFlow(t *testing.T) {
 		})
 	}
 }
+
+// Live failure: the claim broadcast, but the default RPC refused the receipt
+// (HTTP 403), leaving the claim "sent". A rerun must confirm it from the
+// recorded hash without sending another transaction, then report it to Oku.
+func TestBridgeClaimRerunConfirmsSentClaim(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	h.rpcChain = "8453"
+	hash := "0x" + strings.Repeat("a", 64)
+	finished := 0
+	h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
+		switch method {
+		case "FinishClaim":
+			finished++
+			if body["orderId"] != "order" || body["txHash"] != hash {
+				t.Errorf("wrong finish claim %v", body)
+			}
+			return map[string]any{}, true
+		case "History":
+			t.Errorf("a recorded claim must not be re-fetched or resent")
+		}
+		return nil, false
+	}
+	rpc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Method string `json:"method"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		switch req.Method {
+		case "eth_chainId":
+			fmt.Fprint(w, `{"result":"0x2105"}`)
+		case "eth_getTransactionReceipt":
+			fmt.Fprintf(w, `{"result":{"status":"0x1","transactionHash":%q,"blockHash":%q,"blockNumber":"0x10"}}`, hash, hash)
+		case "eth_blockNumber":
+			fmt.Fprint(w, `{"result":"0x30"}`)
+		case "eth_getBlockByNumber":
+			fmt.Fprintf(w, `{"result":{"hash":%q}}`, hash)
+		default:
+			t.Errorf("unexpected rpc %s", req.Method)
+		}
+	}))
+	defer rpc.Close()
+	h.rpcURL = rpc.URL
+	p := &resolved{Name: "main", Network: "mainnet", Account: acct, APIURL: h.srv.URL}
+	j, err := openJournal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	target := "0x5555555555555555555555555555555555555555"
+	if _, err = j.CreateOnchain(journal.OnchainIntent{ID: "claim-source", Kind: "bridge", ChainID: 42161, OutChain: 8453, Sender: h.fake.agentAddress, Recipient: h.fake.agentAddress, Token: "native", Amount: "100", OrderID: "order", CreatedAt: now, Templates: []journal.OnchainTemplate{{ChainID: 42161, To: target, Value: "0x0"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err = j.AdvanceOnchain("claim-source", "prepared", "confirmed", "0xabc"); err != nil {
+		t.Fatal(err)
+	}
+	claim, err := j.CreateOnchain(journal.OnchainIntent{ID: "claim-tx", Kind: "claim", ParentIntent: "claim-source", OrderID: "order", ChainID: 8453, OutChain: 8453, Sender: h.fake.agentAddress, Recipient: target, Token: "native", Amount: "0", CreatedAt: now, Templates: []journal.OnchainTemplate{{ChainID: 8453, To: target, Data: "0xdeadbeef", Value: "0x0"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = j.BeginOnchain(claim.ID, claim.Digest, h.fake.agentAddress); err != nil {
+		t.Fatal(err)
+	}
+	if err = j.AdvanceOnchain(claim.ID, "sending", "sent", hash); err != nil {
+		t.Fatal(err)
+	}
+	j.Close()
+	r := h.run("bridge", "claim", "--intent", "claim-source", "--json")
+	if r.code != 0 || h.privy.rpcCalls != 0 || finished != 1 || !strings.Contains(r.stdout, "claim confirmed") {
+		t.Fatalf("rerun must confirm without resending: %s (sends %d, finish %d)", r.stdout, h.privy.rpcCalls, finished)
+	}
+	again := h.run("bridge", "claim", "--intent", "claim-source", "--json")
+	if again.code != 0 || h.privy.rpcCalls != 0 || finished != 1 {
+		t.Fatalf("confirmed claim must be idempotent: %s (finish %d)", again.stdout, finished)
+	}
+}
