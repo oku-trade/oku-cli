@@ -20,6 +20,7 @@ The embedded agent wallet is a separate EVM wallet with its own balances and gas
 
 ```sh
 oku wallet balances --chain 42161
+oku wallet fund --chain 42161 --token native --amount 0.01 # payment QR and web link, no signing
 oku swap quote   --chain 42161 --from USDC --to WETH --amount 1
 oku swap prepare --chain 42161 --from USDC --to WETH --amount 1
 oku swap submit  --intent ID --digest SHA     # within ~3 minutes of prepare

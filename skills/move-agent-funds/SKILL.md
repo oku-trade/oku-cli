@@ -12,6 +12,7 @@ Use `oku docs commands --json` to confirm the installed command and flags. Never
 ```sh
 oku wallet address --json
 oku wallet balances --chain eip155:42161 --json
+oku wallet fund --chain 42161 --token native --amount 0.01 --json
 oku swap quote --chain 42161 --from USDC --to WETH --amount 10 --json
 oku swap prepare --chain 42161 --from USDC --to WETH --amount 10 --json
 oku send prepare --chain 42161 --token native --amount 0.01 --json
@@ -38,7 +39,7 @@ Submitting signs and broadcasts with Privy, so ask for explicit approval first. 
 
 ## Bridge between EVM chains
 
-Bridges move agent funds from a source chain to a destination chain using any transaction-based route Oku quotes (Circle CCTP, Across, Relay, Squid, Bungee, Mayan and others). Intent-based and typed-data signing routes (for example Aori) are skipped.
+Bridges move agent funds from a source chain to a destination chain using transaction routes (Circle CCTP, Across, Relay, Squid, Bungee, Mayan and others) or intent routes such as Aori.
 
 ```sh
 oku bridge quote --chain 42161 --destination-chain 8453 --from USDC --to USDC --amount 10 --json
@@ -51,6 +52,8 @@ oku bridge reconcile --intent ID --tx-hash TX_HASH --json
 
 1. **Quote and prepare.** The recipient defaults to the agent wallet on the destination chain; `--recipient` overrides it. Show the user the route, amounts, minimum output, source and destination chains and recipient. **Bridge approvals and calldata are built by the backend and executed as returned, the same trust model as the Oku web app; unlike swaps, the CLI does not independently verify them.** The intent expires about 3 minutes after prepare.
 Use `--route NAME` on quote and prepare to request CoW Swap, Aori or another specific backend route, and `--no-intent` to exclude intent-based routes. Intent routes sign the backend's first EIP-712 typed-data payload via Privy, send necessary exact backend-provided approvals as separate ordinary transactions (to Permit2 or a vault relayer as directed), then relay the signature off-chain. The agent sends **no swap or bridge transaction** on intent routes. A journal state of `submitted` means the solver order was relayed, not filled; look for `backend_order_id` and monitor `swap status` or `bridge status`, which use Oku order history for fills, expirations and refunds. A relay timeout/5xx is ambiguous and must never be retried. An intent may remain pending, expire or refund. Review the backend-provided typed-data and route carefully: unlike transaction swaps, intent signing and approval economics are not independently verified by the CLI.
+
+CoW Swap can reject quotes below about $25 notional when a flat fee applies. Use `--route cowswap` to surface the backend reason; do not retry a failed quote automatically. On `INSUFFICIENT_GAS` or `INSUFFICIENT_BALANCE`, run `oku wallet fund --chain CHAIN --token native|usdc|TOKEN_ADDRESS` and ask the user to pay through the displayed QR or web page. This command never signs or transfers; omit `--amount` if the amount is unspecified, and use `--no-open` to avoid opening the browser.
 
 2. **Submit** (explicit user approval required). For transaction bridges, an approval plus the bridge call go out as one atomic batch; a single call is one transaction. Submit confirms the **source** chain only.
 3. **Status.** `bridge status` reports destination delivery for every bridge from Oku's order history (the web app's source), in `destination_fill.status`:

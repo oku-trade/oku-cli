@@ -160,6 +160,7 @@ func (a *App) commandTable() map[string]*handler {
 	m := map[string]*handler{
 		"wallet address":     {summary: "Show the enrolled agent wallet and master EOA", run: a.cmdWalletAddress},
 		"wallet balances":    {summary: "Read the agent's EVM native balance", flags: walletBalancesFlags, run: a.cmdWalletBalances},
+		"wallet fund":        {summary: "Show a payment QR and web link to fund the agent wallet (read-only)", flags: walletFundFlags, run: a.cmdWalletFund},
 		"deposit address":    {summary: "Read a master-bound HyperUnit deposit address", flags: depositAddressFlags, run: a.cmdDepositAddress},
 		"send prepare":       {summary: "Prepare an agent EVM transfer", flags: sendPrepareFlags, run: a.cmdSendPrepare},
 		"send submit":        {summary: "Broadcast an approved EVM transfer", flags: func() []urfave.Flag { return submitFlagsFor("send") }, run: a.cmdSendSubmit},

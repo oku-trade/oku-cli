@@ -1,5 +1,7 @@
 # Security
 
+`oku wallet fund` only displays an EIP-681 payment URI and Oku funding page for the enrolled agent. It never signs or transfers. Verify the chain, token, amount and destination address in the external paying wallet before sending funds.
+
 ## Privy delegated agent model
 
 The account is the user's **external** Hyperliquid master wallet. It holds funds and signs `approveAgent` and builder-fee approval on the Oku authorization page, not in this binary. The trading agent is a distinct Privy **embedded** Ethereum wallet, approved by the master as a Hyperliquid named agent. Oku Agent stores no local agent private key. `oku orders submit` requests `eth_signTypedData_v4` from Privy for the Hyperliquid Agent domain (`Exchange`, version `1`, chainId `1337`, zero verifying contract), and locally recovers the signature against the approved embedded-wallet address before sending it to Oku.

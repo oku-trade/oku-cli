@@ -199,7 +199,7 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 		err = executor.Execute(execCtx, executing)
 	}
 	if err != nil {
-		return nil, executionError(err, kind)
+		return nil, executionError(err, kind, r.ChainID, r.Token)
 	}
 	r, err = j.GetOnchain(r.ID)
 	if err != nil {

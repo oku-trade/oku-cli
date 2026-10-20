@@ -238,7 +238,7 @@ func (a *App) submitSignedIntent(e *env, kind string, record *journal.OnchainRec
 		executing.Templates = templates
 		executor := onchain.Executor{Getenv: a.Getenv, RPC: onchain.HTTPRPC{Getenv: a.Getenv}, Sender: session, Journal: j, WalletID: wallet}
 		if err = executor.Execute(ctx, executing); err != nil {
-			return nil, executionError(err, kind)
+			return nil, executionError(err, kind, record.ChainID, record.Token)
 		}
 	}
 	from := "sending"

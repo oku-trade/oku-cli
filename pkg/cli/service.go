@@ -33,7 +33,7 @@ type Service struct {
 // create backend orders and journal records, but never sign or broadcast.
 // They do not submit onchain transactions or change user configuration.
 var ServiceReads = map[string]bool{
-	"wallet address": true, "wallet balances": true, "deposit address": true,
+	"wallet address": true, "wallet balances": true, "wallet fund": true, "deposit address": true,
 	"send prepare": true, "send status": true, "deposit prepare": true, "deposit status": true,
 	"swap quote": true, "swap prepare": true, "swap status": true,
 	"bridge quote": true, "bridge prepare": true, "bridge status": true,

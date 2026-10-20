@@ -191,9 +191,9 @@ func (a *App) cmdBridgeClaim(e *env) (*result, error) {
 			return claimResult("already claimed", record, ""), nil
 		}
 		if errors.Is(err, onchain.ErrGas) {
-			return nil, output.Wrap(output.CodeInsufficientGas, err, fmt.Sprintf("destination chain %d needs native gas; nothing broadcast", chain))
+			return nil, output.Wrap(output.CodeInsufficientGas, err, fmt.Sprintf("destination chain %d needs native gas; nothing broadcast%s", chain, fundingHint(chain, "native")))
 		}
-		return nil, executionError(err, "claim")
+		return nil, executionError(err, "claim", chain, "native")
 	}
 	record, err = j.GetOnchain(record.ID)
 	if err != nil {

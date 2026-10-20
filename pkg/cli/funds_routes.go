@@ -254,6 +254,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 	ctx, cancel := e.requestCtx()
 	defer cancel()
 	ppm := int32(e.cmd.Int("slippage-bps") * 100)
+	routeErrors := map[string]string{}
 	if kind == "swap" {
 		var supported v2.GetSupportedMarketsResponse
 		if err = c.Swap(ctx, "GetSupportedMarkets", &v2.GetSupportedMarketsRequest{}, &supported, prepare); err != nil {
@@ -347,6 +348,9 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			best := math.Inf(-1)
 			for _, key := range keys {
 				entry := quotes.Quotes[key]
+				if entry != nil && entry.Error != nil && entry.Error.Message != "" {
+					routeErrors[strings.ToLower(key)] = entry.Error.Message
+				}
 				if entry == nil || !entry.Fetched || entry.Error != nil || entry.Quote == nil {
 					continue
 				}
@@ -471,6 +475,9 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			best := math.Inf(-1)
 			for _, key := range keys {
 				entry := quotes.Quotes[key]
+				if entry != nil && entry.Error != nil && entry.Error.Message != "" {
+					routeErrors[strings.ToLower(key)] = entry.Error.Message
+				}
 				if entry == nil || !entry.Fetched || entry.Error != nil || entry.Quote == nil {
 					continue
 				}
@@ -511,6 +518,11 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 		}
 	}
 	if q.OrderID == "" || q.QuoteID == "" {
+		if forced := str(e, "route"); forced != "" {
+			if detail := routeErrors[strings.ToLower(forced)]; detail != "" {
+				return q, nil, output.Errorf(output.CodeRejected, "no eligible route: %s: %s", forced, detail)
+			}
+		}
 		return q, nil, output.Errorf(output.CodeRejected, "no eligible route for requested tokens and amount")
 	}
 	q.ExpiresAt = a.Now().Add(3 * time.Minute).UTC().Format(time.RFC3339Nano)

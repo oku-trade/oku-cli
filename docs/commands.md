@@ -578,3 +578,16 @@ Read the agent's EVM native balance
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--chain` | EVM chain ID, e.g. 42161 (or eip155: prefixed); default 42161 | `` |
+
+## `oku wallet fund`
+
+Show a payment QR and web link to fund the agent wallet (read-only)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID (default 42161) | `42161` |
+| `--token` | native, usdc, or ERC-20 contract address | `native` |
+| `--amount` | optional decimal amount | `` |
+| `--no-open` | do not open the Oku funding page | `false` |

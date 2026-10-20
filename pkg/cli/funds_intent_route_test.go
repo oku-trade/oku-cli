@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -24,6 +25,7 @@ func TestSwapIntentRouteFlags(t *testing.T) {
 		return map[string]any{"router": route, "quoteId": route + "-quote", "fetched": true, "quote": q}
 	}
 	var markets []any
+	rejected := false
 	h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
 		switch method {
 		case "GetSupportedMarkets":
@@ -32,6 +34,9 @@ func TestSwapIntentRouteFlags(t *testing.T) {
 			markets = body["params"].(map[string]any)["enabledMarkets"].([]any)
 			return map[string]any{"orderId": "order", "timeline": 1}, true
 		case "GetFlowstreamQuotes":
+			if rejected {
+				return map[string]any{"timeline": 1, "quotes": map[string]any{"cow": map[string]any{"router": "cow", "fetched": true, "error": map[string]any{"message": "CoW Swap is unavailable when a flat fee applies. Choose another route."}}}}, true
+			}
 			return map[string]any{"timeline": 1, "quotes": map[string]any{"cow": quote("cow", true), "zeroex": quote("zeroex", false)}}, true
 		case "Cancel":
 			return map[string]any{}, true
@@ -50,5 +55,10 @@ func TestSwapIntentRouteFlags(t *testing.T) {
 		if r.code != 0 || r.data()["route"] != tc.route || r.data()["intent_based"] != tc.intent || len(markets) != tc.enabled {
 			t.Fatalf("quote flags %v: %s %s markets=%v", tc.extra, r.stdout, r.stderr, markets)
 		}
+	}
+	rejected = true
+	r := h.run(append(append([]string{}, base...), "--route", "cow")...)
+	if r.code == 0 || !strings.Contains(r.stdout, "cow: CoW Swap is unavailable when a flat fee applies") {
+		t.Fatalf("forced route rejection omitted backend reason: %s", r.stdout)
 	}
 }
