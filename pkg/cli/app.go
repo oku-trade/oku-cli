@@ -176,7 +176,7 @@ func (a *App) commandTable() map[string]*handler {
 		"bridge quote":       {summary: "Quote EVM-to-EVM bridge routes", flags: func() []urfave.Flag { return routeFlags(true) }, run: a.cmdBridgeQuote},
 		"bridge prepare":     {summary: "Prepare a backend-built transaction bridge", flags: func() []urfave.Flag { return routePrepareFlags(true) }, run: a.cmdBridgePrepare},
 		"bridge submit":      {summary: "Submit a backend-built EVM bridge", flags: func() []urfave.Flag { return submitFlagsFor("bridge") }, run: a.cmdBridgeSubmit},
-		"bridge status":      {summary: "Reconcile source transaction and inspect destination fill", flags: statusFlags, run: a.cmdBridgeStatus},
+		"bridge status":      {summary: "Reconcile source transaction and report destination delivery from Oku order history", flags: statusFlags, run: a.cmdBridgeStatus},
 		"bridge claim":       {summary: "Claim a bridge transfer on its destination chain", flags: statusFlags, run: a.cmdBridgeClaim},
 		"bridge reconcile":   {summary: "Attach and verify a recovered bridge transaction hash", flags: reconcileFlags, run: a.cmdBridgeReconcile},
 		"version":            {summary: "Print version information", run: a.cmdVersion},

@@ -113,7 +113,7 @@ Attach and verify a recovered bridge transaction hash
 
 ## `oku bridge status`
 
-Reconcile source transaction and inspect destination fill
+Reconcile source transaction and report destination delivery from Oku order history
 
 ### Options
 

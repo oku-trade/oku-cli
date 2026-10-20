@@ -2,12 +2,8 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -238,7 +234,9 @@ func (a *App) cmdRouteStatus(e *env, kind string) (*result, error) {
 			fmt.Fprintf(out, "%s source: %s; backend: %s (%s); order: %s\n", kind, record.State, backend.Status, backend.Stage, record.OrderID)
 		}}, nil
 	}
-	fill := acrossFill{Status: "unknown"}
+	// Destination delivery comes only from Oku's bridge order history, for
+	// every bridge (the same source as the web app's bridge history).
+	fill := destinationFill{Status: "unknown"}
 	claimRequired := false
 	var history v1.OrderHistoryResponse
 	if session, unlockErr := e.unlock(w.profile, ""); unlockErr == nil {
@@ -246,6 +244,7 @@ func (a *App) cmdRouteStatus(e *env, kind string) (*result, error) {
 	}
 	if client.History(ctx, &v1.OrderHistoryRequest{WalletAddr: w.agent, Types: []string{"bridge"}, MaxEntries: 1000}, &history) == nil {
 		if trade := bridgeTrade(&history, record.OrderID); trade != nil {
+			fill = historyFill(trade)
 			claimRequired = trade.Status == v1.OrderStatus_ORDER_STATUS_AWAITING_CLAIM
 		}
 	}
@@ -253,63 +252,48 @@ func (a *App) cmdRouteStatus(e *env, kind string) (*result, error) {
 	if claimRequired {
 		claimHint = "run oku bridge claim --intent " + record.ID
 	}
-	if strings.EqualFold(record.Route, "across") && len(record.Hashes) > 0 {
-		fill = a.acrossFillStatus(ctx, record.ChainID, record.Hashes[len(record.Hashes)-1])
-	}
-	return &result{data: map[string]any{"source": record, "backend": &backend, "destination_fill": fill, "destination_settled": false, "settlement_note": "destination fill status is informational; independently verify destination receipt or balance", "claim_required": claimRequired, "claim_hint": claimHint}, human: func(out io.Writer) {
-		fmt.Fprintf(out, "%s source: %s; backend: %s (%s); order: %s; destination fill: %s %s\n", kind, record.State, backend.Status, backend.Stage, record.OrderID, fill.Status, fill.FillTx)
+	return &result{data: map[string]any{"source": record, "backend": &backend, "destination_fill": fill, "destination_settled": fill.Status == "filled", "settlement_note": "destination status comes from Oku order history; verify the destination receipt or balance for high-value transfers", "claim_required": claimRequired, "claim_hint": claimHint}, human: func(out io.Writer) {
+		stage := ""
+		if backend.Stage != "" {
+			stage = " (" + backend.Stage + ")"
+		}
+		fmt.Fprintf(out, "%s source: %s; backend: %s%s; order: %s; destination: %s", kind, record.State, backend.Status, stage, record.OrderID, fill.Status)
+		if fill.FillTx != "" {
+			fmt.Fprintf(out, " %s", fill.FillTx)
+		}
+		fmt.Fprintln(out)
 		if claimRequired {
 			fmt.Fprintln(out, claimHint)
 		}
 	}}, nil
 }
+
+// historyFill maps an Oku bridge order history entry to destination status:
+// filled (with the destination tx when known), awaiting_claim, refunded,
+// failed, expired or pending.
+func historyFill(trade *v1.OrderTrade) destinationFill {
+	f := destinationFill{Status: "pending", FillTx: trade.DstTxHash}
+	switch trade.Status {
+	case v1.OrderStatus_ORDER_STATUS_COMPLETED, v1.OrderStatus_ORDER_STATUS_VERIFIED:
+		f.Status = "filled"
+	case v1.OrderStatus_ORDER_STATUS_AWAITING_CLAIM:
+		f.Status = "awaiting_claim"
+	case v1.OrderStatus_ORDER_STATUS_REFUNDED:
+		f.Status = "refunded"
+	case v1.OrderStatus_ORDER_STATUS_FAILED, v1.OrderStatus_ORDER_STATUS_ERRORED, v1.OrderStatus_ORDER_STATUS_CANCELED:
+		f.Status = "failed"
+	case v1.OrderStatus_ORDER_STATUS_EXPIRED:
+		f.Status = "expired"
+	}
+	if f.Status == "pending" && trade.DstTxHash != "" {
+		f.Status = "filled"
+	}
+	return f
+}
 func (a *App) cmdSwapStatus(e *env) (*result, error)   { return a.cmdRouteStatus(e, "swap") }
 func (a *App) cmdBridgeStatus(e *env) (*result, error) { return a.cmdRouteStatus(e, "bridge") }
 
-type acrossFill struct {
+type destinationFill struct {
 	Status string `json:"status"`
 	FillTx string `json:"fill_tx,omitempty"`
-}
-
-func (a *App) acrossFillStatus(ctx context.Context, chain uint64, hash string) acrossFill {
-	unknown := acrossFill{Status: "unknown"}
-	base := a.Getenv("OKU_ACROSS_API_URL")
-	if base == "" {
-		base = "https://app.across.to/api/deposit/status"
-	}
-	u, err := url.Parse(base)
-	if err != nil || (u.Scheme != "https" && u.Scheme != "http") {
-		return unknown
-	}
-	query := u.Query()
-	query.Set("originChainId", strconv.FormatUint(chain, 10))
-	query.Set("depositTxHash", hash)
-	u.RawQuery = query.Encode()
-	ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return unknown
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return unknown
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return unknown
-	}
-	var body struct {
-		Status string `json:"status"`
-		FillTx string `json:"fillTx"`
-	}
-	if json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&body) != nil {
-		return unknown
-	}
-	switch strings.ToLower(body.Status) {
-	case "filled", "pending", "expired", "refunded":
-		return acrossFill{Status: strings.ToLower(body.Status), FillTx: body.FillTx}
-	default:
-		return unknown
-	}
 }
