@@ -57,6 +57,16 @@ Unlock the credential for a while so agents and MCP can use it (Linux)
 | --- | --- | --- |
 | `--for` | how long to stay unlocked (kernel keyring, cleared on reboot or 'oku auth lock') | `8h0m0s` |
 
+## `oku bridge claim`
+
+Claim a bridge transfer on its destination chain
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id (required) | `` |
+
 ## `oku bridge prepare`
 
 Prepare a backend-built transaction bridge

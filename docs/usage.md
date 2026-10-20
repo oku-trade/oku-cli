@@ -177,6 +177,8 @@ This turns malformed order-draft JSON (code fences, single quotes, unquoted keys
 
 ## Agent EVM swaps and bridges
 
+After `oku bridge status --intent ID`, if `claim_required` is true, run `oku bridge claim --intent ID --json`. Some Circle routes require a destination-chain claim. The CLI reads the agent wallet's bridge order history, sends the backend-provided `claimTo` and `claimCalldata` as one transaction on the destination chain, waits for confirmation, then reports the transaction to the backend. Claim calldata is trusted exactly as in the Oku web app, not independently verified. The agent must hold native gas on the destination chain and have `OKU_RPC_URL_<chain_id>` configured when no built-in RPC is available. Claims are separately journaled and never resubmitted after an ambiguous outcome; inspect the reported claim intent instead.
+
 The embedded Privy wallet is an EVM wallet, **not** the Hyperliquid master account. Use `wallet address` to confirm both addresses. `wallet balances` reads native gas and recommended token balances on the selected EVM chain. `--chain` accepts any EVM chain ID (default 42161). Swaps work on any chain where Oku's swap markets are active; `swap quote` reports `REJECTED` for a chain without active markets.
 
 ```sh

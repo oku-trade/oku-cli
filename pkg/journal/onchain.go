@@ -15,25 +15,26 @@ import (
 
 // OnchainIntent binds every economic field and every ordered transaction template.
 type OnchainIntent struct {
-	ID         string            `json:"intent_id"`
-	Kind       string            `json:"kind"`
-	ChainID    uint64            `json:"chain_id"`
-	Sender     string            `json:"sender"`
-	Recipient  string            `json:"recipient"`
-	Token      string            `json:"token"`
-	Amount     string            `json:"amount"`
-	Templates  []OnchainTemplate `json:"templates"`
-	OrderID    string            `json:"order_id,omitempty"`
-	QuoteID    string            `json:"quote_id,omitempty"`
-	Generation int32             `json:"generation,omitempty"`
-	Route      string            `json:"route,omitempty"`
-	Target     string            `json:"target,omitempty"`
-	Spender    string            `json:"spender,omitempty"`
-	OutToken   string            `json:"out_token,omitempty"`
-	OutChain   uint64            `json:"out_chain,omitempty"`
-	MinOut     string            `json:"min_out,omitempty"`
-	ExpiresAt  string            `json:"expires_at,omitempty"`
-	CreatedAt  string            `json:"created_at"`
+	ID           string            `json:"intent_id"`
+	Kind         string            `json:"kind"`
+	ChainID      uint64            `json:"chain_id"`
+	Sender       string            `json:"sender"`
+	Recipient    string            `json:"recipient"`
+	Token        string            `json:"token"`
+	Amount       string            `json:"amount"`
+	Templates    []OnchainTemplate `json:"templates"`
+	OrderID      string            `json:"order_id,omitempty"`
+	ParentIntent string            `json:"parent_intent,omitempty"`
+	QuoteID      string            `json:"quote_id,omitempty"`
+	Generation   int32             `json:"generation,omitempty"`
+	Route        string            `json:"route,omitempty"`
+	Target       string            `json:"target,omitempty"`
+	Spender      string            `json:"spender,omitempty"`
+	OutToken     string            `json:"out_token,omitempty"`
+	OutChain     uint64            `json:"out_chain,omitempty"`
+	MinOut       string            `json:"min_out,omitempty"`
+	ExpiresAt    string            `json:"expires_at,omitempty"`
+	CreatedAt    string            `json:"created_at"`
 }
 type OnchainTemplate struct {
 	ChainID  uint64 `json:"chain_id"`
@@ -122,6 +123,37 @@ func (j *Journal) GetOnchain(id string) (*OnchainRecord, error) {
 		return nil, errors.New("corrupt onchain intent digest")
 	}
 	return r, nil
+}
+
+// ClaimForBridge finds a previously created claim, including terminal claims.
+// The journal lock must be held while checking and creating a claim.
+func (j *Journal) ClaimForBridge(parent string) (*OnchainRecord, error) {
+	rows, err := j.db.Query(`SELECT intent_id FROM onchain_intents WHERE profile=? AND kind='claim' ORDER BY created_at`, j.binding.Profile)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for _, id := range ids {
+		r, err := j.GetOnchain(id)
+		if err != nil {
+			return nil, err
+		}
+		if r.ParentIntent == parent && r.State != "failed" {
+			return r, nil
+		}
+	}
+	return nil, ErrNotFound
 }
 
 // SetOnchainBatch durably records batch metadata while the intent is in state.

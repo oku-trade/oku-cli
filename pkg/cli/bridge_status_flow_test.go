@@ -14,6 +14,9 @@ func TestBridgeStatusReportsBackendAndAcrossWithoutChangingSource(t *testing.T) 
 	h := newHarness(t)
 	h.enroll()
 	h.fake.routeReply = func(method string, _ map[string]any) (any, bool) {
+		if method == "History" {
+			return map[string]any{"history": []any{map[string]any{"orderId": "order", "status": "ORDER_STATUS_AWAITING_CLAIM"}}}, true
+		}
 		if method == "Ping" {
 			return map[string]any{"orderId": "order", "status": "confirmed", "stage": "done"}, true
 		}
@@ -50,8 +53,8 @@ func TestBridgeStatusReportsBackendAndAcrossWithoutChangingSource(t *testing.T) 
 		source := data["source"].(map[string]any)
 		backend := data["backend"].(map[string]any)
 		fill := data["destination_fill"].(map[string]any)
-		if source["state"] != "confirmed" || backend["order_id"] != "order" || fill["status"] != want || data["destination_settled"] != false {
-			t.Fatalf("source changed or destination incorrect: %v", data)
+		if source["state"] != "confirmed" || backend["order_id"] != "order" || fill["status"] != want || data["destination_settled"] != false || data["claim_required"] != true || data["claim_hint"] != "run oku bridge claim --intent bridge-status" {
+			t.Fatalf("source changed or destination incorrect: %v; calls=%v", data, h.fake.calls)
 		}
 	}
 	run("filled")

@@ -36,6 +36,7 @@ type fakePrivy struct {
 	wrongSigner                                  bool
 	grantCalls                                   int
 	batches                                      [][]map[string]string
+	transactions                                 []map[string]any
 }
 
 func newFakePrivy(t *testing.T) *fakePrivy {
@@ -154,6 +155,9 @@ func (f *fakePrivy) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if envelope.Method == "eth_sendTransaction" {
+			var transaction map[string]any
+			_ = json.Unmarshal(body, &transaction)
+			f.transactions = append(f.transactions, transaction)
 			if f.failSign {
 				w.WriteHeader(503)
 				reply(map[string]string{"error": "broadcast_timeout"})

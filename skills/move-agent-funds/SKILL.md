@@ -29,6 +29,7 @@ Resolve ambiguous token symbols with explicit contract addresses. Swap quote and
 oku swap submit --intent ID --digest SHA --json
 oku bridge submit --intent ID --digest SHA --json
 oku bridge status --intent ID --json
+oku bridge claim --intent ID --json  # only when status says claim_required
 oku bridge reconcile --intent ID --tx-hash TX_HASH --json
 oku send submit --intent ID --digest SHA --json
 oku deposit submit --intent ID --digest SHA --json
@@ -36,6 +37,8 @@ oku swap status --intent ID --json
 oku send reconcile --intent ID --tx-hash TX_HASH --json
 oku swap reconcile --intent ID --tx-hash TX_HASH --json
 ```
+
+Circle bridges may require a claim after the source confirms. When bridge status reports `claim_required`, fund the agent with native gas on the destination chain and run `oku bridge claim --intent ID`. The CLI trusts the backend claim calldata exactly as the Oku web app does. Configure `OKU_RPC_URL_<destination-chain-id>` when required. A claim has its own durable journal intent; after an ambiguous broadcast, inspect that intent and never resubmit it.
 
 Submitting signs and broadcasts with Privy, so ask for explicit approval first. A swap requiring token approval sends **one atomic** Privy `wallet_sendCalls` batch `[approve exact amount to OkuRouter, swap]` via EIP-7702. The first batch upgrades the agent wallet to a Kernel smart account without changing its address; the approval cannot confirm without the swap. A single-step route (such as native ETH input) sends one normal transaction. Submit waits for the chain's confirmation depth: under a minute on fast L2s such as Arbitrum, several minutes on Ethereum, Polygon or BNB Chain; if it returns OUTCOME_UNKNOWN after broadcast, run status rather than resubmitting. Batch lookup requires a full RPC serving recent historical state: set `OKU_RPC_URL_<CHAINID>` (e.g. `OKU_RPC_URL_42161`) to a suitable endpoint; chains without a built-in RPC require it; the public default may return 403 or lack the needed state.
 

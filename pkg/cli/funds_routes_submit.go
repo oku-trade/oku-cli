@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	v1 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v1"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
 	"github.com/oku-trade/oku-cli/pkg/journal"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
@@ -238,11 +239,28 @@ func (a *App) cmdRouteStatus(e *env, kind string) (*result, error) {
 		}}, nil
 	}
 	fill := acrossFill{Status: "unknown"}
+	claimRequired := false
+	var history v1.OrderHistoryResponse
+	if session, unlockErr := e.unlock(w.profile, ""); unlockErr == nil {
+		session.apply(client)
+	}
+	if client.History(ctx, &v1.OrderHistoryRequest{WalletAddr: w.agent, Types: []string{"bridge"}, MaxEntries: 1000}, &history) == nil {
+		if trade := bridgeTrade(&history, record.OrderID); trade != nil {
+			claimRequired = trade.Status == v1.OrderStatus_ORDER_STATUS_AWAITING_CLAIM
+		}
+	}
+	claimHint := ""
+	if claimRequired {
+		claimHint = "run oku bridge claim --intent " + record.ID
+	}
 	if strings.EqualFold(record.Route, "across") && len(record.Hashes) > 0 {
 		fill = a.acrossFillStatus(ctx, record.ChainID, record.Hashes[len(record.Hashes)-1])
 	}
-	return &result{data: map[string]any{"source": record, "backend": &backend, "destination_fill": fill, "destination_settled": false, "settlement_note": "destination fill status is informational; independently verify destination receipt or balance"}, human: func(out io.Writer) {
+	return &result{data: map[string]any{"source": record, "backend": &backend, "destination_fill": fill, "destination_settled": false, "settlement_note": "destination fill status is informational; independently verify destination receipt or balance", "claim_required": claimRequired, "claim_hint": claimHint}, human: func(out io.Writer) {
 		fmt.Fprintf(out, "%s source: %s; backend: %s (%s); order: %s; destination fill: %s %s\n", kind, record.State, backend.Status, backend.Stage, record.OrderID, fill.Status, fill.FillTx)
+		if claimRequired {
+			fmt.Fprintln(out, claimHint)
+		}
 	}}, nil
 }
 func (a *App) cmdSwapStatus(e *env) (*result, error)   { return a.cmdRouteStatus(e, "swap") }
