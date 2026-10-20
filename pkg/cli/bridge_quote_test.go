@@ -2,12 +2,21 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 )
 
 func TestBridgeQuoteFollowsGenerationAndAcceptsAcrossWithoutSimulation(t *testing.T) {
+	// The live backend answers UpdateQuoteParams with generation 0; the web
+	// app then polls generation 1. An explicit generation is used as given.
+	for _, tc := range []struct{ reported, polled float64 }{{7, 7}, {0, 1}} {
+		t.Run(fmt.Sprint(tc.reported), func(t *testing.T) { bridgeQuoteGeneration(t, tc.reported, tc.polled) })
+	}
+}
+
+func bridgeQuoteGeneration(t *testing.T, reported, polled float64) {
 	h := newHarness(t)
 	h.enroll()
 	h.rpcURL = decimalsRPC(t)
@@ -37,10 +46,10 @@ func TestBridgeQuoteFollowsGenerationAndAcceptsAcrossWithoutSimulation(t *testin
 			if body["orderId"] != "order" || body["params"] == nil {
 				t.Errorf("params not echoed: %v", body)
 			}
-			return map[string]any{"orderId": "order", "generation": 7, "timeline": 2}, true
+			return map[string]any{"orderId": "order", "generation": reported, "timeline": 2}, true
 		case "GetNewQuotes":
 			polls++
-			if body["generation"] != float64(7) {
+			if body["generation"] != polled {
 				t.Errorf("wrong generation: %v", body)
 			}
 			if polls == 1 {

@@ -398,10 +398,15 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 		if err = c.Bridge(ctx, "UpdateQuoteParams", &v2.BridgeUpdateQuoteParamsRequest{OrderId: q.OrderID, Params: req.Params}, &updated, prepare); err != nil {
 			return q, nil, apiError(err, "bridge UpdateQuoteParams")
 		}
-		if updated.Generation <= 0 || updated.Generation > math.MaxInt32 || updated.OrderId != "" && updated.OrderId != q.OrderID {
+		if updated.Generation < 0 || updated.Generation > math.MaxInt32 || updated.OrderId != "" && updated.OrderId != q.OrderID {
 			return q, nil, output.Errorf(output.CodePayloadMismatch, "bridge quote generation or order differs")
 		}
+		// Like the web app: after a successful UpdateQuoteParams the quote
+		// generation is 1 (the response often reports 0).
 		q.Generation = int32(updated.Generation)
+		if q.Generation == 0 {
+			q.Generation = 1
+		}
 		collected := map[string]*v2.BridgeQuoteInformation{}
 		deadline := time.Now().Add(swapQuoteWindow)
 		if d, ok := ctx.Deadline(); ok && d.Add(-time.Second).Before(deadline) {
