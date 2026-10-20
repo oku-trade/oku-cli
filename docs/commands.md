@@ -57,6 +57,23 @@ Unlock the credential for a while so agents and MCP can use it (Linux)
 | --- | --- | --- |
 | `--for` | how long to stay unlocked (kernel keyring, cleared on reboot or 'oku auth lock') | `8h0m0s` |
 
+## `oku bridge prepare`
+
+Prepare a backend-built transaction bridge
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
+| `--from` | input token address or unambiguous symbol | `` |
+| `--to` | output token address or unambiguous symbol | `` |
+| `--amount` | exact input decimal amount | `` |
+| `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
+| `--recipient` | EVM recipient (default: agent wallet) | `` |
+| `--destination-chain` | destination EVM chain ID | `` |
+| `--intent-id` | optional unique intent ID | `` |
+
 ## `oku bridge quote`
 
 Quote EVM-to-EVM bridge routes
@@ -72,6 +89,38 @@ Quote EVM-to-EVM bridge routes
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
 | `--destination-chain` | destination EVM chain ID | `` |
+
+## `oku bridge reconcile`
+
+Attach and verify a recovered bridge transaction hash
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | unresolved intent ID | `` |
+| `--tx-hash` | recovered onchain transaction hash | `` |
+
+## `oku bridge status`
+
+Reconcile source transaction and inspect destination fill
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id (required) | `` |
+
+## `oku bridge submit`
+
+Submit a backend-built EVM bridge
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id from 'bridge prepare' (required) | `` |
+| `--digest` | intent digest from 'bridge prepare' (required) | `` |
 
 ## `oku completion bash|zsh|fish`
 

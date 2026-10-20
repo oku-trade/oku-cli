@@ -245,7 +245,8 @@ type harness struct {
 	privy  *fakePrivy
 	rpcURL string
 	// rpcChain additionally routes OKU_RPC_URL_<rpcChain> to rpcURL.
-	rpcChain string
+	rpcChain  string
+	acrossAPI string
 }
 
 func newHarness(t *testing.T) *harness {
@@ -294,6 +295,9 @@ func (h *harness) run(args ...string) run {
 			}
 			if k == "OKU_HYPERLIQUID_INFO_URL" {
 				return h.srv.URL + "/info"
+			}
+			if k == "OKU_ACROSS_API_URL" {
+				return h.acrossAPI
 			}
 			if k == "OKU_RPC_URL_42161" || k == "OKU_RPC_URL_"+h.rpcChain {
 				return h.rpcURL

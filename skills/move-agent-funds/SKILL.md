@@ -1,6 +1,6 @@
 ---
 name: move-agent-funds
-description: Move agent EVM funds via send, swap and master-bound deposit; bridge quotes are read-only.
+description: Move agent EVM funds via send, swap, backend-built transaction bridges and master-bound deposit.
 ---
 
 # Move Oku Agent Funds
@@ -14,18 +14,22 @@ oku wallet address --json
 oku wallet balances --chain eip155:42161 --json
 oku swap quote --chain 42161 --from USDC --to WETH --amount 10 --json
 oku bridge quote --chain 42161 --destination-chain 8453 --from USDC --to USDC --amount 10 --json
+oku bridge prepare --chain 42161 --destination-chain 8453 --from USDC --to USDC --amount 10 --json
 oku swap prepare --chain 42161 --from USDC --to WETH --amount 10 --json
 oku send prepare --chain 42161 --token native --amount 0.01 --json
 oku deposit address --asset usdc --source-chain eip155:42161 --json
 oku deposit prepare --amount 10 --json
 ```
 
-Resolve ambiguous token symbols with explicit contract addresses. Swap quote and prepare default to the enrolled agent wallet. Swap quotes use the backend `GetFlowstreamQuotes` long-poll, the same stream as the web app; allow up to about 8 seconds to collect routes. Bridge quote is informational; bridge execution is unavailable. Prepare writes a journal intent. Show the recipient, chain, router, minimum output, expiry and digest before submitting. A swap intent expires about 3 minutes after prepare, so obtain approval and submit promptly; if it expires, prepare anew. Keep native ETH on Arbitrum (or native gas on the selected chain) in the agent wallet for swaps and sends. Gas estimates include a buffer but cannot guarantee L2 data fees.
+Resolve ambiguous token symbols with explicit contract addresses. Swap quote and prepare default to the enrolled agent wallet. Swap quotes use the backend `GetFlowstreamQuotes` long-poll, the same stream as the web app; allow up to about 8 seconds to collect routes. Transaction-based Oku bridges support quote, prepare, submit, status and reconcile. Only the source chain needs RPC; intent-based and typed-data routes are skipped. **Bridge approvals and calldata come from the backend and are not independently verified by this CLI, unlike swaps.** Inspect the route and recipient carefully before approving. A bridge intent expires about 3 minutes after prepare. Multiple calls execute atomically; backend status and Across destination fill status are informational, and an unknown Across API result does not mean funds are lost. Prepare writes a journal intent. Show the recipient, chain, router, minimum output, expiry and digest before submitting. A swap intent expires about 3 minutes after prepare, so obtain approval and submit promptly; if it expires, prepare anew. Keep native ETH on Arbitrum (or native gas on the selected chain) in the agent wallet for swaps and sends. Gas estimates include a buffer but cannot guarantee L2 data fees.
 
 ## Submit and reconcile
 
 ```sh
 oku swap submit --intent ID --digest SHA --json
+oku bridge submit --intent ID --digest SHA --json
+oku bridge status --intent ID --json
+oku bridge reconcile --intent ID --tx-hash TX_HASH --json
 oku send submit --intent ID --digest SHA --json
 oku deposit submit --intent ID --digest SHA --json
 oku swap status --intent ID --json

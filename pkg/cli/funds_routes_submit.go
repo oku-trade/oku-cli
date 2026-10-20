@@ -2,8 +2,12 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -98,9 +102,9 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 		if err = c.Bridge(ctx, "ConfirmQuoteSelect", &v2.BridgeConfirmQuoteSelectRequest{OrderId: r.OrderID, Bridge: r.Route, QuoteId: r.QuoteID}, &confirmed, true); err != nil {
 			return nil, apiError(err, "ConfirmQuoteSelect")
 		}
-		var fetched v2.BridgeGetQuoteResponse
-		if err = c.Bridge(ctx, "GetQuote", &v2.BridgeGetQuoteRequest{OrderId: r.OrderID, Bridge: r.Route}, &fetched, true); err != nil {
-			return nil, apiError(err, "GetQuote")
+		var fetched v2.BridgeGetQuotesResponse
+		if err = c.Bridge(ctx, "GetQuotes", &v2.BridgeGetQuotesRequest{OrderId: r.OrderID, Generation: r.Generation}, &fetched, true); err != nil {
+			return nil, apiError(err, "GetQuotes")
 		}
 		var quote *v2.BridgeQuote
 		for _, entry := range fetched.Quotes {
@@ -108,26 +112,31 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 				quote = entry.Quote
 			}
 		}
-		if quote == nil || quote.IntentBased || quote.InChainId != int32(r.ChainID) || quote.OutChainId != int32(r.OutChain) || len(quote.SigningRequest.GetTypedData()) > 0 {
-			return nil, output.Errorf(output.CodePayloadMismatch, "unsupported changed bridge quote")
+		if quote == nil || quote.IntentBased || len(quote.SigningRequest.GetTypedData()) > 0 {
+			return nil, output.Errorf(output.CodePayloadMismatch, "selected bridge quote is unavailable or requires typed-data signing")
 		}
-		min = quote.MinAmountOut
 		approvals = quote.Approvals
-		err = c.Bridge(ctx, "GetExecutionInfo", &v2.GetExecutionInfoRequest{OrderId: r.OrderID, QuoteId: r.QuoteID, Request: &v2.ExecutionRequest{SigningRequest: quote.SigningRequest}}, &info, true)
+		err = c.Bridge(ctx, "GetExecutionInfo", &v2.GetExecutionInfoRequest{OrderId: r.OrderID, QuoteId: r.QuoteID, Request: &v2.ExecutionRequest{}}, &info, true)
 	}
 	if err != nil {
 		return nil, apiError(err, "GetExecutionInfo")
 	}
-	templates, err := verifyExecution(r.OnchainIntent, min, info.Info, approvals)
+	var templates []journal.OnchainTemplate
+	if kind == "bridge" {
+		templates, err = backendBridgeExecution(r.ChainID, info.Info, approvals)
+	} else {
+		templates, err = verifyExecution(r.OnchainIntent, min, info.Info, approvals)
+	}
 	if err != nil {
 		return nil, output.Wrap(output.CodePayloadMismatch, err, "refusing unverified execution")
 	}
-	// The router must be a deployed contract on this chain. Calling an
-	// undeployed address would "succeed" as a plain transfer and lose value.
-	if hasCode, cerr := (onchain.HTTPRPC{Getenv: a.Getenv}).HasCode(ctx, r.ChainID, r.Target); cerr != nil {
-		return nil, output.Wrap(output.CodeUpstream, cerr, "router code check")
-	} else if !hasCode {
-		return nil, output.Errorf(output.CodePayloadMismatch, "no OkuRouter contract at %s on chain %d", r.Target, r.ChainID)
+	if kind == "swap" {
+		// Swaps retain their independent deployed OkuRouter check.
+		if hasCode, cerr := (onchain.HTTPRPC{Getenv: a.Getenv}).HasCode(ctx, r.ChainID, r.Target); cerr != nil {
+			return nil, output.Wrap(output.CodeUpstream, cerr, "route target code check")
+		} else if !hasCode {
+			return nil, output.Errorf(output.CodePayloadMismatch, "no OkuRouter contract at %s on chain %d", r.Target, r.ChainID)
+		}
 	}
 	pc, err := e.privyClient(w.profile)
 	if err != nil {
@@ -223,9 +232,66 @@ func (a *App) cmdRouteStatus(e *env, kind string) (*result, error) {
 	if backend.OrderId != record.OrderID {
 		return nil, output.Errorf(output.CodePayloadMismatch, "backend order ID differs")
 	}
-	return &result{data: map[string]any{"source": record, "backend": &backend, "destination_settled": false, "settlement_note": "backend order status is informational; verify destination-chain receipt or balance independently"}, human: func(out io.Writer) {
-		fmt.Fprintf(out, "%s source: %s; backend: %s (%s); order: %s\n", kind, record.State, backend.Status, backend.Stage, record.OrderID)
+	if kind == "swap" {
+		return &result{data: map[string]any{"source": record, "backend": &backend, "destination_settled": false, "settlement_note": "backend order status is informational; verify destination-chain receipt or balance independently"}, human: func(out io.Writer) {
+			fmt.Fprintf(out, "%s source: %s; backend: %s (%s); order: %s\n", kind, record.State, backend.Status, backend.Stage, record.OrderID)
+		}}, nil
+	}
+	fill := acrossFill{Status: "unknown"}
+	if strings.EqualFold(record.Route, "across") && len(record.Hashes) > 0 {
+		fill = a.acrossFillStatus(ctx, record.ChainID, record.Hashes[len(record.Hashes)-1])
+	}
+	return &result{data: map[string]any{"source": record, "backend": &backend, "destination_fill": fill, "destination_settled": false, "settlement_note": "destination fill status is informational; independently verify destination receipt or balance"}, human: func(out io.Writer) {
+		fmt.Fprintf(out, "%s source: %s; backend: %s (%s); order: %s; destination fill: %s %s\n", kind, record.State, backend.Status, backend.Stage, record.OrderID, fill.Status, fill.FillTx)
 	}}, nil
 }
 func (a *App) cmdSwapStatus(e *env) (*result, error)   { return a.cmdRouteStatus(e, "swap") }
 func (a *App) cmdBridgeStatus(e *env) (*result, error) { return a.cmdRouteStatus(e, "bridge") }
+
+type acrossFill struct {
+	Status string `json:"status"`
+	FillTx string `json:"fill_tx,omitempty"`
+}
+
+func (a *App) acrossFillStatus(ctx context.Context, chain uint64, hash string) acrossFill {
+	unknown := acrossFill{Status: "unknown"}
+	base := a.Getenv("OKU_ACROSS_API_URL")
+	if base == "" {
+		base = "https://app.across.to/api/deposit/status"
+	}
+	u, err := url.Parse(base)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") {
+		return unknown
+	}
+	query := u.Query()
+	query.Set("originChainId", strconv.FormatUint(chain, 10))
+	query.Set("depositTxHash", hash)
+	u.RawQuery = query.Encode()
+	ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return unknown
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return unknown
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return unknown
+	}
+	var body struct {
+		Status string `json:"status"`
+		FillTx string `json:"fillTx"`
+	}
+	if json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&body) != nil {
+		return unknown
+	}
+	switch strings.ToLower(body.Status) {
+	case "filled", "pending", "expired", "refunded":
+		return acrossFill{Status: strings.ToLower(body.Status), FillTx: body.FillTx}
+	default:
+		return unknown
+	}
+}

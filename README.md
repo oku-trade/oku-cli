@@ -9,7 +9,7 @@ For user-operated authentication, run `oku auth login` in a terminal. Sign on th
 > **Status: pre-release / private alpha development.**
 > - The repository is private. There is no published npm package, no hosted install script and no auto-update.
 > - Staging acceptance on 2026-10-14 verified Privy login, signed order submission, order listing and cancel. This is not production acceptance.
-> - Live Arbitrum checks on 2026-10-19 with small amounts verified agent-wallet send, master deposit transfer, a single-step swap and an atomic approve+swap batch. Bridge execution is not implemented (`bridge quote` only).
+> - Live Arbitrum checks on 2026-10-19 with small amounts verified agent-wallet send, master deposit transfer, a single-step swap and an atomic approve+swap batch. Transaction-based Oku bridge execution is available via `bridge prepare`, `submit`, `status`, and `reconcile`; bridge calldata and approvals are backend-built without independent CLI verification, and destination tracking is informational.
 > - Accounts multi-app verification (account#530) and the authorize page (trade#3569) are merged. Production must use `https://oku.trade/agent/authorize`; staging currently uses `https://unitrade.lat.gfx.town/agent/authorize`.
 > - Earlier release checks in [docs/validation.md](docs/validation.md) predate this auth model.
 > - The command grammar may change.

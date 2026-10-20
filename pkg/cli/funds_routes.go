@@ -39,20 +39,21 @@ func routePrepareFlags(bridge bool) []urfave.Flag {
 }
 
 type routeQuote struct {
-	OrderID   string `json:"order_id"`
-	QuoteID   string `json:"quote_id"`
-	Route     string `json:"route"`
-	Target    string `json:"target"`
-	Spender   string `json:"spender,omitempty"`
-	MinOut    string `json:"min_out"`
-	OutAmount string `json:"out_amount"`
-	InAmount  string `json:"in_amount"`
-	Recipient string `json:"recipient"`
-	Chain     uint64 `json:"chain"`
-	OutChain  uint64 `json:"out_chain,omitempty"`
-	InToken   string `json:"in_token"`
-	OutToken  string `json:"out_token"`
-	ExpiresAt string `json:"expires_at"`
+	OrderID    string `json:"order_id"`
+	Generation int32  `json:"generation,omitempty"`
+	QuoteID    string `json:"quote_id"`
+	Route      string `json:"route"`
+	Target     string `json:"target"`
+	Spender    string `json:"spender,omitempty"`
+	MinOut     string `json:"min_out"`
+	OutAmount  string `json:"out_amount"`
+	InAmount   string `json:"in_amount"`
+	Recipient  string `json:"recipient"`
+	Chain      uint64 `json:"chain"`
+	OutChain   uint64 `json:"out_chain,omitempty"`
+	InToken    string `json:"in_token"`
+	OutToken   string `json:"out_token"`
+	ExpiresAt  string `json:"expires_at"`
 }
 
 func positiveRaw(s string) (*big.Int, error) {
@@ -73,6 +74,9 @@ func routeTarget(info *v2.ExecutionInformation) string {
 }
 func safeInfo(info *v2.ExecutionInformation) bool {
 	return info != nil && info.Trade != nil && info.DepositAddress == "" && info.PsbtHex == "" && info.OpReturnData == "" && len(info.Transactions) <= 1 && len(info.Approvals) == 0
+}
+func bridgeInfo(info *v2.ExecutionInformation) bool {
+	return info != nil && info.Trade != nil && info.DepositAddress == "" && info.PsbtHex == "" && info.OpReturnData == "" && len(info.Transactions) <= 8
 }
 func (a *App) resolveRouteToken(ctx context.Context, c *api.Client, chain uint64, name string) (string, error) {
 	if strings.EqualFold(name, "native") {
@@ -390,12 +394,53 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			return q, nil, apiError(err, "bridge Create")
 		}
 		q.OrderID = created.OrderId
-		for attempt := 0; attempt < 5; attempt++ {
-			var quotes v2.BridgeGetQuotesResponse
-			err = c.Bridge(ctx, "GetQuotes", &v2.BridgeGetQuotesRequest{OrderId: q.OrderID}, &quotes, prepare)
-			if err != nil {
-				return q, nil, apiError(err, "bridge GetQuotes")
+		var updated v2.BridgeUpdateQuoteParamsResponse
+		if err = c.Bridge(ctx, "UpdateQuoteParams", &v2.BridgeUpdateQuoteParamsRequest{OrderId: q.OrderID, Params: req.Params}, &updated, prepare); err != nil {
+			return q, nil, apiError(err, "bridge UpdateQuoteParams")
+		}
+		if updated.Generation <= 0 || updated.Generation > math.MaxInt32 || updated.OrderId != "" && updated.OrderId != q.OrderID {
+			return q, nil, output.Errorf(output.CodePayloadMismatch, "bridge quote generation or order differs")
+		}
+		q.Generation = int32(updated.Generation)
+		collected := map[string]*v2.BridgeQuoteInformation{}
+		deadline := time.Now().Add(swapQuoteWindow)
+		if d, ok := ctx.Deadline(); ok && d.Add(-time.Second).Before(deadline) {
+			deadline = d.Add(-time.Second)
+		}
+		for time.Now().Before(deadline) {
+			fetched := make([]string, 0, len(collected))
+			for name, entry := range collected {
+				if entry != nil && entry.Fetched {
+					fetched = append(fetched, name)
+				}
 			}
+			if len(fetched) >= len(bridges) {
+				break
+			}
+			sort.Strings(fetched)
+			wait := time.Until(deadline)
+			if wait > swapFlowstreamPoll {
+				wait = swapFlowstreamPoll
+			}
+			var quotes v2.BridgeGetQuotesResponse
+			err = c.Bridge(ctx, "GetNewQuotes", &v2.BridgeGetNewQuotesRequest{OrderId: q.OrderID, FetchedBridges: fetched, WaitTime: int64(wait.Milliseconds()), Generation: q.Generation}, &quotes, prepare)
+			if err != nil {
+				if len(fetched) > 0 {
+					break
+				}
+				return q, nil, apiError(err, "bridge GetNewQuotes")
+			}
+			for name, entry := range quotes.Quotes {
+				if entry != nil {
+					collected[name] = entry
+				}
+			}
+			if ctx.Err() != nil && len(fetched) == 0 {
+				return q, nil, ctx.Err()
+			}
+		}
+		{
+			quotes := v2.BridgeGetQuotesResponse{Quotes: collected}
 			keys := make([]string, 0, len(quotes.Quotes))
 			for key := range quotes.Quotes {
 				keys = append(keys, key)
@@ -408,39 +453,33 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					continue
 				}
 				v := entry.Quote
-				if v.IntentBased || v.InChainId != int32(q.Chain) || v.OutChainId != int32(q.OutChain) || v.Simulation == nil || !v.Simulation.Success || !safeInfo(v.ExecutionInfo) || !onchain.ValidAddress(routeTarget(v.ExecutionInfo)) || len(v.SigningRequest.GetTypedData()) > 0 {
+				if v.IntentBased || v.InChainId != int32(q.Chain) || v.OutChainId != int32(q.OutChain) || !bridgeInfo(v.ExecutionInfo) || !onchain.ValidAddress(routeTarget(v.ExecutionInfo)) || len(v.SigningRequest.GetTypedData()) > 0 {
 					continue
 				}
-				if v.InToken == nil || v.OutToken == nil || !strings.EqualFold(v.InToken.Address, q.InToken) || !strings.EqualFold(v.OutToken.Address, q.OutToken) {
+				if v.InToken == nil || v.OutToken == nil || !(strings.EqualFold(v.InToken.Address, q.InToken) || q.InToken == "native" && (strings.EqualFold(v.InToken.Address, "0x0000000000000000000000000000000000000000") || strings.EqualFold(v.InToken.Address, "native"))) || !strings.EqualFold(v.OutToken.Address, q.OutToken) {
 					continue
 				}
-				input, ie := positiveRaw(v.InAmount)
-				min, me := positiveRaw(v.MinAmountOut)
+				input, ie := parseUnits(v.InAmount, int(v.InToken.Decimals))
+				min, me := parseUnits(v.MinAmountOut, int(v.OutToken.Decimals))
 				if ie != nil || me != nil || input.String() != q.InAmount {
 					continue
 				}
 				net := v.OutUsdValue - v.FeesUsdValue - v.GasUsdValue
-				if math.IsNaN(net) || math.IsInf(net, 0) || v.InUsdValue > 0 && net < v.InUsdValue*0.85 {
+				if math.IsNaN(net) || math.IsInf(net, 0) {
 					continue
 				}
 				if net > best {
+					out, oe := parseUnits(v.OutAmount, int(v.OutToken.Decimals))
+					if oe != nil {
+						continue
+					}
 					best = net
 					q.QuoteID = entry.QuoteId
 					q.Route = entry.Bridge
 					q.Target = routeTarget(v.ExecutionInfo)
 					q.MinOut = min.String()
-					q.OutAmount = v.OutAmount
+					q.OutAmount = out.String()
 					q.Spender = quoteSpender(v.Approvals, q.InToken, q.InAmount)
-				}
-			}
-			if q.QuoteID != "" {
-				break
-			}
-			if attempt < 4 {
-				select {
-				case <-ctx.Done():
-					return q, nil, ctx.Err()
-				case <-time.After(350 * time.Millisecond):
 				}
 			}
 		}
@@ -506,7 +545,7 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 	if kind == "swap" && (router == "" || !strings.EqualFold(q.Target, router) || q.InToken != "native" && q.Spender != "" && !strings.EqualFold(q.Spender, router)) {
 		return nil, output.Errorf(output.CodeRejected, "swap route or approval spender is not OkuRouter")
 	}
-	if q.InToken != "native" {
+	if kind == "swap" && q.InToken != "native" {
 		q.Spender = router
 	}
 	id := str(e, "intent-id")
@@ -517,7 +556,7 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 	if q.InToken != "native" {
 		placeholders = append([]journal.OnchainTemplate{{ChainID: q.Chain, To: q.InToken, Value: "0x0", Token: q.InToken, Amount: onchain.Hex(mustRaw(q.InAmount))}}, placeholders...)
 	}
-	in := journal.OnchainIntent{ID: id, Kind: kind, ChainID: q.Chain, OutChain: q.OutChain, Sender: w.agent, Recipient: q.Recipient, Token: q.InToken, OutToken: q.OutToken, Amount: q.InAmount, OrderID: q.OrderID, QuoteID: q.QuoteID, Route: q.Route, Target: q.Target, Spender: q.Spender, MinOut: q.MinOut, ExpiresAt: q.ExpiresAt, CreatedAt: a.Now().UTC().Format(time.RFC3339Nano), Templates: placeholders}
+	in := journal.OnchainIntent{ID: id, Kind: kind, ChainID: q.Chain, OutChain: q.OutChain, Sender: w.agent, Recipient: q.Recipient, Token: q.InToken, OutToken: q.OutToken, Amount: q.InAmount, OrderID: q.OrderID, QuoteID: q.QuoteID, Generation: q.Generation, Route: q.Route, Target: q.Target, Spender: q.Spender, MinOut: q.MinOut, ExpiresAt: q.ExpiresAt, CreatedAt: a.Now().UTC().Format(time.RFC3339Nano), Templates: placeholders}
 	j, err := openJournal(w.profile)
 	if err != nil {
 		return nil, err
