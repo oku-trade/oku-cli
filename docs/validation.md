@@ -1,5 +1,16 @@
 # Validation
 
+## 2026-10-20 bridge (Circle CCTP Arbitrum to Base, 1 USDC)
+
+| Check | Evidence |
+|---|---|
+| `bridge quote`/`prepare` via Create, UpdateQuoteParams, GetNewQuotes (generation 1) | route `circleStandard`, 1 USDC in, minimum 1 USDC out |
+| `bridge submit`: approve + `depositForBurn` as one `wallet_sendCalls` batch | Arbitrum tx `0x8a8aa243…aeda48`, located by nonce 7, confirmed; 1 USDC burned |
+| `bridge status` shows `awaiting_claim` from order history | `claim_required: true` |
+| `bridge claim` on Base (agent paid gas) | Base tx `0x622165a7…96a2`, 1 USDC minted to the agent |
+| Receipt outage: default publicnode Base RPC returned 403 for the receipt | rerun of `bridge claim` confirmed from the recorded hash without resending; defaults moved to Oku eRPC |
+| `bridge status` after claim | backend `completed`, `destination: filled 0x622165a7…` |
+
 ## 2026-10-19 agent-wallet funds (Arbitrum mainnet, small amounts)
 
 Operator-run live checks with the staging profile's Privy agent wallet `0x04ea…e027` and `OKU_RPC_URL_42161` pointed at a full RPC:
