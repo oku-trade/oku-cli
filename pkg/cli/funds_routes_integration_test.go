@@ -17,8 +17,8 @@ import (
 
 func TestSwapSubmitBroadcastsOnlyVerifiedRouterCall(t *testing.T) {
 	for _, tc := range []struct {
-		native, noCode bool
-	}{{false, false}, {true, false}, {true, true}} {
+		native, noCode, wrongTarget, unsafeInfo bool
+	}{{false, false, false, false}, {true, false, false, false}, {true, true, false, false}, {true, false, true, false}, {true, false, false, true}} {
 		native := tc.native
 		name := "token"
 		if native {
@@ -28,6 +28,12 @@ func TestSwapSubmitBroadcastsOnlyVerifiedRouterCall(t *testing.T) {
 			// A router address without code would accept native value as a
 			// plain transfer: submit must refuse before any Privy call.
 			name = "eth-router-without-code"
+		}
+		if tc.wrongTarget {
+			name = "eth-wrong-execution-target"
+		}
+		if tc.unsafeInfo {
+			name = "eth-unsafe-execution-shape"
 		}
 		t.Run(name, func(t *testing.T) {
 			h := newHarness(t)
@@ -69,7 +75,14 @@ func TestSwapSubmitBroadcastsOnlyVerifiedRouterCall(t *testing.T) {
 				case "GetQuotes":
 					return map[string]any{"quotes": map[string]any{"route": map[string]any{"router": "route", "quoteId": "quote", "quote": map[string]any{"minAmountOutRaw": "100", "simulation": map[string]any{"amountOutRaw": "100"}}}}}, true
 				case "GetExecutionInfo":
-					return map[string]any{"info": map[string]any{"trade": trade}}, true
+					if tc.wrongTarget {
+						trade["to"] = target.Hex()
+					}
+					info := map[string]any{"trade": trade}
+					if tc.unsafeInfo {
+						info["depositAddress"] = target.Hex()
+					}
+					return map[string]any{"info": info}, true
 				case "Finish":
 					return map[string]any{}, true
 				}
@@ -122,6 +135,12 @@ func TestSwapSubmitBroadcastsOnlyVerifiedRouterCall(t *testing.T) {
 			}
 			j.Close()
 			result := h.run("swap", "submit", "--intent", record.ID, "--digest", record.Digest, "--json")
+			if tc.wrongTarget || tc.unsafeInfo {
+				if result.errCode() != "PAYLOAD_MISMATCH" || h.privy.rpcCalls != 0 {
+					t.Fatalf("unsafe authenticated swap execution must be refused before signing: %s; privy sends=%d", result.stdout, h.privy.rpcCalls)
+				}
+				return
+			}
 			if tc.noCode {
 				if result.errCode() != "PAYLOAD_MISMATCH" || h.privy.rpcCalls != 0 || !strings.Contains(result.stdout, "no OkuRouter contract") {
 					t.Fatalf("router without code must be refused before signing: %s; privy sends=%d", result.stdout, h.privy.rpcCalls)

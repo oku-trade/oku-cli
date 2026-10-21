@@ -30,26 +30,19 @@ var ErrReverted = errors.New("transaction reverted")
 // preceding step is mined.
 const dependentStepGas = 3_000_000
 
-// defaultRPC lists built-in public endpoints (each verified to report its
-// chain ID). Any other EVM chain works once OKU_RPC_URL_<CHAINID> is set.
-var defaultRPC = map[uint64]string{
-	1:      "https://ethereum-rpc.publicnode.com",
-	10:     "https://optimism-rpc.publicnode.com",
-	56:     "https://bsc-rpc.publicnode.com",
-	100:    "https://gnosis-rpc.publicnode.com",
-	130:    "https://unichain-rpc.publicnode.com",
-	137:    "https://polygon-bor-rpc.publicnode.com",
-	146:    "https://sonic-rpc.publicnode.com",
-	999:    "https://hyperliquid-rpc.publicnode.com",
-	1329:   "https://sei-evm-rpc.publicnode.com",
-	5000:   "https://mantle-rpc.publicnode.com",
-	8453:   "https://base-rpc.publicnode.com",
-	42161:  "https://arbitrum-one-rpc.publicnode.com",
-	42220:  "https://celo-rpc.publicnode.com",
-	43114:  "https://avalanche-c-chain-rpc.publicnode.com",
-	59144:  "https://linea-rpc.publicnode.com",
-	81457:  "https://blast-rpc.publicnode.com",
-	534352: "https://scroll-rpc.publicnode.com",
+// defaultRPCBase is Oku's eRPC gateway; a chain's endpoint is this prefix plus
+// its chain-config internal name (e.g. .../main/arbitrum). It serves
+// receipts and the recent historical state used for batch lookup.
+const defaultRPCBase = "https://rpc.invalid/"
+
+// defaultRPCURL returns the gateway endpoint for a chain known to the shared
+// chain-config package, or "" for unknown, deprecated or non-EVM chains.
+func defaultRPCURL(chain uint64) string {
+	n, err := networks.NetworkByNumber(chain)
+	if err != nil || n == nil || !n.IsEVM() || n.Deprecated || n.InternalName == "" || uint64(n.ChainId) != chain {
+		return ""
+	}
+	return defaultRPCBase + n.InternalName
 }
 
 // confirmationDepth is the default number of blocks a receipt must be buried
@@ -110,7 +103,7 @@ func RPCURL(getenv func(string) string, chain uint64) (string, error) {
 	if custom := getenv("OKU_RPC_URL_" + strconv.FormatUint(chain, 10)); custom != "" {
 		return custom, nil
 	}
-	if url, ok := defaultRPC[chain]; ok {
+	if url := defaultRPCURL(chain); url != "" {
 		return url, nil
 	}
 	return "", fmt.Errorf("%w %d: set OKU_RPC_URL_%d", ErrNoRPC, chain, chain)

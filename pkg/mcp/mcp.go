@@ -66,12 +66,24 @@ var (
 		"markets list": true, "markets quote": true, "markets funding": true,
 		"account summary": true, "positions list": true, "orders list": true,
 		"orders status": true, "fills list": true,
+		// Agent wallet funds: balances, quotes and status are reads; prepare
+		// only writes a local journal intent and returns a digest for review.
+		"wallet address": true, "wallet balances": true, "wallet fund": true, "deposit address": true,
+		"swap quote": true, "swap prepare": true, "swap status": true,
+		"bridge quote": true, "bridge prepare": true, "bridge status": true,
+		"send prepare": true, "send status": true,
+		"deposit prepare": true, "deposit status": true,
 	}
 	// docs are served as resources; tool exposure of docs commands is
 	// intentionally omitted.
 	mutationTools = map[string]bool{
 		"orders prepare": true, "positions leverage": true, "positions margin": true,
 		"orders submit": true, "orders cancel": true, "orders reconcile": true, "orders abandon": true,
+		// Onchain agent-wallet mutations: these sign and broadcast with Privy.
+		"swap submit": true, "swap reconcile": true, "swap cancel": true,
+		"bridge submit": true, "bridge reconcile": true, "bridge claim": true, "bridge cancel": true,
+		"send submit": true, "send reconcile": true,
+		"deposit submit": true,
 	}
 	// positional names commands take as arguments instead of options.
 	positional = map[string][]Option{
@@ -87,7 +99,7 @@ func ToolName(path string) string { return strings.ReplaceAll(path, " ", "_") }
 // NewServer builds the MCP server.
 func NewServer(b Backend, cfg Config) *sdk.Server {
 	s := sdk.NewServer(&sdk.Implementation{Name: "oku", Version: cfg.Version}, &sdk.ServerOptions{
-		Instructions: "Oku Agent for Hyperliquid mainnet perps. Read the oku://docs and oku://skills resources first. " +
+		Instructions: "Oku Agent for Hyperliquid mainnet perps and the agent's EVM wallet (send, swap, bridge, deposit to the master). Read the oku://docs and oku://skills resources first (oku://skills/move-agent-funds for funds). " +
 			"Infer only what the request implies (full size to close, twice the size to flip, market type, default slippage); ask when size or side is ambiguous. Mutations use prepare, then an explicit user-approved submit bound to the returned digest. " +
 			"An unknown outcome is not a failure: reconcile, never resend.",
 	})
@@ -159,6 +171,10 @@ func addCommandTool(s *sdk.Server, b Backend, c Command, mutation bool) {
 		ann.DestructiveHint = boolp(c.Path != "orders prepare" && !strings.HasPrefix(c.Path, "positions "))
 	}
 	desc := c.Summary
+	if strings.HasSuffix(c.Path, " prepare") && !mutation {
+		// Funds prepare only journals a local intent; it never signs or sends.
+		desc += ". Writes a local intent and digest only; nothing is signed or sent until the matching submit."
+	}
 	if mutation {
 		desc += ". MUTATION: acts on the user's account or local journal; only call when the user explicitly asked."
 	}

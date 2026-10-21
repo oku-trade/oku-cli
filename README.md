@@ -9,7 +9,7 @@ For user-operated authentication, run `oku auth login` in a terminal. Sign on th
 > **Status: pre-release / private alpha development.**
 > - The repository is private. There is no published npm package, no hosted install script and no auto-update.
 > - Staging acceptance on 2026-10-14 verified Privy login, signed order submission, order listing and cancel. This is not production acceptance.
-> - Live Arbitrum checks on 2026-10-19 with small amounts verified agent-wallet send, master deposit transfer, a single-step swap and an atomic approve+swap batch. Bridge execution is not implemented (`bridge quote` only).
+> - Live checks with small amounts verified agent-wallet send, master deposit transfer, a single-step swap and an atomic approve+swap batch on Arbitrum (2026-10-19), and a Circle CCTP bridge Arbitrum to Base including the destination claim (2026-10-20). Transaction-based Oku bridge execution is available via `bridge prepare`, `submit`, `status`, `claim`, and `reconcile`; bridge calldata and approvals are backend-built without independent CLI verification, and destination claims require agent native gas on the destination chain.
 > - Accounts multi-app verification (the account service) and the authorize page (the web app) are merged. Production must use `https://oku.trade/agent/authorize`; staging currently uses `https://app.staging.invalid/agent/authorize`.
 > - Earlier release checks in [docs/validation.md](docs/validation.md) predate this auth model.
 > - The command grammar may change.
@@ -20,16 +20,18 @@ The embedded agent wallet is a separate EVM wallet with its own balances and gas
 
 ```sh
 oku wallet balances --chain 42161
+oku wallet fund --chain 42161 --token native --amount 0.01 # payment QR and web link, no signing
 oku swap quote   --chain 42161 --from USDC --to WETH --amount 1
 oku swap prepare --chain 42161 --from USDC --to WETH --amount 1
 oku swap submit  --intent ID --digest SHA     # within ~3 minutes of prepare
 oku swap status  --intent ID
 ```
 
-- Swap quotes use the same `GetFlowstreamQuotes` stream as the web app and only route through Oku Router with exact, verified calldata.
-- When a token approval is needed, approve and swap are sent as **one atomic** Privy `wallet_sendCalls` batch (EIP-7702; the first batch upgrades the agent wallet to a Kernel smart account at the same address). An approval can never confirm without its swap.
+- Transaction swap quotes use the same `GetFlowstreamQuotes` stream as the web app and retain OkuRouter calldata verification.
+- Intent-based swaps and bridges (such as CoW and Aori) are selectable by net value or `--route NAME`; `--no-intent` excludes them. They sign the backend's EIP-712 order, send any necessary approvals as ordinary transactions, then relay off-chain without an agent swap/bridge transaction. `submitted` is not a fill. Check order history via `swap status` or `bridge status`; solver execution may expire or refund. Intent typed-data and approvals trust Oku's backend as the web app does, not the transaction swap's OkuRouter verifier.
+- When a transaction swap token approval is needed, approve and swap are sent as **one atomic** Privy `wallet_sendCalls` batch (EIP-7702; the first batch upgrades the agent wallet to a Kernel smart account at the same address). An approval can never confirm without its swap.
 - `send` transfers from the agent (to the master by default); `deposit prepare` only moves agent USDC to the master on Arbitrum. The master deposits to Hyperliquid itself; never send agent USDC to the Hyperliquid bridge.
-- Keep native gas (ETH on Arbitrum) in the agent wallet, and point `OKU_RPC_URL_42161` (or the chain you use) at a full RPC: batch lookup needs recent historical state that public endpoints may refuse.
+- Keep native gas (ETH on Arbitrum) in the agent wallet. Chain RPC defaults to Oku's eRPC gateway (`https://rpc.invalid/<chain>`); override any chain with `OKU_RPC_URL_<CHAINID>`.
 - `OUTCOME_UNKNOWN` means never resubmit; use `status` or `reconcile`. See [agent EVM transfers](docs/usage.md#agent-evm-transfers-and-master-deposits) and [security](docs/security.md).
 
 ## JSON input

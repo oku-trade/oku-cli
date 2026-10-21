@@ -11,7 +11,7 @@ import (
 
 func TestRevokedFutureSessionReexchangesOnNextOperation(t *testing.T) {
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	pass := []byte("correct horse battery")
 	md, sec, err := auth.UnlockPrivy("main", pass)
 	if err != nil {
@@ -25,7 +25,9 @@ func TestRevokedFutureSessionReexchangesOnNextOperation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := &env{app: NewApp("t"), ctx: context.Background(), g: globals{timeout: 5 * time.Second}}
+	// Credential refresh re-saves with full-cost scrypt inside this request
+	// deadline. 5s was too tight for -race on CI runners.
+	e := &env{app: NewApp("t"), ctx: context.Background(), g: globals{timeout: maxTimeout}}
 	e.app.Getenv = func(name string) string {
 		if name == "OKU_PASSPHRASE_FILE" {
 			return h.passFn
@@ -75,7 +77,7 @@ func TestRevokedFutureSessionReexchangesOnNextOperation(t *testing.T) {
 
 func TestInvalidationPreservesConcurrentSession(t *testing.T) {
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	pass := []byte("correct horse battery")
 	md, sec, err := auth.UnlockPrivy("main", pass)
 	if err != nil {

@@ -23,6 +23,193 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// SourceDiscoveryOutcome is the result of discovering a source chain from
+// Oku's indexed records.
+type SourceDiscoveryOutcome int32
+
+const (
+	SourceDiscoveryOutcome_SOURCE_DISCOVERY_OUTCOME_UNSPECIFIED SourceDiscoveryOutcome = 0
+	// Exactly one source chain matched
+	SourceDiscoveryOutcome_SOURCE_DISCOVERY_OUTCOME_FOUND SourceDiscoveryOutcome = 1
+	// No indexed record matched
+	SourceDiscoveryOutcome_SOURCE_DISCOVERY_OUTCOME_NOT_FOUND SourceDiscoveryOutcome = 2
+	// Records matched conflicting chains
+	SourceDiscoveryOutcome_SOURCE_DISCOVERY_OUTCOME_AMBIGUOUS SourceDiscoveryOutcome = 3
+)
+
+// Enum value maps for SourceDiscoveryOutcome.
+var (
+	SourceDiscoveryOutcome_name = map[int32]string{
+		0: "SOURCE_DISCOVERY_OUTCOME_UNSPECIFIED",
+		1: "SOURCE_DISCOVERY_OUTCOME_FOUND",
+		2: "SOURCE_DISCOVERY_OUTCOME_NOT_FOUND",
+		3: "SOURCE_DISCOVERY_OUTCOME_AMBIGUOUS",
+	}
+	SourceDiscoveryOutcome_value = map[string]int32{
+		"SOURCE_DISCOVERY_OUTCOME_UNSPECIFIED": 0,
+		"SOURCE_DISCOVERY_OUTCOME_FOUND":       1,
+		"SOURCE_DISCOVERY_OUTCOME_NOT_FOUND":   2,
+		"SOURCE_DISCOVERY_OUTCOME_AMBIGUOUS":   3,
+	}
+)
+
+func (x SourceDiscoveryOutcome) Enum() *SourceDiscoveryOutcome {
+	p := new(SourceDiscoveryOutcome)
+	*p = x
+	return p
+}
+
+func (x SourceDiscoveryOutcome) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SourceDiscoveryOutcome) Descriptor() protoreflect.EnumDescriptor {
+	return file_gfxcafe_oku_account_v2_bridge_proto_enumTypes[0].Descriptor()
+}
+
+func (SourceDiscoveryOutcome) Type() protoreflect.EnumType {
+	return &file_gfxcafe_oku_account_v2_bridge_proto_enumTypes[0]
+}
+
+func (x SourceDiscoveryOutcome) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SourceDiscoveryOutcome.Descriptor instead.
+func (SourceDiscoveryOutcome) EnumDescriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{0}
+}
+
+// SourceTransactionOutcome is the result of one bridge's lookup.
+type SourceTransactionOutcome int32
+
+const (
+	SourceTransactionOutcome_SOURCE_TRANSACTION_OUTCOME_UNSPECIFIED SourceTransactionOutcome = 0
+	// The bridge recognized the source transaction
+	SourceTransactionOutcome_SOURCE_TRANSACTION_OUTCOME_FOUND SourceTransactionOutcome = 1
+	// The bridge has no record of this source transaction
+	SourceTransactionOutcome_SOURCE_TRANSACTION_OUTCOME_NOT_FOUND SourceTransactionOutcome = 2
+	// The bridge lookup failed or timed out
+	SourceTransactionOutcome_SOURCE_TRANSACTION_OUTCOME_UNAVAILABLE SourceTransactionOutcome = 3
+	// The bridge returned records that could not be matched to one transfer
+	SourceTransactionOutcome_SOURCE_TRANSACTION_OUTCOME_AMBIGUOUS SourceTransactionOutcome = 4
+)
+
+// Enum value maps for SourceTransactionOutcome.
+var (
+	SourceTransactionOutcome_name = map[int32]string{
+		0: "SOURCE_TRANSACTION_OUTCOME_UNSPECIFIED",
+		1: "SOURCE_TRANSACTION_OUTCOME_FOUND",
+		2: "SOURCE_TRANSACTION_OUTCOME_NOT_FOUND",
+		3: "SOURCE_TRANSACTION_OUTCOME_UNAVAILABLE",
+		4: "SOURCE_TRANSACTION_OUTCOME_AMBIGUOUS",
+	}
+	SourceTransactionOutcome_value = map[string]int32{
+		"SOURCE_TRANSACTION_OUTCOME_UNSPECIFIED": 0,
+		"SOURCE_TRANSACTION_OUTCOME_FOUND":       1,
+		"SOURCE_TRANSACTION_OUTCOME_NOT_FOUND":   2,
+		"SOURCE_TRANSACTION_OUTCOME_UNAVAILABLE": 3,
+		"SOURCE_TRANSACTION_OUTCOME_AMBIGUOUS":   4,
+	}
+)
+
+func (x SourceTransactionOutcome) Enum() *SourceTransactionOutcome {
+	p := new(SourceTransactionOutcome)
+	*p = x
+	return p
+}
+
+func (x SourceTransactionOutcome) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SourceTransactionOutcome) Descriptor() protoreflect.EnumDescriptor {
+	return file_gfxcafe_oku_account_v2_bridge_proto_enumTypes[1].Descriptor()
+}
+
+func (SourceTransactionOutcome) Type() protoreflect.EnumType {
+	return &file_gfxcafe_oku_account_v2_bridge_proto_enumTypes[1]
+}
+
+func (x SourceTransactionOutcome) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SourceTransactionOutcome.Descriptor instead.
+func (SourceTransactionOutcome) EnumDescriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{1}
+}
+
+// SourceTransactionStatus is the state of a transfer a bridge recognized.
+type SourceTransactionStatus int32
+
+const (
+	// Not reported (outcome is not FOUND)
+	SourceTransactionStatus_SOURCE_TRANSACTION_STATUS_UNSPECIFIED SourceTransactionStatus = 0
+	// In flight
+	SourceTransactionStatus_SOURCE_TRANSACTION_STATUS_PENDING SourceTransactionStatus = 1
+	// Delivered on the destination (canoe "success")
+	SourceTransactionStatus_SOURCE_TRANSACTION_STATUS_COMPLETED SourceTransactionStatus = 2
+	// Failed without a refund
+	SourceTransactionStatus_SOURCE_TRANSACTION_STATUS_FAILED SourceTransactionStatus = 3
+	// Refunded on the source chain
+	SourceTransactionStatus_SOURCE_TRANSACTION_STATUS_REFUNDED SourceTransactionStatus = 4
+	// Delivered but requires a manual claim or execution
+	SourceTransactionStatus_SOURCE_TRANSACTION_STATUS_CLAIMABLE SourceTransactionStatus = 5
+	// Recognized, but the final state cannot be verified (the result's reason
+	// says why). Also used for statuses this server does not know yet.
+	SourceTransactionStatus_SOURCE_TRANSACTION_STATUS_UNKNOWN SourceTransactionStatus = 6
+)
+
+// Enum value maps for SourceTransactionStatus.
+var (
+	SourceTransactionStatus_name = map[int32]string{
+		0: "SOURCE_TRANSACTION_STATUS_UNSPECIFIED",
+		1: "SOURCE_TRANSACTION_STATUS_PENDING",
+		2: "SOURCE_TRANSACTION_STATUS_COMPLETED",
+		3: "SOURCE_TRANSACTION_STATUS_FAILED",
+		4: "SOURCE_TRANSACTION_STATUS_REFUNDED",
+		5: "SOURCE_TRANSACTION_STATUS_CLAIMABLE",
+		6: "SOURCE_TRANSACTION_STATUS_UNKNOWN",
+	}
+	SourceTransactionStatus_value = map[string]int32{
+		"SOURCE_TRANSACTION_STATUS_UNSPECIFIED": 0,
+		"SOURCE_TRANSACTION_STATUS_PENDING":     1,
+		"SOURCE_TRANSACTION_STATUS_COMPLETED":   2,
+		"SOURCE_TRANSACTION_STATUS_FAILED":      3,
+		"SOURCE_TRANSACTION_STATUS_REFUNDED":    4,
+		"SOURCE_TRANSACTION_STATUS_CLAIMABLE":   5,
+		"SOURCE_TRANSACTION_STATUS_UNKNOWN":     6,
+	}
+)
+
+func (x SourceTransactionStatus) Enum() *SourceTransactionStatus {
+	p := new(SourceTransactionStatus)
+	*p = x
+	return p
+}
+
+func (x SourceTransactionStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SourceTransactionStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_gfxcafe_oku_account_v2_bridge_proto_enumTypes[2].Descriptor()
+}
+
+func (SourceTransactionStatus) Type() protoreflect.EnumType {
+	return &file_gfxcafe_oku_account_v2_bridge_proto_enumTypes[2]
+}
+
+func (x SourceTransactionStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SourceTransactionStatus.Descriptor instead.
+func (SourceTransactionStatus) EnumDescriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{2}
+}
+
 type GetBitcoinMaxSpendableRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Bitcoin address to check.
@@ -503,6 +690,485 @@ func (x *GetSupportedBridgesResponse) GetBridges() []*BridgeStatus {
 	return nil
 }
 
+type LookupSourceTransactionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Source transaction hash, 0x followed by 64 hex characters. Must not be zero.
+	SourceHash string `protobuf:"bytes,1,opt,name=source_hash,json=sourceHash,proto3" json:"source_hash,omitempty"`
+	// Source chain, CAIP-2 (e.g. "eip155:1"). Must be an EVM chain. Discovered
+	// from Oku's indexed records when empty.
+	SourceChain   string `protobuf:"bytes,2,opt,name=source_chain,json=sourceChain,proto3" json:"source_chain,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LookupSourceTransactionRequest) Reset() {
+	*x = LookupSourceTransactionRequest{}
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LookupSourceTransactionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LookupSourceTransactionRequest) ProtoMessage() {}
+
+func (x *LookupSourceTransactionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LookupSourceTransactionRequest.ProtoReflect.Descriptor instead.
+func (*LookupSourceTransactionRequest) Descriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *LookupSourceTransactionRequest) GetSourceHash() string {
+	if x != nil {
+		return x.SourceHash
+	}
+	return ""
+}
+
+func (x *LookupSourceTransactionRequest) GetSourceChain() string {
+	if x != nil {
+		return x.SourceChain
+	}
+	return ""
+}
+
+// SourceTransactionToken is a token leg of a looked-up transfer.
+type SourceTransactionToken struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Chain of the token, CAIP-2 (e.g. "eip155:1")
+	Chain string `protobuf:"bytes,1,opt,name=chain,proto3" json:"chain,omitempty"`
+	// Token address on chain
+	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	// Raw amount in base units, as reported by canoe
+	Amount string `protobuf:"bytes,3,opt,name=amount,proto3" json:"amount,omitempty"`
+	// Token symbol, when known
+	Symbol string `protobuf:"bytes,4,opt,name=symbol,proto3" json:"symbol,omitempty"`
+	// Token decimals, when known
+	Decimals      *int32 `protobuf:"varint,5,opt,name=decimals,proto3,oneof" json:"decimals,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SourceTransactionToken) Reset() {
+	*x = SourceTransactionToken{}
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SourceTransactionToken) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourceTransactionToken) ProtoMessage() {}
+
+func (x *SourceTransactionToken) ProtoReflect() protoreflect.Message {
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourceTransactionToken.ProtoReflect.Descriptor instead.
+func (*SourceTransactionToken) Descriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *SourceTransactionToken) GetChain() string {
+	if x != nil {
+		return x.Chain
+	}
+	return ""
+}
+
+func (x *SourceTransactionToken) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *SourceTransactionToken) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *SourceTransactionToken) GetSymbol() string {
+	if x != nil {
+		return x.Symbol
+	}
+	return ""
+}
+
+func (x *SourceTransactionToken) GetDecimals() int32 {
+	if x != nil && x.Decimals != nil {
+		return *x.Decimals
+	}
+	return 0
+}
+
+// SourceTransactionDetail is a provider-specific label/value pair for display.
+type SourceTransactionDetail struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Label         string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SourceTransactionDetail) Reset() {
+	*x = SourceTransactionDetail{}
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SourceTransactionDetail) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourceTransactionDetail) ProtoMessage() {}
+
+func (x *SourceTransactionDetail) ProtoReflect() protoreflect.Message {
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourceTransactionDetail.ProtoReflect.Descriptor instead.
+func (*SourceTransactionDetail) Descriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *SourceTransactionDetail) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *SourceTransactionDetail) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+// SourceTransactionLookupResult is one bridge's answer for a source transaction.
+type SourceTransactionLookupResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Bridge identifier (e.g. "across")
+	Bridge  string                   `protobuf:"bytes,1,opt,name=bridge,proto3" json:"bridge,omitempty"`
+	Outcome SourceTransactionOutcome `protobuf:"varint,2,opt,name=outcome,proto3,enum=gfxcafe.oku.account.v2.SourceTransactionOutcome" json:"outcome,omitempty"`
+	// Set only when outcome is FOUND
+	Status SourceTransactionStatus `protobuf:"varint,3,opt,name=status,proto3,enum=gfxcafe.oku.account.v2.SourceTransactionStatus" json:"status,omitempty"`
+	// Source chain, CAIP-2 (e.g. "eip155:1")
+	SourceChain string `protobuf:"bytes,4,opt,name=source_chain,json=sourceChain,proto3" json:"source_chain,omitempty"`
+	SourceHash  string `protobuf:"bytes,5,opt,name=source_hash,json=sourceHash,proto3" json:"source_hash,omitempty"`
+	// Destination chain, CAIP-2 (e.g. "eip155:42161"). Empty when unknown
+	DestinationChain string `protobuf:"bytes,6,opt,name=destination_chain,json=destinationChain,proto3" json:"destination_chain,omitempty"`
+	DestinationHash  string `protobuf:"bytes,7,opt,name=destination_hash,json=destinationHash,proto3" json:"destination_hash,omitempty"`
+	// Unset when unknown
+	SourceToken *SourceTransactionToken `protobuf:"bytes,8,opt,name=source_token,json=sourceToken,proto3" json:"source_token,omitempty"`
+	// Unset when unknown
+	DestinationToken *SourceTransactionToken `protobuf:"bytes,9,opt,name=destination_token,json=destinationToken,proto3" json:"destination_token,omitempty"`
+	// Provider explorer link for the transfer. Empty when unavailable
+	ExplorerUrl string                     `protobuf:"bytes,10,opt,name=explorer_url,json=explorerUrl,proto3" json:"explorer_url,omitempty"`
+	Details     []*SourceTransactionDetail `protobuf:"bytes,11,rep,name=details,proto3" json:"details,omitempty"`
+	// Machine-readable qualifier from canoe, e.g. "destination_action_failed"
+	Reason        string `protobuf:"bytes,12,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SourceTransactionLookupResult) Reset() {
+	*x = SourceTransactionLookupResult{}
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SourceTransactionLookupResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourceTransactionLookupResult) ProtoMessage() {}
+
+func (x *SourceTransactionLookupResult) ProtoReflect() protoreflect.Message {
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourceTransactionLookupResult.ProtoReflect.Descriptor instead.
+func (*SourceTransactionLookupResult) Descriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *SourceTransactionLookupResult) GetBridge() string {
+	if x != nil {
+		return x.Bridge
+	}
+	return ""
+}
+
+func (x *SourceTransactionLookupResult) GetOutcome() SourceTransactionOutcome {
+	if x != nil {
+		return x.Outcome
+	}
+	return SourceTransactionOutcome_SOURCE_TRANSACTION_OUTCOME_UNSPECIFIED
+}
+
+func (x *SourceTransactionLookupResult) GetStatus() SourceTransactionStatus {
+	if x != nil {
+		return x.Status
+	}
+	return SourceTransactionStatus_SOURCE_TRANSACTION_STATUS_UNSPECIFIED
+}
+
+func (x *SourceTransactionLookupResult) GetSourceChain() string {
+	if x != nil {
+		return x.SourceChain
+	}
+	return ""
+}
+
+func (x *SourceTransactionLookupResult) GetSourceHash() string {
+	if x != nil {
+		return x.SourceHash
+	}
+	return ""
+}
+
+func (x *SourceTransactionLookupResult) GetDestinationChain() string {
+	if x != nil {
+		return x.DestinationChain
+	}
+	return ""
+}
+
+func (x *SourceTransactionLookupResult) GetDestinationHash() string {
+	if x != nil {
+		return x.DestinationHash
+	}
+	return ""
+}
+
+func (x *SourceTransactionLookupResult) GetSourceToken() *SourceTransactionToken {
+	if x != nil {
+		return x.SourceToken
+	}
+	return nil
+}
+
+func (x *SourceTransactionLookupResult) GetDestinationToken() *SourceTransactionToken {
+	if x != nil {
+		return x.DestinationToken
+	}
+	return nil
+}
+
+func (x *SourceTransactionLookupResult) GetExplorerUrl() string {
+	if x != nil {
+		return x.ExplorerUrl
+	}
+	return ""
+}
+
+func (x *SourceTransactionLookupResult) GetDetails() []*SourceTransactionDetail {
+	if x != nil {
+		return x.Details
+	}
+	return nil
+}
+
+func (x *SourceTransactionLookupResult) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// SourceTransactionResolution is the single best answer across all bridge
+// results, chosen by canoe.
+type SourceTransactionResolution struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Unset when no bridge found the transfer
+	Primary *SourceTransactionLookupResult `protobuf:"bytes,1,opt,name=primary,proto3" json:"primary,omitempty"`
+	// Bridge identifiers whose lookup was unavailable or ambiguous
+	Incomplete []string `protobuf:"bytes,2,rep,name=incomplete,proto3" json:"incomplete,omitempty"`
+	// Opaque canoe qualifier explaining why primary.status was downgraded, e.g.
+	// "conflicting_provider_states". Empty otherwise
+	Warning       string `protobuf:"bytes,3,opt,name=warning,proto3" json:"warning,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SourceTransactionResolution) Reset() {
+	*x = SourceTransactionResolution{}
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SourceTransactionResolution) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourceTransactionResolution) ProtoMessage() {}
+
+func (x *SourceTransactionResolution) ProtoReflect() protoreflect.Message {
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourceTransactionResolution.ProtoReflect.Descriptor instead.
+func (*SourceTransactionResolution) Descriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *SourceTransactionResolution) GetPrimary() *SourceTransactionLookupResult {
+	if x != nil {
+		return x.Primary
+	}
+	return nil
+}
+
+func (x *SourceTransactionResolution) GetIncomplete() []string {
+	if x != nil {
+		return x.Incomplete
+	}
+	return nil
+}
+
+func (x *SourceTransactionResolution) GetWarning() string {
+	if x != nil {
+		return x.Warning
+	}
+	return ""
+}
+
+type LookupSourceTransactionResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Discovery outcome. UNSPECIFIED when source_chain was provided by the caller
+	DiscoveryOutcome SourceDiscoveryOutcome `protobuf:"varint,1,opt,name=discovery_outcome,json=discoveryOutcome,proto3,enum=gfxcafe.oku.account.v2.SourceDiscoveryOutcome" json:"discovery_outcome,omitempty"`
+	// Resolved source chain, CAIP-2. Empty when discovery did not find one
+	SourceChain string `protobuf:"bytes,2,opt,name=source_chain,json=sourceChain,proto3" json:"source_chain,omitempty"`
+	// Bridge identifier from indexed records. Empty if discovery did not run,
+	// or the bridge is unknown or mixed
+	DiscoveredBridge string `protobuf:"bytes,3,opt,name=discovered_bridge,json=discoveredBridge,proto3" json:"discovered_bridge,omitempty"`
+	// Per-bridge results from canoe. Empty when discovery was not FOUND
+	Results []*SourceTransactionLookupResult `protobuf:"bytes,4,rep,name=results,proto3" json:"results,omitempty"`
+	// Canoe's resolved answer. Unset when discovery was not FOUND
+	Resolution    *SourceTransactionResolution `protobuf:"bytes,5,opt,name=resolution,proto3" json:"resolution,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LookupSourceTransactionResponse) Reset() {
+	*x = LookupSourceTransactionResponse{}
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LookupSourceTransactionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LookupSourceTransactionResponse) ProtoMessage() {}
+
+func (x *LookupSourceTransactionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LookupSourceTransactionResponse.ProtoReflect.Descriptor instead.
+func (*LookupSourceTransactionResponse) Descriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *LookupSourceTransactionResponse) GetDiscoveryOutcome() SourceDiscoveryOutcome {
+	if x != nil {
+		return x.DiscoveryOutcome
+	}
+	return SourceDiscoveryOutcome_SOURCE_DISCOVERY_OUTCOME_UNSPECIFIED
+}
+
+func (x *LookupSourceTransactionResponse) GetSourceChain() string {
+	if x != nil {
+		return x.SourceChain
+	}
+	return ""
+}
+
+func (x *LookupSourceTransactionResponse) GetDiscoveredBridge() string {
+	if x != nil {
+		return x.DiscoveredBridge
+	}
+	return ""
+}
+
+func (x *LookupSourceTransactionResponse) GetResults() []*SourceTransactionLookupResult {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
+func (x *LookupSourceTransactionResponse) GetResolution() *SourceTransactionResolution {
+	if x != nil {
+		return x.Resolution
+	}
+	return nil
+}
+
 // BridgeQuoteParams represents bridge quote parameters
 type BridgeQuoteParams struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -542,7 +1208,7 @@ type BridgeQuoteParams struct {
 
 func (x *BridgeQuoteParams) Reset() {
 	*x = BridgeQuoteParams{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[9]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -554,7 +1220,7 @@ func (x *BridgeQuoteParams) String() string {
 func (*BridgeQuoteParams) ProtoMessage() {}
 
 func (x *BridgeQuoteParams) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[9]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -567,7 +1233,7 @@ func (x *BridgeQuoteParams) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeQuoteParams.ProtoReflect.Descriptor instead.
 func (*BridgeQuoteParams) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{9}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *BridgeQuoteParams) GetInChain() int64 {
@@ -686,7 +1352,7 @@ type BridgeQuoteInformation struct {
 
 func (x *BridgeQuoteInformation) Reset() {
 	*x = BridgeQuoteInformation{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[10]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -698,7 +1364,7 @@ func (x *BridgeQuoteInformation) String() string {
 func (*BridgeQuoteInformation) ProtoMessage() {}
 
 func (x *BridgeQuoteInformation) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[10]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -711,7 +1377,7 @@ func (x *BridgeQuoteInformation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeQuoteInformation.ProtoReflect.Descriptor instead.
 func (*BridgeQuoteInformation) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{10}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *BridgeQuoteInformation) GetBridge() string {
@@ -813,7 +1479,7 @@ type BridgeQuote struct {
 
 func (x *BridgeQuote) Reset() {
 	*x = BridgeQuote{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[11]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -825,7 +1491,7 @@ func (x *BridgeQuote) String() string {
 func (*BridgeQuote) ProtoMessage() {}
 
 func (x *BridgeQuote) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[11]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -838,7 +1504,7 @@ func (x *BridgeQuote) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeQuote.ProtoReflect.Descriptor instead.
 func (*BridgeQuote) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{11}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *BridgeQuote) GetInAmount() string {
@@ -1036,7 +1702,7 @@ type BridgeGas struct {
 
 func (x *BridgeGas) Reset() {
 	*x = BridgeGas{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[12]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1048,7 +1714,7 @@ func (x *BridgeGas) String() string {
 func (*BridgeGas) ProtoMessage() {}
 
 func (x *BridgeGas) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[12]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1061,7 +1727,7 @@ func (x *BridgeGas) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeGas.ProtoReflect.Descriptor instead.
 func (*BridgeGas) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{12}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *BridgeGas) GetGasUsd() string {
@@ -1098,7 +1764,7 @@ type BridgeSimulationResult struct {
 
 func (x *BridgeSimulationResult) Reset() {
 	*x = BridgeSimulationResult{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[13]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1110,7 +1776,7 @@ func (x *BridgeSimulationResult) String() string {
 func (*BridgeSimulationResult) ProtoMessage() {}
 
 func (x *BridgeSimulationResult) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[13]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1123,7 +1789,7 @@ func (x *BridgeSimulationResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeSimulationResult.ProtoReflect.Descriptor instead.
 func (*BridgeSimulationResult) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{13}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *BridgeSimulationResult) GetSuccess() bool {
@@ -1171,7 +1837,7 @@ type Step struct {
 
 func (x *Step) Reset() {
 	*x = Step{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[14]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1183,7 +1849,7 @@ func (x *Step) String() string {
 func (*Step) ProtoMessage() {}
 
 func (x *Step) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[14]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1196,7 +1862,7 @@ func (x *Step) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Step.ProtoReflect.Descriptor instead.
 func (*Step) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{14}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *Step) GetType() string {
@@ -1265,7 +1931,7 @@ type BridgeCreateRequest struct {
 
 func (x *BridgeCreateRequest) Reset() {
 	*x = BridgeCreateRequest{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[15]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1277,7 +1943,7 @@ func (x *BridgeCreateRequest) String() string {
 func (*BridgeCreateRequest) ProtoMessage() {}
 
 func (x *BridgeCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[15]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1290,7 +1956,7 @@ func (x *BridgeCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeCreateRequest.ProtoReflect.Descriptor instead.
 func (*BridgeCreateRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{15}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *BridgeCreateRequest) GetParams() *BridgeQuoteParams {
@@ -1317,7 +1983,7 @@ type BridgeCreateResponse struct {
 
 func (x *BridgeCreateResponse) Reset() {
 	*x = BridgeCreateResponse{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[16]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1329,7 +1995,7 @@ func (x *BridgeCreateResponse) String() string {
 func (*BridgeCreateResponse) ProtoMessage() {}
 
 func (x *BridgeCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[16]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1342,7 +2008,7 @@ func (x *BridgeCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeCreateResponse.ProtoReflect.Descriptor instead.
 func (*BridgeCreateResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{16}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *BridgeCreateResponse) GetOrderId() string {
@@ -1369,7 +2035,7 @@ type BridgeUpdateQuoteParamsRequest struct {
 
 func (x *BridgeUpdateQuoteParamsRequest) Reset() {
 	*x = BridgeUpdateQuoteParamsRequest{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[17]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1381,7 +2047,7 @@ func (x *BridgeUpdateQuoteParamsRequest) String() string {
 func (*BridgeUpdateQuoteParamsRequest) ProtoMessage() {}
 
 func (x *BridgeUpdateQuoteParamsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[17]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1394,7 +2060,7 @@ func (x *BridgeUpdateQuoteParamsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeUpdateQuoteParamsRequest.ProtoReflect.Descriptor instead.
 func (*BridgeUpdateQuoteParamsRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{17}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *BridgeUpdateQuoteParamsRequest) GetOrderId() string {
@@ -1422,7 +2088,7 @@ type BridgeUpdateQuoteParamsResponse struct {
 
 func (x *BridgeUpdateQuoteParamsResponse) Reset() {
 	*x = BridgeUpdateQuoteParamsResponse{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[18]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1434,7 +2100,7 @@ func (x *BridgeUpdateQuoteParamsResponse) String() string {
 func (*BridgeUpdateQuoteParamsResponse) ProtoMessage() {}
 
 func (x *BridgeUpdateQuoteParamsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[18]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1447,7 +2113,7 @@ func (x *BridgeUpdateQuoteParamsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeUpdateQuoteParamsResponse.ProtoReflect.Descriptor instead.
 func (*BridgeUpdateQuoteParamsResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{18}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *BridgeUpdateQuoteParamsResponse) GetGeneration() int64 {
@@ -1483,7 +2149,7 @@ type BridgeGetNewQuotesRequest struct {
 
 func (x *BridgeGetNewQuotesRequest) Reset() {
 	*x = BridgeGetNewQuotesRequest{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[19]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1495,7 +2161,7 @@ func (x *BridgeGetNewQuotesRequest) String() string {
 func (*BridgeGetNewQuotesRequest) ProtoMessage() {}
 
 func (x *BridgeGetNewQuotesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[19]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1508,7 +2174,7 @@ func (x *BridgeGetNewQuotesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeGetNewQuotesRequest.ProtoReflect.Descriptor instead.
 func (*BridgeGetNewQuotesRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{19}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *BridgeGetNewQuotesRequest) GetOrderId() string {
@@ -1548,7 +2214,7 @@ type BridgeGetQuotesResponse struct {
 
 func (x *BridgeGetQuotesResponse) Reset() {
 	*x = BridgeGetQuotesResponse{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[20]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1560,7 +2226,7 @@ func (x *BridgeGetQuotesResponse) String() string {
 func (*BridgeGetQuotesResponse) ProtoMessage() {}
 
 func (x *BridgeGetQuotesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[20]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1573,7 +2239,7 @@ func (x *BridgeGetQuotesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeGetQuotesResponse.ProtoReflect.Descriptor instead.
 func (*BridgeGetQuotesResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{20}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *BridgeGetQuotesResponse) GetQuotes() map[string]*BridgeQuoteInformation {
@@ -1593,7 +2259,7 @@ type BridgeGetQuotesRequest struct {
 
 func (x *BridgeGetQuotesRequest) Reset() {
 	*x = BridgeGetQuotesRequest{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[21]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1605,7 +2271,7 @@ func (x *BridgeGetQuotesRequest) String() string {
 func (*BridgeGetQuotesRequest) ProtoMessage() {}
 
 func (x *BridgeGetQuotesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[21]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1618,7 +2284,7 @@ func (x *BridgeGetQuotesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeGetQuotesRequest.ProtoReflect.Descriptor instead.
 func (*BridgeGetQuotesRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{21}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *BridgeGetQuotesRequest) GetOrderId() string {
@@ -1645,7 +2311,7 @@ type BridgeGetQuoteRequest struct {
 
 func (x *BridgeGetQuoteRequest) Reset() {
 	*x = BridgeGetQuoteRequest{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[22]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1657,7 +2323,7 @@ func (x *BridgeGetQuoteRequest) String() string {
 func (*BridgeGetQuoteRequest) ProtoMessage() {}
 
 func (x *BridgeGetQuoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[22]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1670,7 +2336,7 @@ func (x *BridgeGetQuoteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeGetQuoteRequest.ProtoReflect.Descriptor instead.
 func (*BridgeGetQuoteRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{22}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *BridgeGetQuoteRequest) GetOrderId() string {
@@ -1696,7 +2362,7 @@ type BridgeGetQuoteResponse struct {
 
 func (x *BridgeGetQuoteResponse) Reset() {
 	*x = BridgeGetQuoteResponse{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[23]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1708,7 +2374,7 @@ func (x *BridgeGetQuoteResponse) String() string {
 func (*BridgeGetQuoteResponse) ProtoMessage() {}
 
 func (x *BridgeGetQuoteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[23]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1721,7 +2387,7 @@ func (x *BridgeGetQuoteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeGetQuoteResponse.ProtoReflect.Descriptor instead.
 func (*BridgeGetQuoteResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{23}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *BridgeGetQuoteResponse) GetQuotes() map[string]*BridgeQuoteInformation {
@@ -1742,7 +2408,7 @@ type BridgeUpdateQuoteSelectRequest struct {
 
 func (x *BridgeUpdateQuoteSelectRequest) Reset() {
 	*x = BridgeUpdateQuoteSelectRequest{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[24]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1754,7 +2420,7 @@ func (x *BridgeUpdateQuoteSelectRequest) String() string {
 func (*BridgeUpdateQuoteSelectRequest) ProtoMessage() {}
 
 func (x *BridgeUpdateQuoteSelectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[24]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1767,7 +2433,7 @@ func (x *BridgeUpdateQuoteSelectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeUpdateQuoteSelectRequest.ProtoReflect.Descriptor instead.
 func (*BridgeUpdateQuoteSelectRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{24}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *BridgeUpdateQuoteSelectRequest) GetOrderId() string {
@@ -1801,7 +2467,7 @@ type BridgeUpdateQuoteSelectResponse struct {
 
 func (x *BridgeUpdateQuoteSelectResponse) Reset() {
 	*x = BridgeUpdateQuoteSelectResponse{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[25]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1813,7 +2479,7 @@ func (x *BridgeUpdateQuoteSelectResponse) String() string {
 func (*BridgeUpdateQuoteSelectResponse) ProtoMessage() {}
 
 func (x *BridgeUpdateQuoteSelectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[25]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1826,7 +2492,7 @@ func (x *BridgeUpdateQuoteSelectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeUpdateQuoteSelectResponse.ProtoReflect.Descriptor instead.
 func (*BridgeUpdateQuoteSelectResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{25}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *BridgeUpdateQuoteSelectResponse) GetQuoteId() string {
@@ -1854,7 +2520,7 @@ type BridgeConfirmQuoteSelectRequest struct {
 
 func (x *BridgeConfirmQuoteSelectRequest) Reset() {
 	*x = BridgeConfirmQuoteSelectRequest{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[26]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1866,7 +2532,7 @@ func (x *BridgeConfirmQuoteSelectRequest) String() string {
 func (*BridgeConfirmQuoteSelectRequest) ProtoMessage() {}
 
 func (x *BridgeConfirmQuoteSelectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[26]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1879,7 +2545,7 @@ func (x *BridgeConfirmQuoteSelectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeConfirmQuoteSelectRequest.ProtoReflect.Descriptor instead.
 func (*BridgeConfirmQuoteSelectRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{26}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *BridgeConfirmQuoteSelectRequest) GetOrderId() string {
@@ -1911,7 +2577,7 @@ type BridgeConfirmQuoteSelectResponse struct {
 
 func (x *BridgeConfirmQuoteSelectResponse) Reset() {
 	*x = BridgeConfirmQuoteSelectResponse{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[27]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1923,7 +2589,7 @@ func (x *BridgeConfirmQuoteSelectResponse) String() string {
 func (*BridgeConfirmQuoteSelectResponse) ProtoMessage() {}
 
 func (x *BridgeConfirmQuoteSelectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[27]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1936,7 +2602,7 @@ func (x *BridgeConfirmQuoteSelectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BridgeConfirmQuoteSelectResponse.ProtoReflect.Descriptor instead.
 func (*BridgeConfirmQuoteSelectResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{27}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{33}
 }
 
 type FinishClaimRequest struct {
@@ -1949,7 +2615,7 @@ type FinishClaimRequest struct {
 
 func (x *FinishClaimRequest) Reset() {
 	*x = FinishClaimRequest{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[28]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1961,7 +2627,7 @@ func (x *FinishClaimRequest) String() string {
 func (*FinishClaimRequest) ProtoMessage() {}
 
 func (x *FinishClaimRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[28]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1974,7 +2640,7 @@ func (x *FinishClaimRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FinishClaimRequest.ProtoReflect.Descriptor instead.
 func (*FinishClaimRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{28}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *FinishClaimRequest) GetOrderId() string {
@@ -1999,7 +2665,7 @@ type FinishClaimResponse struct {
 
 func (x *FinishClaimResponse) Reset() {
 	*x = FinishClaimResponse{}
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[29]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2011,7 +2677,7 @@ func (x *FinishClaimResponse) String() string {
 func (*FinishClaimResponse) ProtoMessage() {}
 
 func (x *FinishClaimResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[29]
+	mi := &file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2024,7 +2690,7 @@ func (x *FinishClaimResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FinishClaimResponse.ProtoReflect.Descriptor instead.
 func (*FinishClaimResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{29}
+	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP(), []int{35}
 }
 
 var File_gfxcafe_oku_account_v2_bridge_proto protoreflect.FileDescriptor
@@ -2058,7 +2724,50 @@ const file_gfxcafe_oku_account_v2_bridge_proto_rawDesc = "" +
 	"\x06active\x18\x02 \x01(\bR\x06active\x12)\n" +
 	"\x10supported_chains\x18\x03 \x03(\tR\x0fsupportedChains\"]\n" +
 	"\x1bGetSupportedBridgesResponse\x12>\n" +
-	"\abridges\x18\x01 \x03(\v2$.gfxcafe.oku.account.v2.BridgeStatusR\abridges\"\xa5\x04\n" +
+	"\abridges\x18\x01 \x03(\v2$.gfxcafe.oku.account.v2.BridgeStatusR\abridges\"{\n" +
+	"\x1eLookupSourceTransactionRequest\x12,\n" +
+	"\vsource_hash\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xd8H\x01R\n" +
+	"sourceHash\x12+\n" +
+	"\fsource_chain\x18\x02 \x01(\tB\b\xbaH\x05r\x03\xb0}\x01R\vsourceChain\"\xa6\x01\n" +
+	"\x16SourceTransactionToken\x12\x14\n" +
+	"\x05chain\x18\x01 \x01(\tR\x05chain\x12\x18\n" +
+	"\aaddress\x18\x02 \x01(\tR\aaddress\x12\x16\n" +
+	"\x06amount\x18\x03 \x01(\tR\x06amount\x12\x16\n" +
+	"\x06symbol\x18\x04 \x01(\tR\x06symbol\x12\x1f\n" +
+	"\bdecimals\x18\x05 \x01(\x05H\x00R\bdecimals\x88\x01\x01B\v\n" +
+	"\t_decimals\"E\n" +
+	"\x17SourceTransactionDetail\x12\x14\n" +
+	"\x05label\x18\x01 \x01(\tR\x05label\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\x9e\x05\n" +
+	"\x1dSourceTransactionLookupResult\x12\x16\n" +
+	"\x06bridge\x18\x01 \x01(\tR\x06bridge\x12J\n" +
+	"\aoutcome\x18\x02 \x01(\x0e20.gfxcafe.oku.account.v2.SourceTransactionOutcomeR\aoutcome\x12G\n" +
+	"\x06status\x18\x03 \x01(\x0e2/.gfxcafe.oku.account.v2.SourceTransactionStatusR\x06status\x12!\n" +
+	"\fsource_chain\x18\x04 \x01(\tR\vsourceChain\x12\x1f\n" +
+	"\vsource_hash\x18\x05 \x01(\tR\n" +
+	"sourceHash\x12+\n" +
+	"\x11destination_chain\x18\x06 \x01(\tR\x10destinationChain\x12)\n" +
+	"\x10destination_hash\x18\a \x01(\tR\x0fdestinationHash\x12Q\n" +
+	"\fsource_token\x18\b \x01(\v2..gfxcafe.oku.account.v2.SourceTransactionTokenR\vsourceToken\x12[\n" +
+	"\x11destination_token\x18\t \x01(\v2..gfxcafe.oku.account.v2.SourceTransactionTokenR\x10destinationToken\x12!\n" +
+	"\fexplorer_url\x18\n" +
+	" \x01(\tR\vexplorerUrl\x12I\n" +
+	"\adetails\x18\v \x03(\v2/.gfxcafe.oku.account.v2.SourceTransactionDetailR\adetails\x12\x16\n" +
+	"\x06reason\x18\f \x01(\tR\x06reason\"\xa8\x01\n" +
+	"\x1bSourceTransactionResolution\x12O\n" +
+	"\aprimary\x18\x01 \x01(\v25.gfxcafe.oku.account.v2.SourceTransactionLookupResultR\aprimary\x12\x1e\n" +
+	"\n" +
+	"incomplete\x18\x02 \x03(\tR\n" +
+	"incomplete\x12\x18\n" +
+	"\awarning\x18\x03 \x01(\tR\awarning\"\xf4\x02\n" +
+	"\x1fLookupSourceTransactionResponse\x12[\n" +
+	"\x11discovery_outcome\x18\x01 \x01(\x0e2..gfxcafe.oku.account.v2.SourceDiscoveryOutcomeR\x10discoveryOutcome\x12!\n" +
+	"\fsource_chain\x18\x02 \x01(\tR\vsourceChain\x12+\n" +
+	"\x11discovered_bridge\x18\x03 \x01(\tR\x10discoveredBridge\x12O\n" +
+	"\aresults\x18\x04 \x03(\v25.gfxcafe.oku.account.v2.SourceTransactionLookupResultR\aresults\x12S\n" +
+	"\n" +
+	"resolution\x18\x05 \x01(\v23.gfxcafe.oku.account.v2.SourceTransactionResolutionR\n" +
+	"resolution\"\xa5\x04\n" +
 	"\x11BridgeQuoteParams\x12\x19\n" +
 	"\bin_chain\x18\x01 \x01(\x03R\ainChain\x12\x1b\n" +
 	"\tout_chain\x18\x02 \x01(\x03R\boutChain\x12'\n" +
@@ -2199,7 +2908,26 @@ const file_gfxcafe_oku_account_v2_bridge_proto_rawDesc = "" +
 	"\x12FinishClaimRequest\x12#\n" +
 	"\border_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\aorderId\x12\x17\n" +
 	"\atx_hash\x18\x02 \x01(\tR\x06txHash\"\x15\n" +
-	"\x13FinishClaimResponse2\xb6\x0f\n" +
+	"\x13FinishClaimResponse*\xb6\x01\n" +
+	"\x16SourceDiscoveryOutcome\x12(\n" +
+	"$SOURCE_DISCOVERY_OUTCOME_UNSPECIFIED\x10\x00\x12\"\n" +
+	"\x1eSOURCE_DISCOVERY_OUTCOME_FOUND\x10\x01\x12&\n" +
+	"\"SOURCE_DISCOVERY_OUTCOME_NOT_FOUND\x10\x02\x12&\n" +
+	"\"SOURCE_DISCOVERY_OUTCOME_AMBIGUOUS\x10\x03*\xec\x01\n" +
+	"\x18SourceTransactionOutcome\x12*\n" +
+	"&SOURCE_TRANSACTION_OUTCOME_UNSPECIFIED\x10\x00\x12$\n" +
+	" SOURCE_TRANSACTION_OUTCOME_FOUND\x10\x01\x12(\n" +
+	"$SOURCE_TRANSACTION_OUTCOME_NOT_FOUND\x10\x02\x12*\n" +
+	"&SOURCE_TRANSACTION_OUTCOME_UNAVAILABLE\x10\x03\x12(\n" +
+	"$SOURCE_TRANSACTION_OUTCOME_AMBIGUOUS\x10\x04*\xb2\x02\n" +
+	"\x17SourceTransactionStatus\x12)\n" +
+	"%SOURCE_TRANSACTION_STATUS_UNSPECIFIED\x10\x00\x12%\n" +
+	"!SOURCE_TRANSACTION_STATUS_PENDING\x10\x01\x12'\n" +
+	"#SOURCE_TRANSACTION_STATUS_COMPLETED\x10\x02\x12$\n" +
+	" SOURCE_TRANSACTION_STATUS_FAILED\x10\x03\x12&\n" +
+	"\"SOURCE_TRANSACTION_STATUS_REFUNDED\x10\x04\x12'\n" +
+	"#SOURCE_TRANSACTION_STATUS_CLAIMABLE\x10\x05\x12%\n" +
+	"!SOURCE_TRANSACTION_STATUS_UNKNOWN\x10\x062\xc3\x10\n" +
 	"\rBridgeService\x12c\n" +
 	"\x06Create\x12+.gfxcafe.oku.account.v2.BridgeCreateRequest\x1a,.gfxcafe.oku.account.v2.BridgeCreateResponse\x12Q\n" +
 	"\x04Ping\x12#.gfxcafe.oku.account.v2.PingRequest\x1a$.gfxcafe.oku.account.v2.PingResponse\x12W\n" +
@@ -2214,7 +2942,8 @@ const file_gfxcafe_oku_account_v2_bridge_proto_rawDesc = "" +
 	"\x10GetExecutionInfo\x12/.gfxcafe.oku.account.v2.GetExecutionInfoRequest\x1a0.gfxcafe.oku.account.v2.GetExecutionInfoResponse\x12W\n" +
 	"\x06Finish\x12%.gfxcafe.oku.account.v2.FinishRequest\x1a&.gfxcafe.oku.account.v2.FinishResponse\x12f\n" +
 	"\vFinishClaim\x12*.gfxcafe.oku.account.v2.FinishClaimRequest\x1a+.gfxcafe.oku.account.v2.FinishClaimResponse\x12~\n" +
-	"\x13GetSupportedBridges\x122.gfxcafe.oku.account.v2.GetSupportedBridgesRequest\x1a3.gfxcafe.oku.account.v2.GetSupportedBridgesResponse\x12{\n" +
+	"\x13GetSupportedBridges\x122.gfxcafe.oku.account.v2.GetSupportedBridgesRequest\x1a3.gfxcafe.oku.account.v2.GetSupportedBridgesResponse\x12\x8a\x01\n" +
+	"\x17LookupSourceTransaction\x126.gfxcafe.oku.account.v2.LookupSourceTransactionRequest\x1a7.gfxcafe.oku.account.v2.LookupSourceTransactionResponse\x12{\n" +
 	"\x12GetSupportedTokens\x121.gfxcafe.oku.account.v2.GetSupportedTokensRequest\x1a2.gfxcafe.oku.account.v2.GetSupportedTokensResponse\x12\x81\x01\n" +
 	"\x14CheckOutChainSupport\x123.gfxcafe.oku.account.v2.CheckOutChainSupportRequest\x1a4.gfxcafe.oku.account.v2.CheckOutChainSupportResponse\x12\x87\x01\n" +
 	"\x16GetBitcoinMaxSpendable\x125.gfxcafe.oku.account.v2.GetBitcoinMaxSpendableRequest\x1a6.gfxcafe.oku.account.v2.GetBitcoinMaxSpendableResponseB\xeb\x01\n" +
@@ -2232,116 +2961,137 @@ func file_gfxcafe_oku_account_v2_bridge_proto_rawDescGZIP() []byte {
 	return file_gfxcafe_oku_account_v2_bridge_proto_rawDescData
 }
 
-var file_gfxcafe_oku_account_v2_bridge_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
+var file_gfxcafe_oku_account_v2_bridge_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_gfxcafe_oku_account_v2_bridge_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
 var file_gfxcafe_oku_account_v2_bridge_proto_goTypes = []any{
-	(*GetBitcoinMaxSpendableRequest)(nil),    // 0: gfxcafe.oku.account.v2.GetBitcoinMaxSpendableRequest
-	(*GetBitcoinMaxSpendableResponse)(nil),   // 1: gfxcafe.oku.account.v2.GetBitcoinMaxSpendableResponse
-	(*CheckOutChainSupportRequest)(nil),      // 2: gfxcafe.oku.account.v2.CheckOutChainSupportRequest
-	(*CheckOutChainSupportResponse)(nil),     // 3: gfxcafe.oku.account.v2.CheckOutChainSupportResponse
-	(*GetSupportedTokensRequest)(nil),        // 4: gfxcafe.oku.account.v2.GetSupportedTokensRequest
-	(*GetSupportedTokensResponse)(nil),       // 5: gfxcafe.oku.account.v2.GetSupportedTokensResponse
-	(*GetSupportedBridgesRequest)(nil),       // 6: gfxcafe.oku.account.v2.GetSupportedBridgesRequest
-	(*BridgeStatus)(nil),                     // 7: gfxcafe.oku.account.v2.BridgeStatus
-	(*GetSupportedBridgesResponse)(nil),      // 8: gfxcafe.oku.account.v2.GetSupportedBridgesResponse
-	(*BridgeQuoteParams)(nil),                // 9: gfxcafe.oku.account.v2.BridgeQuoteParams
-	(*BridgeQuoteInformation)(nil),           // 10: gfxcafe.oku.account.v2.BridgeQuoteInformation
-	(*BridgeQuote)(nil),                      // 11: gfxcafe.oku.account.v2.BridgeQuote
-	(*BridgeGas)(nil),                        // 12: gfxcafe.oku.account.v2.BridgeGas
-	(*BridgeSimulationResult)(nil),           // 13: gfxcafe.oku.account.v2.BridgeSimulationResult
-	(*Step)(nil),                             // 14: gfxcafe.oku.account.v2.Step
-	(*BridgeCreateRequest)(nil),              // 15: gfxcafe.oku.account.v2.BridgeCreateRequest
-	(*BridgeCreateResponse)(nil),             // 16: gfxcafe.oku.account.v2.BridgeCreateResponse
-	(*BridgeUpdateQuoteParamsRequest)(nil),   // 17: gfxcafe.oku.account.v2.BridgeUpdateQuoteParamsRequest
-	(*BridgeUpdateQuoteParamsResponse)(nil),  // 18: gfxcafe.oku.account.v2.BridgeUpdateQuoteParamsResponse
-	(*BridgeGetNewQuotesRequest)(nil),        // 19: gfxcafe.oku.account.v2.BridgeGetNewQuotesRequest
-	(*BridgeGetQuotesResponse)(nil),          // 20: gfxcafe.oku.account.v2.BridgeGetQuotesResponse
-	(*BridgeGetQuotesRequest)(nil),           // 21: gfxcafe.oku.account.v2.BridgeGetQuotesRequest
-	(*BridgeGetQuoteRequest)(nil),            // 22: gfxcafe.oku.account.v2.BridgeGetQuoteRequest
-	(*BridgeGetQuoteResponse)(nil),           // 23: gfxcafe.oku.account.v2.BridgeGetQuoteResponse
-	(*BridgeUpdateQuoteSelectRequest)(nil),   // 24: gfxcafe.oku.account.v2.BridgeUpdateQuoteSelectRequest
-	(*BridgeUpdateQuoteSelectResponse)(nil),  // 25: gfxcafe.oku.account.v2.BridgeUpdateQuoteSelectResponse
-	(*BridgeConfirmQuoteSelectRequest)(nil),  // 26: gfxcafe.oku.account.v2.BridgeConfirmQuoteSelectRequest
-	(*BridgeConfirmQuoteSelectResponse)(nil), // 27: gfxcafe.oku.account.v2.BridgeConfirmQuoteSelectResponse
-	(*FinishClaimRequest)(nil),               // 28: gfxcafe.oku.account.v2.FinishClaimRequest
-	(*FinishClaimResponse)(nil),              // 29: gfxcafe.oku.account.v2.FinishClaimResponse
-	nil,                                      // 30: gfxcafe.oku.account.v2.BridgeGetQuotesResponse.QuotesEntry
-	nil,                                      // 31: gfxcafe.oku.account.v2.BridgeGetQuoteResponse.QuotesEntry
-	(*OrderError)(nil),                       // 32: gfxcafe.oku.account.v2.OrderError
-	(*Coupon)(nil),                           // 33: gfxcafe.oku.account.v2.Coupon
-	(*SigningRequest)(nil),                   // 34: gfxcafe.oku.account.v2.SigningRequest
-	(*TokenMetadata)(nil),                    // 35: gfxcafe.oku.account.v2.TokenMetadata
-	(*ApprovalPayloadV2)(nil),                // 36: gfxcafe.oku.account.v2.ApprovalPayloadV2
-	(*ExecutionInformation)(nil),             // 37: gfxcafe.oku.account.v2.ExecutionInformation
-	(*PingRequest)(nil),                      // 38: gfxcafe.oku.account.v2.PingRequest
-	(*CancelRequest)(nil),                    // 39: gfxcafe.oku.account.v2.CancelRequest
-	(*RefreshQuotesRequest)(nil),             // 40: gfxcafe.oku.account.v2.RefreshQuotesRequest
-	(*GetExecutionInfoRequest)(nil),          // 41: gfxcafe.oku.account.v2.GetExecutionInfoRequest
-	(*FinishRequest)(nil),                    // 42: gfxcafe.oku.account.v2.FinishRequest
-	(*PingResponse)(nil),                     // 43: gfxcafe.oku.account.v2.PingResponse
-	(*CancelResponse)(nil),                   // 44: gfxcafe.oku.account.v2.CancelResponse
-	(*RefreshQuotesResponse)(nil),            // 45: gfxcafe.oku.account.v2.RefreshQuotesResponse
-	(*GetExecutionInfoResponse)(nil),         // 46: gfxcafe.oku.account.v2.GetExecutionInfoResponse
-	(*FinishResponse)(nil),                   // 47: gfxcafe.oku.account.v2.FinishResponse
+	(SourceDiscoveryOutcome)(0),              // 0: gfxcafe.oku.account.v2.SourceDiscoveryOutcome
+	(SourceTransactionOutcome)(0),            // 1: gfxcafe.oku.account.v2.SourceTransactionOutcome
+	(SourceTransactionStatus)(0),             // 2: gfxcafe.oku.account.v2.SourceTransactionStatus
+	(*GetBitcoinMaxSpendableRequest)(nil),    // 3: gfxcafe.oku.account.v2.GetBitcoinMaxSpendableRequest
+	(*GetBitcoinMaxSpendableResponse)(nil),   // 4: gfxcafe.oku.account.v2.GetBitcoinMaxSpendableResponse
+	(*CheckOutChainSupportRequest)(nil),      // 5: gfxcafe.oku.account.v2.CheckOutChainSupportRequest
+	(*CheckOutChainSupportResponse)(nil),     // 6: gfxcafe.oku.account.v2.CheckOutChainSupportResponse
+	(*GetSupportedTokensRequest)(nil),        // 7: gfxcafe.oku.account.v2.GetSupportedTokensRequest
+	(*GetSupportedTokensResponse)(nil),       // 8: gfxcafe.oku.account.v2.GetSupportedTokensResponse
+	(*GetSupportedBridgesRequest)(nil),       // 9: gfxcafe.oku.account.v2.GetSupportedBridgesRequest
+	(*BridgeStatus)(nil),                     // 10: gfxcafe.oku.account.v2.BridgeStatus
+	(*GetSupportedBridgesResponse)(nil),      // 11: gfxcafe.oku.account.v2.GetSupportedBridgesResponse
+	(*LookupSourceTransactionRequest)(nil),   // 12: gfxcafe.oku.account.v2.LookupSourceTransactionRequest
+	(*SourceTransactionToken)(nil),           // 13: gfxcafe.oku.account.v2.SourceTransactionToken
+	(*SourceTransactionDetail)(nil),          // 14: gfxcafe.oku.account.v2.SourceTransactionDetail
+	(*SourceTransactionLookupResult)(nil),    // 15: gfxcafe.oku.account.v2.SourceTransactionLookupResult
+	(*SourceTransactionResolution)(nil),      // 16: gfxcafe.oku.account.v2.SourceTransactionResolution
+	(*LookupSourceTransactionResponse)(nil),  // 17: gfxcafe.oku.account.v2.LookupSourceTransactionResponse
+	(*BridgeQuoteParams)(nil),                // 18: gfxcafe.oku.account.v2.BridgeQuoteParams
+	(*BridgeQuoteInformation)(nil),           // 19: gfxcafe.oku.account.v2.BridgeQuoteInformation
+	(*BridgeQuote)(nil),                      // 20: gfxcafe.oku.account.v2.BridgeQuote
+	(*BridgeGas)(nil),                        // 21: gfxcafe.oku.account.v2.BridgeGas
+	(*BridgeSimulationResult)(nil),           // 22: gfxcafe.oku.account.v2.BridgeSimulationResult
+	(*Step)(nil),                             // 23: gfxcafe.oku.account.v2.Step
+	(*BridgeCreateRequest)(nil),              // 24: gfxcafe.oku.account.v2.BridgeCreateRequest
+	(*BridgeCreateResponse)(nil),             // 25: gfxcafe.oku.account.v2.BridgeCreateResponse
+	(*BridgeUpdateQuoteParamsRequest)(nil),   // 26: gfxcafe.oku.account.v2.BridgeUpdateQuoteParamsRequest
+	(*BridgeUpdateQuoteParamsResponse)(nil),  // 27: gfxcafe.oku.account.v2.BridgeUpdateQuoteParamsResponse
+	(*BridgeGetNewQuotesRequest)(nil),        // 28: gfxcafe.oku.account.v2.BridgeGetNewQuotesRequest
+	(*BridgeGetQuotesResponse)(nil),          // 29: gfxcafe.oku.account.v2.BridgeGetQuotesResponse
+	(*BridgeGetQuotesRequest)(nil),           // 30: gfxcafe.oku.account.v2.BridgeGetQuotesRequest
+	(*BridgeGetQuoteRequest)(nil),            // 31: gfxcafe.oku.account.v2.BridgeGetQuoteRequest
+	(*BridgeGetQuoteResponse)(nil),           // 32: gfxcafe.oku.account.v2.BridgeGetQuoteResponse
+	(*BridgeUpdateQuoteSelectRequest)(nil),   // 33: gfxcafe.oku.account.v2.BridgeUpdateQuoteSelectRequest
+	(*BridgeUpdateQuoteSelectResponse)(nil),  // 34: gfxcafe.oku.account.v2.BridgeUpdateQuoteSelectResponse
+	(*BridgeConfirmQuoteSelectRequest)(nil),  // 35: gfxcafe.oku.account.v2.BridgeConfirmQuoteSelectRequest
+	(*BridgeConfirmQuoteSelectResponse)(nil), // 36: gfxcafe.oku.account.v2.BridgeConfirmQuoteSelectResponse
+	(*FinishClaimRequest)(nil),               // 37: gfxcafe.oku.account.v2.FinishClaimRequest
+	(*FinishClaimResponse)(nil),              // 38: gfxcafe.oku.account.v2.FinishClaimResponse
+	nil,                                      // 39: gfxcafe.oku.account.v2.BridgeGetQuotesResponse.QuotesEntry
+	nil,                                      // 40: gfxcafe.oku.account.v2.BridgeGetQuoteResponse.QuotesEntry
+	(*OrderError)(nil),                       // 41: gfxcafe.oku.account.v2.OrderError
+	(*Coupon)(nil),                           // 42: gfxcafe.oku.account.v2.Coupon
+	(*SigningRequest)(nil),                   // 43: gfxcafe.oku.account.v2.SigningRequest
+	(*TokenMetadata)(nil),                    // 44: gfxcafe.oku.account.v2.TokenMetadata
+	(*ApprovalPayloadV2)(nil),                // 45: gfxcafe.oku.account.v2.ApprovalPayloadV2
+	(*ExecutionInformation)(nil),             // 46: gfxcafe.oku.account.v2.ExecutionInformation
+	(*PingRequest)(nil),                      // 47: gfxcafe.oku.account.v2.PingRequest
+	(*CancelRequest)(nil),                    // 48: gfxcafe.oku.account.v2.CancelRequest
+	(*RefreshQuotesRequest)(nil),             // 49: gfxcafe.oku.account.v2.RefreshQuotesRequest
+	(*GetExecutionInfoRequest)(nil),          // 50: gfxcafe.oku.account.v2.GetExecutionInfoRequest
+	(*FinishRequest)(nil),                    // 51: gfxcafe.oku.account.v2.FinishRequest
+	(*PingResponse)(nil),                     // 52: gfxcafe.oku.account.v2.PingResponse
+	(*CancelResponse)(nil),                   // 53: gfxcafe.oku.account.v2.CancelResponse
+	(*RefreshQuotesResponse)(nil),            // 54: gfxcafe.oku.account.v2.RefreshQuotesResponse
+	(*GetExecutionInfoResponse)(nil),         // 55: gfxcafe.oku.account.v2.GetExecutionInfoResponse
+	(*FinishResponse)(nil),                   // 56: gfxcafe.oku.account.v2.FinishResponse
 }
 var file_gfxcafe_oku_account_v2_bridge_proto_depIdxs = []int32{
-	7,  // 0: gfxcafe.oku.account.v2.GetSupportedBridgesResponse.bridges:type_name -> gfxcafe.oku.account.v2.BridgeStatus
-	32, // 1: gfxcafe.oku.account.v2.BridgeQuoteInformation.error:type_name -> gfxcafe.oku.account.v2.OrderError
-	11, // 2: gfxcafe.oku.account.v2.BridgeQuoteInformation.quote:type_name -> gfxcafe.oku.account.v2.BridgeQuote
-	12, // 3: gfxcafe.oku.account.v2.BridgeQuote.gas:type_name -> gfxcafe.oku.account.v2.BridgeGas
-	33, // 4: gfxcafe.oku.account.v2.BridgeQuote.coupon:type_name -> gfxcafe.oku.account.v2.Coupon
-	34, // 5: gfxcafe.oku.account.v2.BridgeQuote.signing_request:type_name -> gfxcafe.oku.account.v2.SigningRequest
-	35, // 6: gfxcafe.oku.account.v2.BridgeQuote.in_token:type_name -> gfxcafe.oku.account.v2.TokenMetadata
-	35, // 7: gfxcafe.oku.account.v2.BridgeQuote.out_token:type_name -> gfxcafe.oku.account.v2.TokenMetadata
-	35, // 8: gfxcafe.oku.account.v2.BridgeQuote.gas_in_token:type_name -> gfxcafe.oku.account.v2.TokenMetadata
-	14, // 9: gfxcafe.oku.account.v2.BridgeQuote.steps:type_name -> gfxcafe.oku.account.v2.Step
-	13, // 10: gfxcafe.oku.account.v2.BridgeQuote.simulation:type_name -> gfxcafe.oku.account.v2.BridgeSimulationResult
-	36, // 11: gfxcafe.oku.account.v2.BridgeQuote.approvals:type_name -> gfxcafe.oku.account.v2.ApprovalPayloadV2
-	37, // 12: gfxcafe.oku.account.v2.BridgeQuote.execution_info:type_name -> gfxcafe.oku.account.v2.ExecutionInformation
-	9,  // 13: gfxcafe.oku.account.v2.BridgeCreateRequest.params:type_name -> gfxcafe.oku.account.v2.BridgeQuoteParams
-	9,  // 14: gfxcafe.oku.account.v2.BridgeUpdateQuoteParamsRequest.params:type_name -> gfxcafe.oku.account.v2.BridgeQuoteParams
-	30, // 15: gfxcafe.oku.account.v2.BridgeGetQuotesResponse.quotes:type_name -> gfxcafe.oku.account.v2.BridgeGetQuotesResponse.QuotesEntry
-	31, // 16: gfxcafe.oku.account.v2.BridgeGetQuoteResponse.quotes:type_name -> gfxcafe.oku.account.v2.BridgeGetQuoteResponse.QuotesEntry
-	10, // 17: gfxcafe.oku.account.v2.BridgeGetQuotesResponse.QuotesEntry.value:type_name -> gfxcafe.oku.account.v2.BridgeQuoteInformation
-	10, // 18: gfxcafe.oku.account.v2.BridgeGetQuoteResponse.QuotesEntry.value:type_name -> gfxcafe.oku.account.v2.BridgeQuoteInformation
-	15, // 19: gfxcafe.oku.account.v2.BridgeService.Create:input_type -> gfxcafe.oku.account.v2.BridgeCreateRequest
-	38, // 20: gfxcafe.oku.account.v2.BridgeService.Ping:input_type -> gfxcafe.oku.account.v2.PingRequest
-	39, // 21: gfxcafe.oku.account.v2.BridgeService.Cancel:input_type -> gfxcafe.oku.account.v2.CancelRequest
-	17, // 22: gfxcafe.oku.account.v2.BridgeService.UpdateQuoteParams:input_type -> gfxcafe.oku.account.v2.BridgeUpdateQuoteParamsRequest
-	40, // 23: gfxcafe.oku.account.v2.BridgeService.RefreshQuotes:input_type -> gfxcafe.oku.account.v2.RefreshQuotesRequest
-	19, // 24: gfxcafe.oku.account.v2.BridgeService.GetNewQuotes:input_type -> gfxcafe.oku.account.v2.BridgeGetNewQuotesRequest
-	21, // 25: gfxcafe.oku.account.v2.BridgeService.GetQuotes:input_type -> gfxcafe.oku.account.v2.BridgeGetQuotesRequest
-	22, // 26: gfxcafe.oku.account.v2.BridgeService.GetQuote:input_type -> gfxcafe.oku.account.v2.BridgeGetQuoteRequest
-	24, // 27: gfxcafe.oku.account.v2.BridgeService.UpdateQuoteSelect:input_type -> gfxcafe.oku.account.v2.BridgeUpdateQuoteSelectRequest
-	26, // 28: gfxcafe.oku.account.v2.BridgeService.ConfirmQuoteSelect:input_type -> gfxcafe.oku.account.v2.BridgeConfirmQuoteSelectRequest
-	41, // 29: gfxcafe.oku.account.v2.BridgeService.GetExecutionInfo:input_type -> gfxcafe.oku.account.v2.GetExecutionInfoRequest
-	42, // 30: gfxcafe.oku.account.v2.BridgeService.Finish:input_type -> gfxcafe.oku.account.v2.FinishRequest
-	28, // 31: gfxcafe.oku.account.v2.BridgeService.FinishClaim:input_type -> gfxcafe.oku.account.v2.FinishClaimRequest
-	6,  // 32: gfxcafe.oku.account.v2.BridgeService.GetSupportedBridges:input_type -> gfxcafe.oku.account.v2.GetSupportedBridgesRequest
-	4,  // 33: gfxcafe.oku.account.v2.BridgeService.GetSupportedTokens:input_type -> gfxcafe.oku.account.v2.GetSupportedTokensRequest
-	2,  // 34: gfxcafe.oku.account.v2.BridgeService.CheckOutChainSupport:input_type -> gfxcafe.oku.account.v2.CheckOutChainSupportRequest
-	0,  // 35: gfxcafe.oku.account.v2.BridgeService.GetBitcoinMaxSpendable:input_type -> gfxcafe.oku.account.v2.GetBitcoinMaxSpendableRequest
-	16, // 36: gfxcafe.oku.account.v2.BridgeService.Create:output_type -> gfxcafe.oku.account.v2.BridgeCreateResponse
-	43, // 37: gfxcafe.oku.account.v2.BridgeService.Ping:output_type -> gfxcafe.oku.account.v2.PingResponse
-	44, // 38: gfxcafe.oku.account.v2.BridgeService.Cancel:output_type -> gfxcafe.oku.account.v2.CancelResponse
-	18, // 39: gfxcafe.oku.account.v2.BridgeService.UpdateQuoteParams:output_type -> gfxcafe.oku.account.v2.BridgeUpdateQuoteParamsResponse
-	45, // 40: gfxcafe.oku.account.v2.BridgeService.RefreshQuotes:output_type -> gfxcafe.oku.account.v2.RefreshQuotesResponse
-	20, // 41: gfxcafe.oku.account.v2.BridgeService.GetNewQuotes:output_type -> gfxcafe.oku.account.v2.BridgeGetQuotesResponse
-	20, // 42: gfxcafe.oku.account.v2.BridgeService.GetQuotes:output_type -> gfxcafe.oku.account.v2.BridgeGetQuotesResponse
-	23, // 43: gfxcafe.oku.account.v2.BridgeService.GetQuote:output_type -> gfxcafe.oku.account.v2.BridgeGetQuoteResponse
-	25, // 44: gfxcafe.oku.account.v2.BridgeService.UpdateQuoteSelect:output_type -> gfxcafe.oku.account.v2.BridgeUpdateQuoteSelectResponse
-	27, // 45: gfxcafe.oku.account.v2.BridgeService.ConfirmQuoteSelect:output_type -> gfxcafe.oku.account.v2.BridgeConfirmQuoteSelectResponse
-	46, // 46: gfxcafe.oku.account.v2.BridgeService.GetExecutionInfo:output_type -> gfxcafe.oku.account.v2.GetExecutionInfoResponse
-	47, // 47: gfxcafe.oku.account.v2.BridgeService.Finish:output_type -> gfxcafe.oku.account.v2.FinishResponse
-	29, // 48: gfxcafe.oku.account.v2.BridgeService.FinishClaim:output_type -> gfxcafe.oku.account.v2.FinishClaimResponse
-	8,  // 49: gfxcafe.oku.account.v2.BridgeService.GetSupportedBridges:output_type -> gfxcafe.oku.account.v2.GetSupportedBridgesResponse
-	5,  // 50: gfxcafe.oku.account.v2.BridgeService.GetSupportedTokens:output_type -> gfxcafe.oku.account.v2.GetSupportedTokensResponse
-	3,  // 51: gfxcafe.oku.account.v2.BridgeService.CheckOutChainSupport:output_type -> gfxcafe.oku.account.v2.CheckOutChainSupportResponse
-	1,  // 52: gfxcafe.oku.account.v2.BridgeService.GetBitcoinMaxSpendable:output_type -> gfxcafe.oku.account.v2.GetBitcoinMaxSpendableResponse
-	36, // [36:53] is the sub-list for method output_type
-	19, // [19:36] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	10, // 0: gfxcafe.oku.account.v2.GetSupportedBridgesResponse.bridges:type_name -> gfxcafe.oku.account.v2.BridgeStatus
+	1,  // 1: gfxcafe.oku.account.v2.SourceTransactionLookupResult.outcome:type_name -> gfxcafe.oku.account.v2.SourceTransactionOutcome
+	2,  // 2: gfxcafe.oku.account.v2.SourceTransactionLookupResult.status:type_name -> gfxcafe.oku.account.v2.SourceTransactionStatus
+	13, // 3: gfxcafe.oku.account.v2.SourceTransactionLookupResult.source_token:type_name -> gfxcafe.oku.account.v2.SourceTransactionToken
+	13, // 4: gfxcafe.oku.account.v2.SourceTransactionLookupResult.destination_token:type_name -> gfxcafe.oku.account.v2.SourceTransactionToken
+	14, // 5: gfxcafe.oku.account.v2.SourceTransactionLookupResult.details:type_name -> gfxcafe.oku.account.v2.SourceTransactionDetail
+	15, // 6: gfxcafe.oku.account.v2.SourceTransactionResolution.primary:type_name -> gfxcafe.oku.account.v2.SourceTransactionLookupResult
+	0,  // 7: gfxcafe.oku.account.v2.LookupSourceTransactionResponse.discovery_outcome:type_name -> gfxcafe.oku.account.v2.SourceDiscoveryOutcome
+	15, // 8: gfxcafe.oku.account.v2.LookupSourceTransactionResponse.results:type_name -> gfxcafe.oku.account.v2.SourceTransactionLookupResult
+	16, // 9: gfxcafe.oku.account.v2.LookupSourceTransactionResponse.resolution:type_name -> gfxcafe.oku.account.v2.SourceTransactionResolution
+	41, // 10: gfxcafe.oku.account.v2.BridgeQuoteInformation.error:type_name -> gfxcafe.oku.account.v2.OrderError
+	20, // 11: gfxcafe.oku.account.v2.BridgeQuoteInformation.quote:type_name -> gfxcafe.oku.account.v2.BridgeQuote
+	21, // 12: gfxcafe.oku.account.v2.BridgeQuote.gas:type_name -> gfxcafe.oku.account.v2.BridgeGas
+	42, // 13: gfxcafe.oku.account.v2.BridgeQuote.coupon:type_name -> gfxcafe.oku.account.v2.Coupon
+	43, // 14: gfxcafe.oku.account.v2.BridgeQuote.signing_request:type_name -> gfxcafe.oku.account.v2.SigningRequest
+	44, // 15: gfxcafe.oku.account.v2.BridgeQuote.in_token:type_name -> gfxcafe.oku.account.v2.TokenMetadata
+	44, // 16: gfxcafe.oku.account.v2.BridgeQuote.out_token:type_name -> gfxcafe.oku.account.v2.TokenMetadata
+	44, // 17: gfxcafe.oku.account.v2.BridgeQuote.gas_in_token:type_name -> gfxcafe.oku.account.v2.TokenMetadata
+	23, // 18: gfxcafe.oku.account.v2.BridgeQuote.steps:type_name -> gfxcafe.oku.account.v2.Step
+	22, // 19: gfxcafe.oku.account.v2.BridgeQuote.simulation:type_name -> gfxcafe.oku.account.v2.BridgeSimulationResult
+	45, // 20: gfxcafe.oku.account.v2.BridgeQuote.approvals:type_name -> gfxcafe.oku.account.v2.ApprovalPayloadV2
+	46, // 21: gfxcafe.oku.account.v2.BridgeQuote.execution_info:type_name -> gfxcafe.oku.account.v2.ExecutionInformation
+	18, // 22: gfxcafe.oku.account.v2.BridgeCreateRequest.params:type_name -> gfxcafe.oku.account.v2.BridgeQuoteParams
+	18, // 23: gfxcafe.oku.account.v2.BridgeUpdateQuoteParamsRequest.params:type_name -> gfxcafe.oku.account.v2.BridgeQuoteParams
+	39, // 24: gfxcafe.oku.account.v2.BridgeGetQuotesResponse.quotes:type_name -> gfxcafe.oku.account.v2.BridgeGetQuotesResponse.QuotesEntry
+	40, // 25: gfxcafe.oku.account.v2.BridgeGetQuoteResponse.quotes:type_name -> gfxcafe.oku.account.v2.BridgeGetQuoteResponse.QuotesEntry
+	19, // 26: gfxcafe.oku.account.v2.BridgeGetQuotesResponse.QuotesEntry.value:type_name -> gfxcafe.oku.account.v2.BridgeQuoteInformation
+	19, // 27: gfxcafe.oku.account.v2.BridgeGetQuoteResponse.QuotesEntry.value:type_name -> gfxcafe.oku.account.v2.BridgeQuoteInformation
+	24, // 28: gfxcafe.oku.account.v2.BridgeService.Create:input_type -> gfxcafe.oku.account.v2.BridgeCreateRequest
+	47, // 29: gfxcafe.oku.account.v2.BridgeService.Ping:input_type -> gfxcafe.oku.account.v2.PingRequest
+	48, // 30: gfxcafe.oku.account.v2.BridgeService.Cancel:input_type -> gfxcafe.oku.account.v2.CancelRequest
+	26, // 31: gfxcafe.oku.account.v2.BridgeService.UpdateQuoteParams:input_type -> gfxcafe.oku.account.v2.BridgeUpdateQuoteParamsRequest
+	49, // 32: gfxcafe.oku.account.v2.BridgeService.RefreshQuotes:input_type -> gfxcafe.oku.account.v2.RefreshQuotesRequest
+	28, // 33: gfxcafe.oku.account.v2.BridgeService.GetNewQuotes:input_type -> gfxcafe.oku.account.v2.BridgeGetNewQuotesRequest
+	30, // 34: gfxcafe.oku.account.v2.BridgeService.GetQuotes:input_type -> gfxcafe.oku.account.v2.BridgeGetQuotesRequest
+	31, // 35: gfxcafe.oku.account.v2.BridgeService.GetQuote:input_type -> gfxcafe.oku.account.v2.BridgeGetQuoteRequest
+	33, // 36: gfxcafe.oku.account.v2.BridgeService.UpdateQuoteSelect:input_type -> gfxcafe.oku.account.v2.BridgeUpdateQuoteSelectRequest
+	35, // 37: gfxcafe.oku.account.v2.BridgeService.ConfirmQuoteSelect:input_type -> gfxcafe.oku.account.v2.BridgeConfirmQuoteSelectRequest
+	50, // 38: gfxcafe.oku.account.v2.BridgeService.GetExecutionInfo:input_type -> gfxcafe.oku.account.v2.GetExecutionInfoRequest
+	51, // 39: gfxcafe.oku.account.v2.BridgeService.Finish:input_type -> gfxcafe.oku.account.v2.FinishRequest
+	37, // 40: gfxcafe.oku.account.v2.BridgeService.FinishClaim:input_type -> gfxcafe.oku.account.v2.FinishClaimRequest
+	9,  // 41: gfxcafe.oku.account.v2.BridgeService.GetSupportedBridges:input_type -> gfxcafe.oku.account.v2.GetSupportedBridgesRequest
+	12, // 42: gfxcafe.oku.account.v2.BridgeService.LookupSourceTransaction:input_type -> gfxcafe.oku.account.v2.LookupSourceTransactionRequest
+	7,  // 43: gfxcafe.oku.account.v2.BridgeService.GetSupportedTokens:input_type -> gfxcafe.oku.account.v2.GetSupportedTokensRequest
+	5,  // 44: gfxcafe.oku.account.v2.BridgeService.CheckOutChainSupport:input_type -> gfxcafe.oku.account.v2.CheckOutChainSupportRequest
+	3,  // 45: gfxcafe.oku.account.v2.BridgeService.GetBitcoinMaxSpendable:input_type -> gfxcafe.oku.account.v2.GetBitcoinMaxSpendableRequest
+	25, // 46: gfxcafe.oku.account.v2.BridgeService.Create:output_type -> gfxcafe.oku.account.v2.BridgeCreateResponse
+	52, // 47: gfxcafe.oku.account.v2.BridgeService.Ping:output_type -> gfxcafe.oku.account.v2.PingResponse
+	53, // 48: gfxcafe.oku.account.v2.BridgeService.Cancel:output_type -> gfxcafe.oku.account.v2.CancelResponse
+	27, // 49: gfxcafe.oku.account.v2.BridgeService.UpdateQuoteParams:output_type -> gfxcafe.oku.account.v2.BridgeUpdateQuoteParamsResponse
+	54, // 50: gfxcafe.oku.account.v2.BridgeService.RefreshQuotes:output_type -> gfxcafe.oku.account.v2.RefreshQuotesResponse
+	29, // 51: gfxcafe.oku.account.v2.BridgeService.GetNewQuotes:output_type -> gfxcafe.oku.account.v2.BridgeGetQuotesResponse
+	29, // 52: gfxcafe.oku.account.v2.BridgeService.GetQuotes:output_type -> gfxcafe.oku.account.v2.BridgeGetQuotesResponse
+	32, // 53: gfxcafe.oku.account.v2.BridgeService.GetQuote:output_type -> gfxcafe.oku.account.v2.BridgeGetQuoteResponse
+	34, // 54: gfxcafe.oku.account.v2.BridgeService.UpdateQuoteSelect:output_type -> gfxcafe.oku.account.v2.BridgeUpdateQuoteSelectResponse
+	36, // 55: gfxcafe.oku.account.v2.BridgeService.ConfirmQuoteSelect:output_type -> gfxcafe.oku.account.v2.BridgeConfirmQuoteSelectResponse
+	55, // 56: gfxcafe.oku.account.v2.BridgeService.GetExecutionInfo:output_type -> gfxcafe.oku.account.v2.GetExecutionInfoResponse
+	56, // 57: gfxcafe.oku.account.v2.BridgeService.Finish:output_type -> gfxcafe.oku.account.v2.FinishResponse
+	38, // 58: gfxcafe.oku.account.v2.BridgeService.FinishClaim:output_type -> gfxcafe.oku.account.v2.FinishClaimResponse
+	11, // 59: gfxcafe.oku.account.v2.BridgeService.GetSupportedBridges:output_type -> gfxcafe.oku.account.v2.GetSupportedBridgesResponse
+	17, // 60: gfxcafe.oku.account.v2.BridgeService.LookupSourceTransaction:output_type -> gfxcafe.oku.account.v2.LookupSourceTransactionResponse
+	8,  // 61: gfxcafe.oku.account.v2.BridgeService.GetSupportedTokens:output_type -> gfxcafe.oku.account.v2.GetSupportedTokensResponse
+	6,  // 62: gfxcafe.oku.account.v2.BridgeService.CheckOutChainSupport:output_type -> gfxcafe.oku.account.v2.CheckOutChainSupportResponse
+	4,  // 63: gfxcafe.oku.account.v2.BridgeService.GetBitcoinMaxSpendable:output_type -> gfxcafe.oku.account.v2.GetBitcoinMaxSpendableResponse
+	46, // [46:64] is the sub-list for method output_type
+	28, // [28:46] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_gfxcafe_oku_account_v2_bridge_proto_init() }
@@ -2351,19 +3101,21 @@ func file_gfxcafe_oku_account_v2_bridge_proto_init() {
 	}
 	file_gfxcafe_oku_account_v2_orders_proto_init()
 	file_gfxcafe_oku_account_v2_validate_proto_init()
-	file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[11].OneofWrappers = []any{}
+	file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[10].OneofWrappers = []any{}
+	file_gfxcafe_oku_account_v2_bridge_proto_msgTypes[17].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gfxcafe_oku_account_v2_bridge_proto_rawDesc), len(file_gfxcafe_oku_account_v2_bridge_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   32,
+			NumEnums:      3,
+			NumMessages:   38,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_gfxcafe_oku_account_v2_bridge_proto_goTypes,
 		DependencyIndexes: file_gfxcafe_oku_account_v2_bridge_proto_depIdxs,
+		EnumInfos:         file_gfxcafe_oku_account_v2_bridge_proto_enumTypes,
 		MessageInfos:      file_gfxcafe_oku_account_v2_bridge_proto_msgTypes,
 	}.Build()
 	File_gfxcafe_oku_account_v2_bridge_proto = out.File

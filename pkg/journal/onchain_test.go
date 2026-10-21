@@ -1,9 +1,52 @@
 package journal
 
 import (
+	"context"
 	"errors"
+	"github.com/pressly/goose/v3"
+	"io/fs"
 	"testing"
 )
+
+func TestClaimMigrationPreservesExistingIntents(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	j, err := Open("first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := OnchainIntent{ID: "legacy-bridge", Kind: "bridge", ChainID: 42161, Sender: "0x1111111111111111111111111111111111111111", Recipient: "0x2222222222222222222222222222222222222222", Token: "native", Amount: "1", Templates: []OnchainTemplate{{ChainID: 42161, To: "0x2222222222222222222222222222222222222222", Value: "0x0"}}}
+	if _, err = j.CreateOnchain(in); err != nil {
+		t.Fatal(err)
+	}
+	providerFS, err := fs.Sub(migrations, "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider, err := goose.NewProvider(goose.DialectSQLite3, j.db, providerFS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = provider.DownTo(context.Background(), 3); err != nil {
+		t.Fatal(err)
+	}
+	if err = j.Close(); err != nil {
+		t.Fatal(err)
+	}
+	j, err = Open("first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer j.Close()
+	if _, err = j.GetOnchain(in.ID); err != nil {
+		t.Fatalf("lost existing intent: %v", err)
+	}
+	in.ID = "new-claim"
+	in.Kind = "claim"
+	in.ParentIntent = "legacy-bridge"
+	if _, err = j.CreateOnchain(in); err != nil {
+		t.Fatalf("claim constraint not migrated: %v", err)
+	}
+}
 
 func TestOnchainUnknownBlocksAcrossProfiles(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", t.TempDir())

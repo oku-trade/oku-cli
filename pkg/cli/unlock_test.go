@@ -53,7 +53,7 @@ func swapDuringPrompt(t *testing.T, mutate func(md map[string]any)) (*resolved, 
 func TestUnlockUsesAuthenticatedBinding(t *testing.T) {
 	skipPassphraseOnDarwin(t)
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	const evil = "https://different-origin.example"
 	p, app := swapDuringPrompt(t, func(md map[string]any) { md["api_url"] = evil })
 	p.APIURL = evil

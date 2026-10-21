@@ -72,5 +72,6 @@ func (a *App) cmdFundsReconcile(e *env, kind string) (*result, error) {
 	}
 	return a.cmdSendStatus(e)
 }
-func (a *App) cmdSendReconcile(e *env) (*result, error) { return a.cmdFundsReconcile(e, "send") }
-func (a *App) cmdSwapReconcile(e *env) (*result, error) { return a.cmdFundsReconcile(e, "swap") }
+func (a *App) cmdSendReconcile(e *env) (*result, error)   { return a.cmdFundsReconcile(e, "send") }
+func (a *App) cmdSwapReconcile(e *env) (*result, error)   { return a.cmdFundsReconcile(e, "swap") }
+func (a *App) cmdBridgeReconcile(e *env) (*result, error) { return a.cmdFundsReconcile(e, "bridge") }

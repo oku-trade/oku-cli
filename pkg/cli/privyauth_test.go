@@ -36,6 +36,8 @@ type fakePrivy struct {
 	wrongSigner                                  bool
 	grantCalls                                   int
 	batches                                      [][]map[string]string
+	transactions                                 []map[string]any
+	typedRequests                                []map[string]any
 }
 
 func newFakePrivy(t *testing.T) *fakePrivy {
@@ -154,6 +156,9 @@ func (f *fakePrivy) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if envelope.Method == "eth_sendTransaction" {
+			var transaction map[string]any
+			_ = json.Unmarshal(body, &transaction)
+			f.transactions = append(f.transactions, transaction)
 			if f.failSign {
 				w.WriteHeader(503)
 				reply(map[string]string{"error": "broadcast_timeout"})
@@ -166,6 +171,20 @@ func (f *fakePrivy) serve(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(503)
 			reply(map[string]string{"error": "signing_unavailable"})
 			return
+		}
+		var typedEnvelope struct {
+			Params struct {
+				TypedData map[string]any `json:"typed_data"`
+			} `json:"params"`
+		}
+		_ = json.Unmarshal(body, &typedEnvelope)
+		if typedEnvelope.Params.TypedData != nil {
+			msg, _ := typedEnvelope.Params.TypedData["message"].(map[string]any)
+			if _, hyperliquid := msg["connectionId"]; !hyperliquid {
+				f.typedRequests = append(f.typedRequests, typedEnvelope.Params.TypedData)
+				reply(map[string]any{"data": map[string]string{"signature": "0x" + strings.Repeat("ab", 64) + "1b"}})
+				return
+			}
 		}
 		var data struct {
 			Params struct {
@@ -220,7 +239,7 @@ func (f *fakePrivy) serve(w http.ResponseWriter, r *http.Request) {
 
 func TestPrivyRefreshRotationPersistedAndAdopted(t *testing.T) {
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	pass := []byte("correct horse battery")
 	md, sec, err := auth.UnlockPrivy("main", pass)
 	if err != nil {
@@ -258,7 +277,7 @@ func TestPrivyLoginRejectsAccountFlag(t *testing.T) {
 
 func TestPrivySessionReexchangeDropsExpiredHeaders(t *testing.T) {
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	pass := []byte("correct horse battery")
 	md, sec, err := auth.UnlockPrivy("main", pass)
 	if err != nil {
@@ -299,7 +318,7 @@ func TestPrivyLoginRequiresTerminalBeforeDeviceGrant(t *testing.T) {
 
 func TestPrivySignFailureReturnsToCreated(t *testing.T) {
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	id, digest := prepare(t, h)
 	h.privy.failSign = true
 	r := h.run("orders", "submit", "--intent", id, "--digest", digest, "--json")
@@ -324,7 +343,7 @@ func TestPrivySignFailureReturnsToCreated(t *testing.T) {
 
 func TestPrivyWrongSignerNeverReachesConfirm(t *testing.T) {
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	id, digest := prepare(t, h)
 	h.privy.wrongSigner = true
 	r := h.run("orders", "submit", "--intent", id, "--digest", digest, "--json")

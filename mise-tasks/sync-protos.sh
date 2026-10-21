@@ -14,6 +14,7 @@ if [[ $CHECK -eq 0 ]]; then
     gfxcafe/oku/account/v1/validate.proto
     gfxcafe/oku/account/v1/auth.proto
     gfxcafe/oku/account/v1/common.proto
+    gfxcafe/oku/account/v1/orderhistory.proto
     gfxcafe/oku/account/v2/validate.proto
     gfxcafe/oku/account/v2/perps.proto
     gfxcafe/oku/account/v2/cli_device.proto

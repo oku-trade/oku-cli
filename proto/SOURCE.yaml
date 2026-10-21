@@ -1,10 +1,11 @@
 upstream: github.com/oku-trade/account
-commit: 4dc26fc3227aa4cbd5380863bc348a7fca3edd2b
+commit: 69e63d224dfde4dcc022c43322cc9f2055e69ead
 protovalidate_version: https://github.com/bufbuild/protovalidate.git v1.0.0
 files:
   - gfxcafe/oku/account/v1/validate.proto
   - gfxcafe/oku/account/v1/auth.proto
   - gfxcafe/oku/account/v1/common.proto
+  - gfxcafe/oku/account/v1/orderhistory.proto
   - gfxcafe/oku/account/v2/validate.proto
   - gfxcafe/oku/account/v2/perps.proto
   - gfxcafe/oku/account/v2/cli_device.proto

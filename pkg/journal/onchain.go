@@ -15,24 +15,27 @@ import (
 
 // OnchainIntent binds every economic field and every ordered transaction template.
 type OnchainIntent struct {
-	ID        string            `json:"intent_id"`
-	Kind      string            `json:"kind"`
-	ChainID   uint64            `json:"chain_id"`
-	Sender    string            `json:"sender"`
-	Recipient string            `json:"recipient"`
-	Token     string            `json:"token"`
-	Amount    string            `json:"amount"`
-	Templates []OnchainTemplate `json:"templates"`
-	OrderID   string            `json:"order_id,omitempty"`
-	QuoteID   string            `json:"quote_id,omitempty"`
-	Route     string            `json:"route,omitempty"`
-	Target    string            `json:"target,omitempty"`
-	Spender   string            `json:"spender,omitempty"`
-	OutToken  string            `json:"out_token,omitempty"`
-	OutChain  uint64            `json:"out_chain,omitempty"`
-	MinOut    string            `json:"min_out,omitempty"`
-	ExpiresAt string            `json:"expires_at,omitempty"`
-	CreatedAt string            `json:"created_at"`
+	ID           string            `json:"intent_id"`
+	Kind         string            `json:"kind"`
+	Intent       bool              `json:"intent_based,omitempty"`
+	ChainID      uint64            `json:"chain_id"`
+	Sender       string            `json:"sender"`
+	Recipient    string            `json:"recipient"`
+	Token        string            `json:"token"`
+	Amount       string            `json:"amount"`
+	Templates    []OnchainTemplate `json:"templates"`
+	OrderID      string            `json:"order_id,omitempty"`
+	ParentIntent string            `json:"parent_intent,omitempty"`
+	QuoteID      string            `json:"quote_id,omitempty"`
+	Generation   int32             `json:"generation,omitempty"`
+	Route        string            `json:"route,omitempty"`
+	Target       string            `json:"target,omitempty"`
+	Spender      string            `json:"spender,omitempty"`
+	OutToken     string            `json:"out_token,omitempty"`
+	OutChain     uint64            `json:"out_chain,omitempty"`
+	MinOut       string            `json:"min_out,omitempty"`
+	ExpiresAt    string            `json:"expires_at,omitempty"`
+	CreatedAt    string            `json:"created_at"`
 }
 type OnchainTemplate struct {
 	ChainID  uint64 `json:"chain_id"`
@@ -73,7 +76,7 @@ type Batch struct {
 }
 
 func (j *Journal) CreateOnchain(in OnchainIntent) (*OnchainRecord, error) {
-	if !trading.ValidIntentID(in.ID) || len(in.Templates) == 0 {
+	if !trading.ValidIntentID(in.ID) || len(in.Templates) == 0 && !in.Intent {
 		return nil, errors.New("invalid onchain intent")
 	}
 	b, _ := json.Marshal(in)
@@ -121,6 +124,37 @@ func (j *Journal) GetOnchain(id string) (*OnchainRecord, error) {
 		return nil, errors.New("corrupt onchain intent digest")
 	}
 	return r, nil
+}
+
+// ClaimForBridge finds a previously created claim, including terminal claims.
+// The journal lock must be held while checking and creating a claim.
+func (j *Journal) ClaimForBridge(parent string) (*OnchainRecord, error) {
+	rows, err := j.db.Query(`SELECT intent_id FROM onchain_intents WHERE profile=? AND kind='claim' ORDER BY created_at`, j.binding.Profile)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for _, id := range ids {
+		r, err := j.GetOnchain(id)
+		if err != nil {
+			return nil, err
+		}
+		if r.ParentIntent == parent && r.State != "failed" {
+			return r, nil
+		}
+	}
+	return nil, ErrNotFound
 }
 
 // SetOnchainBatch durably records batch metadata while the intent is in state.
@@ -175,14 +209,14 @@ func (j *Journal) BeginOnchain(id, digest, agent string) error {
 // BindOnchainExecution replaces placeholder templates only while prepared and
 // atomically seals the final, verified transactions under a fresh digest.
 func (j *Journal) BindOnchainExecution(id, digest string, templates []OnchainTemplate) (string, error) {
-	if len(templates) == 0 {
-		return "", ErrConflict
-	}
 	r, err := j.GetOnchain(id)
 	if err != nil {
 		return "", err
 	}
 	if r.State != "prepared" || r.Digest != digest {
+		return "", ErrConflict
+	}
+	if len(templates) == 0 && !r.Intent {
 		return "", ErrConflict
 	}
 	r.Templates = templates
@@ -205,6 +239,22 @@ func (j *Journal) BindOnchainExecution(id, digest string, templates []OnchainTem
 		return "", ErrConflict
 	}
 	return newDigest, tx.Commit()
+}
+
+// RelayOnchain stores the backend's offchain order identifier and closes the
+// source submission state. A missing response must instead remain unknown.
+func (j *Journal) RelayOnchain(id, from, orderID string) error {
+	if orderID == "" {
+		return ErrConflict
+	}
+	res, err := j.db.Exec(`UPDATE onchain_intents SET state='submitted',backend_order_id=?,updated_at=? WHERE profile=? AND intent_id=? AND state=?`, orderID, j.now().UTC().Format(time.RFC3339Nano), j.binding.Profile, id, from)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err != nil || n != 1 {
+		return ErrConflict
+	}
+	return nil
 }
 
 // AdvanceOnchain is a durable transition. Hash append commits before receipt polling.

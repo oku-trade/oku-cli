@@ -28,7 +28,7 @@ const (
 )
 
 func routeFlags(bridge bool) []urfave.Flag {
-	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137"}, &urfave.StringFlag{Name: "from", Usage: "input token address or unambiguous symbol"}, &urfave.StringFlag{Name: "to", Usage: "output token address or unambiguous symbol"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}}
+	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137"}, &urfave.StringFlag{Name: "from", Usage: "input token address or unambiguous symbol"}, &urfave.StringFlag{Name: "to", Usage: "output token address or unambiguous symbol"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}, &urfave.StringFlag{Name: "route", Usage: "select only this swap router or bridge"}, &urfave.BoolFlag{Name: "no-intent", Usage: "exclude typed-data intent routes"}}
 	if bridge {
 		flags = append(flags, &urfave.StringFlag{Name: "destination-chain", Usage: "destination EVM chain ID"})
 	}
@@ -39,20 +39,22 @@ func routePrepareFlags(bridge bool) []urfave.Flag {
 }
 
 type routeQuote struct {
-	OrderID   string `json:"order_id"`
-	QuoteID   string `json:"quote_id"`
-	Route     string `json:"route"`
-	Target    string `json:"target"`
-	Spender   string `json:"spender,omitempty"`
-	MinOut    string `json:"min_out"`
-	OutAmount string `json:"out_amount"`
-	InAmount  string `json:"in_amount"`
-	Recipient string `json:"recipient"`
-	Chain     uint64 `json:"chain"`
-	OutChain  uint64 `json:"out_chain,omitempty"`
-	InToken   string `json:"in_token"`
-	OutToken  string `json:"out_token"`
-	ExpiresAt string `json:"expires_at"`
+	OrderID    string `json:"order_id"`
+	Generation int32  `json:"generation,omitempty"`
+	QuoteID    string `json:"quote_id"`
+	Route      string `json:"route"`
+	Intent     bool   `json:"intent_based"`
+	Target     string `json:"target"`
+	Spender    string `json:"spender,omitempty"`
+	MinOut     string `json:"min_out"`
+	OutAmount  string `json:"out_amount"`
+	InAmount   string `json:"in_amount"`
+	Recipient  string `json:"recipient"`
+	Chain      uint64 `json:"chain"`
+	OutChain   uint64 `json:"out_chain,omitempty"`
+	InToken    string `json:"in_token"`
+	OutToken   string `json:"out_token"`
+	ExpiresAt  string `json:"expires_at"`
 }
 
 func positiveRaw(s string) (*big.Int, error) {
@@ -73,6 +75,9 @@ func routeTarget(info *v2.ExecutionInformation) string {
 }
 func safeInfo(info *v2.ExecutionInformation) bool {
 	return info != nil && info.Trade != nil && info.DepositAddress == "" && info.PsbtHex == "" && info.OpReturnData == "" && len(info.Transactions) <= 1 && len(info.Approvals) == 0
+}
+func bridgeInfo(info *v2.ExecutionInformation) bool {
+	return info != nil && info.Trade != nil && info.DepositAddress == "" && info.PsbtHex == "" && info.OpReturnData == "" && len(info.Transactions) <= 8
 }
 func (a *App) resolveRouteToken(ctx context.Context, c *api.Client, chain uint64, name string) (string, error) {
 	if strings.EqualFold(name, "native") {
@@ -249,12 +254,16 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 	ctx, cancel := e.requestCtx()
 	defer cancel()
 	ppm := int32(e.cmd.Int("slippage-bps") * 100)
+	routeErrors := map[string]string{}
 	if kind == "swap" {
 		var supported v2.GetSupportedMarketsResponse
 		if err = c.Swap(ctx, "GetSupportedMarkets", &v2.GetSupportedMarketsRequest{}, &supported, prepare); err != nil {
 			return q, nil, apiError(err, "GetSupportedMarkets")
 		}
 		markets := supportedMarkets(supported.Markets, q.Chain)
+		if forced := str(e, "route"); forced != "" {
+			markets = filterRoute(markets, forced)
+		}
 		if len(markets) == 0 {
 			return q, nil, output.Errorf(output.CodeRejected, "no active swap markets support chain %d", q.Chain)
 		}
@@ -339,36 +348,52 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			best := math.Inf(-1)
 			for _, key := range keys {
 				entry := quotes.Quotes[key]
+				if entry != nil && entry.Error != nil && entry.Error.Message != "" {
+					routeErrors[strings.ToLower(key)] = entry.Error.Message
+				}
 				if entry == nil || !entry.Fetched || entry.Error != nil || entry.Quote == nil {
 					continue
 				}
 				v := entry.Quote
-				if v.IntentBased || v.ChainId != int32(q.Chain) || !v.IsExactIn || v.Simulation == nil || v.Simulation.Error != "" || !acceptablePriceImpact(v.PriceImpact) || math.IsNaN(v.NetUsdValue) {
-					continue
-				}
-				if simulated, se := positiveRaw(v.Simulation.AmountOutRaw); se != nil || simulated.Sign() <= 0 {
+				if e.cmd.Bool("no-intent") && v.IntentBased || v.ChainId != int32(q.Chain) || !v.IsExactIn || !v.IntentBased && !acceptablePriceImpact(v.PriceImpact) || math.IsNaN(v.NetUsdValue) {
 					continue
 				}
 				input, ie := positiveRaw(v.InAmountRaw)
 				min, me := positiveRaw(v.MinAmountOutRaw)
-				if ie != nil || me != nil || input.String() != q.InAmount || !safeInfo(v.ExecutionInfo) || !strings.EqualFold(routeTarget(v.ExecutionInfo), routerFor(q.Chain)) {
+				if ie != nil || me != nil || input.String() != q.InAmount {
 					continue
+				}
+				if v.IntentBased {
+					if len(v.SigningRequest.GetTypedData()) == 0 || v.SigningRequest.TypedData[0].GetPayload() == nil {
+						continue
+					}
+				} else {
+					if routerFor(q.Chain) == "" || v.Simulation == nil || v.Simulation.Error != "" {
+						continue
+					}
+					if _, se := positiveRaw(v.Simulation.AmountOutRaw); se != nil {
+						continue
+					}
 				}
 				if v.InToken == nil || v.OutToken == nil || q.InToken != "native" && !strings.EqualFold(v.InToken.Address, q.InToken) || q.OutToken != "native" && !strings.EqualFold(v.OutToken.Address, q.OutToken) {
 					continue
 				}
-				if len(v.SigningRequest.GetTypedData()) > 0 || !consistentSwapApprovals(v.Approvals, v.ApprovalsV2, q.Chain, q.InToken, q.InAmount) {
+				if !v.IntentBased && (len(v.SigningRequest.GetTypedData()) > 0 || !consistentSwapApprovals(v.Approvals, v.ApprovalsV2, q.Chain, q.InToken, q.InAmount)) {
 					continue
 				}
 				spender := quoteSpender(v.ApprovalsV2, q.InToken, q.InAmount)
-				if q.InToken != "native" && (len(v.ApprovalsV2) > 0 || len(v.Approvals) > 0) && !strings.EqualFold(spender, routerFor(q.Chain)) {
+				if !v.IntentBased && q.InToken != "native" && (len(v.ApprovalsV2) > 0 || len(v.Approvals) > 0) && !strings.EqualFold(spender, routerFor(q.Chain)) {
 					continue
 				}
 				if v.NetUsdValue > best {
 					best = v.NetUsdValue
 					q.QuoteID = entry.QuoteId
 					q.Route = entry.Router
-					q.Target = routeTarget(v.ExecutionInfo)
+					q.Intent = v.IntentBased
+					q.Target = ""
+					if !v.IntentBased {
+						q.Target = routerFor(q.Chain)
+					}
 					q.MinOut = min.String()
 					q.OutAmount = v.OutAmountRaw
 					q.Spender = quoteSpender(v.ApprovalsV2, q.InToken, q.InAmount)
@@ -381,6 +406,9 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			return q, nil, apiError(err, "GetSupportedBridges")
 		}
 		bridges := supportedBridges(supported.Bridges, q.Chain, q.OutChain)
+		if forced := str(e, "route"); forced != "" {
+			bridges = filterRoute(bridges, forced)
+		}
 		if len(bridges) == 0 {
 			return q, nil, output.Errorf(output.CodeRejected, "no active bridge supports both chains")
 		}
@@ -390,12 +418,58 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			return q, nil, apiError(err, "bridge Create")
 		}
 		q.OrderID = created.OrderId
-		for attempt := 0; attempt < 5; attempt++ {
-			var quotes v2.BridgeGetQuotesResponse
-			err = c.Bridge(ctx, "GetQuotes", &v2.BridgeGetQuotesRequest{OrderId: q.OrderID}, &quotes, prepare)
-			if err != nil {
-				return q, nil, apiError(err, "bridge GetQuotes")
+		var updated v2.BridgeUpdateQuoteParamsResponse
+		if err = c.Bridge(ctx, "UpdateQuoteParams", &v2.BridgeUpdateQuoteParamsRequest{OrderId: q.OrderID, Params: req.Params}, &updated, prepare); err != nil {
+			return q, nil, apiError(err, "bridge UpdateQuoteParams")
+		}
+		if updated.Generation < 0 || updated.Generation > math.MaxInt32 || updated.OrderId != "" && updated.OrderId != q.OrderID {
+			return q, nil, output.Errorf(output.CodePayloadMismatch, "bridge quote generation or order differs")
+		}
+		// Like the web app: after a successful UpdateQuoteParams the quote
+		// generation is 1 (the response often reports 0).
+		q.Generation = int32(updated.Generation)
+		if q.Generation == 0 {
+			q.Generation = 1
+		}
+		collected := map[string]*v2.BridgeQuoteInformation{}
+		deadline := time.Now().Add(swapQuoteWindow)
+		if d, ok := ctx.Deadline(); ok && d.Add(-time.Second).Before(deadline) {
+			deadline = d.Add(-time.Second)
+		}
+		for time.Now().Before(deadline) {
+			fetched := make([]string, 0, len(collected))
+			for name, entry := range collected {
+				if entry != nil && entry.Fetched {
+					fetched = append(fetched, name)
+				}
 			}
+			if len(fetched) >= len(bridges) {
+				break
+			}
+			sort.Strings(fetched)
+			wait := time.Until(deadline)
+			if wait > swapFlowstreamPoll {
+				wait = swapFlowstreamPoll
+			}
+			var quotes v2.BridgeGetQuotesResponse
+			err = c.Bridge(ctx, "GetNewQuotes", &v2.BridgeGetNewQuotesRequest{OrderId: q.OrderID, FetchedBridges: fetched, WaitTime: int64(wait.Milliseconds()), Generation: q.Generation}, &quotes, prepare)
+			if err != nil {
+				if len(fetched) > 0 {
+					break
+				}
+				return q, nil, apiError(err, "bridge GetNewQuotes")
+			}
+			for name, entry := range quotes.Quotes {
+				if entry != nil {
+					collected[name] = entry
+				}
+			}
+			if ctx.Err() != nil && len(fetched) == 0 {
+				return q, nil, ctx.Err()
+			}
+		}
+		{
+			quotes := v2.BridgeGetQuotesResponse{Quotes: collected}
 			keys := make([]string, 0, len(quotes.Quotes))
 			for key := range quotes.Quotes {
 				keys = append(keys, key)
@@ -404,52 +478,67 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			best := math.Inf(-1)
 			for _, key := range keys {
 				entry := quotes.Quotes[key]
+				if entry != nil && entry.Error != nil && entry.Error.Message != "" {
+					routeErrors[strings.ToLower(key)] = entry.Error.Message
+				}
 				if entry == nil || !entry.Fetched || entry.Error != nil || entry.Quote == nil {
 					continue
 				}
 				v := entry.Quote
-				if v.IntentBased || v.InChainId != int32(q.Chain) || v.OutChainId != int32(q.OutChain) || v.Simulation == nil || !v.Simulation.Success || !safeInfo(v.ExecutionInfo) || !onchain.ValidAddress(routeTarget(v.ExecutionInfo)) || len(v.SigningRequest.GetTypedData()) > 0 {
+				if e.cmd.Bool("no-intent") && v.IntentBased || v.InChainId != int32(q.Chain) || v.OutChainId != int32(q.OutChain) {
 					continue
 				}
-				if v.InToken == nil || v.OutToken == nil || !strings.EqualFold(v.InToken.Address, q.InToken) || !strings.EqualFold(v.OutToken.Address, q.OutToken) {
+				if v.IntentBased && (len(v.SigningRequest.GetTypedData()) == 0 || v.SigningRequest.TypedData[0].GetPayload() == nil) || !v.IntentBased && len(v.SigningRequest.GetTypedData()) > 0 {
 					continue
 				}
-				input, ie := positiveRaw(v.InAmount)
-				min, me := positiveRaw(v.MinAmountOut)
+				if v.InToken == nil || v.OutToken == nil || !(strings.EqualFold(v.InToken.Address, q.InToken) || q.InToken == "native" && (strings.EqualFold(v.InToken.Address, "0x0000000000000000000000000000000000000000") || strings.EqualFold(v.InToken.Address, "native"))) || !strings.EqualFold(v.OutToken.Address, q.OutToken) {
+					continue
+				}
+				input, ie := parseUnits(v.InAmount, int(v.InToken.Decimals))
+				min, me := parseUnits(v.MinAmountOut, int(v.OutToken.Decimals))
 				if ie != nil || me != nil || input.String() != q.InAmount {
 					continue
 				}
 				net := v.OutUsdValue - v.FeesUsdValue - v.GasUsdValue
-				if math.IsNaN(net) || math.IsInf(net, 0) || v.InUsdValue > 0 && net < v.InUsdValue*0.85 {
+				if math.IsNaN(net) || math.IsInf(net, 0) {
 					continue
 				}
 				if net > best {
+					out, oe := parseUnits(v.OutAmount, int(v.OutToken.Decimals))
+					if oe != nil {
+						continue
+					}
 					best = net
 					q.QuoteID = entry.QuoteId
 					q.Route = entry.Bridge
-					q.Target = routeTarget(v.ExecutionInfo)
+					q.Intent = v.IntentBased
+					// Bridge targets are only available from authenticated GetExecutionInfo.
+					q.Target = ""
 					q.MinOut = min.String()
-					q.OutAmount = v.OutAmount
+					q.OutAmount = out.String()
 					q.Spender = quoteSpender(v.Approvals, q.InToken, q.InAmount)
-				}
-			}
-			if q.QuoteID != "" {
-				break
-			}
-			if attempt < 4 {
-				select {
-				case <-ctx.Done():
-					return q, nil, ctx.Err()
-				case <-time.After(350 * time.Millisecond):
 				}
 			}
 		}
 	}
 	if q.OrderID == "" || q.QuoteID == "" {
-		return q, nil, output.Errorf(output.CodeRejected, "no safe transaction route with verified simulation and explicit target")
+		if forced := str(e, "route"); forced != "" {
+			if detail := routeErrors[strings.ToLower(forced)]; detail != "" {
+				return q, nil, output.Errorf(output.CodeRejected, "no eligible route: %s: %s", forced, detail)
+			}
+		}
+		return q, nil, output.Errorf(output.CodeRejected, "no eligible route for requested tokens and amount")
 	}
 	q.ExpiresAt = a.Now().Add(3 * time.Minute).UTC().Format(time.RFC3339Nano)
 	return q, w, nil
+}
+func filterRoute(names []string, forced string) []string {
+	for _, name := range names {
+		if strings.EqualFold(name, forced) {
+			return []string{name}
+		}
+	}
+	return nil
 }
 func quoteSpender(approvals []*v2.ApprovalPayloadV2, token, amount string) string {
 	if len(approvals) == 0 {
@@ -503,21 +592,26 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 		return nil, err
 	}
 	router := routerFor(q.Chain)
-	if kind == "swap" && (router == "" || !strings.EqualFold(q.Target, router) || q.InToken != "native" && q.Spender != "" && !strings.EqualFold(q.Spender, router)) {
+	if kind == "swap" && !q.Intent && (router == "" || !strings.EqualFold(q.Target, router) || q.InToken != "native" && q.Spender != "" && !strings.EqualFold(q.Spender, router)) {
 		return nil, output.Errorf(output.CodeRejected, "swap route or approval spender is not OkuRouter")
 	}
-	if q.InToken != "native" {
+	if kind == "swap" && !q.Intent && q.InToken != "native" {
 		q.Spender = router
 	}
 	id := str(e, "intent-id")
 	if id == "" {
 		id = randomID()
 	}
+	// Bridge's trade target is unknown until submit. This placeholder cannot be
+	// executed: submit replaces it with validated execution before BeginOnchain.
 	placeholders := []journal.OnchainTemplate{{ChainID: q.Chain, To: q.Target, Value: "0x0"}}
 	if q.InToken != "native" {
 		placeholders = append([]journal.OnchainTemplate{{ChainID: q.Chain, To: q.InToken, Value: "0x0", Token: q.InToken, Amount: onchain.Hex(mustRaw(q.InAmount))}}, placeholders...)
 	}
-	in := journal.OnchainIntent{ID: id, Kind: kind, ChainID: q.Chain, OutChain: q.OutChain, Sender: w.agent, Recipient: q.Recipient, Token: q.InToken, OutToken: q.OutToken, Amount: q.InAmount, OrderID: q.OrderID, QuoteID: q.QuoteID, Route: q.Route, Target: q.Target, Spender: q.Spender, MinOut: q.MinOut, ExpiresAt: q.ExpiresAt, CreatedAt: a.Now().UTC().Format(time.RFC3339Nano), Templates: placeholders}
+	if q.Intent {
+		placeholders = nil // No source trade transaction. Approvals are bound at submit.
+	}
+	in := journal.OnchainIntent{ID: id, Kind: kind, Intent: q.Intent, ChainID: q.Chain, OutChain: q.OutChain, Sender: w.agent, Recipient: q.Recipient, Token: q.InToken, OutToken: q.OutToken, Amount: q.InAmount, OrderID: q.OrderID, QuoteID: q.QuoteID, Generation: q.Generation, Route: q.Route, Target: q.Target, Spender: q.Spender, MinOut: q.MinOut, ExpiresAt: q.ExpiresAt, CreatedAt: a.Now().UTC().Format(time.RFC3339Nano), Templates: placeholders}
 	j, err := openJournal(w.profile)
 	if err != nil {
 		return nil, err

@@ -57,6 +57,11 @@ service BridgeService {
   // GetSupportedBridges returns active bridges and their supported chains.
   rpc GetSupportedBridges(GetSupportedBridgesRequest) returns (GetSupportedBridgesResponse);
 
+  // LookupSourceTransaction looks up a bridge by its source transaction hash.
+  // When source_chain is empty it is discovered from Oku's indexed records
+  // first, then canoe is queried for per-bridge results. Public, no auth required.
+  rpc LookupSourceTransaction(LookupSourceTransactionRequest) returns (LookupSourceTransactionResponse);
+
   // GetSupportedTokens returns supported bridge tokens. The behavior depends on
   // which parameters are set:
   //   - in_chain only: all in-tokens bridgeable from the source to any destination.
@@ -162,6 +167,135 @@ message BridgeStatus {
 message GetSupportedBridgesResponse {
   // Status of each known bridge
   repeated BridgeStatus bridges = 1;
+}
+
+// ----------------------------------------------------------------------------
+// LookupSourceTransaction: Looks up a bridge from its source tx hash.
+// ----------------------------------------------------------------------------
+
+message LookupSourceTransactionRequest {
+  // Source transaction hash, 0x followed by 64 hex characters. Must not be zero.
+  string source_hash = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_tx_hash) = true
+  ];
+  // Source chain, CAIP-2 (e.g. "eip155:1"). Must be an EVM chain. Discovered
+  // from Oku's indexed records when empty.
+  string source_chain = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true];
+}
+
+// SourceDiscoveryOutcome is the result of discovering a source chain from
+// Oku's indexed records.
+enum SourceDiscoveryOutcome {
+  SOURCE_DISCOVERY_OUTCOME_UNSPECIFIED = 0;
+  // Exactly one source chain matched
+  SOURCE_DISCOVERY_OUTCOME_FOUND = 1;
+  // No indexed record matched
+  SOURCE_DISCOVERY_OUTCOME_NOT_FOUND = 2;
+  // Records matched conflicting chains
+  SOURCE_DISCOVERY_OUTCOME_AMBIGUOUS = 3;
+}
+
+// SourceTransactionToken is a token leg of a looked-up transfer.
+message SourceTransactionToken {
+  // Chain of the token, CAIP-2 (e.g. "eip155:1")
+  string chain = 1;
+  // Token address on chain
+  string address = 2;
+  // Raw amount in base units, as reported by canoe
+  string amount = 3;
+  // Token symbol, when known
+  string symbol = 4;
+  // Token decimals, when known
+  optional int32 decimals = 5;
+}
+
+// SourceTransactionDetail is a provider-specific label/value pair for display.
+message SourceTransactionDetail {
+  string label = 1;
+  string value = 2;
+}
+
+// SourceTransactionOutcome is the result of one bridge's lookup.
+enum SourceTransactionOutcome {
+  SOURCE_TRANSACTION_OUTCOME_UNSPECIFIED = 0;
+  // The bridge recognized the source transaction
+  SOURCE_TRANSACTION_OUTCOME_FOUND = 1;
+  // The bridge has no record of this source transaction
+  SOURCE_TRANSACTION_OUTCOME_NOT_FOUND = 2;
+  // The bridge lookup failed or timed out
+  SOURCE_TRANSACTION_OUTCOME_UNAVAILABLE = 3;
+  // The bridge returned records that could not be matched to one transfer
+  SOURCE_TRANSACTION_OUTCOME_AMBIGUOUS = 4;
+}
+
+// SourceTransactionStatus is the state of a transfer a bridge recognized.
+enum SourceTransactionStatus {
+  // Not reported (outcome is not FOUND)
+  SOURCE_TRANSACTION_STATUS_UNSPECIFIED = 0;
+  // In flight
+  SOURCE_TRANSACTION_STATUS_PENDING = 1;
+  // Delivered on the destination (canoe "success")
+  SOURCE_TRANSACTION_STATUS_COMPLETED = 2;
+  // Failed without a refund
+  SOURCE_TRANSACTION_STATUS_FAILED = 3;
+  // Refunded on the source chain
+  SOURCE_TRANSACTION_STATUS_REFUNDED = 4;
+  // Delivered but requires a manual claim or execution
+  SOURCE_TRANSACTION_STATUS_CLAIMABLE = 5;
+  // Recognized, but the final state cannot be verified (the result's reason
+  // says why). Also used for statuses this server does not know yet.
+  SOURCE_TRANSACTION_STATUS_UNKNOWN = 6;
+}
+
+// SourceTransactionLookupResult is one bridge's answer for a source transaction.
+message SourceTransactionLookupResult {
+  // Bridge identifier (e.g. "across")
+  string bridge = 1;
+  SourceTransactionOutcome outcome = 2;
+  // Set only when outcome is FOUND
+  SourceTransactionStatus status = 3;
+  // Source chain, CAIP-2 (e.g. "eip155:1")
+  string source_chain = 4;
+  string source_hash = 5;
+  // Destination chain, CAIP-2 (e.g. "eip155:42161"). Empty when unknown
+  string destination_chain = 6;
+  string destination_hash = 7;
+  // Unset when unknown
+  SourceTransactionToken source_token = 8;
+  // Unset when unknown
+  SourceTransactionToken destination_token = 9;
+  // Provider explorer link for the transfer. Empty when unavailable
+  string explorer_url = 10;
+  repeated SourceTransactionDetail details = 11;
+  // Machine-readable qualifier from canoe, e.g. "destination_action_failed"
+  string reason = 12;
+}
+
+// SourceTransactionResolution is the single best answer across all bridge
+// results, chosen by canoe.
+message SourceTransactionResolution {
+  // Unset when no bridge found the transfer
+  SourceTransactionLookupResult primary = 1;
+  // Bridge identifiers whose lookup was unavailable or ambiguous
+  repeated string incomplete = 2;
+  // Opaque canoe qualifier explaining why primary.status was downgraded, e.g.
+  // "conflicting_provider_states". Empty otherwise
+  string warning = 3;
+}
+
+message LookupSourceTransactionResponse {
+  // Discovery outcome. UNSPECIFIED when source_chain was provided by the caller
+  SourceDiscoveryOutcome discovery_outcome = 1;
+  // Resolved source chain, CAIP-2. Empty when discovery did not find one
+  string source_chain = 2;
+  // Bridge identifier from indexed records. Empty if discovery did not run,
+  // or the bridge is unknown or mixed
+  string discovered_bridge = 3;
+  // Per-bridge results from canoe. Empty when discovery was not FOUND
+  repeated SourceTransactionLookupResult results = 4;
+  // Canoe's resolved answer. Unset when discovery was not FOUND
+  SourceTransactionResolution resolution = 5;
 }
 
 // ============================================================================

@@ -6,10 +6,11 @@ require (
 	connectrpc.com/connect v1.19.1
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0
 	github.com/ethereum/go-ethereum v1.16.5
-	github.com/gfx-labs/chain-config/dist/networks v1.18.0
+	github.com/gfx-labs/chain-config/dist/networks v1.19.2
 	github.com/gowebpki/jcs v1.0.2
 	github.com/kaptinlin/jsonrepair v0.4.9
 	github.com/keybase/go-keychain v0.0.1
+	github.com/mdp/qrterminal/v3 v3.2.1
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/pressly/goose/v3 v3.28.0
 	github.com/urfave/cli/v3 v3.13.0
@@ -43,4 +44,5 @@ require (
 	modernc.org/libc v1.77.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
+	rsc.io/qr v0.2.0 // indirect
 )

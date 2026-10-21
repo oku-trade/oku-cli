@@ -1,0 +1,232 @@
+syntax = "proto3";
+
+package gfxcafe.oku.account.v1;
+
+import "buf/validate/validate.proto";
+import "gfxcafe/oku/account/v1/validate.proto";
+
+option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v1;v1";
+
+// OrderHistoryService provides trading history functionality
+service OrderHistoryService {
+  // Get order history for addresses (/orders/history)
+  rpc History(OrderHistoryRequest) returns (OrderHistoryResponse);
+
+  // Read live status for one market intent order by internal UUID and wallet address.
+  // Non-intent and bridge orders return FAILED_PRECONDITION. No history scan.
+  // Like History, this is a public address-scoped read, not proof of wallet ownership.
+  // Missing orders and wallet mismatches both return NOT_FOUND.
+  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
+}
+
+message GetOrderRequest {
+  // Internal orders.id, not a provider's intent_order_id.
+  string order_id = 1 [(buf.validate.field).string.uuid = true];
+  string wallet_addr = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(eth_address) = true
+  ];
+}
+
+message GetOrderResponse {
+  // Status is refreshed by a direct Canoe market order_status read on every call,
+  // including persisted terminal orders. Running/completed/missing workflows do
+  // not affect freshness. No cached DB/workflow status is returned on failure.
+  // Upstream failure/invalid response returns UNAVAILABLE; deadline expiry returns
+  // DEADLINE_EXCEEDED. No cancellation, signals, provider writes or DB repair runs.
+  // Cancellation metadata, explorer URL and transaction hash come only from this
+  // live read. Amounts use live values when supplied; other descriptive/price data
+  // remains a stored snapshot. Status follows Canoe's normalized provider contract.
+  // Missing market intent identity or unsupported source chain/order type returns
+  // FAILED_PRECONDITION. A successful response always contains one order.
+  OrderTrade order = 1;
+}
+
+// OrderHistoryServiceHistoryRequest queries order history.
+message OrderHistoryRequest {
+  // Wallet address to query
+  string wallet_addr = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(eth_address) = true
+  ];
+  
+  // Optional chain ID filter (deprecated, use chain_ids)
+  int32 chain_id = 2;
+  
+  // Chain IDs to filter results
+  repeated int64 chain_ids = 3;
+  
+  // Maximum number of entries to return (default: 50)
+  int32 max_entries = 4 [
+    (buf.validate.field).int32 = {
+      gte: 0,
+      lte: 1000
+    }
+  ];
+  
+  // Start date timestamp in seconds (default: now)
+  int64 start_date = 5;
+
+  // Include failed trades in response
+  bool include_failed_trades = 6;
+
+  // Filter by order types (e.g., ["swap"], ["bridge"], ["directswap"], ["wrap"], ["unwrap"])
+  repeated string types = 7 [(buf.validate.field).repeated.items.string = {in: ["swap", "loop", "bridge", "directswap", "wrap", "unwrap"]}];
+
+  // Filter by routers (e.g., ["uniswap", "cowswap"])
+  repeated string routers = 8;
+
+  // Include cancelled/expired intent-based orders (defaults to true when omitted).
+  // When false, intent orders in cancelled/expired states are filtered out
+  // alongside other failed trades (subject to include_failed_trades).
+  optional bool include_cancelled_intents = 9;
+
+  // When true, only return hyperliquid onramp orders.
+  bool hyperliquid_onramp = 10;
+
+  // When true, only return hyperliquid offramp orders.
+  bool hyperliquid_offramp = 11;
+}
+
+// OrderHistoryServiceHistoryResponse contains trading history.
+message OrderHistoryResponse {
+  // List of trades
+  repeated OrderTrade history = 1;
+  
+  // Whether there are more results
+  bool has_more = 2;
+}
+
+// OrderTrade represents a single trade in order history
+message OrderTrade {
+  // Order ID
+  string order_id = 1;
+
+  // Deprecated: use chain instead.
+  int32 chain_id = 2;
+
+  // Deprecated: use dst_chain instead.
+  int32 dst_chain_id = 14;
+
+  // Created time (unix timestamp in seconds)
+  int64 created_time = 3;
+  
+  // Transaction hash
+  string tx_hash = 4 [
+    (buf.validate.field).string.(eth_tx_hash) = true
+  ];
+
+  // Destination transaction hash (for bridge orders)
+  string dst_tx_hash = 15 [
+    (buf.validate.field).string.(eth_tx_hash) = true
+  ];
+
+  // Router/Market used (e.g., "uniswap", "cowswap")
+  string router = 5;
+  
+  // Sell token details
+  OrderTradeToken sell_token = 6;
+  
+  // Buy token details
+  OrderTradeToken buy_token = 7;
+  
+  // Input side ("buy" or "sell")
+  string input_side = 8;
+  
+  // Trade price
+  double price = 9;
+  
+  // Order status
+  OrderStatus status = 10;
+  
+  // Order type
+  OrderType type = 11;
+  
+  // Whether price is flipped (if price is 0, ignore this)
+  bool is_flipped = 12;
+
+  // Additional metadata (used for cowswap trades)
+  map<string, string> metadata = 13;
+
+  // Destination transaction mined time (unix timestamp in seconds, for bridge orders)
+  int64 dst_mined_time = 16;
+
+  // CAIP-2 chain identifier (source chain for bridges), e.g. "eip155:1".
+  string chain = 17;
+
+  // CAIP-2 destination chain identifier (for bridge orders), e.g. "eip155:42161".
+  string dst_chain = 18;
+
+  // Estimated time to complete the bridge, in seconds (for bridge orders).
+  int32 estimated_completion_time = 19;
+
+  // Destination (receiver) address for the order. Plain string to support
+  // non-EVM destination addresses. Empty when the receiver is the sender.
+  string dst_address = 20;
+
+  // Fee snapshot from the executed quote. This is not an independently
+  // reconciled record of the fee ultimately collected. Absent for old orders
+  // and orders whose fee is unknown; explicit zero amounts are preserved.
+  OrderTradeFeeInfo fee_info = 21;
+}
+
+// OrderTradeFeeInfo contains fee snapshots for either or both swap sides.
+message OrderTradeFeeInfo {
+  OrderTradeTokenFee input_token_fee_info = 1;
+  OrderTradeTokenFee output_token_fee_info = 2;
+}
+
+// OrderTradeTokenFee contains the precise fee amount and token identity from
+// the executed quote snapshot.
+message OrderTradeTokenFee {
+  // Fee amount in the token's smallest unit. Kept as a string for precision.
+  string amount_raw = 1;
+
+  // Decimal token amount. Kept as a string for precision.
+  string amount = 2;
+
+  // Token address as recorded by the quote provider.
+  string token_address = 3;
+
+  // CAIP-2 chain identifier, e.g. "eip155:1".
+  // This uses the same pattern as the v2.caip2 validator inline because a v1
+  // proto importing the v2 validator creates a generated Go package cycle.
+  string chain = 4 [(buf.validate.field).string.pattern = "^[a-zA-Z0-9][-a-zA-Z0-9]{2,}:[a-zA-Z0-9]{1,}[a-zA-Z0-9._-]*$"];
+}
+
+// OrderTradeToken represents token information in a trade
+message OrderTradeToken {
+  // Token address
+  string address = 1 [
+    (buf.validate.field).string.(eth_address) = true
+  ];
+  
+  // Token amount
+  double amount = 2;
+  
+  // USD value
+  double value = 3;
+}
+
+// OrderStatus enum
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_PENDING = 1;
+  ORDER_STATUS_COMPLETED = 2;
+  ORDER_STATUS_CANCELED = 3;
+  ORDER_STATUS_FAILED = 4;
+  ORDER_STATUS_VERIFIED = 5;
+  ORDER_STATUS_ERRORED = 6;
+  ORDER_STATUS_REFUNDED = 7;
+  ORDER_STATUS_AWAITING_CLAIM = 8;
+  ORDER_STATUS_EXPIRED = 9;
+  ORDER_STATUS_OPEN = 10;
+}
+
+// OrderType enum
+enum OrderType {
+  ORDER_TYPE_UNSPECIFIED = 0;
+  ORDER_TYPE_MARKET = 1;
+  ORDER_TYPE_LIMIT = 2;
+  ORDER_TYPE_BRIDGE = 3;
+}

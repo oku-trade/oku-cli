@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"connectrpc.com/connect"
+	accountv1 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v1"
 	accountv1connect "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v1/accountv1connect"
 	accountv2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
 	"github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2/accountv2connect"
@@ -12,10 +13,17 @@ import (
 )
 
 type fundsClients struct {
+	history accountv1connect.OrderHistoryServiceClient
 	swap    accountv2connect.SimpleSwapServiceV2Client
 	bridge  accountv2connect.BridgeServiceClient
 	onchain accountv2connect.OnchainServiceClient
 	token   accountv2connect.TokenServiceClient
+}
+
+func (c *Client) History(ctx context.Context, req *accountv1.OrderHistoryRequest, resp *accountv1.OrderHistoryResponse) error {
+	return c.call(ctx, fundsRPC[accountv1.OrderHistoryRequest, accountv1.OrderHistoryResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv1.OrderHistoryRequest]) (*connect.Response[accountv1.OrderHistoryResponse], error) {
+		return f.history.History
+	}), req, resp, true, false)
 }
 
 func fundsRPC[Req, Resp any, PReq interface {
@@ -101,6 +109,9 @@ var swapMethods = map[string]handler{
 	}),
 }
 var bridgeMethods = map[string]handler{
+	"FinishClaim": fundsRPC[accountv2.FinishClaimRequest, accountv2.FinishClaimResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.FinishClaimRequest]) (*connect.Response[accountv2.FinishClaimResponse], error) {
+		return f.bridge.FinishClaim
+	}),
 	"GetSupportedBridges": fundsRPC[accountv2.GetSupportedBridgesRequest, accountv2.GetSupportedBridgesResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.GetSupportedBridgesRequest]) (*connect.Response[accountv2.GetSupportedBridgesResponse], error) {
 		return f.bridge.GetSupportedBridges
 	}),
