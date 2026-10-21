@@ -73,4 +73,12 @@ func bridgeQuoteGeneration(t *testing.T, reported, polled float64) {
 	if polls != 2 || !strings.EqualFold(r.data()["route"].(string), "across") || r.data()["min_out"] != "495817" {
 		t.Fatalf("unexpected quote: polls=%d data=%v", polls, r.data())
 	}
+	if r.data()["target"] != "" {
+		t.Fatalf("bridge quote must not infer a trade target: %v", r.data())
+	}
+	polls = 0
+	prepared := h.run("bridge", "prepare", "--chain", "42161", "--destination-chain", "8453", "--from", "0xaf88d065e77c8cc2239327c5edb3a432268e5831", "--to", "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", "--amount", "0.5", "--recipient", h.fake.agentAddress, "--json")
+	if prepared.code != 0 || prepared.data()["target"] != nil || prepared.data()["state"] != "prepared" {
+		t.Fatalf("bridge prepare without executionInfo: %s %s", prepared.stdout, prepared.stderr)
+	}
 }

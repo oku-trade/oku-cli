@@ -18,7 +18,6 @@ func TestSwapIntentRouteFlags(t *testing.T) {
 		if intent {
 			q["signingRequest"] = map[string]any{"typedData": []any{map[string]any{"payload": typed}}}
 		} else {
-			q["executionInfo"] = map[string]any{"trade": map[string]any{"to": okuRouter}}
 			q["simulation"] = map[string]any{"amountOutRaw": "100"}
 			q["netUsdValue"] = "20"
 		}

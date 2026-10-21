@@ -368,7 +368,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 						continue
 					}
 				} else {
-					if v.Simulation == nil || v.Simulation.Error != "" || !safeInfo(v.ExecutionInfo) || !strings.EqualFold(routeTarget(v.ExecutionInfo), routerFor(q.Chain)) {
+					if routerFor(q.Chain) == "" || v.Simulation == nil || v.Simulation.Error != "" {
 						continue
 					}
 					if _, se := positiveRaw(v.Simulation.AmountOutRaw); se != nil {
@@ -390,7 +390,10 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					q.QuoteID = entry.QuoteId
 					q.Route = entry.Router
 					q.Intent = v.IntentBased
-					q.Target = routeTarget(v.ExecutionInfo)
+					q.Target = ""
+					if !v.IntentBased {
+						q.Target = routerFor(q.Chain)
+					}
 					q.MinOut = min.String()
 					q.OutAmount = v.OutAmountRaw
 					q.Spender = quoteSpender(v.ApprovalsV2, q.InToken, q.InAmount)
@@ -485,7 +488,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 				if e.cmd.Bool("no-intent") && v.IntentBased || v.InChainId != int32(q.Chain) || v.OutChainId != int32(q.OutChain) {
 					continue
 				}
-				if v.IntentBased && (len(v.SigningRequest.GetTypedData()) == 0 || v.SigningRequest.TypedData[0].GetPayload() == nil) || !v.IntentBased && (!bridgeInfo(v.ExecutionInfo) || !onchain.ValidAddress(routeTarget(v.ExecutionInfo)) || len(v.SigningRequest.GetTypedData()) > 0) {
+				if v.IntentBased && (len(v.SigningRequest.GetTypedData()) == 0 || v.SigningRequest.TypedData[0].GetPayload() == nil) || !v.IntentBased && len(v.SigningRequest.GetTypedData()) > 0 {
 					continue
 				}
 				if v.InToken == nil || v.OutToken == nil || !(strings.EqualFold(v.InToken.Address, q.InToken) || q.InToken == "native" && (strings.EqualFold(v.InToken.Address, "0x0000000000000000000000000000000000000000") || strings.EqualFold(v.InToken.Address, "native"))) || !strings.EqualFold(v.OutToken.Address, q.OutToken) {
@@ -509,7 +512,8 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					q.QuoteID = entry.QuoteId
 					q.Route = entry.Bridge
 					q.Intent = v.IntentBased
-					q.Target = routeTarget(v.ExecutionInfo)
+					// Bridge targets are only available from authenticated GetExecutionInfo.
+					q.Target = ""
 					q.MinOut = min.String()
 					q.OutAmount = out.String()
 					q.Spender = quoteSpender(v.Approvals, q.InToken, q.InAmount)
@@ -598,6 +602,8 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 	if id == "" {
 		id = randomID()
 	}
+	// Bridge's trade target is unknown until submit. This placeholder cannot be
+	// executed: submit replaces it with validated execution before BeginOnchain.
 	placeholders := []journal.OnchainTemplate{{ChainID: q.Chain, To: q.Target, Value: "0x0"}}
 	if q.InToken != "native" {
 		placeholders = append([]journal.OnchainTemplate{{ChainID: q.Chain, To: q.InToken, Value: "0x0", Token: q.InToken, Amount: onchain.Hex(mustRaw(q.InAmount))}}, placeholders...)

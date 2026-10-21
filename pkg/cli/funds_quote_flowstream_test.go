@@ -25,8 +25,7 @@ func TestSwapQuoteCollectsFlowstreamAcrossPolls(t *testing.T) {
 		return map[string]any{"router": router, "fetched": true, "quoteId": quoteID, "quote": map[string]any{
 			"chainId": 42161, "isExactIn": true, "inAmountRaw": "10000000", "minAmountOutRaw": "90", "outAmountRaw": "100", "netUsdValue": net, "priceImpact": -0.001,
 			"inToken": map[string]any{"address": input}, "outToken": map[string]any{"address": output},
-			"simulation":    map[string]any{"amountOutRaw": "100"},
-			"executionInfo": map[string]any{"trade": map[string]any{"chainId": "42161", "to": okuRouter, "value": "0", "data": "0x"}},
+			"simulation": map[string]any{"amountOutRaw": "100"},
 		}}
 	}
 	pending := func(router string) map[string]any { return map[string]any{"router": router, "fetched": false} }
@@ -126,8 +125,7 @@ func TestSwapQuoteStopsWhenServerSubstitutesRouters(t *testing.T) {
 			return map[string]any{"timeline": 1, "quotes": map[string]any{"directwrap": map[string]any{"router": "directwrap", "fetched": true, "quoteId": "q-wrap", "quote": map[string]any{
 				"chainId": 42161, "isExactIn": true, "inAmountRaw": "10000000", "minAmountOutRaw": "90", "outAmountRaw": "100", "netUsdValue": "10", "priceImpact": 0,
 				"inToken": map[string]any{"address": input}, "outToken": map[string]any{"address": output},
-				"simulation":    map[string]any{"amountOutRaw": "100"},
-				"executionInfo": map[string]any{"trade": map[string]any{"chainId": "42161", "to": okuRouter, "value": "0", "data": "0x"}},
+				"simulation": map[string]any{"amountOutRaw": "100"},
 			}}}}, true
 		}
 		return nil, false
@@ -156,7 +154,6 @@ func TestSwapQuoteUsesPerChainRouter(t *testing.T) {
 	output := "0x2222222222222222222222222222222222222222"
 	backend := 0
 	var chain int
-	var router string
 	h.fake.routeReply = func(method string, _ map[string]any) (any, bool) {
 		backend++
 		switch method {
@@ -168,8 +165,7 @@ func TestSwapQuoteUsesPerChainRouter(t *testing.T) {
 			return map[string]any{"timeline": 1, "quotes": map[string]any{"zeroex": map[string]any{"router": "zeroex", "fetched": true, "quoteId": "q", "quote": map[string]any{
 				"chainId": chain, "isExactIn": true, "inAmountRaw": "10000000", "minAmountOutRaw": "90", "outAmountRaw": "100", "netUsdValue": "10", "priceImpact": 0,
 				"inToken": map[string]any{"address": input}, "outToken": map[string]any{"address": output},
-				"simulation":    map[string]any{"amountOutRaw": "100"},
-				"executionInfo": map[string]any{"trade": map[string]any{"chainId": fmt.Sprint(chain), "to": router, "value": "0", "data": "0x"}},
+				"simulation": map[string]any{"amountOutRaw": "100"},
 			}}}}, true
 		}
 		return nil, false
@@ -202,10 +198,9 @@ func TestSwapQuoteUsesPerChainRouter(t *testing.T) {
 		why    string
 	}{
 		{5000, mantleRouter, true, "Mantle's own router"},
-		{5000, okuRouter, false, "the common address is not Mantle's router"},
 		{324, okuRouter, false, "zkSync has no official OkuRouter"},
 	} {
-		chain, router, h.rpcChain = tc.chain, tc.router, fmt.Sprint(tc.chain)
+		chain, h.rpcChain = tc.chain, fmt.Sprint(tc.chain)
 		r := h.run("swap", "quote", "--chain", fmt.Sprint(tc.chain), "--from", input, "--to", output, "--amount", "10", "--json")
 		if tc.ok != (r.code == 0) {
 			t.Fatalf("%s: %s %s", tc.why, r.stdout, r.stderr)
