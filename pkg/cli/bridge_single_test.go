@@ -13,9 +13,9 @@ import (
 
 func TestBridgeSingleBackendCallUsesExecute(t *testing.T) {
 	for _, tc := range []struct {
-		name, executionTarget string
-		unsafeInfo            bool
-	}{{name: "valid", executionTarget: "0x5555555555555555555555555555555555555555"}, {name: "missing-target"}, {name: "unsupported-shape", executionTarget: "0x5555555555555555555555555555555555555555", unsafeInfo: true}} {
+		name, executionTarget          string
+		unsafeInfo, psbt, legacyTarget bool
+	}{{name: "valid", executionTarget: "0x5555555555555555555555555555555555555555"}, {name: "legacy-journal-target", executionTarget: "0x5555555555555555555555555555555555555555", legacyTarget: true}, {name: "missing-target"}, {name: "unsupported-shape", executionTarget: "0x5555555555555555555555555555555555555555", unsafeInfo: true}, {name: "psbt", executionTarget: "0x5555555555555555555555555555555555555555", psbt: true}} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newHarness(t)
 			h.enroll()
@@ -33,6 +33,9 @@ func TestBridgeSingleBackendCallUsesExecute(t *testing.T) {
 					info := map[string]any{"trade": map[string]any{"chainId": "42161", "to": tc.executionTarget, "value": "0", "data": data}}
 					if tc.unsafeInfo {
 						info["depositAddress"] = target
+					}
+					if tc.psbt {
+						info["psbtHex"] = "00"
 					}
 					return map[string]any{"info": info}, true
 				}
@@ -76,13 +79,17 @@ func TestBridgeSingleBackendCallUsesExecute(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			record, err := j.CreateOnchain(journal.OnchainIntent{ID: "bridge-single", Kind: "bridge", ChainID: 42161, OutChain: 8453, Sender: h.fake.agentAddress, Recipient: h.fake.agentAddress, Token: "native", OutToken: "0x2222222222222222222222222222222222222222", Amount: "100", OrderID: "order", QuoteID: "quote", Generation: 7, Route: "relay", MinOut: "1", CreatedAt: time.Now().UTC().Format(time.RFC3339Nano), ExpiresAt: time.Now().Add(3 * time.Minute).UTC().Format(time.RFC3339Nano), Templates: []journal.OnchainTemplate{{ChainID: 42161, Value: "0x0"}}})
+			preparedTarget := ""
+			if tc.legacyTarget {
+				preparedTarget = target
+			}
+			record, err := j.CreateOnchain(journal.OnchainIntent{ID: "bridge-single", Kind: "bridge", ChainID: 42161, OutChain: 8453, Sender: h.fake.agentAddress, Recipient: h.fake.agentAddress, Token: "native", OutToken: "0x2222222222222222222222222222222222222222", Amount: "100", OrderID: "order", QuoteID: "quote", Generation: 7, Route: "relay", Target: preparedTarget, MinOut: "1", CreatedAt: time.Now().UTC().Format(time.RFC3339Nano), ExpiresAt: time.Now().Add(3 * time.Minute).UTC().Format(time.RFC3339Nano), Templates: []journal.OnchainTemplate{{ChainID: 42161, To: preparedTarget, Value: "0x0"}}})
 			if err != nil {
 				t.Fatal(err)
 			}
 			j.Close()
 			result := h.run("bridge", "submit", "--intent", record.ID, "--digest", record.Digest, "--json")
-			if tc.name != "valid" {
+			if tc.name != "valid" && !tc.legacyTarget {
 				if result.errCode() != "PAYLOAD_MISMATCH" || h.privy.rpcCalls != 0 {
 					t.Fatalf("unsafe authenticated bridge execution must be refused before signing: %s; sends=%d", result.stdout, h.privy.rpcCalls)
 				}
