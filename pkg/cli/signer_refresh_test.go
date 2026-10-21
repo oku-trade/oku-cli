@@ -37,7 +37,9 @@ func TestSignerRefreshesAndAdoptsAtAuthenticationBoundary(t *testing.T) {
 		h.privy.serve(w, r)
 	}))
 	defer proxy.Close()
-	e := &env{app: NewApp("t"), ctx: context.Background(), g: globals{timeout: 5 * time.Second}}
+	// signerFor re-saves the credential (full-cost scrypt) inside this request
+	// deadline. 5s was too tight for -race on CI runners.
+	e := &env{app: NewApp("t"), ctx: context.Background(), g: globals{timeout: maxTimeout}}
 	e.app.Getenv = func(name string) string {
 		switch name {
 		case "OKU_PASSPHRASE_FILE":
