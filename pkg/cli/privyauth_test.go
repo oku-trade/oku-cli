@@ -239,7 +239,7 @@ func (f *fakePrivy) serve(w http.ResponseWriter, r *http.Request) {
 
 func TestPrivyRefreshRotationPersistedAndAdopted(t *testing.T) {
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	pass := []byte("correct horse battery")
 	md, sec, err := auth.UnlockPrivy("main", pass)
 	if err != nil {
@@ -277,7 +277,7 @@ func TestPrivyLoginRejectsAccountFlag(t *testing.T) {
 
 func TestPrivySessionReexchangeDropsExpiredHeaders(t *testing.T) {
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	pass := []byte("correct horse battery")
 	md, sec, err := auth.UnlockPrivy("main", pass)
 	if err != nil {
@@ -318,7 +318,7 @@ func TestPrivyLoginRequiresTerminalBeforeDeviceGrant(t *testing.T) {
 
 func TestPrivySignFailureReturnsToCreated(t *testing.T) {
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	id, digest := prepare(t, h)
 	h.privy.failSign = true
 	r := h.run("orders", "submit", "--intent", id, "--digest", digest, "--json")
@@ -343,7 +343,7 @@ func TestPrivySignFailureReturnsToCreated(t *testing.T) {
 
 func TestPrivyWrongSignerNeverReachesConfirm(t *testing.T) {
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	id, digest := prepare(t, h)
 	h.privy.wrongSigner = true
 	r := h.run("orders", "submit", "--intent", id, "--digest", digest, "--json")

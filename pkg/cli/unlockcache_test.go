@@ -61,7 +61,7 @@ func (h *harness) agentApp(cache unlockCache, out *bytes.Buffer) *App {
 func TestUnlockCacheLetsAgentsUseCredential(t *testing.T) {
 	skipPassphraseOnDarwin(t)
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	cache := newMemCache()
 
 	var out bytes.Buffer
@@ -104,7 +104,7 @@ func TestUnlockCacheLetsAgentsUseCredential(t *testing.T) {
 func TestUnlockCacheRejectsWrongPassphrase(t *testing.T) {
 	skipPassphraseOnDarwin(t)
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	cache := newMemCache()
 	path, _ := auth.PrivyPath("main")
 	_ = cache.Put(path, []byte("stale passphrase"), time.Hour)

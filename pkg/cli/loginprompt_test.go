@@ -152,7 +152,7 @@ func TestFailedLoginRevokesGrant(t *testing.T) {
 func TestUnlockRepromptsWrongPassphrase(t *testing.T) {
 	skipPassphraseOnDarwin(t)
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	answers := []string{"wrong passphrase", "correct horse battery"}
 	n := 0
 	var errb bytes.Buffer

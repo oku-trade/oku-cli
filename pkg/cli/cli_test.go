@@ -58,6 +58,11 @@ func newFake(t *testing.T) (*fakeOku, *httptest.Server) {
 }
 
 func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/unexpected-rpc" {
+		f.t.Errorf("unexpected RPC request without a test server")
+		http.Error(w, "missing RPC fixture", http.StatusBadRequest)
+		return
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	method := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
@@ -244,6 +249,9 @@ type harness struct {
 	passFn string
 	privy  *fakePrivy
 	rpcURL string
+	// Most CLI tests exercise command behavior, not the cost of scrypt. Keep
+	// protected credential coverage in enrollProtected and auth-specific tests.
+	unprotectedLogin bool
 	// rpcChain additionally routes OKU_RPC_URL_<rpcChain> to rpcURL.
 	rpcChain string
 }
@@ -284,9 +292,17 @@ func (h *harness) run(args ...string) run {
 	var out, errb bytes.Buffer
 	a := &App{
 		Stdout: &out, Stderr: &errb, Stdin: strings.NewReader(h.stdin),
-		ReadSecret: func(string) ([]byte, error) { return nil, errNoTTY },
+		ReadSecret: func(string) ([]byte, error) {
+			if h.unprotectedLogin {
+				return nil, nil
+			}
+			return nil, errNoTTY
+		},
 		Getenv: func(k string) string {
 			if k == "OKU_PASSPHRASE_FILE" {
+				if h.unprotectedLogin {
+					return ""
+				}
 				return h.passFn
 			}
 			if k == "OKU_PRIVY_AUTH_URL" {
@@ -296,6 +312,11 @@ func (h *harness) run(args ...string) run {
 				return h.srv.URL + "/info"
 			}
 			if k == "OKU_RPC_URL_42161" || k == "OKU_RPC_URL_"+h.rpcChain {
+				if h.rpcURL == "" {
+					// Fail locally if a test forgets to supply its RPC fixture,
+					// rather than falling back to the live default endpoint.
+					return h.srv.URL + "/unexpected-rpc"
+				}
 				return h.rpcURL
 			}
 			return ""
@@ -325,6 +346,19 @@ func (r run) data() map[string]any {
 
 func (h *harness) enroll() {
 	h.t.Helper()
+	if runtime.GOOS != "darwin" {
+		h.unprotectedLogin = true
+		h.stdin = "yes\nstore without passphrase\n"
+		defer func() { h.unprotectedLogin = false; h.stdin = "" }()
+	}
+	h.enrollProtected()
+}
+
+// enrollProtected retains the real passphrase/KDF path for authentication and
+// credential security tests. Ordinary command tests use enroll to avoid
+// re-deriving a 128 MiB scrypt key for every CLI invocation under -race.
+func (h *harness) enrollProtected() {
+	h.t.Helper()
 	if r := h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code != 0 {
 		h.t.Fatalf("profiles add: %s %s", r.stdout, r.stderr)
 	}
@@ -336,7 +370,7 @@ func (h *harness) enroll() {
 
 func TestEnrollmentFlow(t *testing.T) {
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	if h.privy.pending != 1 {
 		t.Fatalf("device grant did not pass through pending: %d", h.privy.pending)
 	}
@@ -422,7 +456,7 @@ func prepare(t *testing.T, h *harness, extra ...string) (string, string) {
 
 func TestPrepareSubmitHappyPath(t *testing.T) {
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	id, dg := prepare(t, h)
 	if h.fake.creates != 0 {
 		t.Fatal("prepare contacted CreateAction")
@@ -625,7 +659,7 @@ func TestMarketOrderSlippageBound(t *testing.T) {
 
 func TestProfileBindingEnforced(t *testing.T) {
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	id, dg := prepare(t, h)
 	// Hand-edit the config to point the enrolled profile at another API.
 	cfgPath := filepath.Join(os.Getenv("OKU_CONFIG_DIR"), "config.json")
@@ -654,7 +688,7 @@ func TestNoPassphraseFailsClosed(t *testing.T) {
 		t.Skip("native Keychain uses OS authorization rather than a file passphrase")
 	}
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	id, dg := prepare(t, h)
 	h.passFn = ""
 	r := h.run("orders", "submit", "--intent", id, "--digest", dg, "--json")
@@ -665,7 +699,7 @@ func TestNoPassphraseFailsClosed(t *testing.T) {
 
 func TestRevokeReportsBoundaries(t *testing.T) {
 	h := newHarness(t)
-	h.enroll()
+	h.enrollProtected()
 	r := h.run("auth", "logout", "--json")
 	if r.code != 0 || r.data()["local_credentials"] != "deleted" || r.data()["boundaries"] == nil {
 		t.Fatalf("logout: %s", r.stdout)
