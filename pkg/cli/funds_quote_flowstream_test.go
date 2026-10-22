@@ -210,3 +210,49 @@ func TestSwapQuoteUsesPerChainRouter(t *testing.T) {
 		}
 	}
 }
+
+// Small-chain markets may omit the simulation and quote at a priced loss far
+// beyond the guardrail. The route is still selected and flagged; prepare
+// refuses by default and proceeds only with an explicit override.
+func TestSwapHighImpactNoSimulationIsGuardrailNotReject(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	input := "native"
+	output := "0x2222222222222222222222222222222222222222"
+	h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
+		switch method {
+		case "GetSupportedMarkets":
+			return map[string]any{"markets": []any{map[string]any{"name": "usor", "active": true, "supportedChainIds": []int{42161}}}}, true
+		case "Create":
+			return map[string]any{"orderId": "01a15585-427e-70f2-a7e4-7457069b9c0c", "timeline": 1}, true
+		case "GetFlowstreamQuotes":
+			return map[string]any{"timeline": 1, "quotes": map[string]any{"usor": map[string]any{"router": "usor", "fetched": true, "quoteId": "q-usor", "quote": map[string]any{
+				"chainId": 42161, "isExactIn": true, "inAmountRaw": "10000000000000000000", "outAmountRaw": "1000000", "slippagePpm": 5000, "netUsdValue": 1,
+				"inUsdValue": 10, "outUsdValue": 1, "priceImpact": 0.9,
+				"inToken": map[string]any{"address": "0x0000000000000000000000000000000000000000"}, "outToken": map[string]any{"address": output},
+			}}}}, true
+		case "Cancel":
+			return map[string]any{}, true
+		}
+		return nil, false
+	}
+	h.rpcURL = decimalsRPC(t)
+	q := h.run("swap", "quote", "--chain", "42161", "--from", input, "--to", output, "--amount", "10", "--json")
+	if q.code != 0 || q.data()["high_impact"] != true || q.data()["no_simulation"] != true || q.data()["min_out"] != "995000" {
+		t.Fatalf("quote must select and flag: %s %s", q.stdout, q.stderr)
+	}
+	if bps, _ := q.data()["loss_bps"].(float64); bps < 8999 {
+		t.Fatalf("loss_bps %v", q.data()["loss_bps"])
+	}
+	p := h.run("swap", "prepare", "--chain", "42161", "--from", input, "--to", output, "--amount", "10", "--json")
+	if p.code == 0 || p.errCode() != "REJECTED" || !strings.Contains(p.stdout, "high impact") {
+		t.Fatalf("prepare must refuse by default: %s", p.stdout)
+	}
+	ok := h.run("swap", "prepare", "--chain", "42161", "--from", input, "--to", output, "--amount", "10", "--allow-high-impact", "--json")
+	if ok.code != 0 || ok.data()["state"] != "prepared" {
+		t.Fatalf("override must prepare: %s %s", ok.stdout, ok.stderr)
+	}
+	if v, _ := ok.data()["valuation"].(map[string]any); v == nil || v["high_impact"] != true {
+		t.Fatalf("prepare valuation must flag: %s", ok.stdout)
+	}
+}

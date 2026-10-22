@@ -174,7 +174,7 @@ func TestRouterForUsesChainConfig(t *testing.T) {
 	}
 }
 
-func TestSwapMinOutDerivesOnlyWithSimulation(t *testing.T) {
+func TestSwapMinOutDerivesWithOrWithoutSimulation(t *testing.T) {
 	q := &v2.SimpleSwapQuote{OutAmountRaw: "1000000", SlippagePpm: 5000, Simulation: &v2.SimulationResult{AmountOutRaw: "999000"}}
 	if m, err := swapMinOut(q); err != nil || m.String() != "995000" {
 		t.Fatalf("derived %v %v", m, err)
@@ -183,9 +183,13 @@ func TestSwapMinOutDerivesOnlyWithSimulation(t *testing.T) {
 	if _, err := swapMinOut(q); err == nil {
 		t.Fatal("must reject simulation below minimum")
 	}
-	q.Simulation = nil
+	q.Simulation = &v2.SimulationResult{Error: "execution reverted"}
 	if _, err := swapMinOut(q); err == nil {
-		t.Fatal("must reject without simulation")
+		t.Fatal("must reject a failed simulation")
+	}
+	q.Simulation = nil // market never simulates (filecoin usor)
+	if m, err := swapMinOut(q); err != nil || m.String() != "995000" {
+		t.Fatalf("no-simulation derived %v %v", m, err)
 	}
 	q = &v2.SimpleSwapQuote{OutAmountRaw: "1000000", MinAmountOutRaw: "990000"}
 	if m, err := swapMinOut(q); err != nil || m.String() != "990000" {
@@ -196,6 +200,18 @@ func TestSwapMinOutDerivesOnlyWithSimulation(t *testing.T) {
 func TestNativeTokenAliasOnlyCelo(t *testing.T) {
 	if nativeTokenAlias(42220) != "0x471EcE3750Da237f93B8E339c536989b8978a438" || nativeTokenAlias(8453) != "" {
 		t.Fatal("unexpected native alias")
+	}
+}
+
+func TestSwapLossFlagsBrokenPoolsWithoutHardReject(t *testing.T) {
+	broken := &v2.SimpleSwapQuote{InAmountRaw: "1000000000000000000", InUsdValue: 7.4, OutUsdValue: 0.022, PriceImpact: -0.997}
+	loss, ok := swapLoss(broken)
+	if !ok || loss < 0.99 || !usableImpact(broken) {
+		t.Fatalf("broken pool must be usable but flagged: loss %v ok %v", loss, ok)
+	}
+	nan := &v2.SimpleSwapQuote{InAmountRaw: "1", PriceImpact: math.NaN()}
+	if usableImpact(nan) {
+		t.Fatal("unpriced quote must not be selectable")
 	}
 }
 

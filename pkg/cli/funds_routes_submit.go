@@ -89,7 +89,7 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 				quote = entry.Quote
 			}
 		}
-		if quote == nil || quote.IntentBased != r.Intent || !r.Intent && (quote.Simulation == nil || quote.Simulation.Error != "" || len(quote.SigningRequest.GetTypedData()) > 0) {
+		if quote == nil || quote.IntentBased != r.Intent || !r.Intent && (quote.Simulation != nil && quote.Simulation.Error != "" || len(quote.SigningRequest.GetTypedData()) > 0) {
 			return nil, output.Errorf(output.CodePayloadMismatch, "unsupported changed quote")
 		}
 		if r.Intent {
@@ -97,8 +97,10 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 				return nil, output.Errorf(output.CodePayloadMismatch, "selected intent economics changed")
 			}
 			signing = quote.SigningRequest
-		} else if _, e := positiveRaw(quote.Simulation.AmountOutRaw); e != nil {
-			return nil, output.Errorf(output.CodePayloadMismatch, "swap quote simulation has no successful output")
+		} else if quote.Simulation != nil {
+			if _, e := positiveRaw(quote.Simulation.AmountOutRaw); e != nil {
+				return nil, output.Errorf(output.CodePayloadMismatch, "swap quote simulation has no successful output")
+			}
 		}
 		min = quote.MinAmountOutRaw
 		if !r.Intent && min == "" {
