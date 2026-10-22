@@ -121,7 +121,7 @@ oku swap submit --intent ID --digest SHA --json
 oku swap status --intent ID --json        # only if submit was ambiguous
 ```
 
-Prepare shows the resolved `amount` with `amount_source: max` (read by RPC and bound into the digest) and the `valuation` block. Check the guardrails on it, then submit immediately. Skip and report any token that gets `REJECTED: no eligible route`, or a fee-on-transfer/rebasing token that fails min-out once. On chains without the Privy 7702 batch, submit runs approve then swap as two transactions (`execution_mode: sequential`). If it stops between them, `status` shows `next_step` and resubmitting the same intent resumes the swap.
+Prepare shows the resolved `amount` with `amount_source: max` (read by RPC and bound into the digest) and the `valuation` block. Check the guardrails on it, then submit immediately. If a token gets `REJECTED: no eligible route` with `retryable: true` (the CLI already re-quoted once), wait 30-60s, re-quote and prepare once more before skipping it. With `retryable: false`, skip it. Report skipped tokens with the per-route reasons from `error.details.routes`. Also skip and report a fee-on-transfer/rebasing token that fails min-out once. On chains without the Privy 7702 batch, submit runs approve then swap as two transactions (`execution_mode: sequential`). If it stops between them, `status` shows `next_step` and resubmitting the same intent resumes the swap.
 
 ### Phase B: bridge as soon as the chain is ready (parallel)
 

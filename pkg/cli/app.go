@@ -52,6 +52,10 @@ type App struct {
 	// wrapHandlers, when set by tests, may replace handlers after the
 	// command table is built (flags are preserved by the caller).
 	wrapHandlers func(map[string]*handler)
+
+	// tel collects opt-in telemetry facts for the current Run (never sent
+	// unless the user enabled telemetry).
+	tel *telemetryRun
 }
 
 // NewApp returns an App wired to the real process.
@@ -181,6 +185,7 @@ func (a *App) commandTable() map[string]*handler {
 		"bridge claim":       {summary: "Claim a bridge transfer or all ready transfers with --ready", flags: bridgeClaimFlags, run: a.cmdBridgeClaim},
 		"bridge reconcile":   {summary: "Attach and verify a recovered bridge transaction hash", flags: reconcileFlags, run: a.cmdBridgeReconcile},
 		"version":            {summary: "Print version information", run: a.cmdVersion},
+		"self-update":        {summary: "Upgrade this binary from the latest GitHub release (--check to only compare)", flags: selfUpdateFlags, run: a.cmdSelfUpdate},
 		"doctor":             {summary: "Check configuration, connectivity and credentials", run: a.cmdDoctor},
 		"config path":        {summary: "Print config, credential and state paths", run: a.cmdConfigPath},
 		"config show":        {summary: "Show configuration (no secrets)", run: a.cmdConfigShow},
@@ -218,6 +223,9 @@ func (a *App) commandTable() map[string]*handler {
 		"docs schema":        {summary: "Print JSON input schema: docs schema --command 'orders prepare' or --all", flags: docsSchemaFlags, run: a.cmdDocsSchema},
 		"skills list":        {summary: "List bundled agent skills", run: a.cmdSkillsList},
 		"skills install":     {summary: "Install skills: --target jcode|claude|codex or --dir PATH [--force]", flags: skillFlags, run: a.cmdSkillsInstall},
+		"telemetry enable":   {summary: "Opt in to anonymous usage telemetry (off by default; DO_NOT_TRACK=1 always wins)", run: a.cmdTelemetryEnable},
+		"telemetry disable":  {summary: "Opt out of usage telemetry and delete the install ID", run: a.cmdTelemetryDisable},
+		"telemetry status":   {summary: "Show whether telemetry is on, why, the install ID and exactly which fields are sent", run: a.cmdTelemetryStatus},
 		"skills uninstall":   {summary: "Remove installed skills that match the bundled version", flags: skillFlags, run: a.cmdSkillsUninstall},
 	}
 	for path, h := range m {
@@ -232,6 +240,14 @@ func (a *App) commandTable() map[string]*handler {
 
 // Run executes the CLI and returns the process exit code.
 func (a *App) Run(args []string) int {
+	a.tel = &telemetryRun{start: time.Now(), props: map[string]any{}, json: hasJSONFlag(args)}
+	code := a.run(args)
+	a.maybeTelemetryHint(a.tel, code)
+	a.finishTelemetry(a.tel, code)
+	return code
+}
+
+func (a *App) run(args []string) int {
 	reqID := output.NewRequestID()
 	jsonOut := hasJSONFlag(args)
 	root := a.commandTree(reqID, jsonOut)
@@ -313,6 +329,9 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 		}
 		leaf.Action = func(ctx context.Context, cmd *urfave.Command) error {
 			name := strings.ReplaceAll(path, " ", ".")
+			if a.tel != nil {
+				a.tel.command = path
+			}
 			e := &env{app: a, cmd: newCheckedFlags(cmd, leaf.Flags), args: cmd.Args().Slice(), ctx: ctx}
 			e.g = globals{profile: cmd.String("profile"), network: cmd.String("network"), account: cmd.String("account"), json: cmd.Bool("json") || jsonOut, timeout: cmd.Duration("timeout")}
 			if cmd.IsSet("input") {
@@ -389,6 +408,12 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 			if name == "auth.login" {
 				limit = 15 * time.Minute
 			}
+			if name == "self-update" {
+				limit = selfUpdateMaxTimeout
+				if !cmd.IsSet("timeout") {
+					e.g.timeout = selfUpdateTimeout
+				}
+			}
 			if e.g.timeout <= 0 || e.g.timeout > limit {
 				return &commandFailure{name, e.g.json, output.Errorf(output.CodeUsage, "--timeout must be between 1ns and %s", limit)}
 			}
@@ -396,6 +421,13 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 				return &commandFailure{name, e.g.json, output.Errorf(output.CodeNetworkUnsupported, "network %q is not supported: the Oku API currently serves Hyperliquid mainnet only", e.g.network)}
 			}
 			res, err := runChecked(h, e)
+			if a.tel != nil {
+				declared := map[string]bool{}
+				for _, f := range leaf.Flags {
+					declared[f.Names()[0]] = true
+				}
+				a.tel.collectCommand(path, e, declared)
+			}
 			if err != nil {
 				return &commandFailure{name, e.g.json, err}
 			}
@@ -464,6 +496,9 @@ func (a *App) commandName(args []string) string {
 
 func (a *App) fail(jsonOut bool, reqID, name string, err error) int {
 	oe := output.As(err)
+	if a.tel != nil {
+		a.tel.errCode, a.tel.retry, a.tel.details = oe.Code, oe.Retryable, oe.Details
+	}
 	if jsonOut {
 		_ = output.Write(a.Stdout, output.Envelope{RequestID: reqID, Command: name, OK: false, Error: oe})
 	} else {

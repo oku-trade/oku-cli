@@ -116,6 +116,16 @@ sh scripts/install.sh --version v0.1.0 --dir ~/bin   # from a checkout, pinned v
 `~/.local/bin/oku`, clears the macOS quarantine attribute and prints `oku version`. No sudo.
 `--from-dir DIR` installs from a local directory with an archive and `SHA256SUMS` (testing).
 
+To upgrade an existing install, run `oku self-update` (`--check` only compares,
+`--version vX.Y.Z` pins a release). It resolves the latest non-draft release through the
+GitHub API with the same token order as `install.sh` (`GITHUB_TOKEN`/`GH_TOKEN`, else
+`gh auth token`), verifies the archive against `SHA256SUMS`, checks that the new binary's
+`version` matches the tag, then atomically renames it over the running executable. It
+refuses mise, Nix, Homebrew and source builds. Default timeout is 2m (`--timeout`, max 10m).
+`OKU_GITHUB_API_URL` overrides the API base for tests only (https, or http on loopback).
+Keep the archive names, the `oku_<tag>_<os>_<arch>/oku` layout and `SHA256SUMS` stable so
+older binaries can still upgrade.
+
 ### Installing with mise
 
 `mise use -g github:oku-trade/oku-cli` installs from these releases (asset autodetection works with the `oku_<tag>_<os>_<arch>.tar.gz` names; mise strips the archive's top-level directory). The repo is private, so mise needs a token: set `[settings.github] credential_command = 'gh auth token --hostname "$MISE_CREDENTIAL_HOST"'` in `~/.config/mise/config.toml` or export `MISE_GITHUB_TOKEN`. mise's default `minimum_release_age` of 24h hides a brand new release from `latest`; pin `@<version>` to install it immediately. Verified against v0.0.1 on 2026-10-22 with mise 2026.10.15. Keep the archive names and layout stable so this keeps working.

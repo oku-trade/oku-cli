@@ -48,6 +48,15 @@ type File struct {
 	Version        int                 `json:"version"`
 	DefaultProfile string              `json:"default_profile,omitempty"`
 	Profiles       map[string]*Profile `json:"profiles"`
+	// Telemetry is global (not per profile) and off unless explicitly enabled.
+	Telemetry *Telemetry `json:"telemetry,omitempty"`
+}
+
+// Telemetry holds the opt-in usage telemetry preference.
+type Telemetry struct {
+	Enabled bool `json:"enabled"`
+	// HintShown records that the one-time login hint was printed.
+	HintShown bool `json:"hint_shown,omitempty"`
 }
 
 // Dir returns the oku config directory.

@@ -444,8 +444,40 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
+	base := q
+	q, rej, err := a.fetchRouteAttempt(ctx, e, kind, prepare, w, c, base)
+	if err == nil && rej != nil && rej.quoted && retryBudget(ctx) {
+		// The backend answered but every route was filtered (or markets were
+		// slow): quotes are often transient, so take one fresh quote cycle.
+		// Nothing is journaled or signed before a route is chosen.
+		select {
+		case <-time.After(routeRetryBackoff):
+		case <-ctx.Done():
+			return q, nil, ctx.Err()
+		}
+		q, rej, err = a.fetchRouteAttempt(ctx, e, kind, prepare, w, c, base)
+		if rej != nil {
+			rej.attempts = 2
+		}
+	}
+	if err != nil {
+		return q, nil, err
+	}
+	if rej != nil {
+		return q, nil, rej.error(str(e, "route"))
+	}
+	q.ExpiresAt = a.Now().Add(3 * time.Minute).UTC().Format(time.RFC3339Nano)
+	return q, w, nil
+}
+
+// fetchRouteAttempt runs one quote cycle. It returns a non-nil rejection when
+// the cycle completed but no route was eligible.
+func (a *App) fetchRouteAttempt(ctx context.Context, e *env, kind string, prepare bool, w *resolvedWallet, c *api.Client, q routeQuote) (routeQuote, *routeRejection, error) {
+	var err error
 	ppm := int32(e.cmd.Int("slippage-bps") * 100)
-	routeErrors := map[string]string{}
+	noIntent := e.cmd.Bool("no-intent")
+	reasons := map[string]string{}
+	answered, quoted := false, false
 	if kind == "swap" {
 		var supported v2.GetSupportedMarketsResponse
 		if err = c.Swap(ctx, "GetSupportedMarkets", &v2.GetSupportedMarketsRequest{}, &supported, prepare); err != nil {
@@ -540,47 +572,15 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			bestInBound := false
 			for _, key := range keys {
 				entry := quotes.Quotes[key]
-				if entry != nil && entry.Error != nil && entry.Error.Message != "" {
-					routeErrors[strings.ToLower(key)] = entry.Error.Message
+				if entry != nil && entry.Fetched && entry.Quote != nil && entry.Error == nil {
+					answered, quoted = true, true
 				}
-				if entry == nil || !entry.Fetched || entry.Error != nil || entry.Quote == nil {
+				if reason := swapRejectReason(entry, q, noIntent); reason != "" {
+					reasons[strings.ToLower(key)] = reason
 					continue
 				}
 				v := entry.Quote
-				if e.cmd.Bool("no-intent") && v.IntentBased || v.ChainId != int32(q.Chain) || !v.IsExactIn || !v.IntentBased && !usableImpact(v) || math.IsNaN(v.NetUsdValue) {
-					continue
-				}
-				input, ie := positiveRaw(v.InAmountRaw)
-				min, me := swapMinOut(v)
-				if ie != nil || me != nil || input.String() != q.InAmount {
-					continue
-				}
-				if v.IntentBased {
-					if len(v.SigningRequest.GetTypedData()) == 0 || v.SigningRequest.TypedData[0].GetPayload() == nil {
-						continue
-					}
-				} else {
-					// A missing simulation is accepted (some small-chain markets never
-					// simulate); a simulation that ran and failed is not.
-					if routerFor(q.Chain) == "" || v.Simulation != nil && v.Simulation.Error != "" {
-						continue
-					}
-					if v.Simulation != nil {
-						if _, se := positiveRaw(v.Simulation.AmountOutRaw); se != nil {
-							continue
-						}
-					}
-				}
-				if v.InToken == nil || v.OutToken == nil || !bridgeTokenMatches(v.InToken.Address, q.InToken) || !bridgeTokenMatches(v.OutToken.Address, q.OutToken) {
-					continue
-				}
-				if !v.IntentBased && (len(v.SigningRequest.GetTypedData()) > 0 || !consistentSwapApprovals(v.Approvals, v.ApprovalsV2, q.Chain, q.InToken, q.InAmount)) {
-					continue
-				}
-				spender := quoteSpender(v.ApprovalsV2, q.InToken, q.InAmount)
-				if !v.IntentBased && q.InToken != "native" && (len(v.ApprovalsV2) > 0 || len(v.Approvals) > 0) && !strings.EqualFold(spender, routerFor(q.Chain)) {
-					continue
-				}
+				min, _ := swapMinOut(v)
 				// Prefer routes inside the selection bound; a high-impact route is
 				// only chosen when no in-bound route exists, and is then flagged.
 				inBound := v.IntentBased || acceptableSwapImpact(v)
@@ -605,6 +605,12 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					q.HighImpact = !inBound || mispriced(q.LossBps, maxLossFraction(e))
 					q.NoSimulation = !v.IntentBased && v.Simulation == nil
 					q.Spender = quoteSpender(v.ApprovalsV2, q.InToken, q.InAmount)
+				}
+			}
+			for _, m := range markets {
+				if _, ok := collected[m]; !ok && !done() {
+					reasons[strings.ToLower(m)] = "not_answered"
+					answered = true
 				}
 			}
 		}
@@ -684,38 +690,26 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			}
 			sort.Strings(keys)
 			best := math.Inf(-1)
+			for _, name := range bridges {
+				if _, ok := collected[name]; !ok {
+					reasons[strings.ToLower(name)] = "not_answered"
+					answered = true
+				}
+			}
 			for _, key := range keys {
 				entry := quotes.Quotes[key]
-				if entry != nil && entry.Error != nil && entry.Error.Message != "" {
-					routeErrors[strings.ToLower(key)] = entry.Error.Message
+				if entry != nil && entry.Fetched && entry.Quote != nil && entry.Error == nil {
+					answered, quoted = true, true
 				}
-				if entry == nil || !entry.Fetched || entry.Error != nil || entry.Quote == nil {
+				if reason := bridgeRejectReason(entry, q, noIntent); reason != "" {
+					reasons[strings.ToLower(key)] = reason
 					continue
 				}
 				v := entry.Quote
-				if e.cmd.Bool("no-intent") && v.IntentBased || v.InChainId != int32(q.Chain) || v.OutChainId != int32(q.OutChain) {
-					continue
-				}
-				if v.IntentBased && (len(v.SigningRequest.GetTypedData()) == 0 || v.SigningRequest.TypedData[0].GetPayload() == nil) || !v.IntentBased && len(v.SigningRequest.GetTypedData()) > 0 {
-					continue
-				}
-				if v.InToken == nil || v.OutToken == nil || !bridgeTokenMatches(v.InToken.Address, q.InToken) || !bridgeTokenMatches(v.OutToken.Address, q.OutToken) {
-					continue
-				}
-				input, ie := parseUnits(v.InAmount, int(v.InToken.Decimals))
-				min, me := parseUnits(v.MinAmountOut, int(v.OutToken.Decimals))
-				if ie != nil || me != nil || input.String() != q.InAmount {
-					continue
-				}
+				min, _ := parseUnits(v.MinAmountOut, int(v.OutToken.Decimals))
 				net := v.OutUsdValue - v.FeesUsdValue - v.GasUsdValue
-				if math.IsNaN(net) || math.IsInf(net, 0) {
-					continue
-				}
 				if net > best {
-					out, oe := parseUnits(v.OutAmount, int(v.OutToken.Decimals))
-					if oe != nil {
-						continue
-					}
+					out, _ := parseUnits(v.OutAmount, int(v.OutToken.Decimals))
 					best = net
 					q.QuoteID = entry.QuoteId
 					q.Route = entry.Bridge
@@ -731,15 +725,9 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 		}
 	}
 	if q.OrderID == "" || q.QuoteID == "" {
-		if forced := str(e, "route"); forced != "" {
-			if detail := routeErrors[strings.ToLower(forced)]; detail != "" {
-				return q, nil, output.Errorf(output.CodeRejected, "no eligible route: %s: %s", forced, detail)
-			}
-		}
-		return q, nil, output.Errorf(output.CodeRejected, "no eligible route for requested tokens and amount")
+		return q, &routeRejection{reasons: reasons, answered: answered, quoted: quoted, attempts: 1}, nil
 	}
-	q.ExpiresAt = a.Now().Add(3 * time.Minute).UTC().Format(time.RFC3339Nano)
-	return q, w, nil
+	return q, nil, nil
 }
 func bridgeTokenMatches(quoted, requested string) bool {
 	if strings.EqualFold(quoted, requested) {
@@ -885,3 +873,184 @@ func routeRecord(r *journal.OnchainRecord) *result {
 }
 func (a *App) cmdSwapPrepare(e *env) (*result, error)   { return a.cmdRoutePrepare(e, "swap") }
 func (a *App) cmdBridgePrepare(e *env) (*result, error) { return a.cmdRoutePrepare(e, "bridge") }
+
+// routeRetryBackoff is the pause before the single automatic re-quote.
+const routeRetryBackoff = 2 * time.Second
+
+// retryBudget reports whether enough of the command deadline remains for a
+// backoff plus a useful (possibly shortened) quote cycle. The cycle itself is
+// bounded by the same deadline.
+func retryBudget(ctx context.Context) bool {
+	d, ok := ctx.Deadline()
+	return !ok || time.Until(d) > routeRetryBackoff+5*time.Second
+}
+
+// routeRejection explains why no route was eligible. answered means the
+// backend returned quotes (all filtered) or markets did not answer in time,
+// which is transient-looking and therefore retryable.
+type routeRejection struct {
+	reasons  map[string]string
+	answered bool
+	quoted   bool // at least one route returned a quote
+	attempts int
+}
+
+func (r *routeRejection) error(forced string) *output.Error {
+	if forced != "" {
+		if detail := r.reasons[strings.ToLower(forced)]; strings.HasPrefix(detail, "backend_error: ") {
+			err := output.Errorf(output.CodeRejected, "no eligible route: %s: %s", forced, strings.TrimPrefix(detail, "backend_error: "))
+			return r.decorate(err)
+		}
+	}
+	msg := "no eligible route for requested tokens and amount"
+	if r.attempts > 1 {
+		msg += fmt.Sprintf(" after %d attempts", r.attempts)
+	}
+	if len(r.reasons) > 0 {
+		keys := make([]string, 0, len(r.reasons))
+		for k := range r.reasons {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		parts := make([]string, 0, len(keys))
+		for _, k := range keys {
+			parts = append(parts, k+": "+r.reasons[k])
+		}
+		msg += " (" + strings.Join(parts, "; ") + ")"
+	}
+	return r.decorate(output.Errorf(output.CodeRejected, "%s", msg))
+}
+
+func (r *routeRejection) decorate(err *output.Error) *output.Error {
+	routes := map[string]string{}
+	for k, v := range r.reasons {
+		routes[k] = v
+	}
+	err = err.WithDetail("routes", routes).WithDetail("attempts", r.attempts)
+	if r.answered {
+		err = err.WithRetry()
+	}
+	return err
+}
+
+func backendReason(msg string) string {
+	msg = strings.Join(strings.Fields(msg), " ")
+	if r := []rune(msg); len(r) > 200 {
+		msg = string(r[:200]) + "..."
+	}
+	return "backend_error: " + msg
+}
+
+// swapRejectReason returns why a swap route is ineligible, or "" if usable.
+func swapRejectReason(entry *v2.SimpleSwapQuoteInformation, q routeQuote, noIntent bool) string {
+	switch {
+	case entry == nil:
+		return "not_answered"
+	case entry.Error != nil:
+		return backendReason(entry.Error.Message)
+	case !entry.Fetched:
+		return "not_fetched"
+	case entry.Quote == nil:
+		return "no_quote"
+	}
+	v := entry.Quote
+	switch {
+	case noIntent && v.IntentBased:
+		return "intent_excluded"
+	case v.ChainId != int32(q.Chain):
+		return fmt.Sprintf("chain_mismatch: got %d", v.ChainId)
+	case !v.IsExactIn:
+		return "not_exact_in"
+	case !v.IntentBased && !usableImpact(v):
+		return "unusable_impact"
+	case math.IsNaN(v.NetUsdValue):
+		return "net_usd_nan"
+	}
+	input, ie := positiveRaw(v.InAmountRaw)
+	if ie != nil || input.String() != q.InAmount {
+		return fmt.Sprintf("amount_mismatch: got %s want %s", v.InAmountRaw, q.InAmount)
+	}
+	if _, me := swapMinOut(v); me != nil {
+		return "min_out_invalid"
+	}
+	if v.IntentBased {
+		if len(v.SigningRequest.GetTypedData()) == 0 || v.SigningRequest.TypedData[0].GetPayload() == nil {
+			return "intent_without_typed_data"
+		}
+	} else {
+		// A missing simulation is accepted (some small-chain markets never
+		// simulate); a simulation that ran and failed is not.
+		if routerFor(q.Chain) == "" {
+			return "no_router_for_chain"
+		}
+		if v.Simulation != nil && v.Simulation.Error != "" {
+			return "simulation_failed: " + strings.TrimPrefix(backendReason(v.Simulation.Error), "backend_error: ")
+		}
+		if v.Simulation != nil {
+			if _, se := positiveRaw(v.Simulation.AmountOutRaw); se != nil {
+				return "simulation_no_output"
+			}
+		}
+	}
+	if v.InToken == nil || v.OutToken == nil || !bridgeTokenMatches(v.InToken.Address, q.InToken) || !bridgeTokenMatches(v.OutToken.Address, q.OutToken) {
+		return "token_mismatch"
+	}
+	if !v.IntentBased {
+		if len(v.SigningRequest.GetTypedData()) > 0 {
+			return "typed_data_on_router_route"
+		}
+		if !consistentSwapApprovals(v.Approvals, v.ApprovalsV2, q.Chain, q.InToken, q.InAmount) {
+			return "approvals_inconsistent"
+		}
+		spender := quoteSpender(v.ApprovalsV2, q.InToken, q.InAmount)
+		if q.InToken != "native" && (len(v.ApprovalsV2) > 0 || len(v.Approvals) > 0) && !strings.EqualFold(spender, routerFor(q.Chain)) {
+			return "spender_not_router: " + spender
+		}
+	}
+	return ""
+}
+
+// bridgeRejectReason returns why a bridge route is ineligible, or "" if usable.
+func bridgeRejectReason(entry *v2.BridgeQuoteInformation, q routeQuote, noIntent bool) string {
+	switch {
+	case entry == nil:
+		return "not_answered"
+	case entry.Error != nil:
+		return backendReason(entry.Error.Message)
+	case !entry.Fetched:
+		return "not_fetched"
+	case entry.Quote == nil:
+		return "no_quote"
+	}
+	v := entry.Quote
+	switch {
+	case noIntent && v.IntentBased:
+		return "intent_excluded"
+	case v.InChainId != int32(q.Chain) || v.OutChainId != int32(q.OutChain):
+		return fmt.Sprintf("chain_mismatch: got %d->%d", v.InChainId, v.OutChainId)
+	case v.IntentBased && (len(v.SigningRequest.GetTypedData()) == 0 || v.SigningRequest.TypedData[0].GetPayload() == nil):
+		return "intent_without_typed_data"
+	case !v.IntentBased && len(v.SigningRequest.GetTypedData()) > 0:
+		return "typed_data_on_router_route"
+	case v.InToken == nil || v.OutToken == nil || !bridgeTokenMatches(v.InToken.Address, q.InToken) || !bridgeTokenMatches(v.OutToken.Address, q.OutToken):
+		return "token_mismatch"
+	}
+	input, ie := parseUnits(v.InAmount, int(v.InToken.Decimals))
+	if ie != nil || input.String() != q.InAmount {
+		got := v.InAmount
+		if ie == nil {
+			got = input.String()
+		}
+		return fmt.Sprintf("amount_mismatch: got %s want %s", got, q.InAmount)
+	}
+	if _, me := parseUnits(v.MinAmountOut, int(v.OutToken.Decimals)); me != nil {
+		return "min_out_invalid"
+	}
+	if net := v.OutUsdValue - v.FeesUsdValue - v.GasUsdValue; math.IsNaN(net) || math.IsInf(net, 0) {
+		return "net_usd_invalid"
+	}
+	if _, oe := parseUnits(v.OutAmount, int(v.OutToken.Decimals)); oe != nil {
+		return "out_amount_invalid"
+	}
+	return ""
+}

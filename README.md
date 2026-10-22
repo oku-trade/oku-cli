@@ -61,6 +61,16 @@ oku version
 
 macOS binaries are ad-hoc signed only (not Developer ID signed or notarized). Files fetched with `gh` or curl normally run as is. If you downloaded through a browser and macOS blocks it, run `xattr -d com.apple.quarantine ~/.local/bin/oku` (or right-click the binary in Finder and choose Open). Maintainers: see [docs/releasing.md](docs/releasing.md) for cutting a release.
 
+### Upgrade
+
+```sh
+oku self-update --check   # compare the running version with the latest release
+oku self-update           # download, verify SHA256SUMS and replace this binary in place
+oku self-update --version v0.1.0   # install a specific release (downgrades allowed)
+```
+
+`self-update` uses `GITHUB_TOKEN`/`GH_TOKEN`, else `gh auth token`, and never needs sudo. It only replaces binaries installed by `install.sh` or a release tarball: mise, Nix and Homebrew installs are refused (use `mise up github:oku-trade/oku-cli` and so on), and so are source builds (`git pull && make install`). It never runs on its own; no other command checks for updates.
+
 ## Install (mise)
 
 [mise](https://mise.jdx.dev) installs `oku` straight from this repo's GitHub Releases with its `github` backend. It picks the archive for your OS and arch, checks it against the release digest, and puts `oku` on your `PATH`.
@@ -157,6 +167,7 @@ All of these except `validation.md` (repository-only evidence, not embedded) are
 - [docs/usage.md](docs/usage.md): commands, JSON contract, order lifecycle, risk actions, agent-wallet sends, deposits and swaps, draft repair, skills, MCP, journal
 - [docs/commands.md](docs/commands.md): generated command and flag reference (`make docs`, `make docs-check`)
 - [docs/security.md](docs/security.md): Privy signing model, credential storage, grant and agent revocation, agent-wallet swap verification and batch execution
+- [docs/telemetry.md](docs/telemetry.md): opt-in usage telemetry (off by default, `DO_NOT_TRACK=1` respected): exact fields, enable and disable
 - [docs/architecture.md](docs/architecture.md): code layout and how the CLI talks to Oku
 - [docs/deployment.md](docs/deployment.md): backend/frontend/release prerequisites
 - [docs/local-testing.md](docs/local-testing.md): local read-only checks and operator-led Privy login/trade guidance
