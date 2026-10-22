@@ -16,6 +16,39 @@ func TestBridgeQuoteFollowsGenerationAndAcceptsAcrossWithoutSimulation(t *testin
 	}
 }
 
+func TestBridgeQuoteNativeAddressAliases(t *testing.T) {
+	for _, address := range []string{"0x0000000000000000000000000000000000000000", "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"} {
+		t.Run(address, func(t *testing.T) {
+			h := newHarness(t)
+			h.enroll()
+			h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
+				switch method {
+				case "GetSupportedBridges":
+					return map[string]any{"bridges": []any{map[string]any{"name": "lifi", "active": true, "supportedChains": []string{"eip155:8453", "eip155:42161"}}}}, true
+				case "Create":
+					params := body["params"].(map[string]any)
+					if params["inTokenAddress"] != "native" || params["outTokenAddress"] != "native" {
+						t.Errorf("native request changed: %v", params)
+					}
+					return map[string]any{"orderId": "order"}, true
+				case "UpdateQuoteParams":
+					return map[string]any{"orderId": "order", "generation": 1}, true
+				case "GetNewQuotes":
+					return map[string]any{"quotes": map[string]any{"lifi": map[string]any{"bridge": "lifi", "fetched": true, "quoteId": "quote", "quote": map[string]any{
+						"inChainId": 8453, "outChainId": 42161, "inToken": map[string]any{"address": address, "decimals": 18}, "outToken": map[string]any{"address": address, "decimals": 18},
+						"inAmount": "0.01", "minAmountOut": "0.009", "outAmount": "0.0095", "outUsdValue": 20, "feesUsdValue": 1, "gasUsdValue": 1,
+					}}}}, true
+				}
+				return nil, false
+			}
+			r := h.run("bridge", "quote", "--chain", "8453", "--destination-chain", "42161", "--from", "native", "--to", "native", "--amount", "0.01", "--json")
+			if r.code != 0 || r.data()["route"] != "lifi" {
+				t.Fatalf("native bridge quote: %s %s", r.stdout, r.stderr)
+			}
+		})
+	}
+}
+
 func bridgeQuoteGeneration(t *testing.T, reported, polled float64) {
 	h := newHarness(t)
 	h.enroll()

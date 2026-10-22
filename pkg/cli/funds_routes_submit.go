@@ -122,7 +122,7 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 		}
 		approvals = quote.Approvals
 		if r.Intent {
-			if quote.InChainId != int32(r.ChainID) || quote.OutChainId != int32(r.OutChain) || quote.InToken == nil || quote.OutToken == nil || !strings.EqualFold(quote.InToken.Address, r.Token) || !strings.EqualFold(quote.OutToken.Address, r.OutToken) {
+			if quote.InChainId != int32(r.ChainID) || quote.OutChainId != int32(r.OutChain) || quote.InToken == nil || quote.OutToken == nil || !bridgeTokenMatches(quote.InToken.Address, r.Token) || !bridgeTokenMatches(quote.OutToken.Address, r.OutToken) {
 				return nil, output.Errorf(output.CodePayloadMismatch, "selected bridge intent changed")
 			}
 			signing = quote.SigningRequest

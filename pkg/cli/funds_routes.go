@@ -491,7 +491,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 				if v.IntentBased && (len(v.SigningRequest.GetTypedData()) == 0 || v.SigningRequest.TypedData[0].GetPayload() == nil) || !v.IntentBased && len(v.SigningRequest.GetTypedData()) > 0 {
 					continue
 				}
-				if v.InToken == nil || v.OutToken == nil || !(strings.EqualFold(v.InToken.Address, q.InToken) || q.InToken == "native" && (strings.EqualFold(v.InToken.Address, "0x0000000000000000000000000000000000000000") || strings.EqualFold(v.InToken.Address, "native"))) || !strings.EqualFold(v.OutToken.Address, q.OutToken) {
+				if v.InToken == nil || v.OutToken == nil || !bridgeTokenMatches(v.InToken.Address, q.InToken) || !bridgeTokenMatches(v.OutToken.Address, q.OutToken) {
 					continue
 				}
 				input, ie := parseUnits(v.InAmount, int(v.InToken.Decimals))
@@ -531,6 +531,12 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 	}
 	q.ExpiresAt = a.Now().Add(3 * time.Minute).UTC().Format(time.RFC3339Nano)
 	return q, w, nil
+}
+func bridgeTokenMatches(quoted, requested string) bool {
+	if strings.EqualFold(quoted, requested) {
+		return true
+	}
+	return requested == "native" && (strings.EqualFold(quoted, "0x0000000000000000000000000000000000000000") || strings.EqualFold(quoted, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"))
 }
 func filterRoute(names []string, forced string) []string {
 	for _, name := range names {
