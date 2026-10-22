@@ -12,6 +12,8 @@ if [[ -z "${PLATFORMS:-}" ]]; then
   PLATFORMS="linux/amd64 linux/arm64"
   [[ "$(go env GOOS)" == darwin ]] && PLATFORMS="$host"
 fi
+# Short commit of the source tree; deterministic for a given checkout, so reproducibility holds.
+COMMIT="${COMMIT:-$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)}"
 export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct 2>/dev/null || echo 0)}"
 mkdir -p "$OUT"
 for p in $PLATFORMS; do
@@ -28,7 +30,7 @@ for p in $PLATFORMS; do
   echo "building $name (CGO_ENABLED=$cgo)" >&2
   rm -f "$OUT/$name.tar.gz"
   CGO_ENABLED=$cgo GOOS="$os" GOARCH="$arch" go build -trimpath -buildvcs=false \
-    -ldflags "-s -w -buildid= -X main.version=${VERSION}" \
+    -ldflags "-s -w -buildid= -X main.version=${VERSION} -X github.com/oku-trade/oku-cli/pkg/buildinfo.Commit=${COMMIT}" \
     -o "$OUT/$name/oku" ./cmd/oku
   if [[ "$os" == darwin ]]; then
     # Ad-hoc signature only (integrity/arm64 launch requirement). NOT Developer ID, NOT notarized.
