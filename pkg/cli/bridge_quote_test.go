@@ -163,7 +163,7 @@ func TestBridgeQuoteMaxNativeKeepsGasReserve(t *testing.T) {
 		return nil, false
 	}
 	r := h.run("bridge", "quote", "--chain", "8453", "--destination-chain", "42161", "--from", "native", "--to", "native", "--amount", "max", "--json")
-	if r.code != 0 || sent != "0.99985905" || r.data()["in_amount"] != "999859050000000000" {
+	if r.code != 0 || sent != "0.9987" || r.data()["in_amount"] != "998700000000000000" {
 		t.Fatalf("max native bridge sent %v: %s %s", sent, r.stdout, r.stderr)
 	}
 }

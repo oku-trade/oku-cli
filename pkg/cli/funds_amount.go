@@ -9,6 +9,10 @@ import (
 	"github.com/oku-trade/oku-cli/pkg/output"
 )
 
+// routeGasLimit is a conservative gas limit for one swap or bridge execution
+// (approve plus route call in a 7702 batch).
+const routeGasLimit = 800_000
+
 func isMaxAmount(s string) bool { return strings.EqualFold(s, "max") || strings.EqualFold(s, "all") }
 
 // resolveMaxAmount reads the latest chain state, not indexed holdings. A native
@@ -45,6 +49,18 @@ func (a *App) resolveMaxAmount(e *env, chain uint64, token, wallet string, decim
 			units, err = rpc.Estimate(ctx, chain, wallet, []journal.OnchainTemplate{{ChainID: chain, To: destination, Value: "0x0"}})
 			if err != nil {
 				return "", nil, output.Wrap(output.CodeUpstream, err, "estimating maximum spend gas")
+			}
+			// Swap and bridge calldata is unknown before the quote, so a transfer
+			// estimate badly undersizes them. Floor the reserve at a route-sized
+			// gas limit priced at the current gas price.
+			if e.cmd.String("from") != "" {
+				price, perr := rpc.GasPrice(ctx, chain)
+				if perr != nil {
+					return "", nil, output.Wrap(output.CodeUpstream, perr, "reading gas price")
+				}
+				if floor := new(big.Int).Mul(price, big.NewInt(routeGasLimit)); floor.Cmp(units) > 0 {
+					units = floor
+				}
 			}
 			// Estimate includes a 30% gas-limit buffer. Add another 50% and an L2 data-fee margin.
 			units.Mul(units, big.NewInt(3))
