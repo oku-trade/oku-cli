@@ -51,4 +51,12 @@ func TestTokenBalancesMulticall(t *testing.T) {
 	if err != nil || len(details) != 1 || details[0].Symbol != "TOK" || details[0].Decimals != 6 {
 		t.Fatalf("details=%+v error=%v", details, err)
 	}
+	results, err = contract.Methods["aggregate3"].Outputs.Pack([]multicallOutput{{Success: true, ReturnData: make([]byte, 32)}, {Success: false}, {Success: false}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	details, err = rpc.TokenDetails(context.Background(), 8453, "0x0000000000000000000000000000000000000001", []string{"0x0000000000000000000000000000000000000002"})
+	if err != nil || len(details) != 0 {
+		t.Fatalf("zero balance retained: %+v error=%v", details, err)
+	}
 }
