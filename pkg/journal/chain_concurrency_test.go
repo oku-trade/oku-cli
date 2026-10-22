@@ -150,3 +150,39 @@ func TestClaimParentUniqueAcrossHandles(t *testing.T) {
 		t.Fatalf("claim lookup: %+v %v", found, e)
 	}
 }
+
+func TestClaimRetryAllowedOnlyAfterFailed(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	j, e := Open("retry")
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer j.Close()
+	a := chainFixture("claim-a", 10)
+	a.Kind = "claim"
+	a.ParentIntent = "bridge-p"
+	r, e := j.CreateOnchain(a)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = j.BeginOnchain(r.ID, r.Digest, a.Sender); e != nil {
+		t.Fatal(e)
+	}
+	// Nothing broadcast: sending -> failed.
+	if e = j.AdvanceOnchain(r.ID, "sending", "failed", ""); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = j.ClaimForBridge("bridge-p"); e != ErrNotFound {
+		t.Fatalf("failed claim must not be returned as live: %v", e)
+	}
+	b := a
+	b.ID = "claim-b"
+	if _, e = j.CreateOnchain(b); e != nil {
+		t.Fatalf("retry after failed claim rejected: %v", e)
+	}
+	c := a
+	c.ID = "claim-c"
+	if _, e = j.CreateOnchain(c); e == nil {
+		t.Fatal("second live claim accepted")
+	}
+}

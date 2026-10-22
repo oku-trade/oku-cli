@@ -183,7 +183,10 @@ func (j *Journal) SkipApproval(id string) error {
 	return nil
 }
 
-// ClaimForBridge finds a previously created claim, including terminal claims.
+// ClaimForBridge finds the parent's live claim (any state except failed).
+// A failed claim broadcast nothing that could still land (failed is only set
+// before broadcast or on a reverted receipt), so a new claim may follow it;
+// the unique index allows at most one non-failed claim per parent.
 // The destination chain lock must be held while checking and creating a claim.
 func (j *Journal) ClaimForBridge(parent string) (*OnchainRecord, error) {
 	rows, err := j.db.Query(`SELECT intent_id FROM onchain_intents WHERE profile=? AND kind='claim' ORDER BY created_at`, j.binding.Profile)
@@ -207,7 +210,7 @@ func (j *Journal) ClaimForBridge(parent string) (*OnchainRecord, error) {
 		if err != nil {
 			return nil, err
 		}
-		if r.ParentIntent == parent {
+		if r.ParentIntent == parent && r.State != "failed" {
 			return r, nil
 		}
 	}
