@@ -52,14 +52,11 @@ The sweep ends only on **native USDC** (Circle-issued) on one of these chains. *
 | Arbitrum | 42161 | `0xaf88d065e77c8cC2239327C5EDb3A432268e5831` | yes (cheap, Circle CCTP) |
 | Optimism | 10 | `0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85` | stay-only |
 | Polygon | 137 | `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359` | stay-only |
-| Avalanche C-Chain | 43114 | `0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E` | stay-only |
-| Unichain | 130 | `0x078D782b760474a361dDA0AF3839290b0EF57AD6` | stay-only (confirm in the Coinbase receive screen first) |
 | Ethereum | 1 | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` | only if it is the sole reachable option or clearly better net of gas |
 
 Sources, checked 2026-10-22:
 - Getty (Discord) named Ethereum, Optimism, Base, Arbitrum and Polygon.
-- Coinbase's deposit help (help.coinbase.com/en/international-exchange/trading-deposits-withdrawals/deposit-funds) lists USDC deposits on Ethereum, Arbitrum, Avalanche C-Chain, Polygon, Solana, Base and Optimism.
-- Coinbase Assets announced USDC send and receive on Unichain on 2025-02-11 (x.com/CoinbaseAssets/status/1889342993217335759).
+- Avalanche C-Chain and Unichain are treated as NOT depositable (abs3nt, 2026-10-22): the only sources were Coinbase's International Exchange help page (Avalanche) and a Coinbase Assets post (Unichain), not retail Coinbase deposits, so they bridge to Base or Arbitrum like any other non-Coinbase chain. Add them back here only once Getty confirms them on his retail account.
 - World Chain, Celo, Linea and Sonic have native USDC but no Coinbase deposit source was found, so they are excluded.
 
 The addresses come from Circle's native USDC list (developers.circle.com/stablecoins/usdc-contract-addresses, checked 2026-10-22) and match chain-config's stables. Do **not** use chain-config `Token.UsdcAddress`: on Arbitrum and Polygon it is bridged USDC. Edit this table to add or remove chains.
@@ -158,7 +155,7 @@ Run step 4 once every bridge is filled.
 ## 4. Verify and report USDC ready for Coinbase
 
 ```sh
-oku wallet balances --chains 8453,42161,10,137,43114,130,1 --stables --json   # restrict to the Coinbase chains the plan used
+oku wallet balances --chains 8453,42161,10,137,1 --stables --json   # restrict to the Coinbase chains the plan used
 ```
 
 Report **per Coinbase chain**: chain name and ID, the native USDC contract, the agent address holding it, and the native USDC `balance`. This is what the user deposits to Coinbase, on the matching network. Flag any USDC.e or other bridged USDC left over as **not depositable**. Compare each destination's increase with the sum of bridge `min_out` into it. Also include a per-source-chain table: tokens sold (amount, out), skipped tokens and why, stay or bridge, the chosen C and D with the score reasoning, bridge route, intent IDs and tx hashes, and amount received. List any open claims, guardrail pauses or unknown outcomes. Leftover gas on source chains is expected.
