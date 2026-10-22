@@ -101,6 +101,10 @@ sh scripts/install.sh --version v0.1.0 --dir ~/bin   # from a checkout, pinned v
 `~/.local/bin/oku`, clears the macOS quarantine attribute and prints `oku version`. No sudo.
 `--from-dir DIR` installs from a local directory with an archive and `SHA256SUMS` (testing).
 
+### Installing with mise
+
+`mise use -g github:oku-trade/oku-cli` installs from these releases (asset autodetection works with the `oku_<tag>_<os>_<arch>.tar.gz` names; mise strips the archive's top-level directory). The repo is private, so mise needs a token: set `[settings.github] credential_command = 'gh auth token --hostname "$MISE_CREDENTIAL_HOST"'` in `~/.config/mise/config.toml` or export `MISE_GITHUB_TOKEN`. mise's default `minimum_release_age` of 24h hides a brand new release from `latest`; pin `@<version>` to install it immediately. Verified against v0.0.1 on 2026-10-22 with mise 2026.10.15. Keep the archive names and layout stable so this keeps working.
+
 ### macOS signing caveat
 
 Darwin binaries are only ad-hoc signed. They are not Developer ID signed or notarized.

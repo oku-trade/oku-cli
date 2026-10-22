@@ -10,7 +10,7 @@ For user-operated authentication, run `oku auth login` in a terminal. Sign on th
 > - The repository is private. Prebuilt binaries are published as GitHub Releases (repo access required). There is no published npm package and no auto-update.
 > - Staging acceptance on 2026-10-14 verified Privy login, signed order submission, order listing and cancel. This is not production acceptance.
 > - Live checks with small amounts verified agent-wallet send, master deposit transfer, a single-step swap and an atomic approve+swap batch on Arbitrum (2026-10-19), and a Circle CCTP bridge Arbitrum to Base including the destination claim (2026-10-20). Transaction-based Oku bridge execution is available via `bridge prepare`, `submit`, `status`, `claim`, and `reconcile`; bridge calldata and approvals are backend-built without independent CLI verification, and destination claims require agent native gas on the destination chain.
-> - Accounts multi-app verification (account#530) and the authorize page (trade#3569) are merged. The authorize page URL comes from the Privy app configuration (the device-grant `verification_uri`), not from the CLI or Accounts. As of 2026-10-22 the built-in Oku Trade Agents app returns `https://unitrade.lat.gfx.town/agent/authorize` (staging) even for production logins. Production needs the Privy app switched to `https://oku.trade/agent/authorize`, which already serves.
+> - Accounts multi-app verification (account#530) and the authorize page (trade#3569) are merged. The authorize page URL comes from the Privy app configuration (the device-grant `verification_uri`), not from the CLI or Accounts. Since 2026-10-22 the built-in Oku Trade Agents app returns `https://oku.trade/agent/authorize`.
 > - Earlier release checks in [docs/validation.md](docs/validation.md) predate this auth model.
 > - The command grammar may change.
 
@@ -60,6 +60,31 @@ oku version
 ```
 
 macOS binaries are ad-hoc signed only (not Developer ID signed or notarized). Files fetched with `gh` or curl normally run as is. If you downloaded through a browser and macOS blocks it, run `xattr -d com.apple.quarantine ~/.local/bin/oku` (or right-click the binary in Finder and choose Open). Maintainers: see [docs/releasing.md](docs/releasing.md) for cutting a release.
+
+## Install (mise)
+
+[mise](https://mise.jdx.dev) installs `oku` straight from this repo's GitHub Releases with its `github` backend. It picks the archive for your OS and arch, checks it against the release digest, and puts `oku` on your `PATH`.
+
+The repo is private, so mise needs a GitHub token. If you use the `gh` CLI, let mise ask it (on macOS `gh` keeps its token in Keychain, where mise can't read it directly). Add this to `~/.config/mise/config.toml`:
+
+```toml
+[settings.github]
+credential_command = 'gh auth token --hostname "$MISE_CREDENTIAL_HOST"'
+```
+
+Or export `MISE_GITHUB_TOKEN` (a fine-grained token with Contents: read on `oku-trade/oku-cli` is enough). Check which token mise will use with `mise token github`.
+
+Then install it globally:
+
+```sh
+mise use -g github:oku-trade/oku-cli      # latest release
+mise use -g github:oku-trade/oku-cli@0.0.1  # or pin a version (tag without the v)
+oku version
+```
+
+- mise hides releases younger than its `minimum_release_age` (24h by default), so a release cut today needs an explicit `@<version>` until tomorrow.
+- Upgrade with `mise up github:oku-trade/oku-cli`, list versions with `mise ls-remote github:oku-trade/oku-cli`.
+- To pin it for one project, drop `-g` and mise writes it to that project's `mise.toml`.
 
 ## Install (from source)
 
