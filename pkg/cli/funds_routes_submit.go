@@ -31,11 +31,11 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeNotFound, err, "intent")
 	}
-	if r.Kind != kind || !strings.EqualFold(r.Sender, w.agent) || r.Digest != str(e, "digest") || r.State != "prepared" {
+	if r.Kind != kind || !strings.EqualFold(r.Sender, w.agent) || r.Digest != str(e, "digest") || r.State != "prepared" && !(r.State == "sending" && r.ExecutionMode == "sequential" && r.StepIndex > 0 && !r.StepInFlight) {
 		return nil, output.Errorf(output.CodeIntentState, "intent, agent, digest or prepared state mismatch; never retry an unresolved submission")
 	}
 	expires, err := time.Parse(time.RFC3339Nano, r.ExpiresAt)
-	if err != nil || !a.Now().Before(expires) {
+	if r.State == "prepared" && (err != nil || !a.Now().Before(expires)) {
 		return nil, output.Errorf(output.CodeIntentState, "quote expired; prepare a new intent")
 	}
 	unlock, err := j.Lock()
@@ -43,6 +43,9 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 		return nil, err
 	}
 	defer unlock()
+	if r.State == "sending" {
+		return a.resumeRouteSequential(e, w, j, r)
+	}
 	s, err := e.unlock(w.profile, "")
 	if err != nil {
 		return nil, err
@@ -195,11 +198,34 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	defer execCancel()
 	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
 	executor := onchain.Executor{Getenv: a.Getenv, RPC: rpc, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
-	// Multi-step routes (approve + swap) run as one atomic EIP-7702 batch, so
-	// an approval can never confirm without its swap.
+	mode := "sequential"
 	if len(executing.Templates) > 1 {
-		err = executor.ExecuteBatch(execCtx, executing, ps, rpc)
+		var allowed bool
+		allowed, err = onchain.BatchAllowed(execCtx, rpc, executing.ChainID, executing.Sender)
+		if err != nil {
+			if closeErr := j.AdvanceOnchain(r.ID, "sending", "failed", ""); closeErr != nil {
+				return nil, executionError(onchain.ErrUnknown, kind, r.ChainID, r.Token)
+			}
+			return nil, output.Wrap(output.CodeUpstream, err, "execution capability check")
+		}
+		if err == nil {
+			if allowed {
+				mode = "batch"
+			}
+			err = j.SetExecutionMode(r.ID, mode)
+		}
+		if err == nil {
+			if allowed {
+				err = executor.ExecuteBatch(execCtx, executing, ps, rpc)
+			} else {
+				err = executor.ExecuteSequential(execCtx, executing, 0)
+			}
+		}
 	} else {
+		err = j.SetExecutionMode(r.ID, mode)
+		if err != nil {
+			return nil, executionError(err, kind, r.ChainID, r.Token)
+		}
 		err = executor.Execute(execCtx, executing)
 	}
 	if err != nil {
@@ -220,6 +246,48 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 		_ = err // confirmed source hash is durable; status may reconcile backend separately.
 	}
 	return submittedRecord(r, preparedDigest), nil
+}
+
+// A confirmed first step is a durable resume boundary. Reuse the sealed
+// calldata and digest, never fetch a new quote or repeat the approval.
+func (a *App) resumeRouteSequential(e *env, w *resolvedWallet, j *journal.Journal, r *journal.OnchainRecord) (*result, error) {
+	s, err := e.unlock(w.profile, "")
+	if err != nil {
+		return nil, err
+	}
+	pc, err := e.privyClient(w.profile)
+	if err != nil {
+		return nil, err
+	}
+	_, sec, _, err := e.unlockCredential(w.profile.Name)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(e.ctx, onchainExecBudget)
+	defer cancel()
+	ps, err := pc.Authenticate(ctx, sec.AccessToken)
+	if err != nil {
+		return nil, output.Wrap(output.CodeAuthRequired, err, "Privy authentication")
+	}
+	bound := false
+	for _, wallet := range ps.Wallets() {
+		if wallet.ID == s.md.PrivyWalletID && strings.EqualFold(wallet.Address, w.agent) && wallet.ChainType == "ethereum" {
+			bound = true
+		}
+	}
+	if !bound {
+		return nil, output.Errorf(output.CodeSignerUnavailable, "authenticated Privy wallet differs from agent")
+	}
+	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	x := onchain.Executor{Getenv: a.Getenv, RPC: rpc, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
+	if err := x.ExecuteSequential(ctx, r.OnchainIntent, r.StepIndex); err != nil {
+		return nil, executionError(err, r.Kind, r.ChainID, r.Token)
+	}
+	r, err = j.GetOnchain(r.ID)
+	if err != nil {
+		return nil, err
+	}
+	return submittedRecord(r, ""), nil
 }
 
 // submittedRecord reports both digests: the one the user approved at prepare
@@ -249,7 +317,7 @@ func (a *App) cmdRouteStatus(e *env, kind string) (*result, error) {
 			return nil, err
 		}
 		r, getErr := j.GetOnchain(id)
-		j.Close()
+		defer j.Close()
 		if getErr != nil {
 			return nil, output.Wrap(output.CodeNotFound, getErr, "intent")
 		}
@@ -258,6 +326,39 @@ func (a *App) cmdRouteStatus(e *env, kind string) (*result, error) {
 				return nil, output.Errorf(output.CodeNotFound, "intent not found")
 			}
 			return a.intentRouteStatus(e, w, r)
+		}
+		hashesBeforeStep := r.StepIndex
+		if r.ApprovalSkipped {
+			hashesBeforeStep--
+		}
+		if r.ExecutionMode == "sequential" && (r.State == "sent" || r.State == "unknown") && len(r.Hashes) > hashesBeforeStep {
+			ctx, cancel := e.requestCtx()
+			rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+			status, receiptErr := rpc.Receipt(ctx, r.ChainID, r.Hashes[len(r.Hashes)-1])
+			cancel()
+			if receiptErr != nil {
+				return nil, output.Wrap(output.CodeUpstream, receiptErr, "sequential receipt")
+			}
+			if status != nil {
+				next := "failed"
+				if *status {
+					if r.StepIndex+1 < len(r.Templates) {
+						next = "sending"
+					} else {
+						next = "confirmed"
+					}
+				}
+				if err := j.AdvanceOnchain(r.ID, r.State, next, ""); err != nil {
+					return nil, err
+				}
+				r, err = j.GetOnchain(r.ID)
+				if err != nil {
+					return nil, err
+				}
+			}
+			if r.State == "sending" {
+				return fundsResult(r), nil
+			}
 		}
 	}
 	status, err := a.cmdFundsStatus(e, kind)

@@ -58,13 +58,17 @@ func (in OnchainIntent) Digest() string {
 
 type OnchainRecord struct {
 	OnchainIntent
-	Digest         string   `json:"digest"`
-	State          string   `json:"state"`
-	Hashes         []string `json:"tx_hashes"`
-	Batch          *Batch   `json:"batch,omitempty"`
-	NextStep       string   `json:"next_step,omitempty"`
-	BackendOrderID string   `json:"backend_order_id,omitempty"`
-	UpdatedAt      string   `json:"updated_at"`
+	Digest          string   `json:"digest"`
+	State           string   `json:"state"`
+	Hashes          []string `json:"tx_hashes"`
+	Batch           *Batch   `json:"batch,omitempty"`
+	NextStep        string   `json:"next_step,omitempty"`
+	ExecutionMode   string   `json:"execution_mode,omitempty"`
+	StepIndex       int      `json:"step_index,omitempty"`
+	StepInFlight    bool     `json:"step_in_flight,omitempty"`
+	ApprovalSkipped bool     `json:"approval_skipped,omitempty"`
+	BackendOrderID  string   `json:"backend_order_id,omitempty"`
+	UpdatedAt       string   `json:"updated_at"`
 }
 
 // Batch records an atomic wallet_sendCalls execution. Nonce is the agent's
@@ -101,15 +105,16 @@ func (j *Journal) GetOnchain(id string) (*OnchainRecord, error) {
 	if !trading.ValidIntentID(id) {
 		return nil, ErrNotFound
 	}
-	var raw, hashes, digest, state, order, updated, batch string
-	err := j.db.QueryRow(`SELECT intent_json,tx_hashes,digest,state,COALESCE(backend_order_id,''),updated_at,COALESCE(batch_json,'') FROM onchain_intents WHERE profile=? AND intent_id=?`, j.binding.Profile, id).Scan(&raw, &hashes, &digest, &state, &order, &updated, &batch)
+	var raw, hashes, digest, state, order, updated, batch, mode string
+	var step, inflight, skipped int
+	err := j.db.QueryRow(`SELECT intent_json,tx_hashes,digest,state,COALESCE(backend_order_id,''),updated_at,COALESCE(batch_json,''),next_step,execution_mode,step_inflight,approval_skipped FROM onchain_intents WHERE profile=? AND intent_id=?`, j.binding.Profile, id).Scan(&raw, &hashes, &digest, &state, &order, &updated, &batch, &step, &mode, &inflight, &skipped)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	r := &OnchainRecord{Digest: digest, State: state, BackendOrderID: order, UpdatedAt: updated}
+	r := &OnchainRecord{Digest: digest, State: state, BackendOrderID: order, UpdatedAt: updated, ExecutionMode: mode, StepIndex: step, StepInFlight: inflight != 0, ApprovalSkipped: skipped != 0}
 	if err = json.Unmarshal([]byte(raw), &r.OnchainIntent); err != nil {
 		return nil, err
 	}
@@ -125,7 +130,57 @@ func (j *Journal) GetOnchain(id string) (*OnchainRecord, error) {
 	if r.ID != id || r.OnchainIntent.Digest() != digest {
 		return nil, errors.New("corrupt onchain intent digest")
 	}
+	if mode == "sequential" && step < len(r.Templates) && step > 0 && state == "sending" && inflight == 0 {
+		r.NextStep = fmt.Sprintf("step %d confirmed; step %d not sent", step, step+1)
+	}
+	if mode == "sequential" && inflight != 0 && (state == "sending" || state == "unknown") {
+		r.NextStep = "transaction handoff ambiguous; do not resubmit until reconciled"
+	}
 	return r, nil
+}
+
+// MarkStepHandoff commits before calling Privy. A crash after this point is
+// ambiguous even when no returned hash was persisted.
+func (j *Journal) MarkStepHandoff(id string, step int) error {
+	res, err := j.db.Exec(`UPDATE onchain_intents SET step_inflight=1,updated_at=? WHERE profile=? AND intent_id=? AND state='sending' AND execution_mode='sequential' AND next_step=? AND step_inflight=0`, j.now().UTC().Format(time.RFC3339Nano), j.binding.Profile, id, step)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil || n != 1 {
+		return ErrConflict
+	}
+	return nil
+}
+
+// SetExecutionMode commits the selected mode before any transaction handoff.
+func (j *Journal) SetExecutionMode(id, mode string) error {
+	if mode != "batch" && mode != "sequential" {
+		return ErrConflict
+	}
+	res, err := j.db.Exec(`UPDATE onchain_intents SET execution_mode=?,updated_at=? WHERE profile=? AND intent_id=? AND state='sending'`, mode, j.now().UTC().Format(time.RFC3339Nano), j.binding.Profile, id)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil || n != 1 {
+		return ErrConflict
+	}
+	return nil
+}
+
+// SkipApproval advances only when a fresh allowance read proves the exact
+// approval is unnecessary. No transaction hash is appended.
+func (j *Journal) SkipApproval(id string) error {
+	res, err := j.db.Exec(`UPDATE onchain_intents SET next_step=1,approval_skipped=1,updated_at=? WHERE profile=? AND intent_id=? AND state='sending' AND execution_mode='sequential' AND next_step=0 AND tx_hashes='[]'`, j.now().UTC().Format(time.RFC3339Nano), j.binding.Profile, id)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil || n != 1 {
+		return ErrConflict
+	}
+	return nil
 }
 
 // ClaimForBridge finds a previously created claim, including terminal claims.
@@ -282,7 +337,15 @@ func (j *Journal) AdvanceOnchain(id, from, to, hash string) error {
 		hashes = append(hashes, hash)
 	}
 	b, _ := json.Marshal(hashes)
-	res, err := tx.Exec(`UPDATE onchain_intents SET state=?,tx_hashes=?,updated_at=? WHERE profile=? AND intent_id=? AND state=?`, to, string(b), j.now().UTC().Format(time.RFC3339Nano), j.binding.Profile, id, from)
+	stepIncrement := 0
+	if (from == "sent" || from == "unknown") && to == "sending" {
+		stepIncrement = 1
+	}
+	clearInflight := 0
+	if from == "sent" || to == "sending" || to == "failed" || to == "confirmed" {
+		clearInflight = 1
+	}
+	res, err := tx.Exec(`UPDATE onchain_intents SET state=?,tx_hashes=?,next_step=next_step+?,step_inflight=CASE WHEN ?=1 THEN 0 ELSE step_inflight END,updated_at=? WHERE profile=? AND intent_id=? AND state=?`, to, string(b), stepIncrement, clearInflight, j.now().UTC().Format(time.RFC3339Nano), j.binding.Profile, id, from)
 	if err != nil {
 		return err
 	}

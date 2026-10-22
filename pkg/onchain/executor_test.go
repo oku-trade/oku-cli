@@ -17,24 +17,43 @@ const master = "0x2222222222222222222222222222222222222222"
 const hash = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 type fakeRPC struct {
-	gas     *big.Int
-	receipt func() (*bool, error)
+	gas       *big.Int
+	receipt   func() (*bool, error)
+	allowance *big.Int
 }
 
 func (f fakeRPC) Balance(context.Context, uint64, string) (*big.Int, error) {
 	return new(big.Int).Set(f.gas), nil
 }
 func (fakeRPC) GasPrice(context.Context, uint64) (*big.Int, error) { return big.NewInt(1), nil }
-func (fakeRPC) Call(context.Context, uint64, string, string) (*big.Int, error) {
+func (f fakeRPC) Call(_ context.Context, _ uint64, _ string, data string) (*big.Int, error) {
+	if strings.HasPrefix(data, "0xdd62ed3e") && f.allowance != nil {
+		return new(big.Int).Set(f.allowance), nil
+	}
 	return big.NewInt(10000000), nil
 }
 func (f fakeRPC) Receipt(context.Context, uint64, string) (*bool, error) { return f.receipt() }
+func (fakeRPC) Code(_ context.Context, _ uint64, address string) (string, error) {
+	if strings.EqualFold(address, PrivyKernelImplementation) {
+		return "0x6000", nil
+	}
+	return "0x", nil
+}
 
 type fakeJournal struct {
-	state  string
-	hashes []string
-	batch  []journal.Batch
+	state   string
+	hashes  []string
+	batch   []journal.Batch
+	skipped bool
+	marked  []int
 }
+
+func (j *fakeJournal) MarkStepHandoff(_ string, step int) error {
+	j.marked = append(j.marked, step)
+	return nil
+}
+
+func (j *fakeJournal) SkipApproval(string) error { j.skipped = true; return nil }
 
 func (j *fakeJournal) AdvanceOnchain(_, from, to, h string) error {
 	if j.state != from {
@@ -157,6 +176,61 @@ func swapIntent() journal.OnchainIntent {
 		{ChainID: 42161, To: usdc, Value: "0x0", Data: "0x095ea7b3" + strings.Repeat("0", 24) + router[2:] + strings.Repeat("0", 58) + "0f4240", Token: usdc, Amount: "0xf4240"},
 		{ChainID: 42161, To: router, Value: "0x0", Data: "0x48430c16cafe", Token: usdc, Amount: "0xf4240", Spender: router},
 	}}
+}
+
+func TestSequentialApproveThenTradeAndResume(t *testing.T) {
+	in := swapIntent()
+	ok := true
+	for _, start := range []int{0, 1} {
+		j := &fakeJournal{state: "sending"}
+		allowance := big.NewInt(0)
+		if start == 1 {
+			allowance.SetInt64(1000000)
+		}
+		s := &fakeSender{send: func() (string, error) { allowance.SetInt64(1000000); return hash, nil }}
+		x := Executor{RPC: fakeRPC{gas: big.NewInt(10000000), allowance: allowance, receipt: func() (*bool, error) { return &ok, nil }}, Sender: s, Journal: j}
+		if err := x.ExecuteSequential(context.Background(), in, start); err != nil {
+			t.Fatalf("start=%d: %v", start, err)
+		}
+		if s.calls != 2-start || j.state != "confirmed" || len(j.hashes) != 2-start {
+			t.Fatalf("start=%d calls=%d state=%s hashes=%v", start, s.calls, j.state, j.hashes)
+		}
+	}
+}
+
+func TestSequentialSkipsCoveredApproval(t *testing.T) {
+	j := &fakeJournal{state: "sending"}
+	s := &fakeSender{send: func() (string, error) { return hash, nil }}
+	ok := true
+	x := Executor{RPC: fakeRPC{gas: big.NewInt(10000000), allowance: big.NewInt(1000000), receipt: func() (*bool, error) { return &ok, nil }}, Sender: s, Journal: j}
+	if err := x.ExecuteSequential(context.Background(), swapIntent(), 0); err != nil || s.calls != 1 || !j.skipped {
+		t.Fatalf("err=%v sends=%d skipped=%v", err, s.calls, j.skipped)
+	}
+}
+
+type missingCodeRPC struct{ fakeRPC }
+
+func (missingCodeRPC) Code(context.Context, uint64, string) (string, error) { return "0x", nil }
+func TestBatchRefusesUndeployedImplementation(t *testing.T) {
+	in := swapIntent()
+	in.ChainID = 123456
+	for i := range in.Templates {
+		in.Templates[i].ChainID = in.ChainID
+	}
+	j := &fakeJournal{state: "sending"}
+	b := &fakeBatch{send: func() (string, error) { return "transaction-id", nil }}
+	x := Executor{RPC: missingCodeRPC{fakeRPC{gas: big.NewInt(10000000)}}, Journal: j}
+	if err := x.ExecuteBatch(context.Background(), in, b, b); !errors.Is(err, ErrBatchUnavailable) || b.sends != 0 {
+		t.Fatalf("err=%v sends=%d", err, b.sends)
+	}
+}
+
+func TestRootstockUsesLegacyGasPrice(t *testing.T) {
+	x := Executor{RPC: fakeRPC{gas: big.NewInt(10000000)}}
+	price, err := x.legacyGasPrice(context.Background(), 30)
+	if err != nil || price != "0x1" {
+		t.Fatalf("legacy price=%s err=%v", price, err)
+	}
 }
 
 func kernelInput(in journal.OnchainIntent) string {

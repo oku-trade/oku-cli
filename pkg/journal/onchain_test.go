@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/pressly/goose/v3"
 	"io/fs"
+	"strings"
 	"testing"
 )
 
@@ -36,7 +37,7 @@ func TestClaimMigrationPreservesExistingIntents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer j.Close()
+	defer func() { _ = j.Close() }()
 	if _, err = j.GetOnchain(in.ID); err != nil {
 		t.Fatalf("lost existing intent: %v", err)
 	}
@@ -45,6 +46,63 @@ func TestClaimMigrationPreservesExistingIntents(t *testing.T) {
 	in.ParentIntent = "legacy-bridge"
 	if _, err = j.CreateOnchain(in); err != nil {
 		t.Fatalf("claim constraint not migrated: %v", err)
+	}
+}
+
+func TestSequentialCursorSurvivesReopen(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	j, err := Open("first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := OnchainIntent{ID: "sequential-resume", Kind: "swap", ChainID: 30, Sender: "0x1111111111111111111111111111111111111111", Recipient: "0x2222222222222222222222222222222222222222", Token: "native", Amount: "1", Templates: []OnchainTemplate{{ChainID: 30, To: "0x2222222222222222222222222222222222222222", Value: "0x0"}, {ChainID: 30, To: "0x2222222222222222222222222222222222222222", Value: "0x0"}}}
+	if _, err := j.CreateOnchain(in); err != nil {
+		t.Fatal(err)
+	}
+	if err := j.BeginOnchain(in.ID, in.Digest(), in.Sender); err != nil {
+		t.Fatal(err)
+	}
+	if err := j.SetExecutionMode(in.ID, "sequential"); err != nil {
+		t.Fatal(err)
+	}
+	hash := "0x" + strings.Repeat("a", 64)
+	if err := j.AdvanceOnchain(in.ID, "sending", "sent", hash); err != nil {
+		t.Fatal(err)
+	}
+	if err := j.AdvanceOnchain(in.ID, "sent", "sending", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := j.Close(); err != nil {
+		t.Fatal(err)
+	}
+	j, err = Open("first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = j.Close() }()
+	r, err := j.GetOnchain(in.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.State != "sending" || r.StepIndex != 1 || r.NextStep != "step 1 confirmed; step 2 not sent" || len(r.Hashes) != 1 || r.Hashes[0] != hash {
+		t.Fatalf("cursor lost: %+v", r)
+	}
+	if err := j.MarkStepHandoff(in.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := j.Close(); err != nil {
+		t.Fatal(err)
+	}
+	j, err = Open("first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err = j.GetOnchain(in.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !r.StepInFlight || !strings.Contains(r.NextStep, "ambiguous") {
+		t.Fatalf("unsafe resume after handoff: %+v", r)
 	}
 }
 

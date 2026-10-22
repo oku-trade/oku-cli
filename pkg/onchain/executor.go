@@ -13,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gfx-labs/chain-config/dist/networks"
@@ -25,6 +26,55 @@ var ErrReceiptUpstream = errors.New("receipt lookup failed after broadcast; run 
 var ErrGas = errors.New("INSUFFICIENT_GAS")
 var ErrBalance = errors.New("INSUFFICIENT_BALANCE")
 var ErrReverted = errors.New("transaction reverted")
+var ErrBatchUnavailable = errors.New("BATCH_UNAVAILABLE: EIP-7702 or deployed delegate unavailable")
+
+// Privy's wallet_sendCalls delegates an EOA to this Kernel implementation.
+// Address verified from the live Privy authorization on Arbitrum (2026-10-19).
+const PrivyKernelImplementation = "0xd6CEDDe84be40893d153Be9d467CD6aD37875b28"
+
+// chain-config v1.19.2 has no EIP-7702/Prague capability field. These chains
+// failed the read-only EIP-7702 probe on 2026-10-22. A deployed Kernel alone
+// does not imply that type-4 authorization works on a chain.
+var no7702 = map[uint64]bool{43114: true, 288: true, 60808: true, 314: true, 30: true, 151: true, 6900: true, 50: true, 999: true}
+
+type codeReader interface {
+	Code(context.Context, uint64, string) (string, error)
+}
+
+var capabilityCache sync.Map // chain ID -> bool; only successful live reads cached
+
+// BatchAllowed fails closed on RPC errors and checks the actual delegate code,
+// including an already-delegated agent's target rather than assuming Kernel.
+func BatchAllowed(ctx context.Context, rpc codeReader, chain uint64, agent string) (bool, error) {
+	if no7702[chain] {
+		return false, nil
+	}
+	code, err := rpc.Code(ctx, chain, agent)
+	if err != nil {
+		return false, err
+	}
+	target := PrivyKernelImplementation
+	if strings.HasPrefix(strings.ToLower(code), "0xef0100") {
+		if len(code) != 48 {
+			return false, fmt.Errorf("%w: malformed delegation", ErrBatchUnavailable)
+		}
+		target = "0x" + code[8:]
+	}
+	if strings.EqualFold(target, PrivyKernelImplementation) {
+		if _, ok := capabilityCache.Load(chain); ok {
+			return true, nil
+		}
+	}
+	impl, err := rpc.Code(ctx, chain, target)
+	if err != nil {
+		return false, err
+	}
+	allowed := len(impl) > 2 && impl != "0x0"
+	if allowed && strings.EqualFold(target, PrivyKernelImplementation) {
+		capabilityCache.Store(chain, true)
+	}
+	return allowed, nil
+}
 
 // dependentStepGas reserves gas for a step that cannot be simulated until the
 // preceding step is mined.
@@ -193,6 +243,51 @@ func (x Executor) preflight(in journal.OnchainIntent, from string, err error) er
 // Every failure before a step is handed to Privy closes the intent as failed
 // and is wrapped in ErrNotBroadcast; after a handoff, ambiguity stays unknown.
 func (x Executor) Execute(ctx context.Context, in journal.OnchainIntent) error {
+	return x.executeFrom(ctx, in, 0, false)
+}
+
+// ExecuteSequential resumes only at a durably recorded boundary. A sending
+// record with no confirmed cursor must not be replayed after a crash.
+func (x Executor) ExecuteSequential(ctx context.Context, in journal.OnchainIntent, start int) error {
+	if start < 0 || start >= len(in.Templates) {
+		return ErrUnknown
+	}
+	if len(in.Templates) > 1 {
+		if len(in.Templates) != 2 {
+			if start > 0 {
+				return ErrUnknown
+			}
+			return x.preflight(in, "sending", errors.New("sequential route requires exactly one approval and one trade"))
+		}
+		approval, trade := in.Templates[0], in.Templates[1]
+		if trade.Token == "" && len(approval.Data) == 138 && strings.HasPrefix(strings.ToLower(approval.Data), "0x095ea7b3") {
+			trade.Token = approval.To
+			trade.Spender = "0x" + approval.Data[34:74]
+			trade.Amount = Hex(new(big.Int).SetBytes(mustDecodeHex(approval.Data[74:])))
+			in.Templates[1] = trade
+		}
+		amount, amountErr := Quantity(trade.Amount)
+		if in.Kind == "bridge" && amountErr == nil {
+			input, ok := new(big.Int).SetString(in.Amount, 10)
+			if !ok || amount.Cmp(input) != 0 {
+				if start > 0 {
+					return ErrUnknown
+				}
+				return x.preflight(in, "sending", errors.New("bridge approval differs from exact source amount"))
+			}
+		}
+		if amountErr != nil || amount.BitLen() > 256 || !strings.EqualFold(approval.To, trade.Token) || !ValidAddress(trade.Spender) || !strings.EqualFold(approval.Data, "0x095ea7b3"+strings.Repeat("0", 24)+trade.Spender[2:]+fmt.Sprintf("%064x", amount)) {
+			if start > 0 {
+				return ErrUnknown
+			}
+			return x.preflight(in, "sending", errors.New("sequential approval must match exact trade amount and spender"))
+		}
+	}
+	return x.executeFrom(ctx, in, start, true)
+}
+func mustDecodeHex(s string) []byte { b, _ := hex.DecodeString(s); return b }
+
+func (x Executor) executeFrom(ctx context.Context, in journal.OnchainIntent, start int, sequential bool) error {
 	if !Allowed(in.ChainID) || !ValidAddress(in.Sender) || len(in.Templates) == 0 {
 		return x.preflight(in, "sending", errors.New("unsupported or invalid onchain intent"))
 	}
@@ -202,21 +297,73 @@ func (x Executor) Execute(ctx context.Context, in journal.OnchainIntent) error {
 	}); ok {
 		native, err := x.RPC.Balance(ctx, in.ChainID, in.Sender)
 		if err != nil {
+			if sequential && start > 0 {
+				return fmt.Errorf("%w: trade not sent: %v", ErrNotBroadcast, err)
+			}
 			return x.preflight(in, "sending", err)
 		}
-		reserve, err := estimator.Estimate(ctx, in.ChainID, in.Sender, in.Templates)
+		reserve, err := estimator.Estimate(ctx, in.ChainID, in.Sender, in.Templates[start:])
 		if err != nil {
+			if sequential && start > 0 {
+				return fmt.Errorf("%w: trade not sent: %v", ErrNotBroadcast, err)
+			}
 			return x.preflight(in, "sending", err)
 		}
 		if native.Cmp(reserve) < 0 {
+			if sequential && start > 0 {
+				return fmt.Errorf("%w: trade not sent: %v", ErrNotBroadcast, ErrGas)
+			}
 			return x.preflight(in, "sending", ErrGas)
 		}
 	}
-	for i, t := range in.Templates {
+	for i := start; i < len(in.Templates); i++ {
+		t := in.Templates[i]
+		if sequential && i == 0 && len(in.Templates) > 1 && strings.HasPrefix(strings.ToLower(t.Data), "0x095ea7b3") {
+			trade := in.Templates[1]
+			allowance, err := x.allowance(ctx, in, trade)
+			if err != nil {
+				return x.preflight(in, "sending", err)
+			}
+			required, err := Quantity(trade.Amount)
+			if err != nil {
+				return x.preflight(in, "sending", err)
+			}
+			if allowance.Cmp(required) >= 0 {
+				skipper, ok := x.Journal.(interface{ SkipApproval(string) error })
+				if !ok {
+					return ErrUnknown
+				}
+				if err := skipper.SkipApproval(in.ID); err != nil {
+					return err
+				}
+				continue
+			}
+		}
 		if err := x.checkStep(ctx, in, t, in.Templates[i:]); err != nil {
+			if sequential && i > 0 {
+				return fmt.Errorf("%w: trade not sent; confirmed approval remains resumable: %v", ErrNotBroadcast, err)
+			}
 			return x.preflight(in, "sending", err)
 		}
-		hash, err := x.Sender.SendTransaction(ctx, x.WalletID, privy.Transaction{To: t.To, Data: t.Data, Value: t.Value, ChainID: t.ChainID})
+		tx := privy.Transaction{To: t.To, Data: t.Data, Value: t.Value, ChainID: t.ChainID}
+		if legacy, err := x.legacyGasPrice(ctx, t.ChainID); err != nil {
+			if sequential && i > 0 {
+				return fmt.Errorf("%w: trade not sent; confirmed approval remains resumable: %v", ErrNotBroadcast, err)
+			}
+			return x.preflight(in, "sending", err)
+		} else {
+			tx.LegacyGasPrice = legacy
+		}
+		if sequential {
+			marker, ok := x.Journal.(interface{ MarkStepHandoff(string, int) error })
+			if !ok {
+				return ErrUnknown
+			}
+			if err := marker.MarkStepHandoff(in.ID, i); err != nil {
+				return fmt.Errorf("%w: step handoff journal failed: %v", ErrUnknown, err)
+			}
+		}
+		hash, err := x.Sender.SendTransaction(ctx, x.WalletID, tx)
 		if err != nil {
 			if jerr := x.Journal.AdvanceOnchain(in.ID, "sending", "unknown", ""); jerr != nil {
 				return fmt.Errorf("%w: broadcast ambiguous: %v; journal failure: %v", ErrUnknown, err, jerr)
@@ -252,6 +399,39 @@ func (x Executor) Execute(ctx context.Context, in journal.OnchainIntent) error {
 	return nil
 }
 
+func (x Executor) allowance(ctx context.Context, in journal.OnchainIntent, trade journal.OnchainTemplate) (*big.Int, error) {
+	if !ValidAddress(trade.Token) || !ValidAddress(trade.Spender) {
+		return nil, errors.New("invalid token or spender")
+	}
+	return x.RPC.Call(ctx, in.ChainID, trade.Token, "0xdd62ed3e000000000000000000000000"+strings.ToLower(in.Sender[2:])+"000000000000000000000000"+strings.ToLower(trade.Spender[2:]))
+}
+
+// A missing base fee or an explicit chain-config legacy declaration requires
+// Privy's documented type 0 and gas_price fields.
+func (x Executor) legacyGasPrice(ctx context.Context, chain uint64) (string, error) {
+	legacy := false
+	if n, err := networks.NetworkByNumber(chain); err == nil && n != nil && n.TransactionType == "legacy" {
+		legacy = true
+	}
+	if detector, ok := x.RPC.(interface {
+		HasBaseFee(context.Context, uint64) (bool, error)
+	}); ok {
+		has, err := detector.HasBaseFee(ctx, chain)
+		if err != nil {
+			return "", err
+		}
+		legacy = legacy || !has
+	}
+	if !legacy {
+		return "", nil
+	}
+	price, err := x.RPC.GasPrice(ctx, chain)
+	if err != nil {
+		return "", err
+	}
+	return Hex(price), nil
+}
+
 // batchNonceScan bounds how many agent nonces after the reserved one are
 // searched for the batch, covering concurrent sends from the same wallet.
 const batchNonceScan = 32
@@ -273,6 +453,17 @@ var ErrNonceBeforeBlock = errors.New("nonce used before the batch was submitted"
 func (x Executor) ExecuteBatch(ctx context.Context, in journal.OnchainIntent, sender BatchSender, locator BatchLocator) error {
 	if !Allowed(in.ChainID) || !ValidAddress(in.Sender) || len(in.Templates) == 0 {
 		return x.preflight(in, "sending", errors.New("unsupported or invalid onchain intent"))
+	}
+	reader, supportsCode := x.RPC.(codeReader)
+	if !supportsCode {
+		return x.preflight(in, "sending", ErrBatchUnavailable)
+	}
+	allowed, capErr := BatchAllowed(ctx, reader, in.ChainID, in.Sender)
+	if capErr != nil {
+		return x.preflight(in, "sending", capErr)
+	}
+	if !allowed {
+		return x.preflight(in, "sending", ErrBatchUnavailable)
 	}
 	calls := make([]privy.Call, 0, len(in.Templates))
 	for _, t := range in.Templates {
@@ -776,6 +967,15 @@ func (r HTTPRPC) Balance(ctx context.Context, c uint64, a string) (*big.Int, err
 func (r HTTPRPC) GasPrice(ctx context.Context, c uint64) (*big.Int, error) {
 	return r.quantity(ctx, c, "eth_gasPrice", []any{})
 }
+func (r HTTPRPC) HasBaseFee(ctx context.Context, c uint64) (bool, error) {
+	var block struct {
+		BaseFee *string `json:"baseFeePerGas"`
+	}
+	if err := r.call(ctx, c, "eth_getBlockByNumber", []any{"latest", false}, &block); err != nil {
+		return false, err
+	}
+	return block.BaseFee != nil, nil
+}
 func (r HTTPRPC) Estimate(ctx context.Context, c uint64, from string, templates []journal.OnchainTemplate) (*big.Int, error) {
 	fee, err := r.GasPrice(ctx, c)
 	if err != nil {
@@ -829,11 +1029,16 @@ func (r HTTPRPC) Call(ctx context.Context, c uint64, to, data string) (*big.Int,
 
 // HasCode reports whether address has deployed contract code.
 func (r HTTPRPC) HasCode(ctx context.Context, c uint64, address string) (bool, error) {
-	var code string
-	if err := r.call(ctx, c, "eth_getCode", []any{address, "latest"}, &code); err != nil {
+	code, err := r.Code(ctx, c, address)
+	if err != nil {
 		return false, err
 	}
 	return len(strings.TrimPrefix(code, "0x")) > 0, nil
+}
+func (r HTTPRPC) Code(ctx context.Context, c uint64, address string) (string, error) {
+	var code string
+	err := r.call(ctx, c, "eth_getCode", []any{address, "latest"}, &code)
+	return code, err
 }
 
 // Nonces returns the agent's confirmed and pending transaction counts.
