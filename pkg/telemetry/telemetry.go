@@ -155,6 +155,10 @@ func Endpoint(getenv func(string) string) (host, key string) {
 
 // Send posts one event with a hard timeout. All errors are returned for
 // tests but callers must ignore them.
+// UserAgent identifies the CLI to the ingestion proxy. Cloudflare in front of
+// the proxy blocks Go's default "Go-http-client" agent with a 403.
+var UserAgent = "oku-cli"
+
 func Send(ctx context.Context, host, key, distinctID, event string, props map[string]any, now time.Time) error {
 	if !strings.HasPrefix(event, "cli_") {
 		return errors.New("event must be prefixed cli_")
@@ -173,6 +177,7 @@ func Send(ctx context.Context, host, key, distinctID, event string, props map[st
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", UserAgent)
 	client := &http.Client{Timeout: FlushTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	resp, err := client.Do(req)
 	if err != nil {
