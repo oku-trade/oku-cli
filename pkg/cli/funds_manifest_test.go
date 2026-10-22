@@ -28,3 +28,13 @@ func TestNativeSymbolFromChainConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestChainStablesIncludesZeroGUSDCe(t *testing.T) {
+	found := false
+	for _, s := range chainStables(16661) {
+		found = found || strings.EqualFold(s, "0x1f3AA82227281cA364bFb3d253B0f1af1Da6473E")
+	}
+	if !found {
+		t.Fatalf("0G stables %v", chainStables(16661))
+	}
+}

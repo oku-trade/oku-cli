@@ -13,7 +13,7 @@ import (
 )
 
 func walletBalancesFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID (default 42161)"}, &urfave.StringFlag{Name: "chains", Usage: "comma-separated EVM chain IDs"}, &urfave.BoolFlag{Name: "all-chains", Usage: "query common supported EVM chains"}, &urfave.StringFlag{Name: "tokens-file", Usage: "CSV token manifest (chain_id,token_address,amount)"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID (default 42161)"}, &urfave.StringFlag{Name: "chains", Usage: "comma-separated EVM chain IDs"}, &urfave.BoolFlag{Name: "all-chains", Usage: "query common supported EVM chains"}, &urfave.StringFlag{Name: "tokens-file", Usage: "CSV token manifest (chain_id,token_address,amount)"}, &urfave.BoolFlag{Name: "stables", Usage: "also read the chain's configured stablecoins from chain-config (intermediate-asset candidates)"}}
 }
 func depositAddressFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.StringFlag{Name: "asset", Usage: "HyperUnit asset symbol"}, &urfave.StringFlag{Name: "source-chain", Usage: "HyperUnit source chain CAIP-2 identifier"}}

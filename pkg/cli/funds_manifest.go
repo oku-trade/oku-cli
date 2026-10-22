@@ -13,6 +13,20 @@ import (
 	"github.com/oku-trade/oku-cli/pkg/output"
 )
 
+// chainStables returns the chain's configured stablecoins from chain-config
+// (for example USDC.e on 0G), used as intermediate-asset candidates.
+func chainStables(chain uint64) []string {
+	n, err := networks.NetworkByNumber(chain)
+	if err != nil || n == nil {
+		return nil
+	}
+	out := make([]string, 0, len(n.Stables))
+	for _, a := range n.Stables {
+		out = append(out, a.Hex())
+	}
+	return out
+}
+
 // nativeSymbol returns the chain's native currency symbol from chain-config.
 func nativeSymbol(chain uint64) string {
 	if n, err := networks.NetworkByNumber(chain); err == nil && n != nil && n.NativeCurrency.Symbol != "" {
@@ -115,6 +129,7 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 		Raw       string `json:"raw"`
 		CSVAmount string `json:"csv_amount,omitempty"`
 		Mismatch  bool   `json:"mismatch"`
+		Stable    bool   `json:"stable,omitempty"`
 	}
 	tokens := []row{}
 	native := map[string]row{}
@@ -131,9 +146,21 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 		}
 		native[chain] = row{Chain: chain, Symbol: nativeSymbol(id), Decimals: 18, Balance: formatUnits(balance, 18), Raw: balance.String()}
 		candidates := manifest[id]
-		addresses := make([]string, len(candidates))
-		for i, c := range candidates {
-			addresses[i] = c.Address
+		addresses := make([]string, 0, len(candidates))
+		for _, c := range candidates {
+			addresses = append(addresses, c.Address)
+		}
+		stables := chainStables(id)
+		if e.cmd.Bool("stables") {
+			for _, st := range stables {
+				dup := false
+				for _, a := range addresses {
+					dup = dup || strings.EqualFold(a, st)
+				}
+				if !dup {
+					addresses = append(addresses, st)
+				}
+			}
 		}
 		details, er := rpc.TokenDetails(ctx, id, w.agent, addresses)
 		if er != nil {
@@ -148,7 +175,11 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 				}
 			}
 			actual := formatUnits(d.Balance, d.Decimals)
-			tokens = append(tokens, row{Chain: chain, Address: d.Address, Symbol: d.Symbol, Decimals: d.Decimals, Balance: actual, Raw: d.Balance.String(), CSVAmount: csvAmount, Mismatch: csvAmount != "" && csvAmount != actual})
+			stable := false
+			for _, st := range stables {
+				stable = stable || strings.EqualFold(st, d.Address)
+			}
+			tokens = append(tokens, row{Chain: chain, Address: d.Address, Symbol: d.Symbol, Decimals: d.Decimals, Balance: actual, Raw: d.Balance.String(), CSVAmount: csvAmount, Mismatch: csvAmount != "" && csvAmount != actual, Stable: stable})
 		}
 	}
 	hint := ""

@@ -15,8 +15,8 @@ The user's instruction to run the consolidation (with the CSV, the destination c
 
 | Guardrail | Default |
 | --- | --- |
+| Swap `valuation.high_impact: true` (prepare refused with `high impact`: priced loss `loss_bps`, excluding the Oku fee, above `--max-loss-bps`, default 300) | always, unless the chain is on the user's pre-approved mispricing list |
 | Swap `valuation.market_impact` (prepare output; impact excluding the Oku fee) worse than | 2% (`< -0.02`) |
-| Swap `valuation.out_usd` below `valuation.in_usd - valuation.oku_fee_usd` by more than | 3% |
 | Bridge `out_usd` below `in_usd` by more than (stables) | 1% (non-stable assets: 3%) |
 | Slippage above the CLI default | any `--slippage-bps` above 50 |
 | Bridge route differs from the planned route | always |
@@ -27,6 +27,8 @@ The user's instruction to run the consolidation (with the CSV, the destination c
 | Plan would sell native gas below the reserve | always |
 
 The user may override thresholds in the instruction. Quote USD values (`in_usd`, `out_usd`, `gas_usd`, `fees_usd`, `price_impact`, `oku_fee_usd`, `market_impact`) come from the backend price oracle and are for guardrails only; amounts executed always come from chain reads.
+
+**High impact (mispricing) guardrail.** Small chains often have thin pools or a stale oracle, so the priced loss can look huge (bob, goat, nibiru, gensyn, sei and similar). By default, `swap prepare` refuses when `loss_bps` exceeds `--max-loss-bps` (default 300 = 3%). `swap quote` reports `loss_bps`, `high_impact` and `no_simulation`. When it trips, pause that chain and show the user the route, `in_amount` and `out_amount`, `in_usd`, `out_usd`, `oku_fee_usd` and `loss_bps`. Proceed only if they approve, by re-running prepare with `--allow-high-impact` (or `--max-loss-bps N` at the level they accept). If the user's instruction includes a **pre-approved mispricing list** of chains (for example "small chains ok: 60808, 2345, 6900, 685689, 1329"), use `--allow-high-impact` on those chains without pausing, but still report each loss. Never use it on major chains (Ethereum, Arbitrum, Base, Optimism, Polygon, BNB, Avalanche) without asking. `no_simulation: true` means the market returned no simulation, so min-out is derived from the quoted output and slippage. The swap calldata still enforces it on chain, and the OkuRouter target and calldata checks are unchanged.
 
 **Check guardrails on the prepare output (`valuation`), not on `swap quote`.** `swap quote` is unauthenticated, so the backend prices it as an anonymous account. Trades under $25 then pay a flat $0.25 Oku fee (taken from the input), which makes small quotes look about $0.25 worse. `prepare` is authenticated and uses the agent's real fee tier (free trades, a volume tier or the same flat fee), so its `valuation.oku_fee_usd` is what actually applies. Raw `price_impact` includes the Oku fee; use `market_impact` for the market-only impact.
 
@@ -44,8 +46,10 @@ The CSV is `chain_id,token_address,amount` (optional header). Its `amount` is in
 ## 2. Choose one intermediate asset per chain
 
 Candidates on each source chain:
+Get each chain's candidates with `oku wallet balances --chains CHAINS --stables --json`. It adds the chain's **configured stablecoins** from chain-config (rows with `stable: true`, for example USDC.e `0x1f3AA82227281cA364bFb3d253B0f1af1Da6473E` on 0G) with live balance, symbol and decimals.
+
 - **Native USDC** (Circle-issued, CCTP). Ethereum `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`, Arbitrum `0xaf88d065e77c8cC2239327C5EDb3A432268e5831`, Base `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, Optimism `0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`, Polygon `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`, Avalanche `0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E`. Confirm others from Circle's list.
-- The chain's **primary stablecoin** only when there is no native USDC (for example USDT where it dominates). Use its address.
+- **Every configured stable** on that chain (`stable: true` from `--stables`), not only native USDC. On chains without native USDC this is usually where the best destination value comes from (0G USDC.e, bridged USDT).
 - **`native`**.
 
 For each candidate C (read-only quotes):

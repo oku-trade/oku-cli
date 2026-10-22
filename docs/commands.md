@@ -596,6 +596,7 @@ Read the agent's EVM native balance
 | `--chains` | comma-separated EVM chain IDs | `` |
 | `--all-chains` | query common supported EVM chains | `false` |
 | `--tokens-file` | CSV token manifest (chain_id,token_address,amount) | `` |
+| `--stables` | also read the chain's configured stablecoins from chain-config (intermediate-asset candidates) | `false` |
 
 ## `oku wallet fund`
 
