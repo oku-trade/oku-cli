@@ -1,6 +1,6 @@
 ---
 name: consolidate-agent-funds
-description: Consolidate many tokens held by the Oku Agent EVM wallet across chains into one asset on one chain (fee sweep). Lists holdings per chain, swaps each token to a single asset per chain while keeping gas, bridges to a target chain preferring fast routes, handles Circle claims and verifies the final balance.
+description: Consolidate many tokens held by the Oku Agent EVM wallet across chains into one asset on one chain (fee sweep). Reads the sweep CSV (chain_id,token_address,amount), checks live balances, swaps each token to a single asset per chain while keeping gas, bridges to a target chain preferring fast routes, handles Circle claims and verifies the final balance.
 ---
 
 # Consolidate Oku Agent Funds
@@ -48,6 +48,8 @@ oku swap status --intent ID --json
 - `--amount max` uses the full balance. For native input it keeps a gas reserve (`--gas-reserve` overrides it). Never swap native to zero.
 - `REJECTED: no eligible route`: the token is illiquid or unsupported. Report it and leave it. Do not raise slippage beyond the CLI maximum (300 bps) to force a fill.
 - Fee-on-transfer or rebasing tokens may fail minimum output checks or leave dust. Requote with a slightly smaller explicit amount once, then report.
+- Prepare prints the resolved `amount` with `amount_source: max`; that exact amount is bound into the digest. Show it to the user. Never use the CSV amount as the spend amount.
+- If the CSV token is already the target asset, skip the swap.
 - Check the quote's output value against input value. A large loss means poor liquidity; ask before submitting.
 
 ## 4. Bridge to the target chain
@@ -61,7 +63,8 @@ oku bridge status --intent ID --json
 ```
 
 - The default route is the best net value, not the fastest. For USDC it often picks `circleStandard` (15-20 minutes and usually a destination claim). Prefer passing `--route` explicitly: `circleFast`, `across` or `relay` when they quote, and compare net output against the default. Show the user both if they differ materially.
-- Native to native works with `--from native --to native` (not the `ETH` symbol).
+- Native to native works with `--from native --to native` (not the `ETH` symbol). The CLI sends native as the zero address, which account and canoe expect.
+- Bridge one source chain at a time, after all swaps on that chain have confirmed.
 - Do not bridge the same chain's last gas.
 
 ## 5. Claims
@@ -71,7 +74,7 @@ Poll `oku bridge status --intent ID --json` until `destination_fill.status` is `
 ## 6. Verify
 
 ```sh
-oku wallet balances --chain TARGET --json
+oku wallet balances --chains TARGET,SOURCE_CHAINS --tokens-file sweep.csv --json
 ```
 
 Report: per chain, what was swapped, skipped (no route or dust) and bridged; intent IDs and transaction hashes; final target balance; any open claims or unknown outcomes. Leftover gas on source chains is expected.
