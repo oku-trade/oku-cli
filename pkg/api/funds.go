@@ -13,11 +13,18 @@ import (
 )
 
 type fundsClients struct {
+	wallet  accountv1connect.WalletServiceClient
 	history accountv1connect.OrderHistoryServiceClient
 	swap    accountv2connect.SimpleSwapServiceV2Client
 	bridge  accountv2connect.BridgeServiceClient
 	onchain accountv2connect.OnchainServiceClient
 	token   accountv2connect.TokenServiceClient
+}
+
+func (c *Client) AddressHoldings(ctx context.Context, req *accountv1.AddressHoldingsRequest, resp *accountv1.AddressHoldingsResponse) error {
+	return c.call(ctx, fundsRPC[accountv1.AddressHoldingsRequest, accountv1.AddressHoldingsResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv1.AddressHoldingsRequest]) (*connect.Response[accountv1.AddressHoldingsResponse], error) {
+		return f.wallet.AddressHoldings
+	}), req, resp, false, false)
 }
 
 func (c *Client) History(ctx context.Context, req *accountv1.OrderHistoryRequest, resp *accountv1.OrderHistoryResponse) error {

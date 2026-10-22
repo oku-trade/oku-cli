@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package gfxcafe.oku.account.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "gfxcafe/oku/account/v1/validate.proto";
+
+option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v1;v1";
+
+// WalletService provides wallet-related functionality
+service WalletService {
+  // Get token holdings for a wallet address (/wallet/{address}/holdings)
+  rpc AddressHoldings(AddressHoldingsRequest) returns (AddressHoldingsResponse);
+}
+
+// AddressHoldingsRequest is the request to get wallet holdings
+message AddressHoldingsRequest {
+  option (buf.validate.message).cel = {
+    id: "address_holdings.chain_or_chains"
+    message: "exactly one of chain or chains must be set"
+    expression: "(this.chain != '') != (size(this.chains) > 0)"
+  };
+
+  // Ethereum address to get holdings for
+  string address = 1 [
+    (buf.validate.field).string.(eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+  
+  // Chain identifier (e.g., "1", "ethereum", "eip155:1")
+  // Exactly one of chain or chains must be set.
+  string chain = 2;
+
+  // Chain identifiers to fetch in one call, same formats as chain.
+  // Unknown identifiers are returned in unsupported_chains.
+  repeated string chains = 3 [(buf.validate.field).repeated.max_items = 100];
+}
+
+// TokenBalance represents a token balance
+message TokenBalance {
+  // Token contract address
+  string token_address = 1 [
+    (buf.validate.field).string.(eth_address) = true
+  ];
+  
+  // Balance amount as a string (to handle large numbers)
+  string balance = 2;
+  
+  // Token symbol (if available)
+  string symbol = 3;
+  
+  // Token name (if available)
+  string name = 4;
+  
+  // Token decimals
+  int32 decimals = 5;
+
+  // Network internal name (e.g., "ethereum")
+  string chain = 6;
+
+  // Numeric chain id
+  int64 chain_id = 7;
+}
+
+// AddressHoldingsResponse returns the wallet holdings
+message AddressHoldingsResponse {
+  // List of token balances
+  repeated TokenBalance balances = 1;
+
+  // When the balance data was last updated. For multiple chains, the oldest
+  // last update among chains that have balance rows.
+  google.protobuf.Timestamp last_updated = 2;
+
+  // Identifiers from chains that are not supported
+  repeated string unsupported_chains = 3;
+}

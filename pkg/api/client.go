@@ -141,6 +141,7 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 		accountv2connect.NewCliDeviceServiceClient(doer, base, opts...),
 		accountv1connect.NewAuthServiceClient(doer, base, opts...),
 		fundsClients{
+			wallet:  accountv1connect.NewWalletServiceClient(doer, base, opts...),
 			history: accountv1connect.NewOrderHistoryServiceClient(doer, base, opts...),
 			swap:    accountv2connect.NewSimpleSwapServiceV2Client(doer, base, opts...),
 			bridge:  accountv2connect.NewBridgeServiceClient(doer, base, opts...),
