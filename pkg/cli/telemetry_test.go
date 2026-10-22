@@ -238,3 +238,35 @@ func TestAPIEnvName(t *testing.T) {
 		}
 	}
 }
+
+func TestTelemetryRejectedRouteDetailsAreCategoriesOnly(t *testing.T) {
+	telDirs(t)
+	sink := newTelSink(t, 200)
+	a, _, _ := telApp(t, map[string]string{"OKU_TELEMETRY": "1", "OKU_TELEMETRY_HOST": sink.srv.URL}, false)
+	r := &telemetryRun{start: time.Now(), command: "swap prepare", route: "kyberswap", props: map[string]any{"route_forced": false},
+		errCode: "REJECTED", details: map[string]any{"attempts": 2, "routes": map[string]string{
+			"kyberswap": "amount_mismatch: got 123 want 456",
+			"odos":      "backend_error: some message 0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+			"zerox":     "not_answered",
+			"weird":     "brand_new_reason: details",
+		}}}
+	r.props["route"] = r.route
+	a.finishTelemetry(r, 1)
+	if sink.count() != 1 {
+		t.Fatalf("events %d", sink.count())
+	}
+	raw, _ := json.Marshal(sink.events[0])
+	for _, bad := range []string{"123", "456", "0xabc", "some message", "details", "odos", "zerox", "weird"} {
+		if strings.Contains(string(raw), bad) {
+			t.Fatalf("%q leaked: %s", bad, raw)
+		}
+	}
+	props := sink.events[0]["properties"].(map[string]any)
+	want := map[string]any{"routes_considered": 4.0, "routes_rejected": 4.0, "route_attempts": 2.0, "route": "kyberswap", "route_forced": false,
+		"route_rejections": "amount_mismatch:1,backend_error:1,not_answered:1,other:1"}
+	for k, v := range want {
+		if props[k] != v {
+			t.Errorf("%s = %v want %v", k, props[k], v)
+		}
+	}
+}

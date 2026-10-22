@@ -31,6 +31,7 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeNotFound, err, "intent")
 	}
+	e.setTelemetryRoute(r.Route)
 	if r.Kind != kind || !strings.EqualFold(r.Sender, w.agent) || r.Digest != str(e, "digest") || r.State != "prepared" && !(r.State == "sending" && r.ExecutionMode == "sequential" && r.StepIndex > 0 && !r.StepInFlight) {
 		return nil, output.Errorf(output.CodeIntentState, "intent, agent, digest or prepared state mismatch; never retry an unresolved submission")
 	}
@@ -337,6 +338,7 @@ func (a *App) cmdRouteStatus(e *env, kind string) (*result, error) {
 		if getErr != nil {
 			return nil, output.Wrap(output.CodeNotFound, getErr, "intent")
 		}
+		e.setTelemetryRoute(r.Route)
 		if r.Intent {
 			if r.Kind != kind || !strings.EqualFold(r.Sender, w.agent) {
 				return nil, output.Errorf(output.CodeNotFound, "intent not found")

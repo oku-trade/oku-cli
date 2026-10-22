@@ -42,11 +42,13 @@ Properties (an exhaustive allowlist enforced in code; anything else is dropped b
 | `invoked_by` | `mcp`, `tty` or `non_tty` |
 | `api_env` | `prod`, `staging`, `local` or `custom` (the URL itself is never sent) |
 | `chain_id`, `destination_chain` | funds commands: numeric chain IDs |
-| `route` | funds commands: the route or bridge name passed with `--route` |
+| `route` | funds commands: the route or bridge the CLI selected on a successful quote, prepare, submit or status, otherwise the `--route` value |
+| `route_forced` | funds commands: `true` if `--route` was passed, `false` if the flag exists but was not used |
 | `intent` | funds commands: whether intent routes were allowed |
 | `amount_source` | funds commands: `max` or `exact` (never the amount) |
 | `from_kind`, `to_kind` | funds commands: `native` or `erc20` (never the token address) |
-| `routes_considered`, `routes_rejected`, `route_rejections` | funds failures: route counts and rejection categories such as `amount_mismatch:2,simulation_failed:1`, when the error carries them |
+| `routes_considered`, `routes_rejected`, `route_attempts` | funds `REJECTED` failures: number of routes considered and rejected, and quote attempts |
+| `route_rejections` | funds `REJECTED` failures: counts per rejection category such as `amount_mismatch:2,not_answered:1,simulation_failed:1`. Only the category before the first `:` is sent, unknown categories become `other`; route names, backend messages and amounts are never sent |
 
 **Never sent:** wallet, agent, account or token addresses, amounts, transaction hashes, intent IDs, digests, order IDs, quote contents, error message text, credentials or tokens, file paths, CSV contents, environment variables, hostnames or usernames.
 

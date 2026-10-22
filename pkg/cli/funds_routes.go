@@ -767,6 +767,7 @@ func (a *App) cmdRouteQuote(e *env, kind string) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
+	e.setTelemetryRoute(q.Route)
 	w, err := e.profile()
 	if err == nil {
 		ctx, cancel := e.requestCtx()
@@ -794,6 +795,7 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
+	e.setTelemetryRoute(q.Route)
 	if kind == "swap" && !q.Intent && q.HighImpact && !e.cmd.Bool("allow-high-impact") {
 		return nil, output.Errorf(output.CodeRejected, "high impact: priced loss %.2f%% (in_usd %.4f, out_usd %.4f, oku fee %.4f) exceeds --max-loss-bps %d; rerun with a higher --max-loss-bps or --allow-high-impact only after reviewing the quote", float64(q.LossBps)/100, q.InUSD, q.OutUSD, q.OkuFeeUSD, int(maxLossFraction(e)*10_000))
 	}

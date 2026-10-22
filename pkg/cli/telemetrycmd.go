@@ -27,6 +27,52 @@ type telemetryRun struct {
 	errCode output.Code
 	retry   bool
 	details map[string]any
+	route   string // route the CLI actually selected, if any
+}
+
+// setTelemetryRoute records the route a funds command selected. Safe to call
+// with telemetry off; the value is only sent if telemetry is enabled.
+func (e *env) setTelemetryRoute(name string) {
+	if e == nil || e.app == nil || e.app.tel == nil {
+		return
+	}
+	if v := safeRouteName(name); v != "" {
+		e.app.tel.route = v
+	}
+}
+
+func safeRouteName(v string) string {
+	v = strings.ToLower(strings.TrimSpace(v))
+	if v == "" || len(v) > 40 || strings.HasPrefix(v, "0x") {
+		return ""
+	}
+	return v
+}
+
+// rejectionCategories are the reason prefixes funds route rejection emits
+// for swaps and bridges. Anything else is reported as "other".
+var rejectionCategories = map[string]bool{
+	"backend_error": true, "not_answered": true, "not_fetched": true, "no_quote": true,
+	"intent_excluded": true, "chain_mismatch": true, "not_exact_in": true, "unusable_impact": true,
+	"net_usd_nan": true, "amount_mismatch": true, "min_out_invalid": true, "intent_without_typed_data": true,
+	"no_router_for_chain": true, "simulation_failed": true, "simulation_no_output": true, "token_mismatch": true,
+	"typed_data_on_router_route": true, "approvals_inconsistent": true, "spender_not_router": true,
+	"net_usd_invalid": true, "out_amount_invalid": true,
+}
+
+// rejectionCounts maps route -> reason to category counts, keeping only the
+// allowlisted prefix before the first ':' and never the free text.
+func rejectionCounts(routes map[string]string) map[string]int {
+	out := map[string]int{}
+	for _, reason := range routes {
+		cat, _, _ := strings.Cut(reason, ":")
+		cat = strings.TrimSpace(cat)
+		if !rejectionCategories[cat] {
+			cat = "other"
+		}
+		out[cat]++
+	}
+	return out
 }
 
 // telemetryEnabled loads the global preference and applies env precedence.
@@ -82,8 +128,14 @@ func (r *telemetryRun) collectCommand(path string, e *env, declared map[string]b
 	if v := str("destination-chain"); isChainID(v) {
 		r.props["destination_chain"] = v
 	}
-	if v := str("route"); v != "" && len(v) <= 40 && !strings.HasPrefix(v, "0x") {
-		r.props["route"] = strings.ToLower(v)
+	if v := safeRouteName(str("route")); v != "" {
+		r.props["route"] = v
+		r.props["route_forced"] = true
+	} else if declared["route"] {
+		r.props["route_forced"] = false
+	}
+	if r.route != "" {
+		r.props["route"] = r.route
 	}
 	if declared["no-intent"] {
 		r.props["intent"] = !e.cmd.Bool("no-intent")
@@ -167,17 +219,15 @@ func (a *App) finishTelemetry(r *telemetryRun, exit int) {
 	if exit != 0 && r.errCode != "" {
 		props["error_code"] = string(r.errCode)
 		props["retryable"] = r.retry
-		// TODO(route-reasons): once funds route errors carry structured
-		// details (routes_considered, routes_rejected, rejection_reasons as
-		// category counts) these fields fill in without further changes.
-		if n, ok := intDetail(r.details["routes_considered"]); ok {
-			props["routes_considered"] = n
+		// REJECTED route errors carry details.routes (route -> reason) and
+		// details.attempts; every listed route was rejected.
+		if m, ok := r.details["routes"].(map[string]string); ok && len(m) > 0 {
+			props["routes_considered"] = len(m)
+			props["routes_rejected"] = len(m)
+			props["route_rejections"] = telemetry.Categories(rejectionCounts(m))
 		}
-		if n, ok := intDetail(r.details["routes_rejected"]); ok {
-			props["routes_rejected"] = n
-		}
-		if m, ok := r.details["rejection_reasons"].(map[string]int); ok {
-			props["route_rejections"] = telemetry.Categories(m)
+		if n, ok := intDetail(r.details["attempts"]); ok {
+			props["route_attempts"] = n
 		}
 	}
 	host, key := telemetry.Endpoint(a.getenv)
