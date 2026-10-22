@@ -433,7 +433,7 @@ Prepare an agent EVM transfer
 | `--chain` | EVM chain ID, e.g. 42161 (needs an RPC: built-in or OKU_RPC_URL_<id>) | `` |
 | `--token` | ERC-20 contract address or native | `` |
 | `--amount` | exact decimal amount or max/all | `` |
-| `--gas-reserve` | native gas reserve in native units for max/all (default 0.001, Ethereum 0.01) | `` |
+| `--gas-reserve` | override estimated native gas reserve in native units for max/all | `` |
 | `--to` | recipient EVM address (defaults to profile master) | `` |
 | `--intent-id` | optional idempotency ID | `` |
 
@@ -585,6 +585,7 @@ Read the agent's EVM native balance
 | `--chain` | EVM chain ID (default 42161) | `` |
 | `--chains` | comma-separated EVM chain IDs | `` |
 | `--all-chains` | query common supported EVM chains | `false` |
+| `--tokens-file` | CSV token manifest (chain_id,token_address,amount) | `` |
 
 ## `oku wallet fund`
 

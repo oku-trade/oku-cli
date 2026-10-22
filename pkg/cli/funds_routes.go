@@ -39,22 +39,24 @@ func routePrepareFlags(bridge bool) []urfave.Flag {
 }
 
 type routeQuote struct {
-	OrderID    string `json:"order_id"`
-	Generation int32  `json:"generation,omitempty"`
-	QuoteID    string `json:"quote_id"`
-	Route      string `json:"route"`
-	Intent     bool   `json:"intent_based"`
-	Target     string `json:"target"`
-	Spender    string `json:"spender,omitempty"`
-	MinOut     string `json:"min_out"`
-	OutAmount  string `json:"out_amount"`
-	InAmount   string `json:"in_amount"`
-	Recipient  string `json:"recipient"`
-	Chain      uint64 `json:"chain"`
-	OutChain   uint64 `json:"out_chain,omitempty"`
-	InToken    string `json:"in_token"`
-	OutToken   string `json:"out_token"`
-	ExpiresAt  string `json:"expires_at"`
+	OrderID        string `json:"order_id"`
+	Generation     int32  `json:"generation,omitempty"`
+	QuoteID        string `json:"quote_id"`
+	Route          string `json:"route"`
+	Intent         bool   `json:"intent_based"`
+	Target         string `json:"target"`
+	Spender        string `json:"spender,omitempty"`
+	MinOut         string `json:"min_out"`
+	OutAmount      string `json:"out_amount"`
+	InAmount       string `json:"in_amount"`
+	ResolvedAmount string `json:"resolved_amount,omitempty"`
+	AmountSource   string `json:"amount_source,omitempty"`
+	Recipient      string `json:"recipient"`
+	Chain          uint64 `json:"chain"`
+	OutChain       uint64 `json:"out_chain,omitempty"`
+	InToken        string `json:"in_token"`
+	OutToken       string `json:"out_token"`
+	ExpiresAt      string `json:"expires_at"`
 	// amountText is the decimal input sent to the backend, resolved from max/all.
 	amountText string
 }
@@ -236,8 +238,10 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 		return nil, nil, routeQuote{}, output.Errorf(output.CodeInvalidArgument, "unsupported token decimals")
 	}
 	amountText := str(e, "amount")
+	amountSource := ""
 	if isMaxAmount(amountText) {
-		amountText, _, err = a.resolveMaxAmount(e, chain, from, w.agent, int(decimals.Int64()))
+		amountSource = "max"
+		amountText, _, err = a.resolveMaxAmount(e, chain, from, w.agent, int(decimals.Int64()), recipient)
 		if err != nil {
 			return nil, nil, routeQuote{}, err
 		}
@@ -246,7 +250,7 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 	if err != nil {
 		return nil, nil, routeQuote{}, output.Wrap(output.CodeInvalidDecimal, err, "amount")
 	}
-	return w, c, routeQuote{Chain: chain, OutChain: dst, InToken: from, OutToken: to, InAmount: amount.String(), Recipient: recipient, amountText: amountText}, nil
+	return w, c, routeQuote{Chain: chain, OutChain: dst, InToken: from, OutToken: to, InAmount: amount.String(), Recipient: recipient, amountText: amountText, ResolvedAmount: amountText, AmountSource: amountSource}, nil
 }
 func quoteTokenAddress(kind, token string) string {
 	if token == "native" && (kind == "swap" || kind == "bridge") {
@@ -634,6 +638,10 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 		placeholders = nil // No source trade transaction. Approvals are bound at submit.
 	}
 	in := journal.OnchainIntent{ID: id, Kind: kind, Intent: q.Intent, ChainID: q.Chain, OutChain: q.OutChain, Sender: w.agent, Recipient: q.Recipient, Token: q.InToken, OutToken: q.OutToken, Amount: q.InAmount, OrderID: q.OrderID, QuoteID: q.QuoteID, Generation: q.Generation, Route: q.Route, Target: q.Target, Spender: q.Spender, MinOut: q.MinOut, ExpiresAt: q.ExpiresAt, CreatedAt: a.Now().UTC().Format(time.RFC3339Nano), Templates: placeholders}
+	if q.AmountSource != "" {
+		in.ResolvedAmount = q.ResolvedAmount
+		in.AmountSource = q.AmountSource
+	}
 	j, err := openJournal(w.profile)
 	if err != nil {
 		return nil, err
