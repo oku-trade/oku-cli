@@ -54,7 +54,67 @@ launcher/binary. `npm-smoke.sh` installs from local tarballs with `--offline` in
 then checks `oku version` via bin link and `npx`, argv quoting, stdin, exit codes, signal
 forwarding/re-raise, and the `--omit=optional` error. No registry is contacted.
 
-## Publishing (disabled)
+## Publishing (GitHub Releases)
+
+Binaries ship as GitHub Release assets on `oku-trade/oku-cli`. The repo is private, so
+downloading needs repo access (a `gh` login or a token).
+
+Cut a release from an up-to-date `master`:
+
+```sh
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+`.github/workflows/github-release.yml` then:
+
+1. rejects tags that are not semver (`vMAJOR.MINOR.PATCH` or `vMAJOR.MINOR.PATCH-pre`),
+2. runs `make test` and `dist.sh` natively on `ubuntu-24.04`, `ubuntu-24.04-arm`,
+   `macos-15-intel` and `macos-15`, with `VERSION` set to the tag and the commit stamped, so
+   `oku version` prints `Oku Agent v0.1.0 (<commit>, <os>/<arch>)`,
+3. runs `binary-smoke.sh` on each packaged binary and checks the version string, static
+   linking (Linux) or Security.framework + ad-hoc signature (macOS),
+4. requires all four archives, writes one combined `SHA256SUMS`, and creates the release
+   with notes generated from commits since the previous tag. Tags with a `-` suffix
+   (`v0.2.0-rc.1`, `v0.2.0-beta.1`) are marked pre-release.
+
+Only the publish job gets `contents: write`. Assets:
+
+- `oku_<tag>_linux_amd64.tar.gz`, `oku_<tag>_linux_arm64.tar.gz`
+- `oku_<tag>_darwin_amd64.tar.gz`, `oku_<tag>_darwin_arm64.tar.gz`
+- `SHA256SUMS`
+
+Each archive holds `oku_<tag>_<os>_<arch>/{oku,README.md,THIRD_PARTY_NOTICES}`.
+
+To rebuild an existing tag (e.g. after a flaky runner), run the workflow manually with the
+`tag` input. If the release already exists, its assets are replaced (`--clobber`).
+
+### Installing a release
+
+```sh
+# needs gh logged in with access to oku-trade/oku-cli, or GITHUB_TOKEN set
+gh api -H 'Accept: application/vnd.github.raw' repos/oku-trade/oku-cli/contents/scripts/install.sh | sh
+sh scripts/install.sh --version v0.1.0 --dir ~/bin   # from a checkout, pinned version
+```
+
+`scripts/install.sh` detects os/arch, downloads with `gh release download` (or curl +
+`GITHUB_TOKEN` via the API asset URL), verifies the SHA-256 against `SHA256SUMS`, installs to
+`~/.local/bin/oku`, clears the macOS quarantine attribute and prints `oku version`. No sudo.
+`--from-dir DIR` installs from a local directory with an archive and `SHA256SUMS` (testing).
+
+### macOS signing caveat
+
+Darwin binaries are only ad-hoc signed. They are not Developer ID signed or notarized.
+Downloads through `gh` or curl usually carry no quarantine attribute and just run. A file
+downloaded through a browser is quarantined and Gatekeeper blocks it; fix with:
+
+```sh
+xattr -d com.apple.quarantine ~/.local/bin/oku
+```
+
+or right-click the binary in Finder and choose Open once. Developer ID signing and
+notarization remain a separate decision (needs an Apple Developer account and CI secrets).
+
+### npm publishing (disabled)
 
 `.github/workflows/release.yml` is `workflow_dispatch` only and does nothing unless the repo
 variable `NPM_PUBLISH_ENABLED` is `true`. It rebuilds all four targets natively, smoke-tests
@@ -71,7 +131,10 @@ reveals the distributed software even though the source stays private.
 ## Status
 
 Validated locally on linux/amd64 only (pack, offline install, binary and launcher smoke with the real
-binary). The four-runner CI matrix, Nix CI job and release workflow have not been run yet.
+binary). The four-runner CI matrix, Nix CI job and release workflows have not been run yet.
+`github-release.yml` is actionlint-clean, and `scripts/install.sh` was tested locally against a
+linux/amd64 archive (`--from-dir`, plus the curl path against a stubbed API). The first tag push
+is its first real run.
 
 ## Hardening notes
 

@@ -7,7 +7,7 @@ It supports Hyperliquid **mainnet** only. Agent-wallet EVM commands work on any 
 For user-operated authentication, run `oku auth login` in a terminal. Sign on the Oku authorization page with the wallet you want to use as the account. The CLI derives that account from Hyperliquid's approved agent and creates a `default` profile if none exists; no account flag is needed. The default API is production (`https://accounts.icarus.tools`). For staging, create the profile with `oku auth login --api-url https://accounts.lat.gfx.town` (or `oku profiles add NAME --api-url https://accounts.lat.gfx.town`). Existing profiles keep the API URL they were created with.
 
 > **Status: pre-release / private alpha development.**
-> - The repository is private. There is no published npm package, no hosted install script and no auto-update.
+> - The repository is private. Prebuilt binaries are published as GitHub Releases (repo access required). There is no published npm package and no auto-update.
 > - Staging acceptance on 2026-10-14 verified Privy login, signed order submission, order listing and cancel. This is not production acceptance.
 > - Live checks with small amounts verified agent-wallet send, master deposit transfer, a single-step swap and an atomic approve+swap batch on Arbitrum (2026-10-19), and a Circle CCTP bridge Arbitrum to Base including the destination claim (2026-10-20). Transaction-based Oku bridge execution is available via `bridge prepare`, `submit`, `status`, `claim`, and `reconcile`; bridge calldata and approvals are backend-built without independent CLI verification, and destination claims require agent native gas on the destination chain.
 > - Accounts multi-app verification (account#530) and the authorize page (trade#3569) are merged. The authorize page URL comes from the Privy app configuration (the device-grant `verification_uri`), not from the CLI or Accounts. As of 2026-10-22 the built-in Oku Trade Agents app returns `https://unitrade.lat.gfx.town/agent/authorize` (staging) even for production logins. Production needs the Privy app switched to `https://oku.trade/agent/authorize`, which already serves.
@@ -37,6 +37,29 @@ oku swap status  --intent ID
 ## JSON input
 
 For agent-authored orders, inspect `oku docs schema --command 'orders prepare'`, write a JSON object of command options, and run `oku orders prepare --input order.json --json`. Global options remain CLI flags. See [JSON input](docs/usage.md#json-input).
+
+## Install (prebuilt binary)
+
+Releases on this repo carry `oku_<version>_<os>_<arch>.tar.gz` for linux/darwin amd64/arm64 plus `SHA256SUMS`. You need access to the private repo and either the `gh` CLI logged in (`gh auth login`) or a `GITHUB_TOKEN`.
+
+```sh
+# latest release to ~/.local/bin/oku (verifies SHA256SUMS, no sudo)
+gh api -H 'Accept: application/vnd.github.raw' repos/oku-trade/oku-cli/contents/scripts/install.sh | sh
+# options: sh install.sh --version v0.1.0 --dir ~/bin
+```
+
+Manual install (Apple Silicon Mac shown; use `darwin_amd64`, `linux_amd64` or `linux_arm64` as needed):
+
+```sh
+V=$(gh release view -R oku-trade/oku-cli --json tagName -q .tagName)
+gh release download "$V" -R oku-trade/oku-cli -p "oku_${V}_darwin_arm64.tar.gz" -p SHA256SUMS
+shasum -a 256 -c --ignore-missing SHA256SUMS
+tar -xzf "oku_${V}_darwin_arm64.tar.gz"
+mkdir -p ~/.local/bin && mv "oku_${V}_darwin_arm64/oku" ~/.local/bin/oku
+oku version
+```
+
+macOS binaries are ad-hoc signed only (not Developer ID signed or notarized). Files fetched with `gh` or curl normally run as is. If you downloaded through a browser and macOS blocks it, run `xattr -d com.apple.quarantine ~/.local/bin/oku` (or right-click the binary in Finder and choose Open). Maintainers: see [docs/releasing.md](docs/releasing.md) for cutting a release.
 
 ## Install (from source)
 
