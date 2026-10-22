@@ -77,8 +77,8 @@ Prepare a backend-built transaction bridge
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
-| `--from` | input token address or unambiguous symbol | `` |
-| `--to` | output token address or unambiguous symbol | `` |
+| `--from` | input token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
+| `--to` | output token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
 | `--amount` | exact input decimal amount or max/all (full onchain balance) | `` |
 | `--gas-reserve` | native gas reserve in native units for max/all (default 0.001, Ethereum 0.01) | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
@@ -99,8 +99,8 @@ Quote EVM-to-EVM bridge routes
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
-| `--from` | input token address or unambiguous symbol | `` |
-| `--to` | output token address or unambiguous symbol | `` |
+| `--from` | input token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
+| `--to` | output token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
 | `--amount` | exact input decimal amount or max/all (full onchain balance) | `` |
 | `--gas-reserve` | native gas reserve in native units for max/all (default 0.001, Ethereum 0.01) | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
@@ -438,7 +438,7 @@ Prepare an agent EVM transfer
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--chain` | EVM chain ID, e.g. 42161 (needs an RPC: built-in or OKU_RPC_URL_<id>) | `` |
-| `--token` | ERC-20 contract address or native | `` |
+| `--token` | ERC-20 contract address or native (also 0x0 or 0xEeee address) | `` |
 | `--amount` | exact decimal amount or max/all | `` |
 | `--gas-reserve` | override estimated native gas reserve in native units for max/all | `` |
 | `--to` | recipient EVM address (defaults to profile master) | `` |
@@ -513,8 +513,8 @@ Prepare an agent EVM swap
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
-| `--from` | input token address or unambiguous symbol | `` |
-| `--to` | output token address or unambiguous symbol | `` |
+| `--from` | input token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
+| `--to` | output token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
 | `--amount` | exact input decimal amount or max/all (full onchain balance) | `` |
 | `--gas-reserve` | native gas reserve in native units for max/all (default 0.001, Ethereum 0.01) | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
@@ -534,8 +534,8 @@ Quote exact-in EVM swap routes
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
-| `--from` | input token address or unambiguous symbol | `` |
-| `--to` | output token address or unambiguous symbol | `` |
+| `--from` | input token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
+| `--to` | output token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
 | `--amount` | exact input decimal amount or max/all (full onchain balance) | `` |
 | `--gas-reserve` | native gas reserve in native units for max/all (default 0.001, Ethereum 0.01) | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
@@ -596,7 +596,7 @@ Read the agent's EVM native balance
 | `--chain` | EVM chain ID (default 42161) | `` |
 | `--chains` | comma-separated EVM chain IDs | `` |
 | `--all-chains` | query common supported EVM chains | `false` |
-| `--tokens-file` | CSV token manifest (chain_id,token_address,amount) | `` |
+| `--tokens-file` | CSV token manifest (chain_id,token_address,amount); native rows use the zero address; reads the CSV chains when --chain/--chains is omitted | `` |
 | `--stables` | also read the chain's configured stablecoins from chain-config (intermediate-asset candidates) | `false` |
 
 ## `oku wallet fund`

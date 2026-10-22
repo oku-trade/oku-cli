@@ -5,7 +5,7 @@ description: Fee sweep. Read the sweep CSV (chain_id,token_address,amount), chec
 
 # Consolidate Oku Agent Funds
 
-Use this for a fee sweep: protocol fees land in the agent wallet on several chains, and the agent turns them into one asset on one destination chain. Read `oku://skills/move-agent-funds` first for command details; this skill overrides only its per-submit approval rule. Confirm flags with `oku docs commands --json`. Use token contract addresses everywhere; `native` means the gas token. Symbols are not used.
+Use this for a fee sweep: protocol fees land in the agent wallet on several chains, and the agent turns them into one asset on one destination chain. Read `oku://skills/move-agent-funds` first for command details; this skill overrides only its per-submit approval rule. Confirm flags with `oku docs commands --json`. Use token contract addresses everywhere; `native` means the gas token. The zero address `0x0000000000000000000000000000000000000000` and `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` mean native too. The sweep CSV exports native fee rows as the zero address, and you can pass them to `--from`, `--to` and `--token` as-is. Symbols are not used.
 
 ## Approval model
 
@@ -46,7 +46,7 @@ Other hard rules: one in-flight intent **per chain** (the journal gate is per ag
 
 ```sh
 oku wallet address --json
-oku wallet balances --chains 8453,10,137 --tokens-file sweep.csv --json
+oku wallet balances --tokens-file sweep.csv --json        # reads every chain in the CSV; add --chains to restrict
 ```
 
 The CSV is `chain_id,token_address,amount` (optional header). Its `amount` is informational only (`csv_amount`, `mismatch`); never spend it. Per chain, keep tokens with nonzero live `balance`. Skip as **dust** any token whose swap `gas_usd + oku_fee_usd` is at least its `in_usd` (assume a $0.25 flat fee on sells under $25 unless prepare shows less). Report zero and dust rows as skipped; do not sell them.

@@ -28,7 +28,7 @@ const (
 )
 
 func routeFlags(bridge bool) []urfave.Flag {
-	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137"}, &urfave.StringFlag{Name: "from", Usage: "input token address or unambiguous symbol"}, &urfave.StringFlag{Name: "to", Usage: "output token address or unambiguous symbol"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount or max/all (full onchain balance)"}, &urfave.StringFlag{Name: "gas-reserve", Usage: "native gas reserve in native units for max/all (default 0.001, Ethereum 0.01)"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}, &urfave.StringFlag{Name: "route", Usage: "select only this swap router or bridge"}, &urfave.BoolFlag{Name: "no-intent", Usage: "exclude typed-data intent routes"}, &urfave.IntFlag{Name: "max-loss-bps", Usage: "swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 500)"}, &urfave.BoolFlag{Name: "allow-high-impact", Usage: "swap guardrail override: prepare even when the priced loss exceeds --max-loss-bps (small chains, mispriced oracles)"}}
+	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137"}, &urfave.StringFlag{Name: "from", Usage: "input token address, unambiguous symbol, or native (also 0x0 or 0xEeee address)"}, &urfave.StringFlag{Name: "to", Usage: "output token address, unambiguous symbol, or native (also 0x0 or 0xEeee address)"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount or max/all (full onchain balance)"}, &urfave.StringFlag{Name: "gas-reserve", Usage: "native gas reserve in native units for max/all (default 0.001, Ethereum 0.01)"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}, &urfave.StringFlag{Name: "route", Usage: "select only this swap router or bridge"}, &urfave.BoolFlag{Name: "no-intent", Usage: "exclude typed-data intent routes"}, &urfave.IntFlag{Name: "max-loss-bps", Usage: "swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 500)"}, &urfave.BoolFlag{Name: "allow-high-impact", Usage: "swap guardrail override: prepare even when the priced loss exceeds --max-loss-bps (small chains, mispriced oracles)"}}
 	if bridge {
 		flags = append(flags, &urfave.StringFlag{Name: "destination-chain", Usage: "destination EVM chain ID"})
 	}
@@ -103,7 +103,7 @@ func bridgeInfo(info *v2.ExecutionInformation) bool {
 	return info != nil && info.Trade != nil && info.DepositAddress == "" && info.PsbtHex == "" && info.OpReturnData == "" && len(info.Transactions) <= 8
 }
 func (a *App) resolveRouteToken(ctx context.Context, c *api.Client, chain uint64, name string) (string, error) {
-	if strings.EqualFold(name, "native") {
+	if isNativeToken(name) {
 		return "native", nil
 	}
 	if onchain.ValidAddress(name) {
@@ -745,7 +745,7 @@ func bridgeTokenMatches(quoted, requested string) bool {
 	if strings.EqualFold(quoted, requested) {
 		return true
 	}
-	return requested == "native" && (strings.EqualFold(quoted, "0x0000000000000000000000000000000000000000") || strings.EqualFold(quoted, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"))
+	return requested == "native" && isNativeToken(quoted)
 }
 func filterRoute(names []string, forced string) []string {
 	for _, name := range names {

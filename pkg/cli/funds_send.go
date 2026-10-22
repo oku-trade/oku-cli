@@ -56,7 +56,7 @@ func executionError(err error, kind string, chain uint64, token string) error {
 const onchainExecBudget = 10 * time.Minute
 
 func sendPrepareFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID, e.g. 42161 (needs an RPC: built-in or OKU_RPC_URL_<id>)"}, &urfave.StringFlag{Name: "token", Usage: "ERC-20 contract address or native"}, &urfave.StringFlag{Name: "amount", Usage: "exact decimal amount or max/all"}, &urfave.StringFlag{Name: "gas-reserve", Usage: "override estimated native gas reserve in native units for max/all"}, &urfave.StringFlag{Name: "to", Usage: "recipient EVM address (defaults to profile master)"}, &urfave.StringFlag{Name: "intent-id", Usage: "optional idempotency ID"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID, e.g. 42161 (needs an RPC: built-in or OKU_RPC_URL_<id>)"}, &urfave.StringFlag{Name: "token", Usage: "ERC-20 contract address or native (also 0x0 or 0xEeee address)"}, &urfave.StringFlag{Name: "amount", Usage: "exact decimal amount or max/all"}, &urfave.StringFlag{Name: "gas-reserve", Usage: "override estimated native gas reserve in native units for max/all"}, &urfave.StringFlag{Name: "to", Usage: "recipient EVM address (defaults to profile master)"}, &urfave.StringFlag{Name: "intent-id", Usage: "optional idempotency ID"}}
 }
 func depositPrepareFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.StringFlag{Name: "amount", Usage: "USDC amount on Arbitrum"}, &urfave.StringFlag{Name: "to", Usage: "must equal profile master address if supplied"}, &urfave.StringFlag{Name: "intent-id", Usage: "optional idempotency ID"}}
@@ -103,7 +103,7 @@ func (a *App) cmdFundsPrepare(e *env, kind string) (*result, error) {
 		if _, rerr := onchain.RPCURL(a.Getenv, chain); rerr != nil {
 			return nil, output.Wrap(output.CodeConfigError, rerr, "chain RPC")
 		}
-		token = str(e, "token")
+		token = normalizeToken(str(e, "token"))
 		if token != "native" && !onchain.ValidAddress(token) {
 			return nil, output.Errorf(output.CodeInvalidArgument, "--token must be native or an EVM token address")
 		}

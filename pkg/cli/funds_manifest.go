@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -60,8 +61,10 @@ func parseTokenManifest(reader io.Reader) (map[uint64][]manifestToken, error) {
 		if er != nil || !onchain.Allowed(id) {
 			return nil, fmt.Errorf("invalid chain at CSV row %d", index+1)
 		}
-		address := strings.TrimSpace(row[1])
-		if !onchain.ValidAddress(address) {
+		// The sweep exports native fee rows as the zero address (0xEeee also
+		// accepted); both mean the chain's native asset.
+		address := normalizeToken(row[1])
+		if address != "native" && !onchain.ValidAddress(address) {
 			return nil, fmt.Errorf("invalid token address at CSV row %d", index+1)
 		}
 		key := fmt.Sprintf("%d:%s", id, strings.ToLower(address))
@@ -83,12 +86,37 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
+	manifest := map[uint64][]manifestToken{}
+	if path := e.cmd.String("tokens-file"); path != "" {
+		file, er := os.Open(path)
+		if er != nil {
+			return nil, output.Wrap(output.CodeInvalidArgument, er, "opening tokens file")
+		}
+		defer file.Close()
+		manifest, er = parseTokenManifest(file)
+		if er != nil {
+			return nil, output.Wrap(output.CodeInvalidArgument, er, "reading tokens file")
+		}
+	}
 	selected := e.cmd.String("chain")
 	if e.cmd.String("chains") != "" {
 		selected = e.cmd.String("chains")
 	}
 	if e.cmd.Bool("all-chains") {
 		selected = "1,10,56,137,8453,42161,43114,81457"
+	}
+	if selected == "" && len(manifest) > 0 {
+		// Without an explicit chain selection, read every chain in the CSV.
+		csvChains := make([]uint64, 0, len(manifest))
+		for id := range manifest {
+			csvChains = append(csvChains, id)
+		}
+		sort.Slice(csvChains, func(i, j int) bool { return csvChains[i] < csvChains[j] })
+		parts := make([]string, len(csvChains))
+		for i, id := range csvChains {
+			parts[i] = strconv.FormatUint(id, 10)
+		}
+		selected = strings.Join(parts, ",")
 	}
 	if selected == "" {
 		selected = "42161"
@@ -106,18 +134,6 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 		if !seen[id] {
 			ids = append(ids, id)
 			seen[id] = true
-		}
-	}
-	manifest := map[uint64][]manifestToken{}
-	if path := e.cmd.String("tokens-file"); path != "" {
-		file, er := os.Open(path)
-		if er != nil {
-			return nil, output.Wrap(output.CodeInvalidArgument, er, "opening tokens file")
-		}
-		defer file.Close()
-		manifest, er = parseTokenManifest(file)
-		if er != nil {
-			return nil, output.Wrap(output.CodeInvalidArgument, er, "reading tokens file")
 		}
 	}
 	type row struct {
@@ -144,12 +160,19 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 		if er != nil {
 			return nil, output.Wrap(output.CodeUpstream, er, "native balance")
 		}
-		native[chain] = row{Chain: chain, Symbol: nativeSymbol(id), Decimals: 18, Balance: formatUnits(balance, 18), Raw: balance.String()}
+		nativeRow := row{Chain: chain, Address: zeroAddress, Symbol: nativeSymbol(id), Decimals: 18, Balance: formatUnits(balance, 18), Raw: balance.String()}
 		candidates := manifest[id]
 		addresses := make([]string, 0, len(candidates))
 		for _, c := range candidates {
+			if c.Address == "native" {
+				// Native CSV rows compare against the native balance, not a multicall.
+				nativeRow.CSVAmount = c.Amount
+				nativeRow.Mismatch = c.Amount != "" && c.Amount != nativeRow.Balance
+				continue
+			}
 			addresses = append(addresses, c.Address)
 		}
+		native[chain] = nativeRow
 		stables := chainStables(id)
 		if e.cmd.Bool("stables") {
 			for _, st := range stables {
