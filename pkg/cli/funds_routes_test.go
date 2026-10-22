@@ -173,3 +173,28 @@ func TestRouterForUsesChainConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestSwapMinOutDerivesOnlyWithSimulation(t *testing.T) {
+	q := &v2.SimpleSwapQuote{OutAmountRaw: "1000000", SlippagePpm: 5000, Simulation: &v2.SimulationResult{AmountOutRaw: "999000"}}
+	if m, err := swapMinOut(q); err != nil || m.String() != "995000" {
+		t.Fatalf("derived %v %v", m, err)
+	}
+	q.Simulation.AmountOutRaw = "990000" // simulation below derived minimum
+	if _, err := swapMinOut(q); err == nil {
+		t.Fatal("must reject simulation below minimum")
+	}
+	q.Simulation = nil
+	if _, err := swapMinOut(q); err == nil {
+		t.Fatal("must reject without simulation")
+	}
+	q = &v2.SimpleSwapQuote{OutAmountRaw: "1000000", MinAmountOutRaw: "990000"}
+	if m, err := swapMinOut(q); err != nil || m.String() != "990000" {
+		t.Fatalf("explicit %v %v", m, err)
+	}
+}
+
+func TestNativeTokenAliasOnlyCelo(t *testing.T) {
+	if nativeTokenAlias(42220) != "0x471EcE3750Da237f93B8E339c536989b8978a438" || nativeTokenAlias(8453) != "" {
+		t.Fatal("unexpected native alias")
+	}
+}

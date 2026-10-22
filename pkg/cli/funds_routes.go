@@ -207,6 +207,33 @@ func swapFee(info *v2.FeeInfo, inRaw string, inUSD, outUSD float64) (string, str
 	return raw, token, usd, impact
 }
 
+// swapMinOut returns the quote's minimum output. Some canoe markets (lusor,
+// icecreamswap) omit minAmountOutRaw; their swap calldata still carries the
+// slippage bound. Then derive out*(1-slippage) from the quote's own output and
+// slippage, and only when a successful simulation meets that minimum.
+func swapMinOut(v *v2.SimpleSwapQuote) (*big.Int, error) {
+	if v.MinAmountOutRaw != "" {
+		return positiveRaw(v.MinAmountOutRaw)
+	}
+	out, err := positiveRaw(v.OutAmountRaw)
+	if err != nil {
+		return nil, err
+	}
+	if v.IntentBased || v.SlippagePpm <= 0 || v.SlippagePpm > 30_000 || v.Simulation == nil || v.Simulation.Error != "" {
+		return nil, errors.New("missing minimum output")
+	}
+	sim, err := positiveRaw(v.Simulation.AmountOutRaw)
+	if err != nil {
+		return nil, err
+	}
+	min := new(big.Int).Mul(out, big.NewInt(int64(1_000_000-v.SlippagePpm)))
+	min.Quo(min, big.NewInt(1_000_000))
+	if min.Sign() <= 0 || sim.Cmp(min) < 0 {
+		return nil, errors.New("simulation below derived minimum")
+	}
+	return min, nil
+}
+
 func acceptablePriceImpact(impact float64) bool {
 	return !math.IsNaN(impact) && !math.IsInf(impact, 0) && impact <= 0.15
 }
@@ -303,8 +330,31 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 	if err != nil {
 		return nil, nil, routeQuote{}, output.Wrap(output.CodeInvalidDecimal, err, "amount")
 	}
+	// Celo's native CELO is also an ERC-20 at a fixed address, and swap
+	// markets only route it as that token. The amount was resolved against
+	// the native balance (with its gas reserve) above; spending it through
+	// the ERC-20 interface draws from the same balance.
+	if kind == "swap" {
+		if alias := nativeTokenAlias(chain); alias != "" {
+			if from == "native" {
+				from = alias
+			}
+			if to == "native" {
+				to = alias
+			}
+		}
+	}
 	return w, c, routeQuote{Chain: chain, OutChain: dst, InToken: from, OutToken: to, InAmount: amount.String(), Recipient: recipient, amountText: amountText, ResolvedAmount: amountText, AmountSource: amountSource}, nil
 }
+// nativeTokenAlias returns the ERC-20 that is the chain's native currency,
+// where one exists (Celo's GoldToken).
+func nativeTokenAlias(chain uint64) string {
+	if chain == 42220 {
+		return "0x471EcE3750Da237f93B8E339c536989b8978a438"
+	}
+	return ""
+}
+
 func quoteTokenAddress(kind, token string) string {
 	if token == "native" && (kind == "swap" || kind == "bridge") {
 		return "0x0000000000000000000000000000000000000000"
@@ -432,7 +482,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					continue
 				}
 				input, ie := positiveRaw(v.InAmountRaw)
-				min, me := positiveRaw(v.MinAmountOutRaw)
+				min, me := swapMinOut(v)
 				if ie != nil || me != nil || input.String() != q.InAmount {
 					continue
 				}

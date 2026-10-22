@@ -94,6 +94,13 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 			return nil, output.Errorf(output.CodePayloadMismatch, "swap quote simulation has no successful output")
 		}
 		min = quote.MinAmountOutRaw
+		if !r.Intent && min == "" {
+			derived, e := swapMinOut(quote)
+			if e != nil {
+				return nil, output.Wrap(output.CodePayloadMismatch, e, "swap quote minimum output")
+			}
+			min = derived.String()
+		}
 		approvals = quote.ApprovalsV2
 		if !r.Intent {
 			err = c.Swap(ctx, "GetExecutionInfo", &v2.GetExecutionInfoRequest{OrderId: r.OrderID, QuoteId: r.QuoteID, Request: &v2.ExecutionRequest{SigningRequest: quote.SigningRequest}}, &info, true)
