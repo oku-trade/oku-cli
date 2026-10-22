@@ -7,7 +7,8 @@
 | linux/amd64, linux/arm64 | any Linux host (cross OK) | 0 | static, encrypted-file credential store |
 | darwin/amd64, darwin/arm64 | native macOS host of that arch | 1 | macOS Keychain via `keybase/go-keychain` |
 
-`mise run dist` (`mise-tasks/dist.sh`) refuses darwin targets unless run on a matching native macOS host. By default
+`mise run dist` (`mise-tasks/dist.sh`) refuses darwin targets unless run on a matching native macOS host
+(exception: `OKU_DARWIN_CROSS=1` builds darwin/amd64 on an Apple Silicon Mac). By default
 it builds both Linux targets on Linux, or the host target on macOS. Override with `PLATFORMS`.
 
 ```sh
@@ -26,12 +27,22 @@ exercises the Keychain.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every push/PR (no branch filter, so `master` or `main`
-both work) across four GitHub-hosted native runners: `ubuntu-24.04`, `ubuntu-24.04-arm`,
-`macos-15-intel`, `macos-15`. Each job asserts it is on the native host, runs `make test`,
-builds the archive, runs the packaged binary, and packs + smoke-installs the npm tarballs.
-Confirm label availability and minutes budget for the organization (private repos bill
-macOS minutes at a multiplier).
+- **Every push to `master` and every PR** (`.github/workflows/ci.yml`): one job on Ubicloud
+  `ubicloud-standard-2` (linux/amd64) running `make test` (go vet, go test, docs-check),
+  `go build ./cmd/oku` and the proto drift check (`sync-protos.sh --check`). PR runs cancel
+  superseded runs. No race tests, macOS, arm, Nix or packaging here.
+- **Dispatch only** (`.github/workflows/ci-full.yml`, Actions > ci-full > Run workflow):
+  race tests on `ubicloud-standard-4`, the Nix flake build on `ubicloud-standard-2`, and
+  (input `macos`) the disposable-keychain race + lock tests on the Namespace mac.
+- **Releases only** (`.github/workflows/github-release.yml`): the full platform matrix, see
+  below.
+
+Runner labels: Ubicloud `ubicloud-standard-2` (x86) and `ubicloud-standard-2-arm` (arm64),
+per https://www.ubicloud.com/docs/github-actions-integration/runner-types. macOS runs on
+Namespace `namespace-profile-ios` (Apple Silicon, same profile as the retail app); set the
+repo variable `OKU_MACOS_RUNNER` to override. Labels are listed in `.github/actionlint.yaml`.
+`binary-smoke.sh`, `npm-pack.sh` and `npm-smoke.sh` are no longer run per push; the release
+workflow still runs `binary-smoke.sh`.
 
 ## npm packages (candidate names, pending scope ownership check)
 
@@ -68,11 +79,15 @@ git tag v0.1.0 && git push origin v0.1.0
 `.github/workflows/github-release.yml` then:
 
 1. rejects tags that are not semver (`vMAJOR.MINOR.PATCH` or `vMAJOR.MINOR.PATCH-pre`),
-2. runs `make test` and `dist.sh` natively on `ubuntu-24.04`, `ubuntu-24.04-arm`,
-   `macos-15-intel` and `macos-15`, with `VERSION` set to the tag and the commit stamped, so
+2. runs `make test` and `dist.sh` on `ubicloud-standard-2` (linux/amd64),
+   `ubicloud-standard-2-arm` (linux/arm64) and one Namespace mac (darwin/arm64 natively,
+   darwin/amd64 cross-compiled with CGO via `clang -arch x86_64` and `OKU_DARWIN_CROSS=1`;
+   `make test` runs on the three native hosts only), with `VERSION` set to the tag and the commit stamped, so
    `oku version` prints `Oku Agent v0.1.0 (<commit>, <os>/<arch>)`,
 3. runs `binary-smoke.sh` on each packaged binary and checks the version string, static
-   linking (Linux) or Security.framework + ad-hoc signature (macOS),
+   linking (Linux) or `lipo -archs`, Security.framework + ad-hoc signature (macOS). The
+   darwin/amd64 binary is executed under `arch -x86_64` only if Rosetta works on the runner;
+   otherwise the run logs that the exec smoke was skipped,
 4. requires all four archives, writes one combined `SHA256SUMS`, and creates the release
    with notes generated from commits since the previous tag. Tags with a `-` suffix
    (`v0.2.0-rc.1`, `v0.2.0-beta.1`) are marked pre-release.
@@ -155,7 +170,7 @@ is its first real run.
   the linux-x64 copy.
 - **Visibility**: `publishConfig.access: restricted` is the safe default only. Private source
   does not require private binaries, so the owner may choose `public` explicitly.
-- **Nix**: CI builds `.#default`. After any `go.mod`/`go.sum` change, refresh `vendorHash`
+- **Nix**: `ci-full.yml` (dispatch only) builds `.#default`. After any `go.mod`/`go.sum` change, refresh `vendorHash`
   (set `lib.fakeHash`, build, copy the `got:` hash). Without system Nix access, a scratch
   store works: `nix --store "local?root=$DIR" build "path:$PWD#default"`.
 - **Third-party notices**: `UNLICENSED` covers only Oku's own code. `mise run third-party-notices`
@@ -166,9 +181,9 @@ is its first real run.
   `npm-pack.sh` refuses to pack a platform binary without it, and `release.yml` blocks
   publish unless every archive and platform tarball contains it. The launcher is dependency-free
   JS and carries no third-party code. Nobody has done a legal review of the notice contents.
-- **Nix CI job**: this repo's Actions policy allows only GitHub-owned, verified or allowlisted
+- **Nix job** (`ci-full.yml`): this repo's Actions policy allows only GitHub-owned, verified or allowlisted
   actions, so the job installs `nix-bin` from Ubuntu 24.04's own archive (Nix 2.18.1) rather
   than using a third-party action or a `curl | sh` installer. It runs independently and never
-  gates the native jobs. If Ubuntu's Nix can't build the pinned flake, treat the Nix gate as
+  gates anything. If Ubuntu's Nix can't build the pinned flake, treat the Nix gate as
   blocked. Using a newer Nix installer means adding an action to the allowlist, which needs
   operator approval.
