@@ -52,8 +52,8 @@ func (e *env) passphrase(confirm bool) ([]byte, error) {
 // choosePassphrase picks the passphrase for a new credential. Invalid or
 // mismatched entries re-prompt instead of failing the login. An empty entry
 // offers to skip the passphrase, which requires two explicit confirmations.
-func (e *env) choosePassphrase() (*newPassphrase, error) {
-	if runtime.GOOS == "darwin" {
+func (e *env) choosePassphrase(st auth.Store) (*newPassphrase, error) {
+	if st != auth.StoreFile {
 		return &newPassphrase{}, nil
 	}
 	return e.chooseFilePassphrase()
@@ -228,13 +228,23 @@ func (e *env) forgetPassphrase(profile string) {
 // then an interactive prompt. A wrong interactive passphrase re-prompts.
 // A successful interactive unlock is cached for OKU_UNLOCK_TTL.
 func (e *env) unlockCredential(profile string) (*auth.Metadata, *auth.Secrets, []byte, error) {
-	if runtime.GOOS != "darwin" {
+	st, err := auth.StoreFor(profile)
+	if err != nil {
+		return nil, nil, nil, output.Wrap(output.CodeConfigError, err, "loading credential store")
+	}
+	if st != auth.StoreFile {
+		// Keychain and Secret Service unlock with the user's login session;
+		// there is no oku passphrase and nothing to cache.
+		md, sec, err := auth.UnlockPrivy(profile, nil)
+		return md, sec, nil, err
+	}
+	{
 		if pre, err := auth.LoadPrivyMetadata(profile); err == nil && pre.Unprotected {
 			md, sec, err := auth.UnlockPrivy(profile, []byte{})
 			return md, sec, []byte{}, err
 		}
 	}
-	if runtime.GOOS != "darwin" && e.pass == nil && e.app.Getenv("OKU_PASSPHRASE_FILE") == "" {
+	if e.pass == nil && e.app.Getenv("OKU_PASSPHRASE_FILE") == "" {
 		if cached := e.cachedPassphrase(profile); cached != nil {
 			md, sec, err := auth.UnlockPrivy(profile, cached)
 			if err == nil {
@@ -246,7 +256,7 @@ func (e *env) unlockCredential(profile string) (*auth.Metadata, *auth.Secrets, [
 			}
 		}
 	}
-	interactive := runtime.GOOS != "darwin" && e.app.Getenv("OKU_PASSPHRASE_FILE") == "" && e.app.StdinIsTTY
+	interactive := e.app.Getenv("OKU_PASSPHRASE_FILE") == "" && e.app.StdinIsTTY
 	prompted := interactive && e.pass == nil
 	for attempt := 1; ; attempt++ {
 		pass, err := e.passphrase(false)
@@ -365,10 +375,10 @@ func (e *env) unlock(p *resolved, _ string) (*session, error) {
 	defer release()
 	pre, err := auth.LoadPrivyMetadata(p.Name)
 	if errors.Is(err, auth.ErrNoCredentials) {
-		return nil, output.Errorf(output.CodeAuthRequired, "run oku auth login")
+		return nil, missingCredential(p.Name)
 	}
 	if err != nil {
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "loading credential")
+		return nil, credentialLoadError(err)
 	}
 	if err = e.checkBinding(pre, p); err != nil {
 		return nil, err
@@ -514,4 +524,31 @@ func (e *env) signerFor(p *resolved, s *session) (signing.Signer, error) {
 		}
 	}
 	return nil, output.Errorf(output.CodeSignerUnavailable, "stored Privy wallet is not the approved agent")
+}
+
+// missingCredential explains a missing credential. A keyring profile whose
+// item vanished is reported as such instead of asking for a passphrase.
+func missingCredential(profile string) error {
+	if st, err := auth.StoreFor(profile); err == nil && st == auth.StoreKeyring {
+		return output.Errorf(output.CodeAuthRequired, "profile %q uses the desktop keyring but its credential item is missing; run oku auth login", profile)
+	}
+	return output.Errorf(output.CodeAuthRequired, "run oku auth login")
+}
+
+// credentialLoadError maps an unreachable native store to a clear error.
+// It never falls back to another store.
+func credentialLoadError(err error) error {
+	if errors.Is(err, auth.ErrKeychainUnavailable) {
+		return output.Wrap(output.CodeSignerUnavailable, err, "credential store unavailable (unlock your desktop keyring, or use 'oku auth migrate --to file' on headless machines)")
+	}
+	return output.Wrap(output.CodeSignerUnavailable, err, "loading credential")
+}
+
+// storeLabel names the store a profile uses, for status output.
+func storeLabel(profile string) string {
+	st, err := auth.StoreFor(profile)
+	if err != nil {
+		return "unknown"
+	}
+	return string(st)
 }

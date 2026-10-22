@@ -17,7 +17,7 @@ import (
 )
 
 func authLoginFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "api-url", Usage: "Oku API origin for the profile created when none exists"}, &urfave.BoolFlag{Name: "no-open", Usage: "print verification URL without opening browser"}, &urfave.DurationFlag{Name: "timeout", Value: 10 * time.Minute, Usage: "maximum time to wait for authorization"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "api-url", Usage: "Oku API origin for the profile created when none exists"}, &urfave.BoolFlag{Name: "no-open", Usage: "print verification URL without opening browser"}, &urfave.DurationFlag{Name: "timeout", Value: 10 * time.Minute, Usage: "maximum time to wait for authorization"}, &urfave.StringFlag{Name: "credential-store", Usage: "Linux: where to keep the credential, file (passphrase, default) or keyring (desktop Secret Service); default $OKU_CREDENTIAL_STORE, else the profile's current store. Ignored on macOS (Keychain)"}}
 }
 func authStatusFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.BoolFlag{Name: "verify", Usage: "refresh the credential and check Hyperliquid agent approval"}}
@@ -39,6 +39,9 @@ func (a *App) cmdAuthUnlock(e *env) (*result, error) {
 	ttl := e.cmd.Duration("for")
 	if ttl <= 0 || ttl > 7*24*time.Hour {
 		return nil, output.Errorf(output.CodeInvalidArgument, "--for must be between 1s and 168h")
+	}
+	if st, stErr := auth.StoreFor(p.Name); stErr == nil && st != auth.StoreFile {
+		return nativeLockResult(p.Name, st, "unlocked"), nil
 	}
 	md, err := auth.LoadPrivyMetadata(p.Name)
 	if errors.Is(err, auth.ErrNoCredentials) {
@@ -76,10 +79,25 @@ func (a *App) cmdAuthLock(e *env) (*result, error) {
 	if p.Name == "" {
 		return nil, output.Errorf(output.CodeProfileNotFound, "no profile selected")
 	}
+	if st, stErr := auth.StoreFor(p.Name); stErr == nil && st != auth.StoreFile {
+		return nativeLockResult(p.Name, st, "locked"), nil
+	}
 	e.forgetPassphrase(p.Name)
 	return &result{data: map[string]any{"profile": p.Name, "locked": true}, human: func(w io.Writer) {
 		fmt.Fprintf(w, "Locked profile %s.\n", p.Name)
 	}}, nil
+}
+
+// nativeLockResult explains that Keychain and Secret Service credentials are
+// locked and unlocked by the OS login session, not by oku.
+func nativeLockResult(profile string, st auth.Store, field string) *result {
+	msg := "This profile keeps its credential in the desktop keyring; your login session locks and unlocks it, so there is nothing for oku to " + strings.TrimSuffix(field, "ed") + "."
+	if st == auth.StoreKeychain {
+		msg = "This profile keeps its credential in the macOS Keychain; macOS controls locking, so there is nothing for oku to " + strings.TrimSuffix(field, "ed") + "."
+	}
+	return &result{data: map[string]any{"profile": profile, "credential_store": string(st), "cached": false, "message": msg}, human: func(w io.Writer) {
+		fmt.Fprintln(w, msg)
+	}}
 }
 
 var boundaries = map[string]string{
@@ -148,7 +166,11 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	}
 	// Choose the passphrase before anything is authorized remotely, so a typo
 	// here can never leave an approved session or grant behind.
-	np, err := e.choosePassphrase()
+	st, prevStore, err := e.loginStore(p.Name, create)
+	if err != nil {
+		return nil, err
+	}
+	np, err := e.choosePassphrase(st)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +265,7 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 		if _, exists := cfg.Profiles[p.Name]; exists {
 			return nil, output.Errorf(output.CodeConfigError, "profile changed during login; retry")
 		}
-		cfg.Profiles[p.Name] = &config.Profile{Network: p.Network, APIURL: p.APIURL, Account: strings.ToLower(p.Account)}
+		cfg.Profiles[p.Name] = &config.Profile{Network: p.Network, APIURL: p.APIURL, Account: strings.ToLower(p.Account), CredentialStore: configStore(st)}
 		if cfg.DefaultProfile == "" {
 			cfg.DefaultProfile = p.Name
 		}
@@ -267,11 +289,22 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 				return nil, output.Wrap(output.CodeConfigError, saveErr, "saving derived account")
 			}
 		}
+
 	}
 	md := auth.Metadata{Kind: auth.KindPrivy, Profile: p.Name, Network: p.Network, APIURL: p.APIURL, PrivyAppID: pc.AppID, AccountAddress: strings.ToLower(p.Account), AgentAddress: strings.ToLower(wallet.Address), PrivyWalletID: wallet.ID, AccessExpiresAt: tok.AccessExpiresAt.UTC().Format(time.RFC3339), SessionID: exchange.Session.SessionID, SessionExpiresAt: exchange.Session.ExpiresAt, CreatedAt: e.app.Now().UTC().Format(time.RFC3339), Status: "active", Generation: 1, Unprotected: np.unprotected}
 	sec := auth.Secrets{AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken, SessionToken: exchange.Session.Token}
-	if err = auth.SavePrivy(p.Name, md, sec, np.pass); err != nil {
+	if err = auth.SavePrivyIn(st, p.Name, md, sec, np.pass); err != nil {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "saving credential")
+	}
+	if !create && st != prevStore {
+		if err = setProfileStore(p.Name, st); err != nil {
+			_ = auth.DeletePrivyIn(st, p.Name)
+			return nil, output.Wrap(output.CodeConfigError, err, "recording credential store")
+		}
+		if delErr := auth.DeletePrivyIn(prevStore, p.Name); delErr != nil {
+			e.diag("Could not delete the old %s credential: %v", prevStore, delErr)
+		}
+		e.diag("Profile %q now keeps its credential in the %s store.", p.Name, st)
 	}
 	saved = true
 	e.forgetPassphrase(p.Name)
@@ -281,8 +314,9 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	return statusResult(&md, true), nil
 }
 func statusResult(md *auth.Metadata, verified bool) *result {
-	return &result{data: map[string]any{"credential": md, "verified": verified, "boundaries": boundaries}, human: func(w io.Writer) {
-		fmt.Fprintf(w, "profile  %s\naccount  %s\nagent    %s\nwallet   %s\naccess   %s\nsession  %s\n", md.Profile, md.AccountAddress, md.AgentAddress, md.PrivyWalletID, md.AccessExpiresAt, md.SessionExpiresAt)
+	store := storeLabel(md.Profile)
+	return &result{data: map[string]any{"credential": md, "credential_store": store, "verified": verified, "boundaries": boundaries}, human: func(w io.Writer) {
+		fmt.Fprintf(w, "profile  %s\naccount  %s\nagent    %s\nwallet   %s\nstore    %s\naccess   %s\nsession  %s\n", md.Profile, md.AccountAddress, md.AgentAddress, md.PrivyWalletID, store, md.AccessExpiresAt, md.SessionExpiresAt)
 	}}
 }
 func (a *App) cmdAuthStatus(e *env) (*result, error) {
@@ -295,10 +329,10 @@ func (a *App) cmdAuthStatus(e *env) (*result, error) {
 	}
 	md, err := auth.LoadPrivyMetadata(p.Name)
 	if errors.Is(err, auth.ErrNoCredentials) {
-		return nil, output.Errorf(output.CodeAuthRequired, "run oku auth login")
+		return nil, missingCredential(p.Name)
 	}
 	if err != nil {
-		return nil, err
+		return nil, credentialLoadError(err)
 	}
 	if err = e.checkBinding(md, p); err != nil {
 		return nil, err

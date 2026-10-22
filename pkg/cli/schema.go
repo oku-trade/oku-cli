@@ -10,6 +10,8 @@ import (
 var flagEnums = map[string]map[string][]string{
 	"orders prepare":     {"side": {"buy", "sell"}, "type": {"limit", "market"}, "tif": {"gtc", "ioc", "alo"}},
 	"positions leverage": {"mode": {"cross", "isolated"}},
+	"auth login":         {"credential-store": {"file", "keyring"}},
+	"auth migrate":       {"to": {"file", "keyring"}},
 }
 
 var requiredFlags = map[string][]string{

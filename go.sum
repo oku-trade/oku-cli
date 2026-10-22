@@ -14,6 +14,8 @@ github.com/gfx-labs/chain-config/dist/networks v1.19.2 h1:J4hT9Z02g309tXMjGY3zKF
 github.com/gfx-labs/chain-config/dist/networks v1.19.2/go.mod h1:jfTfQg4s8LzONDK/w4lzHs+572PhfPvJn6N8EYng7Do=
 github.com/go-json-experiment/json v0.0.0-20260601182631-00ed12fed2a6 h1:nxP4pPoyqOAgX8lYDFCfl3DyKeXErCvSvhcyzwGV9CE=
 github.com/go-json-experiment/json v0.0.0-20260601182631-00ed12fed2a6/go.mod h1:tphK2c80bpPhMOI4v6bIc2xWywPfbqi1Z06+RcrMkDg=
+github.com/godbus/dbus/v5 v5.2.2 h1:TUR3TgtSVDmjiXOgAAyaZbYmIeP3DPkld3jgKGV8mXQ=
+github.com/godbus/dbus/v5 v5.2.2/go.mod h1:3AAv2+hPq5rdnr5txxxRwiGjPXamgoIHgz9FPBfOp3c=
 github.com/golang-jwt/jwt/v5 v5.3.1 h1:kYf81DTWFe7t+1VvL7eS+jKFVWaUnK9cB1qbwn63YCY=
 github.com/golang-jwt/jwt/v5 v5.3.1/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArsqaEUEa5bE=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
