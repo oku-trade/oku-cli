@@ -14,7 +14,7 @@ import (
 )
 
 func bridgeStatusFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "intent", Usage: "bridge intent ID"}, &urfave.BoolFlag{Name: "all", Usage: "list unsettled bridge intents"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "intent", Usage: "bridge intent ID"}, &urfave.BoolFlag{Name: "all", Usage: "list unsettled bridge intents"}, &urfave.BoolFlag{Name: "include-expired", Usage: "with --all, also list prepared bridges that were never submitted and whose quote expired (labeled expired)"}}
 }
 func bridgeClaimFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.StringFlag{Name: "intent", Usage: "bridge intent ID"}, &urfave.BoolFlag{Name: "ready", Usage: "claim all ready bridge intents"}}
@@ -31,11 +31,32 @@ type bridgePending struct {
 	ClaimRequired    bool            `json:"claim_required"`
 	ClaimIntentID    string          `json:"claim_intent_id,omitempty"`
 	Age              string          `json:"age"`
+	// Expired marks a prepared intent that was never submitted and whose
+	// quote has expired; it moved no funds and is shown only on request.
+	Expired bool `json:"expired,omitempty"`
+}
+
+// neverSubmittedExpired reports a bridge intent that was only prepared (no
+// transaction or relay was ever attempted) and whose quote has expired.
+func neverSubmittedExpired(r *journal.OnchainRecord, now time.Time) bool {
+	if r.State != "prepared" {
+		return false
+	}
+	expires, err := time.Parse(time.RFC3339Nano, r.ExpiresAt)
+	return err != nil || !now.Before(expires)
 }
 
 // One bounded history request covers all bridge orders, avoiding unbounded
 // per-intent network calls. Missing orders remain visible as unknown.
-func (a *App) pendingBridges(e *env) ([]bridgePending, error) {
+func ageOf(a *App, createdAt string) string {
+	created, err := time.Parse(time.RFC3339Nano, createdAt)
+	if err != nil {
+		return "unknown"
+	}
+	return a.Now().Sub(created).Round(time.Second).String()
+}
+
+func (a *App) pendingBridges(e *env, includeExpired bool) ([]bridgePending, error) {
 	w, err := agentWalletMetadata(e)
 	if err != nil {
 		return nil, err
@@ -66,6 +87,17 @@ func (a *App) pendingBridges(e *env) ([]bridgePending, error) {
 	out := make([]bridgePending, 0, len(records))
 	for _, r := range records {
 		if !strings.EqualFold(r.Sender, w.agent) {
+			continue
+		}
+		if r.State == "prepared" {
+			// Never submitted: no source transaction and nothing to claim.
+			if neverSubmittedExpired(r, a.Now()) {
+				if includeExpired {
+					out = append(out, bridgePending{IntentID: r.ID, SourceChain: r.ChainID, DestinationChain: r.OutChain, Route: r.Route, Amount: r.Amount, State: r.State, DestinationFill: destinationFill{Status: "expired"}, Age: ageOf(a, r.CreatedAt), Expired: true})
+				}
+				continue
+			}
+			out = append(out, bridgePending{IntentID: r.ID, SourceChain: r.ChainID, DestinationChain: r.OutChain, Route: r.Route, Amount: r.Amount, State: r.State, DestinationFill: destinationFill{Status: "not_submitted"}, Age: ageOf(a, r.CreatedAt)})
 			continue
 		}
 		fill := destinationFill{Status: "unknown"}
@@ -103,14 +135,18 @@ func (a *App) cmdBridgeStatusAll(e *env) (*result, error) {
 	if str(e, "intent") != "" {
 		return nil, output.Errorf(output.CodeUsage, "use --all or --intent, not both")
 	}
-	entries, err := a.pendingBridges(e)
+	entries, err := a.pendingBridges(e, e.cmd.Bool("include-expired"))
 	if err != nil {
 		return nil, err
 	}
 	return &result{data: entries, human: func(out io.Writer) {
 		fmt.Fprintln(out, "INTENT\tSOURCE\tDESTINATION\tROUTE\tAMOUNT\tSTATE\tDESTINATION\tCLAIM\tAGE")
 		for _, r := range entries {
-			fmt.Fprintf(out, "%s\t%d\t%d\t%s\t%s\t%s\t%s\t%t (%s)\t%s\n", r.IntentID, r.SourceChain, r.DestinationChain, r.Route, r.Amount, r.State, r.DestinationFill.Status, r.ClaimRequired, r.ClaimIntentID, r.Age)
+			state := r.State
+			if r.Expired {
+				state = "prepared (EXPIRED, never submitted)"
+			}
+			fmt.Fprintf(out, "%s\t%d\t%d\t%s\t%s\t%s\t%s\t%t (%s)\t%s\n", r.IntentID, r.SourceChain, r.DestinationChain, r.Route, r.Amount, state, r.DestinationFill.Status, r.ClaimRequired, r.ClaimIntentID, r.Age)
 		}
 	}}, nil
 }
@@ -127,13 +163,13 @@ func (a *App) cmdBridgeClaimReady(e *env) (*result, error) {
 	if str(e, "intent") != "" {
 		return nil, output.Errorf(output.CodeUsage, "use --ready or --intent, not both")
 	}
-	pending, err := a.pendingBridges(e)
+	pending, err := a.pendingBridges(e, false)
 	if err != nil {
 		return nil, err
 	}
 	outcomes := make([]bridgeClaimOutcome, 0, len(pending))
 	for _, r := range pending {
-		if !r.ClaimRequired {
+		if !r.ClaimRequired || r.State == "prepared" {
 			continue
 		}
 		outcome := bridgeClaimOutcome{IntentID: r.IntentID}

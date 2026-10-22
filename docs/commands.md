@@ -132,6 +132,7 @@ Reconcile a bridge or list unsettled bridges with --all
 | --- | --- | --- |
 | `--intent` | bridge intent ID | `` |
 | `--all` | list unsettled bridge intents | `false` |
+| `--include-expired` | with --all, also list prepared bridges that were never submitted and whose quote expired (labeled expired) | `false` |
 
 ## `oku bridge submit`
 
