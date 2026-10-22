@@ -8,9 +8,18 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gfx-labs/chain-config/dist/networks"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
 )
+
+// nativeSymbol returns the chain's native currency symbol from chain-config.
+func nativeSymbol(chain uint64) string {
+	if n, err := networks.NetworkByNumber(chain); err == nil && n != nil && n.NativeCurrency.Symbol != "" {
+		return n.NativeCurrency.Symbol
+	}
+	return "native"
+}
 
 type manifestToken struct {
 	Address string
@@ -120,7 +129,7 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 		if er != nil {
 			return nil, output.Wrap(output.CodeUpstream, er, "native balance")
 		}
-		native[chain] = row{Chain: chain, Symbol: "ETH", Decimals: 18, Balance: formatUnits(balance, 18), Raw: balance.String()}
+		native[chain] = row{Chain: chain, Symbol: nativeSymbol(id), Decimals: 18, Balance: formatUnits(balance, 18), Raw: balance.String()}
 		candidates := manifest[id]
 		addresses := make([]string, len(candidates))
 		for i, c := range candidates {

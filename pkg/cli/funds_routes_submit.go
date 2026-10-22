@@ -179,6 +179,7 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	if r.Intent {
 		return a.submitSignedIntent(e, kind, r, j, c, ps, s.md.PrivyWalletID, signing, templates)
 	}
+	preparedDigest := r.Digest
 	finalDigest, err := j.BindOnchainExecution(r.ID, r.Digest, templates)
 	if err != nil {
 		return nil, output.Wrap(output.CodeIntentState, err, "binding verified execution")
@@ -216,11 +217,24 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 		} else {
 			err = c.Bridge(execCtx, "Finish", req, &finished, true)
 		}
-		if err != nil {
-			return routeRecord(r), nil
-		} // confirmed source hash is durable; status may reconcile backend separately.
+		_ = err // confirmed source hash is durable; status may reconcile backend separately.
 	}
-	return routeRecord(r), nil
+	return submittedRecord(r, preparedDigest), nil
+}
+
+// submittedRecord reports both digests: the one the user approved at prepare
+// and the execution digest after submit bound the verified calldata.
+func submittedRecord(r *journal.OnchainRecord, preparedDigest string) *result {
+	res := &result{human: func(w io.Writer) {
+		fmt.Fprintf(w, "%s intent %s: %s on chain %d -> %s; minimum output %s\nApproved digest: %s\nExecution digest: %s (bound verified calldata)\nState: %s\n", r.Kind, r.ID, r.Amount, r.ChainID, r.Recipient, r.MinOut, preparedDigest, r.Digest, r.State)
+	}}
+	res.data = struct {
+		*journal.OnchainRecord
+		PreparedDigest  string `json:"prepared_digest"`
+		ExecutionDigest string `json:"execution_digest"`
+		DigestNote      string `json:"digest_note,omitempty"`
+	}{r, preparedDigest, r.Digest, "submit binds the verified execution calldata into the intent, so execution_digest differs from the prepared digest you approved"}
+	return res
 }
 func (a *App) cmdSwapSubmit(e *env) (*result, error)   { return a.cmdRouteSubmit(e, "swap") }
 func (a *App) cmdBridgeSubmit(e *env) (*result, error) { return a.cmdRouteSubmit(e, "bridge") }

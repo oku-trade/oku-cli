@@ -20,3 +20,11 @@ func TestTokenManifest(t *testing.T) {
 		}
 	}
 }
+
+func TestNativeSymbolFromChainConfig(t *testing.T) {
+	for chain, want := range map[uint64]string{137: "POL", 8453: "ETH", 43114: "AVAX"} {
+		if got := nativeSymbol(chain); got != want {
+			t.Errorf("chain %d: got %s want %s", chain, got, want)
+		}
+	}
+}

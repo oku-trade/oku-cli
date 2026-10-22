@@ -63,6 +63,14 @@ type routeQuote struct {
 	GasUSD      float64 `json:"gas_usd"`
 	FeesUSD     float64 `json:"fees_usd,omitempty"`
 	PriceImpact float64 `json:"price_impact,omitempty"`
+	// OkuFee is the Oku fee taken by the route, in raw input or output token
+	// units, with its estimated USD value. Small trades pay a flat fee.
+	OkuFeeRaw   string  `json:"oku_fee_raw,omitempty"`
+	OkuFeeToken string  `json:"oku_fee_token,omitempty"`
+	OkuFeeUSD   float64 `json:"oku_fee_usd,omitempty"`
+	// MarketImpact is out_usd versus in_usd after removing the Oku fee, i.e.
+	// the market's price impact alone. Negative is worse.
+	MarketImpact float64 `json:"market_impact,omitempty"`
 	// amountText is the decimal input sent to the backend, resolved from max/all.
 	amountText string
 }
@@ -173,6 +181,31 @@ func consistentSwapApprovals(legacy []*v2.ApprovalPayload, modern []*v2.Approval
 	}
 	return true
 }
+// swapFee extracts the Oku fee from a quote and the market impact without it.
+// Input-side fees are priced pro rata from in_usd; output-side fees from out_usd.
+func swapFee(info *v2.FeeInfo, inRaw string, inUSD, outUSD float64) (string, string, float64, float64) {
+	var raw, token string
+	var usd float64
+	if f := info.GetInputTokenFeeInfo(); f != nil && f.AmountRaw != "" && f.AmountRaw != "0" {
+		raw, token = f.AmountRaw, f.TokenAddress
+		fee, ok1 := new(big.Float).SetString(f.AmountRaw)
+		in, ok2 := new(big.Float).SetString(inRaw)
+		if ok1 && ok2 && in.Sign() > 0 {
+			r, _ := new(big.Float).Quo(fee, in).Float64()
+			usd = r * inUSD
+		}
+	} else if f := info.GetOutputTokenFeeInfo(); f != nil && f.AmountRaw != "" && f.AmountRaw != "0" {
+		raw, token = f.AmountRaw, f.TokenAddress
+		// Output fee is not in out_usd; its USD share is unknown without the
+		// gross output, so leave usd at 0 rather than guess.
+	}
+	impact := 0.0
+	if base := inUSD - usd; base > 0 && outUSD > 0 {
+		impact = outUSD/base - 1
+	}
+	return raw, token, usd, impact
+}
+
 func acceptablePriceImpact(impact float64) bool {
 	return !math.IsNaN(impact) && impact <= 0.15
 }
@@ -423,6 +456,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					q.MinOut = min.String()
 					q.OutAmount = v.OutAmountRaw
 					q.InUSD, q.OutUSD, q.GasUSD, q.PriceImpact = v.InUsdValue, v.OutUsdValue, v.GasUsdValue, v.PriceImpact
+					q.OkuFeeRaw, q.OkuFeeToken, q.OkuFeeUSD, q.MarketImpact = swapFee(v.FeeInfo, q.InAmount, v.InUsdValue, v.OutUsdValue)
 					q.Spender = quoteSpender(v.ApprovalsV2, q.InToken, q.InAmount)
 				}
 			}
@@ -659,7 +693,33 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeIntentConflict, err, "creating route intent")
 	}
-	return routeRecord(r), nil
+	res := routeRecord(r)
+	res.data = preparedRoute{OnchainRecord: r, Valuation: valuationOf(q)}
+	return res, nil
+}
+
+// routeValuation is the backend's informational pricing of the prepared
+// quote, for guardrails. It is not part of the digest and never executed.
+type routeValuation struct {
+	InUSD        float64 `json:"in_usd"`
+	OutUSD       float64 `json:"out_usd"`
+	GasUSD       float64 `json:"gas_usd"`
+	FeesUSD      float64 `json:"fees_usd,omitempty"`
+	PriceImpact  float64 `json:"price_impact,omitempty"`
+	OkuFeeRaw    string  `json:"oku_fee_raw,omitempty"`
+	OkuFeeToken  string  `json:"oku_fee_token,omitempty"`
+	OkuFeeUSD    float64 `json:"oku_fee_usd,omitempty"`
+	MarketImpact float64 `json:"market_impact,omitempty"`
+	OutAmount    string  `json:"out_amount"`
+}
+
+type preparedRoute struct {
+	*journal.OnchainRecord
+	Valuation routeValuation `json:"valuation"`
+}
+
+func valuationOf(q routeQuote) routeValuation {
+	return routeValuation{InUSD: q.InUSD, OutUSD: q.OutUSD, GasUSD: q.GasUSD, FeesUSD: q.FeesUSD, PriceImpact: q.PriceImpact, OkuFeeRaw: q.OkuFeeRaw, OkuFeeToken: q.OkuFeeToken, OkuFeeUSD: q.OkuFeeUSD, MarketImpact: q.MarketImpact, OutAmount: q.OutAmount}
 }
 func mustRaw(s string) *big.Int { n, _ := positiveRaw(s); return n }
 func routeRecord(r *journal.OnchainRecord) *result {

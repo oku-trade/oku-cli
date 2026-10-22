@@ -15,8 +15,8 @@ The user's instruction to run the consolidation (with the CSV, the destination c
 
 | Guardrail | Default |
 | --- | --- |
-| Swap `price_impact` worse than | 2% (`price_impact < -0.02`) |
-| Swap `out_usd` below `in_usd` by more than | 3% |
+| Swap `valuation.market_impact` (prepare output; impact excluding the Oku fee) worse than | 2% (`< -0.02`) |
+| Swap `valuation.out_usd` below `valuation.in_usd - valuation.oku_fee_usd` by more than | 3% |
 | Bridge `out_usd` below `in_usd` by more than (stables) | 1% (non-stable assets: 3%) |
 | Slippage above the CLI default | any `--slippage-bps` above 50 |
 | Bridge route differs from the planned route | always |
@@ -26,7 +26,9 @@ The user's instruction to run the consolidation (with the CSV, the destination c
 | Bridge `refunded`, `failed` or `expired` | always; never re-bridge |
 | Plan would sell native gas below the reserve | always |
 
-The user may override thresholds in the instruction. Quote USD values (`in_usd`, `out_usd`, `gas_usd`, `fees_usd`, `price_impact`) come from the backend price oracle and are for guardrails only; amounts executed always come from chain reads.
+The user may override thresholds in the instruction. Quote USD values (`in_usd`, `out_usd`, `gas_usd`, `fees_usd`, `price_impact`, `oku_fee_usd`, `market_impact`) come from the backend price oracle and are for guardrails only; amounts executed always come from chain reads.
+
+**Check guardrails on the prepare output (`valuation`), not on `swap quote`.** `swap quote` is unauthenticated, so the backend prices it as an anonymous account. Trades under $25 then pay a flat $0.25 Oku fee (taken from the input), which makes small quotes look about $0.25 worse. `prepare` is authenticated and uses the agent's real fee tier (free trades, a volume tier or the same flat fee), so its `valuation.oku_fee_usd` is what actually applies. Raw `price_impact` includes the Oku fee; use `market_impact` for the market-only impact.
 
 Other hard rules: one intent at a time (an unresolved intent blocks the agent on **all chains**); never prepare a replacement for an unresolved intent; recipient stays the agent wallet (do not pass `--recipient`) unless the user named a destination address; intents expire about 3 minutes after prepare, so submit right after prepare and requote if expired.
 
@@ -37,7 +39,7 @@ oku wallet address --json
 oku wallet balances --chains 8453,10,137 --tokens-file sweep.csv --json
 ```
 
-The CSV is `chain_id,token_address,amount` (optional header). Its `amount` is informational only (`csv_amount`, `mismatch`); never spend it. Per chain, keep tokens with nonzero live `balance`. Skip as **dust** any token whose quoted swap `gas_usd` is at least its `in_usd`. Report zero and dust rows as skipped; do not sell them.
+The CSV is `chain_id,token_address,amount` (optional header). Its `amount` is informational only (`csv_amount`, `mismatch`); never spend it. Per chain, keep tokens with nonzero live `balance`. Skip as **dust** any token whose swap `gas_usd + oku_fee_usd` is at least its `in_usd` (assume a $0.25 flat fee on sells under $25 unless prepare shows less). Report zero and dust rows as skipped; do not sell them.
 
 ## 2. Choose one intermediate asset per chain
 
@@ -56,7 +58,7 @@ oku bridge quote --chain CHAIN --destination-chain DEST --from C --to DEST_ASSET
 oku bridge quote --chain CHAIN --destination-chain DEST --from C --to DEST_ASSET --amount SUM --route circleStandard --json   # when C is native USDC
 ```
 
-Quote `in_amount`, `out_amount` and `min_out` are **raw base units**; `--amount` takes a decimal. Convert SUM with C's decimals (from `wallet balances`, or 18 for native) before the bridge quote. Score(C) = bridge `out_amount` in the destination asset (for native USDC, use the circleStandard quote; it has no bridge fee). Pick the highest score. If the best score is within 0.3% of native USDC's score, **choose native USDC** (CCTP burn and mint has no slippage). Record the scores and the reason for each chain.
+Quote `in_amount`, `out_amount` and `min_out` are **raw base units**; `--amount` takes a decimal. Convert SUM with C's decimals (from `wallet balances`, or 18 for native) before the bridge quote. Quote-based scores include the anonymous flat fee per swap, which is the same for every candidate, so the ranking is still fair. Score(C) = bridge `out_amount` in the destination asset (for native USDC, use the circleStandard quote; it has no bridge fee). Pick the highest score. If the best score is within 0.3% of native USDC's score, **choose native USDC** (CCTP burn and mint has no slippage). Record the scores and the reason for each chain.
 
 Gas check: the native balance left after the plan must cover the remaining swaps (about `gas_usd` per swap), the bridge, and a reserve. Never choose `native` as C if it requires selling gas below that. Before any Circle bridge, the agent needs native gas on the **destination** for the claim; if it has none, pause and ask the user to fund it (`oku wallet fund --chain DEST --token native`).
 

@@ -3,6 +3,8 @@ package cli
 import (
 	"github.com/oku-trade/oku-cli/pkg/journal"
 	"math/big"
+
+	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
 	"testing"
 )
 
@@ -44,5 +46,13 @@ func TestMaxAmountFormatting(t *testing.T) {
 	}
 	if n, err := parseNonnegativeUnits("0", 18); err != nil || n.Sign() != 0 {
 		t.Fatal("zero reserve", n, err)
+	}
+}
+
+func TestSwapFeeSeparatesFlatFeeFromMarketImpact(t *testing.T) {
+	info := &v2.FeeInfo{InputTokenFeeInfo: &v2.TokenFeeInfo{AmountRaw: "104400000000000", TokenAddress: "0x0000000000000000000000000000000000000000"}}
+	raw, _, usd, impact := swapFee(info, "1000000000000000", 2.3947, 2.1385)
+	if raw != "104400000000000" || usd < 0.249 || usd > 0.251 || impact < -0.0035 || impact > 0 {
+		t.Fatalf("raw %s usd %v impact %v", raw, usd, impact)
 	}
 }

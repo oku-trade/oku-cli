@@ -116,6 +116,9 @@ func bridgeQuoteGeneration(t *testing.T, reported, polled float64) {
 	if prepared.code != 0 || prepared.data()["target"] != nil || prepared.data()["state"] != "prepared" {
 		t.Fatalf("bridge prepare without executionInfo: %s %s", prepared.stdout, prepared.stderr)
 	}
+	if v, ok := prepared.data()["valuation"].(map[string]any); !ok || v["out_amount"] == "" || v["in_usd"] == nil {
+		t.Fatalf("bridge prepare must report valuation: %s", prepared.stdout)
+	}
 }
 
 func TestBridgeQuoteMaxNativeKeepsGasReserve(t *testing.T) {
