@@ -198,3 +198,14 @@ func TestNativeTokenAliasOnlyCelo(t *testing.T) {
 		t.Fatal("unexpected native alias")
 	}
 }
+
+func TestSwapImpactRejectsBrokenPools(t *testing.T) {
+	broken := &v2.SimpleSwapQuote{InAmountRaw: "1000000000000000000", InUsdValue: 7.4, OutUsdValue: 0.022, PriceImpact: -0.997}
+	if acceptableSwapImpact(broken) {
+		t.Fatal("-99% route accepted")
+	}
+	fair := &v2.SimpleSwapQuote{InAmountRaw: "1000000000000000000", InUsdValue: 2.39, OutUsdValue: 2.38, PriceImpact: -0.004}
+	if !acceptableSwapImpact(fair) {
+		t.Fatal("fair route rejected")
+	}
+}

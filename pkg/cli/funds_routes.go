@@ -238,6 +238,9 @@ func acceptablePriceImpact(impact float64) bool {
 	return !math.IsNaN(impact) && !math.IsInf(impact, 0) && impact <= 0.15
 }
 
+// maxSwapValueLoss caps value lost to the market, excluding the Oku fee.
+const maxSwapValueLoss = 0.15
+
 func acceptableSwapImpact(v *v2.SimpleSwapQuote) bool {
 	if v == nil {
 		return false
@@ -245,6 +248,12 @@ func acceptableSwapImpact(v *v2.SimpleSwapQuote) bool {
 	// Upstream price impact includes the Oku fee. For input-side fees,
 	// compare output against the actual amount traded instead.
 	_, _, feeUSD, marketImpact := swapFee(v.FeeInfo, v.InAmountRaw, v.InUsdValue, v.OutUsdValue)
+	// Hard floor: never select a route whose priced output is more than 15%
+	// below its priced input after the Oku fee (thin or broken pools on small
+	// chains quote -99%). Unpriced quotes fall through to upstream impact.
+	if v.InUsdValue > feeUSD && v.OutUsdValue > 0 && marketImpact < -maxSwapValueLoss {
+		return false
+	}
 	if feeUSD > 0 && v.InUsdValue > feeUSD && v.OutUsdValue > 0 {
 		return acceptablePriceImpact(-marketImpact)
 	}
