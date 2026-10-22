@@ -18,9 +18,14 @@ import (
 // (account/src/connectapi/perps/signing.go hardcodes Hyperliquid Mainnet).
 const NetworkMainnet = "mainnet"
 
-// DefaultAPIURL is the Oku account API origin used by the trade frontend
-// (trade/src/config.ts).
-const DefaultAPIURL = "https://accounts.lat.gfx.town"
+// DefaultAPIURL is the production Oku account API origin. It applies only to
+// fresh profiles created without --api-url and to profile-less commands;
+// existing profiles keep the api_url they stored. Staging is opt-in with
+// StagingAPIURL (--api-url or a staging profile).
+const DefaultAPIURL = "https://accounts.icarus.tools"
+
+// StagingAPIURL is the staging account API origin.
+const StagingAPIURL = "https://accounts.lat.gfx.town"
 
 var (
 	addressRE = regexp.MustCompile(`^0x[0-9a-fA-F]{40}$`)

@@ -59,13 +59,14 @@ Unlock the credential for a while so agents and MCP can use it (Linux)
 
 ## `oku bridge claim`
 
-Claim a bridge transfer on its destination chain
+Claim a bridge transfer or all ready transfers with --ready
 
 ### Options
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--intent` | intent id (required) | `` |
+| `--intent` | bridge intent ID | `` |
+| `--ready` | claim all ready bridge intents | `false` |
 
 ## `oku bridge prepare`
 
@@ -76,13 +77,16 @@ Prepare a backend-built transaction bridge
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
-| `--from` | input token address or unambiguous symbol | `` |
-| `--to` | output token address or unambiguous symbol | `` |
-| `--amount` | exact input decimal amount | `` |
+| `--from` | input token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
+| `--to` | output token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
+| `--amount` | exact input decimal amount or max/all (full onchain balance) | `` |
+| `--gas-reserve` | native gas reserve in native units for max/all (default 0.001, Ethereum 0.01) | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
 | `--route` | select only this swap router or bridge | `` |
 | `--no-intent` | exclude typed-data intent routes | `false` |
+| `--max-loss-bps` | swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 500) | `0` |
+| `--allow-high-impact` | swap guardrail override: prepare even when the priced loss exceeds --max-loss-bps (small chains, mispriced oracles) | `false` |
 | `--destination-chain` | destination EVM chain ID | `` |
 | `--intent-id` | optional unique intent ID | `` |
 
@@ -95,13 +99,16 @@ Quote EVM-to-EVM bridge routes
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
-| `--from` | input token address or unambiguous symbol | `` |
-| `--to` | output token address or unambiguous symbol | `` |
-| `--amount` | exact input decimal amount | `` |
+| `--from` | input token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
+| `--to` | output token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
+| `--amount` | exact input decimal amount or max/all (full onchain balance) | `` |
+| `--gas-reserve` | native gas reserve in native units for max/all (default 0.001, Ethereum 0.01) | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
 | `--route` | select only this swap router or bridge | `` |
 | `--no-intent` | exclude typed-data intent routes | `false` |
+| `--max-loss-bps` | swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 500) | `0` |
+| `--allow-high-impact` | swap guardrail override: prepare even when the priced loss exceeds --max-loss-bps (small chains, mispriced oracles) | `false` |
 | `--destination-chain` | destination EVM chain ID | `` |
 
 ## `oku bridge reconcile`
@@ -117,13 +124,15 @@ Attach and verify a recovered bridge transaction hash
 
 ## `oku bridge status`
 
-Reconcile source transaction and report destination delivery from Oku order history
+Reconcile a bridge or list unsettled bridges with --all
 
 ### Options
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--intent` | intent id (required) | `` |
+| `--intent` | bridge intent ID | `` |
+| `--all` | list unsettled bridge intents | `false` |
+| `--include-expired` | with --all, also list prepared bridges that were never submitted and whose quote expired (labeled expired) | `false` |
 
 ## `oku bridge submit`
 
@@ -404,7 +413,7 @@ Add a profile: profiles add NAME --account 0x.. [--api-url URL] [--default]
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--api-url` | Oku account API origin | `https://accounts.lat.gfx.town` |
+| `--api-url` | Oku account API origin | `https://accounts.icarus.tools` |
 | `--privy-app-id` | Privy application ID (defaults to Oku Trade Agents) | `` |
 | `--default` | make this the default profile | `false` |
 
@@ -429,8 +438,9 @@ Prepare an agent EVM transfer
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--chain` | EVM chain ID, e.g. 42161 (needs an RPC: built-in or OKU_RPC_URL_<id>) | `` |
-| `--token` | ERC-20 contract address or native | `` |
-| `--amount` | exact decimal amount | `` |
+| `--token` | ERC-20 contract address or native (also 0x0 or 0xEeee address) | `` |
+| `--amount` | exact decimal amount or max/all | `` |
+| `--gas-reserve` | override estimated native gas reserve in native units for max/all | `` |
 | `--to` | recipient EVM address (defaults to profile master) | `` |
 | `--intent-id` | optional idempotency ID | `` |
 
@@ -503,13 +513,16 @@ Prepare an agent EVM swap
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
-| `--from` | input token address or unambiguous symbol | `` |
-| `--to` | output token address or unambiguous symbol | `` |
-| `--amount` | exact input decimal amount | `` |
+| `--from` | input token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
+| `--to` | output token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
+| `--amount` | exact input decimal amount or max/all (full onchain balance) | `` |
+| `--gas-reserve` | native gas reserve in native units for max/all (default 0.001, Ethereum 0.01) | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
 | `--route` | select only this swap router or bridge | `` |
 | `--no-intent` | exclude typed-data intent routes | `false` |
+| `--max-loss-bps` | swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 500) | `0` |
+| `--allow-high-impact` | swap guardrail override: prepare even when the priced loss exceeds --max-loss-bps (small chains, mispriced oracles) | `false` |
 | `--intent-id` | optional unique intent ID | `` |
 
 ## `oku swap quote`
@@ -521,13 +534,16 @@ Quote exact-in EVM swap routes
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
-| `--from` | input token address or unambiguous symbol | `` |
-| `--to` | output token address or unambiguous symbol | `` |
-| `--amount` | exact input decimal amount | `` |
+| `--from` | input token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
+| `--to` | output token address, unambiguous symbol, or native (also 0x0 or 0xEeee address) | `` |
+| `--amount` | exact input decimal amount or max/all (full onchain balance) | `` |
+| `--gas-reserve` | native gas reserve in native units for max/all (default 0.001, Ethereum 0.01) | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
 | `--route` | select only this swap router or bridge | `` |
 | `--no-intent` | exclude typed-data intent routes | `false` |
+| `--max-loss-bps` | swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 500) | `0` |
+| `--allow-high-impact` | swap guardrail override: prepare even when the priced loss exceeds --max-loss-bps (small chains, mispriced oracles) | `false` |
 
 ## `oku swap reconcile`
 
@@ -577,7 +593,11 @@ Read the agent's EVM native balance
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID, e.g. 42161 (or eip155: prefixed); default 42161 | `` |
+| `--chain` | EVM chain ID (default 42161) | `` |
+| `--chains` | comma-separated EVM chain IDs | `` |
+| `--all-chains` | query common supported EVM chains | `false` |
+| `--tokens-file` | CSV token manifest (chain_id,token_address,amount); native rows use the zero address; reads the CSV chains when --chain/--chains is omitted | `` |
+| `--stables` | also read the chain's configured stablecoins from chain-config (intermediate-asset candidates) | `false` |
 
 ## `oku wallet fund`
 

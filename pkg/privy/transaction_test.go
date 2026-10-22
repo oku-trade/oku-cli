@@ -49,3 +49,29 @@ func TestSendTransactionOAuthWire(t *testing.T) {
 		t.Fatalf("hash=%s error=%v calls=%d", hash, err, calls)
 	}
 }
+
+func TestSendTransactionLegacyWire(t *testing.T) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Params struct {
+				Transaction map[string]any `json:"transaction"`
+			} `json:"params"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		if body.Params.Transaction["type"] != float64(0) || body.Params.Transaction["gas_price"] != "0x1234" {
+			t.Errorf("legacy wire: %+v", body.Params.Transaction)
+		}
+		fmt.Fprintf(w, `{"method":"eth_sendTransaction","data":{"hash":"0x%s"}}`, strings.Repeat("a", 64))
+	}))
+	defer server.Close()
+	s := &Session{authKey: key, expiresAt: time.Now().Add(time.Hour), accessToken: "access", client: &Client{AuthURL: server.URL, AppID: "app"}}
+	if _, err := s.SendTransaction(context.Background(), "wallet", Transaction{To: "0x1111111111111111111111111111111111111111", Value: "0x0", ChainID: 30, LegacyGasPrice: "0x1234"}); err != nil {
+		t.Fatal(err)
+	}
+}

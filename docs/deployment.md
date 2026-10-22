@@ -1,11 +1,11 @@
 # Deployment prerequisites
 
-**Staging acceptance passed on 2026-10-14, but production is not confirmed ready.** This repository does not deploy the frontend, Accounts service or Privy app configuration. Operators must validate production separately before releasing trading access.
+**The CLI defaults to production Accounts (`https://accounts.icarus.tools`) since 2026-10-22.** Staging is opt-in with `--api-url https://accounts.lat.gfx.town`. Staging acceptance passed on 2026-10-14. This repository does not deploy the frontend, Accounts service or Privy app configuration. Operators must validate production separately before releasing trading access.
 
 ## Backend and Privy
 
 1. Deploy Accounts `AuthService/PrivySessionExchange`, `ExtendSession`, `Logout` and `PerpsService/ValidateAgentKey`, plus the normal Perps action RPCs.
-2. The dedicated Privy app **Oku Trade Agents** has ID `cmv72u7fa001m0gk200vq97nd`, built into the CLI. `--privy-app-id` and `OKU_PRIVY_APP_ID` override it. Staging's verification URI currently points to `https://unitrade.lat.gfx.town/agent/authorize`; change it to `https://oku.trade/agent/authorize` for production.
+2. The dedicated Privy app **Oku Trade Agents** has ID `cmv72u7fa001m0gk200vq97nd`, built into the CLI. `--privy-app-id` and `OKU_PRIVY_APP_ID` override it. The verification URI comes from this Privy app's configuration, not from the CLI or Accounts. On 2026-10-22 the device-grant start still returned `https://unitrade.lat.gfx.town/agent/authorize` (staging), so production logins land on the staging page. Change it to `https://oku.trade/agent/authorize`, which is live, before production users log in.
 3. Accounts multi-app verifier account#530 and the authorization page trade#3569 are merged. Staging accepts this app's device-grant JWT (verified 2026-10-14); verify production deployment independently.
 4. Staging Privy OAuth wallet RPC accepted `eth_signTypedData_v4` for Hyperliquid Agent typed data including chainId 1337 on 2026-10-14. Apply a grant policy limiting the wallet to that domain if available; verify production separately.
 5. Agent-wallet funds use Privy OAuth wallet RPC `eth_sendTransaction` (sends, deposits, single-step swaps) and `wallet_sendCalls` (approve+swap batches, which upgrade the embedded wallet via EIP-7702 to a Kernel account). Both worked on Arbitrum mainnet on 2026-10-19. Any grant policy must allow these methods for the intended chains and contracts (token approvals to, and calls on, Oku Router `0xb1f3a7B816B0681188F54dFa400991B93ADf00ed`).

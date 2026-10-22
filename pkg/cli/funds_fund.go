@@ -32,7 +32,7 @@ func (a *App) cmdWalletFund(e *env) (*result, error) {
 		return nil, output.Errorf(output.CodeInvalidArgument, "unsupported EVM chain %q", e.cmd.String("chain"))
 	}
 	token := strings.ToLower(strings.TrimSpace(e.cmd.String("token")))
-	if token == "" {
+	if token == "" || isNativeToken(token) {
 		token = "native"
 	}
 	address := token

@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/oku-trade/oku-cli/pkg/journal"
+	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/onchain/onchaintest"
 )
 
@@ -58,8 +59,18 @@ func TestBridgeSubmitBatchesApprovalAndDeposit(t *testing.T) {
 		case "eth_chainId":
 			fmt.Fprint(w, `{"result":"0xa4b1"}`)
 		case "eth_getCode":
-			t.Error("bridge submit must not independently check target contract code")
-			fmt.Fprint(w, `{"result":"0x"}`)
+			// Only the 7702 capability gate may read code: the agent (EOA) and
+			// the Privy Kernel implementation. Bridge targets are not checked.
+			addr, _ := req.Params[0].(string)
+			switch {
+			case strings.EqualFold(addr, agent):
+				fmt.Fprint(w, `{"result":"0x"}`)
+			case strings.EqualFold(addr, onchain.PrivyKernelImplementation):
+				fmt.Fprint(w, `{"result":"0x6080"}`)
+			default:
+				t.Errorf("bridge submit must not check target contract code (%s)", addr)
+				fmt.Fprint(w, `{"result":"0x"}`)
+			}
 		case "eth_getBalance":
 			fmt.Fprint(w, `{"result":"0xde0b6b3a7640000"}`)
 		case "eth_gasPrice", "eth_maxPriorityFeePerGas":

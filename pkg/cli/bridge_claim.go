@@ -44,7 +44,13 @@ func claimResult(message string, record *journal.OnchainRecord, warning string) 
 	}}
 }
 func (a *App) cmdBridgeClaim(e *env) (*result, error) {
-	id := str(e, "intent")
+	if e.cmd.Bool("ready") {
+		return a.cmdBridgeClaimReady(e)
+	}
+	return a.claimBridgeIntent(e, str(e, "intent"))
+}
+
+func (a *App) claimBridgeIntent(e *env, id string) (*result, error) {
 	if id == "" {
 		return nil, output.Errorf(output.CodeUsage, "--intent required")
 	}
@@ -61,13 +67,18 @@ func (a *App) cmdBridgeClaim(e *env) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeNotFound, err, "bridge intent")
 	}
-	if source.Kind != "bridge" || !strings.EqualFold(source.Sender, w.agent) || source.OrderID == "" {
+	orderID := source.OrderID
+	if orderID == "" {
+		orderID = source.BackendOrderID
+	}
+	if source.Kind != "bridge" || !strings.EqualFold(source.Sender, w.agent) || orderID == "" {
 		return nil, output.Errorf(output.CodeIntentConflict, "intent is not an agent bridge order")
 	}
 	if source.State == "sent" || source.State == "unknown" {
 		_, _ = a.cmdFundsStatus(e, "bridge")
 	}
-	unlock, err := j.Lock()
+	// Claims execute on the destination, not the bridge source chain.
+	unlock, err := j.LockChain(w.agent, source.OutChain)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +87,7 @@ func (a *App) cmdBridgeClaim(e *env) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if source.State != "confirmed" {
+	if source.State != "confirmed" && !(source.Intent && source.State == "submitted") {
 		return claimResult("bridge source is "+source.State+"; run oku bridge status --intent "+id, nil, ""), nil
 	}
 	existing, err := j.ClaimForBridge(id)
@@ -111,9 +122,9 @@ func (a *App) cmdBridgeClaim(e *env) (*result, error) {
 	if err = c.History(ctx, &v1.OrderHistoryRequest{WalletAddr: w.agent, Types: []string{"bridge"}, MaxEntries: 1000}, &history); err != nil {
 		return nil, apiError(err, "History")
 	}
-	trade := bridgeTrade(&history, source.OrderID)
+	trade := bridgeTrade(&history, orderID)
 	if trade == nil {
-		return nil, output.Errorf(output.CodeNotFound, "bridge order %s not found in history", source.OrderID)
+		return nil, output.Errorf(output.CodeNotFound, "bridge order %s not found in history", orderID)
 	}
 	if trade.Status != v1.OrderStatus_ORDER_STATUS_AWAITING_CLAIM {
 		return claimResult("no claim needed: bridge order is "+trade.Status.String(), nil, ""), nil
@@ -148,7 +159,7 @@ func (a *App) cmdBridgeClaim(e *env) (*result, error) {
 		return nil, output.Wrap(output.CodePayloadMismatch, err, "claim value")
 	}
 	template := journal.OnchainTemplate{ChainID: chain, To: to, Data: data, Value: onchain.Hex(amount)}
-	in := journal.OnchainIntent{ID: randomID(), Kind: "claim", ParentIntent: id, OrderID: source.OrderID, ChainID: chain, OutChain: chain, Sender: w.agent, Recipient: to, Token: "native", Amount: value, Templates: []journal.OnchainTemplate{template}, CreatedAt: a.Now().UTC().Format(time.RFC3339Nano)}
+	in := journal.OnchainIntent{ID: randomID(), Kind: "claim", ParentIntent: id, OrderID: orderID, ChainID: chain, OutChain: chain, Sender: w.agent, Recipient: to, Token: "native", Amount: value, Templates: []journal.OnchainTemplate{template}, CreatedAt: a.Now().UTC().Format(time.RFC3339Nano)}
 	pc, err := e.privyClient(w.profile)
 	if err != nil {
 		return nil, err
@@ -201,7 +212,7 @@ func (a *App) cmdBridgeClaim(e *env) (*result, error) {
 	}
 	warning := ""
 	if len(record.Hashes) > 0 {
-		warning = a.finishClaim(e, source.OrderID, record.Hashes[len(record.Hashes)-1])
+		warning = a.finishClaim(e, orderID, record.Hashes[len(record.Hashes)-1])
 	}
 	return claimResult("claim confirmed", record, warning), nil
 }

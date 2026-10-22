@@ -44,8 +44,8 @@ func TestDocsCommandsOffline(t *testing.T) {
 func TestSkillsReferenceOnlySupportedCommands(t *testing.T) {
 	cmds := (&App{}).commands()
 	entries, err := os.ReadDir("../../skills")
-	if err != nil || len(entries) != 9 {
-		t.Fatalf("want 9 skills, got %d (%v)", len(entries), err)
+	if err != nil || len(entries) != 10 {
+		t.Fatalf("want 10 skills, got %d (%v)", len(entries), err)
 	}
 	for _, e := range entries {
 		b, err := os.ReadFile(filepath.Join("../../skills", e.Name(), "SKILL.md"))

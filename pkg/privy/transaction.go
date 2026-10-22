@@ -13,10 +13,11 @@ import (
 // a required top-level caip2 ("eip155:<chain>") plus params.transaction with
 // chain_id. Verified live on Arbitrum with a funded agent wallet.
 type Transaction struct {
-	To      string
-	Value   string
-	Data    string
-	ChainID uint64
+	To             string
+	Value          string
+	Data           string
+	ChainID        uint64
+	LegacyGasPrice string // when set, send a type-0 transaction
 }
 
 func (s *Session) SendTransaction(ctx context.Context, walletID string, tx Transaction) (string, error) {
@@ -26,6 +27,13 @@ func (s *Session) SendTransaction(ctx context.Context, walletID string, tx Trans
 	transaction := map[string]any{"to": tx.To, "value": tx.Value, "chain_id": tx.ChainID}
 	if tx.Data != "" {
 		transaction["data"] = tx.Data
+	}
+	if tx.LegacyGasPrice != "" {
+		if !validHexQuantity(tx.LegacyGasPrice) {
+			return "", errors.New("invalid legacy gas price")
+		}
+		transaction["type"] = 0
+		transaction["gas_price"] = tx.LegacyGasPrice
 	}
 	var response struct {
 		Data struct {

@@ -11,10 +11,10 @@ make docs-check
 mise run binary-smoke bin/oku
 ```
 
-For operator-controlled staging, use the built-in Privy app **Oku Trade Agents** (`cmv72u7fa001m0gk200vq97nd`), merged Accounts verifier (account#530) and authorize page (trade#3569). Staging verification currently uses `https://unitrade.lat.gfx.town/agent/authorize`; switch to `https://oku.trade/agent/authorize` for production. Use a disposable external master wallet and a separate unfunded embedded agent wallet.
+For operator-controlled staging, use the built-in Privy app **Oku Trade Agents** (`cmv72u7fa001m0gk200vq97nd`), merged Accounts verifier (account#530) and authorize page (trade#3569). Staging verification currently uses `https://unitrade.lat.gfx.town/agent/authorize`; switch to `https://oku.trade/agent/authorize` for production. Use a disposable external master wallet and a separate unfunded embedded agent wallet. The CLI defaults to production (`https://accounts.icarus.tools`), so staging profiles must pass `--api-url https://accounts.lat.gfx.town`.
 
 ```sh
-oku profiles add local --account 0xYOUR_EXTERNAL_MASTER --api-url https://YOUR_STAGING_CONNECT --default
+oku profiles add local --account 0xYOUR_EXTERNAL_MASTER --api-url https://accounts.lat.gfx.town --default
 oku auth login --profile local --no-open
 oku auth status --profile local --verify
 ```

@@ -28,7 +28,7 @@ const (
 )
 
 func routeFlags(bridge bool) []urfave.Flag {
-	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137"}, &urfave.StringFlag{Name: "from", Usage: "input token address or unambiguous symbol"}, &urfave.StringFlag{Name: "to", Usage: "output token address or unambiguous symbol"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}, &urfave.StringFlag{Name: "route", Usage: "select only this swap router or bridge"}, &urfave.BoolFlag{Name: "no-intent", Usage: "exclude typed-data intent routes"}}
+	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137"}, &urfave.StringFlag{Name: "from", Usage: "input token address, unambiguous symbol, or native (also 0x0 or 0xEeee address)"}, &urfave.StringFlag{Name: "to", Usage: "output token address, unambiguous symbol, or native (also 0x0 or 0xEeee address)"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount or max/all (full onchain balance)"}, &urfave.StringFlag{Name: "gas-reserve", Usage: "native gas reserve in native units for max/all (default 0.001, Ethereum 0.01)"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}, &urfave.StringFlag{Name: "route", Usage: "select only this swap router or bridge"}, &urfave.BoolFlag{Name: "no-intent", Usage: "exclude typed-data intent routes"}, &urfave.IntFlag{Name: "max-loss-bps", Usage: "swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 500)"}, &urfave.BoolFlag{Name: "allow-high-impact", Usage: "swap guardrail override: prepare even when the priced loss exceeds --max-loss-bps (small chains, mispriced oracles)"}}
 	if bridge {
 		flags = append(flags, &urfave.StringFlag{Name: "destination-chain", Usage: "destination EVM chain ID"})
 	}
@@ -39,22 +39,45 @@ func routePrepareFlags(bridge bool) []urfave.Flag {
 }
 
 type routeQuote struct {
-	OrderID    string `json:"order_id"`
-	Generation int32  `json:"generation,omitempty"`
-	QuoteID    string `json:"quote_id"`
-	Route      string `json:"route"`
-	Intent     bool   `json:"intent_based"`
-	Target     string `json:"target"`
-	Spender    string `json:"spender,omitempty"`
-	MinOut     string `json:"min_out"`
-	OutAmount  string `json:"out_amount"`
-	InAmount   string `json:"in_amount"`
-	Recipient  string `json:"recipient"`
-	Chain      uint64 `json:"chain"`
-	OutChain   uint64 `json:"out_chain,omitempty"`
-	InToken    string `json:"in_token"`
-	OutToken   string `json:"out_token"`
-	ExpiresAt  string `json:"expires_at"`
+	OrderID        string `json:"order_id"`
+	Generation     int32  `json:"generation,omitempty"`
+	QuoteID        string `json:"quote_id"`
+	Route          string `json:"route"`
+	Intent         bool   `json:"intent_based"`
+	Target         string `json:"target"`
+	Spender        string `json:"spender,omitempty"`
+	MinOut         string `json:"min_out"`
+	OutAmount      string `json:"out_amount"`
+	InAmount       string `json:"in_amount"`
+	ResolvedAmount string `json:"resolved_amount,omitempty"`
+	AmountSource   string `json:"amount_source,omitempty"`
+	Recipient      string `json:"recipient"`
+	Chain          uint64 `json:"chain"`
+	OutChain       uint64 `json:"out_chain,omitempty"`
+	InToken        string `json:"in_token"`
+	OutToken       string `json:"out_token"`
+	ExpiresAt      string `json:"expires_at"`
+	// Informational backend valuations for guardrails; never used for execution.
+	InUSD       float64 `json:"in_usd"`
+	OutUSD      float64 `json:"out_usd"`
+	GasUSD      float64 `json:"gas_usd"`
+	FeesUSD     float64 `json:"fees_usd,omitempty"`
+	PriceImpact float64 `json:"price_impact,omitempty"`
+	// OkuFee is the Oku fee taken by the route, in raw input or output token
+	// units, with its estimated USD value. Small trades pay a flat fee.
+	OkuFeeRaw   string  `json:"oku_fee_raw,omitempty"`
+	OkuFeeToken string  `json:"oku_fee_token,omitempty"`
+	OkuFeeUSD   float64 `json:"oku_fee_usd,omitempty"`
+	// MarketImpact is out_usd versus in_usd after removing the Oku fee, i.e.
+	// the market's price impact alone. Negative is worse.
+	MarketImpact float64 `json:"market_impact,omitempty"`
+	// LossBps is the priced market loss excluding the Oku fee (positive is
+	// worse). HighImpact flags it above the --max-loss-bps guardrail.
+	LossBps      int64 `json:"loss_bps"`
+	HighImpact   bool  `json:"high_impact"`
+	NoSimulation bool  `json:"no_simulation,omitempty"`
+	// amountText is the decimal input sent to the backend, resolved from max/all.
+	amountText string
 }
 
 func positiveRaw(s string) (*big.Int, error) {
@@ -80,7 +103,7 @@ func bridgeInfo(info *v2.ExecutionInformation) bool {
 	return info != nil && info.Trade != nil && info.DepositAddress == "" && info.PsbtHex == "" && info.OpReturnData == "" && len(info.Transactions) <= 8
 }
 func (a *App) resolveRouteToken(ctx context.Context, c *api.Client, chain uint64, name string) (string, error) {
-	if strings.EqualFold(name, "native") {
+	if isNativeToken(name) {
 		return "native", nil
 	}
 	if onchain.ValidAddress(name) {
@@ -163,8 +186,136 @@ func consistentSwapApprovals(legacy []*v2.ApprovalPayload, modern []*v2.Approval
 	}
 	return true
 }
+
+// swapFee extracts the Oku fee from a quote and the market impact without it.
+// Input-side fees are priced pro rata from in_usd; output-side fees from out_usd.
+func swapFee(info *v2.FeeInfo, inRaw string, inUSD, outUSD float64) (string, string, float64, float64) {
+	var raw, token string
+	var usd float64
+	if f := info.GetInputTokenFeeInfo(); f != nil && f.AmountRaw != "" && f.AmountRaw != "0" {
+		raw, token = f.AmountRaw, f.TokenAddress
+		fee, ok1 := new(big.Float).SetString(f.AmountRaw)
+		in, ok2 := new(big.Float).SetString(inRaw)
+		if ok1 && ok2 && in.Sign() > 0 {
+			r, _ := new(big.Float).Quo(fee, in).Float64()
+			usd = r * inUSD
+		}
+	} else if f := info.GetOutputTokenFeeInfo(); f != nil && f.AmountRaw != "" && f.AmountRaw != "0" {
+		raw, token = f.AmountRaw, f.TokenAddress
+		// Output fee is not in out_usd; its USD share is unknown without the
+		// gross output, so leave usd at 0 rather than guess.
+	}
+	impact := 0.0
+	if base := inUSD - usd; base > 0 && outUSD > 0 {
+		impact = outUSD/base - 1
+	}
+	return raw, token, usd, impact
+}
+
+// swapMinOut returns the quote's minimum output. Some canoe markets (lusor,
+// icecreamswap) omit minAmountOutRaw, and some (filecoin usor) never simulate;
+// their swap calldata still carries the slippage bound. Then derive
+// out*(1-slippage) from the quote's own output and slippage. A simulation
+// that ran must meet it; a failed simulation is refused.
+func swapMinOut(v *v2.SimpleSwapQuote) (*big.Int, error) {
+	if v.MinAmountOutRaw != "" {
+		return positiveRaw(v.MinAmountOutRaw)
+	}
+	out, err := positiveRaw(v.OutAmountRaw)
+	if err != nil {
+		return nil, err
+	}
+	if v.IntentBased || v.SlippagePpm <= 0 || v.SlippagePpm > 30_000 || v.Simulation != nil && v.Simulation.Error != "" {
+		return nil, errors.New("missing minimum output")
+	}
+	min := new(big.Int).Mul(out, big.NewInt(int64(1_000_000-v.SlippagePpm)))
+	min.Quo(min, big.NewInt(1_000_000))
+	if min.Sign() <= 0 {
+		return nil, errors.New("derived minimum is zero")
+	}
+	// When a simulation exists it must meet the derived minimum; without one
+	// the minimum is still enforced on chain by the swap calldata.
+	if v.Simulation != nil {
+		sim, err := positiveRaw(v.Simulation.AmountOutRaw)
+		if err != nil {
+			return nil, err
+		}
+		if sim.Cmp(min) < 0 {
+			return nil, errors.New("simulation below derived minimum")
+		}
+	}
+	return min, nil
+}
+
 func acceptablePriceImpact(impact float64) bool {
-	return !math.IsNaN(impact) && impact <= 0.15
+	return !math.IsNaN(impact) && !math.IsInf(impact, 0) && impact <= 0.15
+}
+
+// defaultMaxLossBps is the default guardrail on value lost to the market
+// (excluding the Oku fee), in basis points. Small chains with thin pools or
+// stale oracles routinely exceed it; prepare refuses unless --max-loss-bps or
+// --allow-high-impact explicitly accepts the loss.
+const defaultMaxLossBps = 500
+
+// swapLoss returns the market loss fraction (positive is worse) for a quote,
+// excluding an input-side Oku fee when its USD share is known. ok is false
+// when the quote carries no usable impact at all.
+func swapLoss(v *v2.SimpleSwapQuote) (loss float64, ok bool) {
+	if v == nil {
+		return 0, false
+	}
+	_, _, feeUSD, marketImpact := swapFee(v.FeeInfo, v.InAmountRaw, v.InUsdValue, v.OutUsdValue)
+	if v.InUsdValue > feeUSD && v.OutUsdValue > 0 && !math.IsNaN(marketImpact) && !math.IsInf(marketImpact, 0) {
+		return -marketImpact, true
+	}
+	if math.IsNaN(v.PriceImpact) || math.IsInf(v.PriceImpact, 0) {
+		return 0, false
+	}
+	// Upstream price_impact is positive when output is worth less.
+	return v.PriceImpact, true
+}
+
+// acceptableSwapImpact keeps the original selection-time sanity bound used
+// for picking among routes; it is no longer a hard refusal (see swapLoss).
+func acceptableSwapImpact(v *v2.SimpleSwapQuote) bool {
+	loss, ok := swapLoss(v)
+	return ok && acceptablePriceImpact(loss)
+}
+
+// lossBps converts a loss fraction to bps, clamped so absurd oracle values
+// (for example a near-zero input price) cannot overflow.
+func lossBps(loss float64) int64 {
+	if math.IsNaN(loss) {
+		return 0
+	}
+	return int64(math.Round(math.Max(-1_000_000, math.Min(1_000_000, loss*10_000))))
+}
+
+// mispriced flags a quote whose priced loss exceeds the guardrail. Only
+// losses count: a quote that returns more than the oracle value is fine.
+func mispriced(lossBps int64, maxLoss float64) bool {
+	if math.IsInf(maxLoss, 1) {
+		return false
+	}
+	return lossBps > int64(math.Round(maxLoss*10_000))
+}
+
+// usableImpact requires a finite valuation so the guardrail can be applied.
+func usableImpact(v *v2.SimpleSwapQuote) bool {
+	_, ok := swapLoss(v)
+	return ok
+}
+
+// maxLossFraction reads the guardrail: --allow-high-impact disables it,
+// --max-loss-bps sets it, otherwise defaultMaxLossBps.
+func maxLossFraction(e *env) float64 {
+	if e.cmd.Bool("allow-high-impact") {
+		return math.Inf(1)
+	}
+	if n := e.cmd.Int("max-loss-bps"); n > 0 {
+		return float64(n) / 10_000
+	}
+	return float64(defaultMaxLossBps) / 10_000
 }
 func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *api.Client, routeQuote, error) {
 	var w *resolvedWallet
@@ -233,12 +384,52 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 	if !decimals.IsInt64() || decimals.Int64() < 0 || decimals.Int64() > 36 {
 		return nil, nil, routeQuote{}, output.Errorf(output.CodeInvalidArgument, "unsupported token decimals")
 	}
-	amount, err := parseUnits(str(e, "amount"), int(decimals.Int64()))
+	amountText := str(e, "amount")
+	amountSource := ""
+	if isMaxAmount(amountText) {
+		amountSource = "max"
+		amountText, _, err = a.resolveMaxAmount(e, chain, from, w.agent, int(decimals.Int64()), recipient)
+		if err != nil {
+			return nil, nil, routeQuote{}, err
+		}
+	}
+	amount, err := parseUnits(amountText, int(decimals.Int64()))
 	if err != nil {
 		return nil, nil, routeQuote{}, output.Wrap(output.CodeInvalidDecimal, err, "amount")
 	}
-	return w, c, routeQuote{Chain: chain, OutChain: dst, InToken: from, OutToken: to, InAmount: amount.String(), Recipient: recipient}, nil
+	// Celo's native CELO is also an ERC-20 at a fixed address, and swap
+	// markets only route it as that token. The amount was resolved against
+	// the native balance (with its gas reserve) above; spending it through
+	// the ERC-20 interface draws from the same balance.
+	if kind == "swap" {
+		if alias := nativeTokenAlias(chain); alias != "" {
+			if from == "native" {
+				from = alias
+			}
+			if to == "native" {
+				to = alias
+			}
+		}
+	}
+	return w, c, routeQuote{Chain: chain, OutChain: dst, InToken: from, OutToken: to, InAmount: amount.String(), Recipient: recipient, amountText: amountText, ResolvedAmount: amountText, AmountSource: amountSource}, nil
 }
+
+// nativeTokenAlias returns the ERC-20 that is the chain's native currency,
+// where one exists (Celo's GoldToken).
+func nativeTokenAlias(chain uint64) string {
+	if chain == 42220 {
+		return "0x471EcE3750Da237f93B8E339c536989b8978a438"
+	}
+	return ""
+}
+
+func quoteTokenAddress(kind, token string) string {
+	if token == "native" && (kind == "swap" || kind == "bridge") {
+		return "0x0000000000000000000000000000000000000000"
+	}
+	return token
+}
+
 func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolvedWallet, error) {
 	w, c, q, err := a.routeInputs(e, kind, prepare)
 	if err != nil {
@@ -268,7 +459,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			return q, nil, output.Errorf(output.CodeRejected, "no active swap markets support chain %d", q.Chain)
 		}
 		var created v2.SwapCreateResponse
-		req := &v2.SwapCreateRequest{Integration: "", Params: &v2.SwapQuoteParams{Chain: int64(q.Chain), EnabledMarkets: markets, Account: w.agent, IsExactIn: true, InTokenAddress: q.InToken, OutTokenAddress: q.OutToken, TokenAmount: str(e, "amount"), SlippagePpm: ppm, DstAddress: q.Recipient, UseOkuRouter: true, UsePermit2: false, EnableJit: false}}
+		req := &v2.SwapCreateRequest{Integration: "", Params: &v2.SwapQuoteParams{Chain: int64(q.Chain), EnabledMarkets: markets, Account: w.agent, IsExactIn: true, InTokenAddress: quoteTokenAddress("swap", q.InToken), OutTokenAddress: quoteTokenAddress("swap", q.OutToken), TokenAmount: q.amountText, SlippagePpm: ppm, DstAddress: q.Recipient, UseOkuRouter: true, UsePermit2: false, EnableJit: false}}
 		if err = c.Swap(ctx, "Create", req, &created, prepare); err != nil {
 			return q, nil, apiError(err, "swap Create")
 		}
@@ -346,6 +537,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			}
 			sort.Strings(keys)
 			best := math.Inf(-1)
+			bestInBound := false
 			for _, key := range keys {
 				entry := quotes.Quotes[key]
 				if entry != nil && entry.Error != nil && entry.Error.Message != "" {
@@ -355,11 +547,11 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					continue
 				}
 				v := entry.Quote
-				if e.cmd.Bool("no-intent") && v.IntentBased || v.ChainId != int32(q.Chain) || !v.IsExactIn || !v.IntentBased && !acceptablePriceImpact(v.PriceImpact) || math.IsNaN(v.NetUsdValue) {
+				if e.cmd.Bool("no-intent") && v.IntentBased || v.ChainId != int32(q.Chain) || !v.IsExactIn || !v.IntentBased && !usableImpact(v) || math.IsNaN(v.NetUsdValue) {
 					continue
 				}
 				input, ie := positiveRaw(v.InAmountRaw)
-				min, me := positiveRaw(v.MinAmountOutRaw)
+				min, me := swapMinOut(v)
 				if ie != nil || me != nil || input.String() != q.InAmount {
 					continue
 				}
@@ -368,14 +560,18 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 						continue
 					}
 				} else {
-					if routerFor(q.Chain) == "" || v.Simulation == nil || v.Simulation.Error != "" {
+					// A missing simulation is accepted (some small-chain markets never
+					// simulate); a simulation that ran and failed is not.
+					if routerFor(q.Chain) == "" || v.Simulation != nil && v.Simulation.Error != "" {
 						continue
 					}
-					if _, se := positiveRaw(v.Simulation.AmountOutRaw); se != nil {
-						continue
+					if v.Simulation != nil {
+						if _, se := positiveRaw(v.Simulation.AmountOutRaw); se != nil {
+							continue
+						}
 					}
 				}
-				if v.InToken == nil || v.OutToken == nil || q.InToken != "native" && !strings.EqualFold(v.InToken.Address, q.InToken) || q.OutToken != "native" && !strings.EqualFold(v.OutToken.Address, q.OutToken) {
+				if v.InToken == nil || v.OutToken == nil || !bridgeTokenMatches(v.InToken.Address, q.InToken) || !bridgeTokenMatches(v.OutToken.Address, q.OutToken) {
 					continue
 				}
 				if !v.IntentBased && (len(v.SigningRequest.GetTypedData()) > 0 || !consistentSwapApprovals(v.Approvals, v.ApprovalsV2, q.Chain, q.InToken, q.InAmount)) {
@@ -385,8 +581,12 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 				if !v.IntentBased && q.InToken != "native" && (len(v.ApprovalsV2) > 0 || len(v.Approvals) > 0) && !strings.EqualFold(spender, routerFor(q.Chain)) {
 					continue
 				}
-				if v.NetUsdValue > best {
+				// Prefer routes inside the selection bound; a high-impact route is
+				// only chosen when no in-bound route exists, and is then flagged.
+				inBound := v.IntentBased || acceptableSwapImpact(v)
+				if inBound && !bestInBound || inBound == bestInBound && v.NetUsdValue > best {
 					best = v.NetUsdValue
+					bestInBound = inBound
 					q.QuoteID = entry.QuoteId
 					q.Route = entry.Router
 					q.Intent = v.IntentBased
@@ -396,6 +596,14 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					}
 					q.MinOut = min.String()
 					q.OutAmount = v.OutAmountRaw
+					q.InUSD, q.OutUSD, q.GasUSD, q.PriceImpact = v.InUsdValue, v.OutUsdValue, v.GasUsdValue, v.PriceImpact
+					q.OkuFeeRaw, q.OkuFeeToken, q.OkuFeeUSD, q.MarketImpact = swapFee(v.FeeInfo, q.InAmount, v.InUsdValue, v.OutUsdValue)
+					q.LossBps = 0
+					if loss, ok := swapLoss(v); ok {
+						q.LossBps = lossBps(loss)
+					}
+					q.HighImpact = !inBound || mispriced(q.LossBps, maxLossFraction(e))
+					q.NoSimulation = !v.IntentBased && v.Simulation == nil
 					q.Spender = quoteSpender(v.ApprovalsV2, q.InToken, q.InAmount)
 				}
 			}
@@ -413,7 +621,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			return q, nil, output.Errorf(output.CodeRejected, "no active bridge supports both chains")
 		}
 		var created v2.BridgeCreateResponse
-		req := &v2.BridgeCreateRequest{Integration: "", Params: &v2.BridgeQuoteParams{InChain: int64(q.Chain), OutChain: int64(q.OutChain), EnabledBridges: bridges, InChainCaip2: fmt.Sprintf("eip155:%d", q.Chain), OutChainCaip2: fmt.Sprintf("eip155:%d", q.OutChain), Account: w.agent, DstAddress: q.Recipient, InTokenAddress: q.InToken, OutTokenAddress: q.OutToken, InTokenAmount: str(e, "amount"), SlippagePpm: ppm}}
+		req := &v2.BridgeCreateRequest{Integration: "", Params: &v2.BridgeQuoteParams{InChain: int64(q.Chain), OutChain: int64(q.OutChain), EnabledBridges: bridges, InChainCaip2: fmt.Sprintf("eip155:%d", q.Chain), OutChainCaip2: fmt.Sprintf("eip155:%d", q.OutChain), Account: w.agent, DstAddress: q.Recipient, InTokenAddress: quoteTokenAddress("bridge", q.InToken), OutTokenAddress: quoteTokenAddress("bridge", q.OutToken), InTokenAmount: q.amountText, SlippagePpm: ppm}}
 		if err = c.Bridge(ctx, "Create", req, &created, prepare); err != nil {
 			return q, nil, apiError(err, "bridge Create")
 		}
@@ -491,7 +699,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 				if v.IntentBased && (len(v.SigningRequest.GetTypedData()) == 0 || v.SigningRequest.TypedData[0].GetPayload() == nil) || !v.IntentBased && len(v.SigningRequest.GetTypedData()) > 0 {
 					continue
 				}
-				if v.InToken == nil || v.OutToken == nil || !(strings.EqualFold(v.InToken.Address, q.InToken) || q.InToken == "native" && (strings.EqualFold(v.InToken.Address, "0x0000000000000000000000000000000000000000") || strings.EqualFold(v.InToken.Address, "native"))) || !strings.EqualFold(v.OutToken.Address, q.OutToken) {
+				if v.InToken == nil || v.OutToken == nil || !bridgeTokenMatches(v.InToken.Address, q.InToken) || !bridgeTokenMatches(v.OutToken.Address, q.OutToken) {
 					continue
 				}
 				input, ie := parseUnits(v.InAmount, int(v.InToken.Decimals))
@@ -516,6 +724,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					q.Target = ""
 					q.MinOut = min.String()
 					q.OutAmount = out.String()
+					q.InUSD, q.OutUSD, q.GasUSD, q.FeesUSD = v.InUsdValue, v.OutUsdValue, v.GasUsdValue, v.FeesUsdValue
 					q.Spender = quoteSpender(v.Approvals, q.InToken, q.InAmount)
 				}
 			}
@@ -531,6 +740,12 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 	}
 	q.ExpiresAt = a.Now().Add(3 * time.Minute).UTC().Format(time.RFC3339Nano)
 	return q, w, nil
+}
+func bridgeTokenMatches(quoted, requested string) bool {
+	if strings.EqualFold(quoted, requested) {
+		return true
+	}
+	return requested == "native" && isNativeToken(quoted)
 }
 func filterRoute(names []string, forced string) []string {
 	for _, name := range names {
@@ -591,6 +806,9 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
+	if kind == "swap" && !q.Intent && q.HighImpact && !e.cmd.Bool("allow-high-impact") {
+		return nil, output.Errorf(output.CodeRejected, "high impact: priced loss %.2f%% (in_usd %.4f, out_usd %.4f, oku fee %.4f) exceeds --max-loss-bps %d; rerun with a higher --max-loss-bps or --allow-high-impact only after reviewing the quote", float64(q.LossBps)/100, q.InUSD, q.OutUSD, q.OkuFeeUSD, int(maxLossFraction(e)*10_000))
+	}
 	router := routerFor(q.Chain)
 	if kind == "swap" && !q.Intent && (router == "" || !strings.EqualFold(q.Target, router) || q.InToken != "native" && q.Spender != "" && !strings.EqualFold(q.Spender, router)) {
 		return nil, output.Errorf(output.CodeRejected, "swap route or approval spender is not OkuRouter")
@@ -612,6 +830,10 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 		placeholders = nil // No source trade transaction. Approvals are bound at submit.
 	}
 	in := journal.OnchainIntent{ID: id, Kind: kind, Intent: q.Intent, ChainID: q.Chain, OutChain: q.OutChain, Sender: w.agent, Recipient: q.Recipient, Token: q.InToken, OutToken: q.OutToken, Amount: q.InAmount, OrderID: q.OrderID, QuoteID: q.QuoteID, Generation: q.Generation, Route: q.Route, Target: q.Target, Spender: q.Spender, MinOut: q.MinOut, ExpiresAt: q.ExpiresAt, CreatedAt: a.Now().UTC().Format(time.RFC3339Nano), Templates: placeholders}
+	if q.AmountSource != "" {
+		in.ResolvedAmount = q.ResolvedAmount
+		in.AmountSource = q.AmountSource
+	}
 	j, err := openJournal(w.profile)
 	if err != nil {
 		return nil, err
@@ -621,7 +843,36 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeIntentConflict, err, "creating route intent")
 	}
-	return routeRecord(r), nil
+	res := routeRecord(r)
+	res.data = preparedRoute{OnchainRecord: r, Valuation: valuationOf(q)}
+	return res, nil
+}
+
+// routeValuation is the backend's informational pricing of the prepared
+// quote, for guardrails. It is not part of the digest and never executed.
+type routeValuation struct {
+	InUSD        float64 `json:"in_usd"`
+	OutUSD       float64 `json:"out_usd"`
+	GasUSD       float64 `json:"gas_usd"`
+	FeesUSD      float64 `json:"fees_usd,omitempty"`
+	PriceImpact  float64 `json:"price_impact,omitempty"`
+	OkuFeeRaw    string  `json:"oku_fee_raw,omitempty"`
+	OkuFeeToken  string  `json:"oku_fee_token,omitempty"`
+	OkuFeeUSD    float64 `json:"oku_fee_usd,omitempty"`
+	MarketImpact float64 `json:"market_impact,omitempty"`
+	OutAmount    string  `json:"out_amount"`
+	LossBps      int64   `json:"loss_bps"`
+	HighImpact   bool    `json:"high_impact"`
+	NoSimulation bool    `json:"no_simulation,omitempty"`
+}
+
+type preparedRoute struct {
+	*journal.OnchainRecord
+	Valuation routeValuation `json:"valuation"`
+}
+
+func valuationOf(q routeQuote) routeValuation {
+	return routeValuation{InUSD: q.InUSD, OutUSD: q.OutUSD, GasUSD: q.GasUSD, FeesUSD: q.FeesUSD, PriceImpact: q.PriceImpact, OkuFeeRaw: q.OkuFeeRaw, OkuFeeToken: q.OkuFeeToken, OkuFeeUSD: q.OkuFeeUSD, MarketImpact: q.MarketImpact, OutAmount: q.OutAmount, LossBps: q.LossBps, HighImpact: q.HighImpact, NoSimulation: q.NoSimulation}
 }
 func mustRaw(s string) *big.Int { n, _ := positiveRaw(s); return n }
 func routeRecord(r *journal.OnchainRecord) *result {

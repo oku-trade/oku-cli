@@ -120,6 +120,8 @@ func TestSendUnknownBlocksNextSubmission(t *testing.T) {
 			fmt.Fprint(w, `{"result":"0xde0b6b3a7640000"}`)
 		case "eth_gasPrice":
 			fmt.Fprint(w, `{"result":"0x1"}`)
+		case "eth_getBlockByNumber":
+			fmt.Fprint(w, `{"result":{"baseFeePerGas":"0x1"}}`)
 		default:
 			t.Errorf("unexpected RPC %s", request.Method)
 		}
