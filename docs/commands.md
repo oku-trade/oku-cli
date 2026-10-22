@@ -85,7 +85,7 @@ Prepare a backend-built transaction bridge
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
 | `--route` | select only this swap router or bridge | `` |
 | `--no-intent` | exclude typed-data intent routes | `false` |
-| `--max-loss-bps` | swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 300) | `0` |
+| `--max-loss-bps` | swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 500) | `0` |
 | `--allow-high-impact` | swap guardrail override: prepare even when the priced loss exceeds --max-loss-bps (small chains, mispriced oracles) | `false` |
 | `--destination-chain` | destination EVM chain ID | `` |
 | `--intent-id` | optional unique intent ID | `` |
@@ -107,7 +107,7 @@ Quote EVM-to-EVM bridge routes
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
 | `--route` | select only this swap router or bridge | `` |
 | `--no-intent` | exclude typed-data intent routes | `false` |
-| `--max-loss-bps` | swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 300) | `0` |
+| `--max-loss-bps` | swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 500) | `0` |
 | `--allow-high-impact` | swap guardrail override: prepare even when the priced loss exceeds --max-loss-bps (small chains, mispriced oracles) | `false` |
 | `--destination-chain` | destination EVM chain ID | `` |
 
@@ -521,7 +521,7 @@ Prepare an agent EVM swap
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
 | `--route` | select only this swap router or bridge | `` |
 | `--no-intent` | exclude typed-data intent routes | `false` |
-| `--max-loss-bps` | swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 300) | `0` |
+| `--max-loss-bps` | swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 500) | `0` |
 | `--allow-high-impact` | swap guardrail override: prepare even when the priced loss exceeds --max-loss-bps (small chains, mispriced oracles) | `false` |
 | `--intent-id` | optional unique intent ID | `` |
 
@@ -542,7 +542,7 @@ Quote exact-in EVM swap routes
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
 | `--route` | select only this swap router or bridge | `` |
 | `--no-intent` | exclude typed-data intent routes | `false` |
-| `--max-loss-bps` | swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 300) | `0` |
+| `--max-loss-bps` | swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 500) | `0` |
 | `--allow-high-impact` | swap guardrail override: prepare even when the priced loss exceeds --max-loss-bps (small chains, mispriced oracles) | `false` |
 
 ## `oku swap reconcile`

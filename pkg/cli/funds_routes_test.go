@@ -226,12 +226,12 @@ func TestSwapImpactRejectsBrokenPools(t *testing.T) {
 	}
 }
 
-func TestMispricedBothDirectionsAndClamp(t *testing.T) {
-	if !mispriced(400, 0.03) || mispriced(200, 0.03) {
-		t.Fatal("loss threshold")
+func TestMispricedOnlyLossesAndClamp(t *testing.T) {
+	if !mispriced(501, 0.05) || mispriced(500, 0.05) || mispriced(280, float64(defaultMaxLossBps)/10_000) {
+		t.Fatal("loss threshold (default 5%)")
 	}
-	if !mispriced(-26922, 0.03) || mispriced(-317, 0.03) {
-		t.Fatal("implausible gain must flag, small gain must not")
+	if mispriced(-26922, 0.05) || mispriced(-317, 0.05) {
+		t.Fatal("priced gains never flag")
 	}
 	if mispriced(9999, math.Inf(1)) {
 		t.Fatal("override disables guardrail")

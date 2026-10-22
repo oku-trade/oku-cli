@@ -28,7 +28,7 @@ const (
 )
 
 func routeFlags(bridge bool) []urfave.Flag {
-	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137"}, &urfave.StringFlag{Name: "from", Usage: "input token address or unambiguous symbol"}, &urfave.StringFlag{Name: "to", Usage: "output token address or unambiguous symbol"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount or max/all (full onchain balance)"}, &urfave.StringFlag{Name: "gas-reserve", Usage: "native gas reserve in native units for max/all (default 0.001, Ethereum 0.01)"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}, &urfave.StringFlag{Name: "route", Usage: "select only this swap router or bridge"}, &urfave.BoolFlag{Name: "no-intent", Usage: "exclude typed-data intent routes"}, &urfave.IntFlag{Name: "max-loss-bps", Usage: "swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 300)"}, &urfave.BoolFlag{Name: "allow-high-impact", Usage: "swap guardrail override: prepare even when the priced loss exceeds --max-loss-bps (small chains, mispriced oracles)"}}
+	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137"}, &urfave.StringFlag{Name: "from", Usage: "input token address or unambiguous symbol"}, &urfave.StringFlag{Name: "to", Usage: "output token address or unambiguous symbol"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount or max/all (full onchain balance)"}, &urfave.StringFlag{Name: "gas-reserve", Usage: "native gas reserve in native units for max/all (default 0.001, Ethereum 0.01)"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}, &urfave.StringFlag{Name: "route", Usage: "select only this swap router or bridge"}, &urfave.BoolFlag{Name: "no-intent", Usage: "exclude typed-data intent routes"}, &urfave.IntFlag{Name: "max-loss-bps", Usage: "swap guardrail: refuse prepare when market loss (excluding the Oku fee) exceeds this many bps (default 500)"}, &urfave.BoolFlag{Name: "allow-high-impact", Usage: "swap guardrail override: prepare even when the priced loss exceeds --max-loss-bps (small chains, mispriced oracles)"}}
 	if bridge {
 		flags = append(flags, &urfave.StringFlag{Name: "destination-chain", Usage: "destination EVM chain ID"})
 	}
@@ -255,7 +255,7 @@ func acceptablePriceImpact(impact float64) bool {
 // (excluding the Oku fee), in basis points. Small chains with thin pools or
 // stale oracles routinely exceed it; prepare refuses unless --max-loss-bps or
 // --allow-high-impact explicitly accepts the loss.
-const defaultMaxLossBps = 300
+const defaultMaxLossBps = 500
 
 // swapLoss returns the market loss fraction (positive is worse) for a quote,
 // excluding an input-side Oku fee when its USD share is known. ok is false
@@ -291,19 +291,14 @@ func lossBps(loss float64) int64 {
 	return int64(math.Round(math.Max(-1_000_000, math.Min(1_000_000, loss*10_000))))
 }
 
-// mispriced flags a quote whose priced value disagrees with its output beyond
-// the guardrail in either direction: a large loss, or an implausible gain
-// (output priced well above input) that signals a broken oracle.
+// mispriced flags a quote whose priced loss exceeds the guardrail. Only
+// losses count: a quote that returns more than the oracle value is fine.
 func mispriced(lossBps int64, maxLoss float64) bool {
 	if math.IsInf(maxLoss, 1) {
 		return false
 	}
-	limit := int64(math.Round(maxLoss * 10_000))
-	return lossBps > limit || lossBps < -maxPricedGainBps
+	return lossBps > int64(math.Round(maxLoss*10_000))
 }
-
-// maxPricedGainBps: a priced "gain" above 50% is treated as an oracle error.
-const maxPricedGainBps = 5000
 
 // usableImpact requires a finite valuation so the guardrail can be applied.
 func usableImpact(v *v2.SimpleSwapQuote) bool {
@@ -812,7 +807,7 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 		return nil, err
 	}
 	if kind == "swap" && !q.Intent && q.HighImpact && !e.cmd.Bool("allow-high-impact") {
-		return nil, output.Errorf(output.CodeRejected, "high impact: priced loss %.2f%% (in_usd %.4f, out_usd %.4f, oku fee %.4f) is beyond the guardrail (--max-loss-bps %d, or a priced gain above %d%% which signals a broken oracle); rerun with a higher --max-loss-bps or --allow-high-impact only after reviewing the quote", float64(q.LossBps)/100, q.InUSD, q.OutUSD, q.OkuFeeUSD, int(maxLossFraction(e)*10_000), maxPricedGainBps/100)
+		return nil, output.Errorf(output.CodeRejected, "high impact: priced loss %.2f%% (in_usd %.4f, out_usd %.4f, oku fee %.4f) exceeds --max-loss-bps %d; rerun with a higher --max-loss-bps or --allow-high-impact only after reviewing the quote", float64(q.LossBps)/100, q.InUSD, q.OutUSD, q.OkuFeeUSD, int(maxLossFraction(e)*10_000))
 	}
 	router := routerFor(q.Chain)
 	if kind == "swap" && !q.Intent && (router == "" || !strings.EqualFold(q.Target, router) || q.InToken != "native" && q.Spender != "" && !strings.EqualFold(q.Spender, router)) {
