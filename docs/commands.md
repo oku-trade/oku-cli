@@ -32,10 +32,21 @@ Authorize a Privy embedded-wallet agent on the Oku website
 | `--api-url` | Oku API origin for the profile created when none exists | `` |
 | `--no-open` | print verification URL without opening browser | `false` |
 | `--timeout` | maximum time to wait for authorization | `10m0s` |
+| `--credential-store` | Linux: where to keep the credential, file (passphrase, default) or keyring (desktop Secret Service); default $OKU_CREDENTIAL_STORE, else the profile's current store. Ignored on macOS (Keychain) | `` |
 
 ## `oku auth logout`
 
 Log out and delete the local Privy agent credential
+
+## `oku auth migrate`
+
+Move the credential between the file and desktop keyring stores (Linux): auth migrate --to file|keyring
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--to` | target credential store on Linux: file (passphrase) or keyring (desktop Secret Service) | `` |
 
 ## `oku auth status`
 
@@ -429,6 +440,18 @@ Remove a profile without credentials: profiles remove NAME
 
 Set the default profile: profiles use NAME
 
+## `oku self-update`
+
+Upgrade this binary from the latest GitHub release (--check to only compare)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--check` | only report the current and latest version; download nothing | `false` |
+| `--version` | install this release tag (vX.Y.Z) instead of the latest; allows downgrades | `` |
+| `--force` | reinstall even if already on that version (does not override mise/nix/Homebrew refusal) | `false` |
+
 ## `oku send prepare`
 
 Prepare an agent EVM transfer
@@ -576,6 +599,18 @@ Submit a verified EVM swap
 | --- | --- | --- |
 | `--intent` | intent id from 'swap prepare' (required) | `` |
 | `--digest` | intent digest from 'swap prepare' (required) | `` |
+
+## `oku telemetry disable`
+
+Opt out of usage telemetry and delete the install ID
+
+## `oku telemetry enable`
+
+Opt in to anonymous usage telemetry (off by default; DO_NOT_TRACK=1 always wins)
+
+## `oku telemetry status`
+
+Show whether telemetry is on, why, the install ID and exactly which fields are sent
 
 ## `oku version`
 

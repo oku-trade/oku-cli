@@ -38,6 +38,9 @@ type Profile struct {
 	Network    string `json:"network"`
 	APIURL     string `json:"api_url"`
 	Account    string `json:"account,omitempty"`
+	// CredentialStore records where the profile's credential lives on Linux:
+	// "file" (default, passphrase-sealed) or "keyring" (Secret Service).
+	CredentialStore string `json:"credential_store,omitempty"`
 }
 
 // File is the persisted config document.
@@ -45,6 +48,15 @@ type File struct {
 	Version        int                 `json:"version"`
 	DefaultProfile string              `json:"default_profile,omitempty"`
 	Profiles       map[string]*Profile `json:"profiles"`
+	// Telemetry is global (not per profile) and off unless explicitly enabled.
+	Telemetry *Telemetry `json:"telemetry,omitempty"`
+}
+
+// Telemetry holds the opt-in usage telemetry preference.
+type Telemetry struct {
+	Enabled bool `json:"enabled"`
+	// HintShown records that the one-time login hint was printed.
+	HintShown bool `json:"hint_shown,omitempty"`
 }
 
 // Dir returns the oku config directory.
@@ -152,6 +164,11 @@ func (p *Profile) Validate() error {
 	}
 	if p.Account != "" && !ValidAddress(p.Account) {
 		return fmt.Errorf("account %q is not a 0x-prefixed 20-byte address", p.Account)
+	}
+	switch p.CredentialStore {
+	case "", "file", "keyring":
+	default:
+		return fmt.Errorf("credential_store %q is not supported (want file or keyring)", p.CredentialStore)
 	}
 	return ValidateAPIURL(p.APIURL)
 }

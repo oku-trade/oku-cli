@@ -1,5 +1,6 @@
 name: github-release
-# Builds all four targets natively, smoke-tests them, and publishes a GitHub Release with
+# Builds all four targets (linux natively on Ubicloud x86/arm, darwin arm64 natively and
+# darwin/amd64 cross-compiled on one Namespace mac), smoke-tests them, and publishes a GitHub Release with
 # oku_<tag>_<os>_<arch>.tar.gz archives plus a combined SHA256SUMS.
 # Trigger: push a semver tag (git tag v0.1.0 && git push origin v0.1.0), or re-run for an
 # existing tag via workflow_dispatch. The npm path lives separately in release.yml (disabled).
@@ -20,70 +21,131 @@ env:
   TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 jobs:
   validate:
-    runs-on: ubuntu-24.04
+    runs-on: ubicloud-standard-2
     steps:
       - name: tag must be semver (vMAJOR.MINOR.PATCH[-pre])
         run: |
           echo "tag: $TAG"
           echo "$TAG" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$' \
             || { echo "tag '$TAG' is not semver (expected vX.Y.Z or vX.Y.Z-pre)" >&2; exit 1; }
-  build:
+  build-linux:
     needs: validate
-    name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+    name: build linux/${{ matrix.goarch }}
     strategy:
       fail-fast: true
       matrix:
+        # Ubicloud labels per https://www.ubicloud.com/docs/github-actions-integration/runner-types
+        # (ubicloud-standard-2 = 2 vCPU x64, ubicloud-standard-2-arm = 2 vCPU arm64, Ubuntu 24.04).
         include:
-          - { runner: ubuntu-24.04,     goos: linux,  goarch: amd64, cgo: "0" }
-          - { runner: ubuntu-24.04-arm, goos: linux,  goarch: arm64, cgo: "0" }
-          - { runner: macos-15-intel,   goos: darwin, goarch: amd64, cgo: "1" }
-          - { runner: macos-15,         goos: darwin, goarch: arm64, cgo: "1" }
+          - { runner: ubicloud-standard-2,     goarch: amd64 }
+          - { runner: ubicloud-standard-2-arm, goarch: arm64 }
     runs-on: ${{ matrix.runner }}
     env:
-      CGO_ENABLED: ${{ matrix.cgo }}
+      CGO_ENABLED: "0"
     steps:
       - uses: actions/checkout@v4
         with:
           ref: refs/tags/${{ env.TAG }}
           fetch-depth: 0
       - uses: actions/setup-go@v5
-        with: { go-version-file: go.mod }
+        with: { go-version-file: go.mod, cache: true }
       - name: assert native host
-        run: test "$(go env GOOS)/$(go env GOARCH)" = "${{ matrix.goos }}/${{ matrix.goarch }}"
-      - name: test (linux)
-        if: matrix.goos == 'linux'
-        run: make test
-      - name: test (darwin, disposable keychain; never the login keychain)
-        if: matrix.goos == 'darwin'
-        env: { OKU_KEYCHAIN_TEST_ACK: disposable-runner }
-        run: ./mise-tasks/macos-keychain-test.sh make test
+        run: test "$(go env GOOS)/$(go env GOARCH)" = "linux/${{ matrix.goarch }}"
+      - run: make test
       - name: build archive (version stamped from tag)
-        run: VERSION="$TAG" PLATFORMS=${{ matrix.goos }}/${{ matrix.goarch }} ./mise-tasks/dist.sh
+        run: VERSION="$TAG" PLATFORMS=linux/${{ matrix.goarch }} ./mise-tasks/dist.sh
       - name: smoke packaged binary
         run: |
           set -euo pipefail
-          n="oku_${TAG}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          n="oku_${TAG}_linux_${{ matrix.goarch }}"
           mkdir -p smoke
           tar -xzf "dist/$n.tar.gz" -C smoke
           bin="smoke/$n/oku"
-          tar -tzf "dist/$n.tar.gz" | grep -q '/THIRD_PARTY_NOTICES$'
+          tar -tzf "dist/$n.tar.gz" | grep >/dev/null '/THIRD_PARTY_NOTICES$'
           ./mise-tasks/binary-smoke.sh "$bin"
           "$bin" version | tee version.txt
           grep -qF "$TAG" version.txt || { echo "oku version does not report $TAG" >&2; exit 1; }
-          if [ "${{ matrix.goos }}" = darwin ]; then
-            otool -L "$bin" | grep -q Security.framework || { echo "darwin binary lacks Security.framework" >&2; exit 1; }
-            codesign --verify --strict --verbose=2 "$bin"
-          else
-            file "$bin" | grep -q 'statically linked' || { echo "linux binary not static" >&2; exit 1; }
-          fi
+          file "$bin" | grep >/dev/null 'statically linked' || { echo "linux binary not static" >&2; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
-          name: gh-release-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: dist/oku_${{ env.TAG }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
+          name: gh-release-linux-${{ matrix.goarch }}
+          path: dist/oku_${{ env.TAG }}_linux_${{ matrix.goarch }}.tar.gz
+          if-no-files-found: error
+  build-darwin:
+    needs: validate
+    name: build darwin/arm64 + darwin/amd64
+    # Namespace macOS (Apple Silicon), same profile as the retail app. Override the label with
+    # the OKU_MACOS_RUNNER repo variable. darwin/amd64 is cross-compiled here with CGO
+    # (clang -arch x86_64, OKU_DARWIN_CROSS=1 in dist.sh); no Intel runner.
+    runs-on: ${{ vars.OKU_MACOS_RUNNER || 'namespace-profile-ios' }}
+    env:
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod, cache: true }
+      - name: preflight (macOS arm64, Xcode CLT, clang, go)
+        run: |
+          set -euo pipefail
+          sw_vers
+          xcode-select -p || { echo "no Xcode/CLT on runner: install Xcode command line tools in the profile" >&2; exit 1; }
+          clang --version || { echo "clang missing on runner" >&2; exit 1; }
+          xcrun --sdk macosx --show-sdk-path || { echo "macOS SDK missing (xcrun)" >&2; exit 1; }
+          go version
+          test "$(go env GOOS)/$(go env GOARCH)" = darwin/arm64 || { echo "expected an Apple Silicon runner, got $(go env GOOS)/$(go env GOARCH)" >&2; exit 1; }
+      - name: test (darwin/arm64, disposable keychain; never the login keychain)
+        env: { OKU_KEYCHAIN_TEST_ACK: disposable-runner }
+        run: ./mise-tasks/macos-keychain-test.sh make test
+      - name: build archives (version stamped from tag)
+        env: { OKU_DARWIN_CROSS: "1" }
+        run: VERSION="$TAG" PLATFORMS="darwin/arm64 darwin/amd64" ./mise-tasks/dist.sh
+      - name: smoke packaged binaries
+        run: |
+          set -euo pipefail
+          rosetta=0
+          if arch -x86_64 /usr/bin/true 2>/dev/null; then rosetta=1; fi
+          for arch in arm64 amd64; do
+            n="oku_${TAG}_darwin_${arch}"
+            mkdir -p smoke
+            tar -xzf "dist/$n.tar.gz" -C smoke
+            bin="smoke/$n/oku"
+            tar -tzf "dist/$n.tar.gz" | grep >/dev/null '/THIRD_PARTY_NOTICES$'
+            file "$bin"
+            want=$arch; [ "$arch" = amd64 ] && want=x86_64
+            test "$(lipo -archs "$bin")" = "$want" || { echo "$bin: expected arch $want, got $(lipo -archs "$bin")" >&2; exit 1; }
+            otool -L "$bin" | grep >/dev/null Security.framework || { echo "$bin lacks Security.framework" >&2; exit 1; }
+            codesign --verify --strict --verbose=2 "$bin"
+            run=()
+            if [ "$arch" = amd64 ]; then
+              if [ "$rosetta" = 1 ]; then run=(arch -x86_64); else echo "rosetta unavailable: skipping darwin/amd64 exec smoke (static checks passed)"; continue; fi
+            fi
+            if [ "${#run[@]}" -gt 0 ]; then
+              printf '#!/bin/sh\nexec arch -x86_64 "%s" "$@"\n' "$PWD/$bin" > "smoke/oku-x86"
+              chmod +x smoke/oku-x86
+              ./mise-tasks/binary-smoke.sh smoke/oku-x86
+              "${run[@]}" "$bin" version | tee version.txt
+            else
+              ./mise-tasks/binary-smoke.sh "$bin"
+              "$bin" version | tee version.txt
+            fi
+            grep -qF "$TAG" version.txt || { echo "oku version does not report $TAG" >&2; exit 1; }
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gh-release-darwin-arm64
+          path: dist/oku_${{ env.TAG }}_darwin_arm64.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gh-release-darwin-amd64
+          path: dist/oku_${{ env.TAG }}_darwin_amd64.tar.gz
           if-no-files-found: error
   publish:
-    needs: build   # only after all four native builds and smoke tests pass
-    runs-on: ubuntu-24.04
+    needs: [build-linux, build-darwin]   # only after all four builds and smoke tests pass
+    runs-on: ubicloud-standard-2
     permissions:
       contents: write   # create the release and upload assets
     env:

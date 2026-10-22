@@ -19,17 +19,24 @@ mkdir -p "$OUT"
 for p in $PLATFORMS; do
   os="${p%/*}"; arch="${p#*/}"
   cgo=0
+  cross_env=()
   if [[ "$os" == darwin ]]; then
     cgo=1
     if [[ "$p" != "$host" ]]; then
-      echo "refusing $p on $host: darwin builds need CGO on a native macOS $arch host" >&2
-      exit 2
+      # Opt-in: darwin/amd64 cross-compiled with CGO on an Apple Silicon host (clang -arch x86_64
+      # against the same macOS SDK). Used by the release workflow; no Intel runner needed.
+      if [[ "${OKU_DARWIN_CROSS:-}" == 1 && "$p" == darwin/amd64 && "$host" == darwin/arm64 ]]; then
+        cross_env=(CC="clang -arch x86_64" CGO_CFLAGS="-arch x86_64" CGO_LDFLAGS="-arch x86_64" SDKROOT="$(xcrun --sdk macosx --show-sdk-path)")
+      else
+        echo "refusing $p on $host: darwin builds need CGO on a native macOS $arch host (or OKU_DARWIN_CROSS=1 for darwin/amd64 on darwin/arm64)" >&2
+        exit 2
+      fi
     fi
   fi
   name="oku_${VERSION}_${os}_${arch}"
   echo "building $name (CGO_ENABLED=$cgo)" >&2
   rm -f "$OUT/$name.tar.gz"
-  CGO_ENABLED=$cgo GOOS="$os" GOARCH="$arch" go build -trimpath -buildvcs=false \
+  env ${cross_env[@]+"${cross_env[@]}"} CGO_ENABLED=$cgo GOOS="$os" GOARCH="$arch" go build -trimpath -buildvcs=false \
     -ldflags "-s -w -buildid= -X main.version=${VERSION} -X github.com/oku-trade/oku-cli/pkg/buildinfo.Commit=${COMMIT}" \
     -o "$OUT/$name/oku" ./cmd/oku
   if [[ "$os" == darwin ]]; then

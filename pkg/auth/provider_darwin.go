@@ -9,16 +9,11 @@ package auth
 import "C"
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 
 	keychain "github.com/keybase/go-keychain"
-	"github.com/oku-trade/oku-cli/pkg/config"
 )
-
-const keychainService = "com.oku.trade.cli.credentials.v1"
 
 type systemKeychain struct{}
 
@@ -33,14 +28,6 @@ func disallowKeychainInteraction() error {
 	return nil
 }
 
-func keychainAccount(k key) (string, error) {
-	dir, err := config.Dir()
-	if err != nil {
-		return "", err
-	}
-	digest := sha256.Sum256([]byte(dir))
-	return hex.EncodeToString(digest[:]) + ":" + k.kind + ":" + k.profile, nil
-}
 func keychainItem(k key) (keychain.Item, error) {
 	item := keychain.NewItem()
 	account, err := keychainAccount(k)
@@ -142,16 +129,9 @@ func (systemKeychain) Remove(k key) error {
 	return keychainError(err)
 }
 
-// SavePrivy stores the Privy (Accounts session) credential in the Keychain.
-func SavePrivy(profile string, md Metadata, s Secrets, _ []byte) error {
-	md.Kind = KindPrivy
-	return nativeSave(systemKeychain{}, privyKey(profile), md, s)
+func nativeStore(st Store) (credentialItemStore, error) {
+	if st != StoreKeychain {
+		return nil, fmt.Errorf("credential store %q is not available on macOS", st)
+	}
+	return systemKeychain{}, nil
 }
-func LoadPrivyMetadata(profile string) (*Metadata, error) {
-	md, _, err := nativeLoad(systemKeychain{}, privyKey(profile))
-	return md, err
-}
-func UnlockPrivy(profile string, _ []byte) (*Metadata, *Secrets, error) {
-	return nativeLoad(systemKeychain{}, privyKey(profile))
-}
-func DeletePrivy(profile string) error { return (systemKeychain{}).Remove(privyKey(profile)) }

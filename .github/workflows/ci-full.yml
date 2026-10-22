@@ -1,0 +1,51 @@
+name: ci-full
+# Heavy checks, manual only (Actions > ci-full > Run workflow). Never on push/PR.
+on:
+  workflow_dispatch:
+    inputs:
+      macos:
+        description: "also run the disposable-keychain macOS tests (Namespace mac)"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  race:
+    runs-on: ubicloud-standard-4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod, cache: true }
+      - name: race tests (CGO=1, test only; shipped linux binaries stay CGO_ENABLED=0)
+        env: { CGO_ENABLED: "1" }
+        run: go test -race -count=1 ./...
+  nix:
+    # Builds the flake package; catches a stale vendorHash after go.mod/go.sum changes.
+    runs-on: ubicloud-standard-2
+    steps:
+      - uses: actions/checkout@v4
+      # Repo Actions policy allows only GitHub-owned/verified/allowlisted actions. Nix comes
+      # from Ubuntu's own archive on the ephemeral runner: no third-party action, no curl|sh.
+      - name: install nix (Ubuntu archive)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends nix-bin nix-setup-systemd
+          sudo systemctl start nix-daemon.socket || true
+          nix --version
+      - run: sudo nix --extra-experimental-features 'nix-command flakes' build .#default -L --print-out-paths
+      - run: ./result/bin/oku version
+  macos-keychain:
+    if: inputs.macos
+    runs-on: ${{ vars.OKU_MACOS_RUNNER || 'namespace-profile-ios' }}
+    env:
+      CGO_ENABLED: "1"
+      OKU_KEYCHAIN_TEST_ACK: disposable-runner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod, cache: true }
+      - run: ./mise-tasks/macos-keychain-test.sh go test -race -count=1 ./...
+      # The lock/unlock test locks the keychain, so it runs alone with its own enable flag.
+      - name: dedicated native Keychain lock test
+        env: { OKU_KEYCHAIN_LOCK_TEST: "1" }
+        run: ./mise-tasks/macos-keychain-test.sh go test -count=1 -p 1 -run '^TestDedicatedNativeKeychain$' -v ./pkg/auth/

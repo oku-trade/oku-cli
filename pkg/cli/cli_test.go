@@ -254,6 +254,8 @@ type harness struct {
 	unprotectedLogin bool
 	// rpcChain additionally routes OKU_RPC_URL_<rpcChain> to rpcURL.
 	rpcChain string
+	// extraEnv supplies additional environment variables to commands.
+	extraEnv map[string]string
 }
 
 func newHarness(t *testing.T) *harness {
@@ -304,6 +306,9 @@ func (h *harness) run(args ...string) run {
 					return ""
 				}
 				return h.passFn
+			}
+			if v, ok := h.extraEnv[k]; ok {
+				return v
 			}
 			if k == "OKU_PRIVY_AUTH_URL" {
 				return h.privy.server.URL

@@ -42,7 +42,7 @@ On Linux the credential is encrypted with a passphrase. Login and any command th
 oku auth unlock            # optional: --for 2h
 ```
 
-`oku auth lock` forgets the unlock immediately. Never ask for the passphrase in chat. `OKU_PASSPHRASE_FILE` remains available for unattended servers but is not needed for normal use.
+`oku auth lock` forgets the unlock immediately. If `oku auth status` shows `store keyring`, the credential lives in the desktop keyring instead: there is no oku passphrase, and a "credential store unavailable" error means the user must unlock their desktop keyring (or run `oku auth migrate --to file` on a headless machine). Never ask for the passphrase in chat. `OKU_PASSPHRASE_FILE` remains available for unattended servers but is not needed for normal use.
 
 The CLI prints a URL and user code. The user visits the Oku authorization page, signs the Hyperliquid agent approval with their external master wallet, and approves the Privy device grant. That browser-signing wallet becomes the account, even if the profile previously held a different address. The CLI reads the approved agent's master from Hyperliquid and stores credentials only when its role is `agent`. Use `--no-open` to prevent automatic browser launch. Login is never available over MCP or the Service API.
 

@@ -108,13 +108,15 @@ func (a *App) cmdDoctor(e *env) (*result, error) {
 		if p.Name != "" {
 			md, err := auth.LoadPrivyMetadata(p.Name)
 			switch {
+			case errors.Is(err, auth.ErrNoCredentials) && storeLabel(p.Name) == string(auth.StoreKeyring):
+				add("credentials", false, "store keyring, but the credential item is missing; run oku auth login")
 			case errors.Is(err, auth.ErrNoCredentials):
 				add("credentials", true, "not logged in (public reads only)")
 			case err != nil:
 				add("credentials", false, err.Error())
 			default:
 				berr := e.checkBinding(md, p)
-				add("credentials", berr == nil && md.Status == "active", fmt.Sprintf("%s, agent %s", md.Status, md.AgentAddress))
+				add("credentials", berr == nil && md.Status == "active", fmt.Sprintf("%s, agent %s, store %s", md.Status, md.AgentAddress, storeLabel(p.Name)))
 			}
 			if j, err := journal.Open(p.Name); err == nil {
 				un, err := j.Unresolved()

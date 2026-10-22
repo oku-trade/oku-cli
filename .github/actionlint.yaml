@@ -1,0 +1,7 @@
+self-hosted-runner:
+  # Ubicloud (linux x86/arm) and Namespace (macOS) runner labels used by the workflows.
+  labels:
+    - ubicloud-standard-2
+    - ubicloud-standard-4
+    - ubicloud-standard-2-arm
+    - namespace-profile-ios
