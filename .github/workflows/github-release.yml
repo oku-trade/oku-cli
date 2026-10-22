@@ -1,0 +1,119 @@
+name: github-release
+# Builds all four targets natively, smoke-tests them, and publishes a GitHub Release with
+# oku_<tag>_<os>_<arch>.tar.gz archives plus a combined SHA256SUMS.
+# Trigger: push a semver tag (git tag v0.1.0 && git push origin v0.1.0), or re-run for an
+# existing tag via workflow_dispatch. The npm path lives separately in release.yml (disabled).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "existing tag to (re)build and publish, e.g. v0.1.0"
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: github-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+env:
+  TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: tag must be semver (vMAJOR.MINOR.PATCH[-pre])
+        run: |
+          echo "tag: $TAG"
+          echo "$TAG" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$' \
+            || { echo "tag '$TAG' is not semver (expected vX.Y.Z or vX.Y.Z-pre)" >&2; exit 1; }
+  build:
+    needs: validate
+    name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { runner: ubuntu-24.04,     goos: linux,  goarch: amd64, cgo: "0" }
+          - { runner: ubuntu-24.04-arm, goos: linux,  goarch: arm64, cgo: "0" }
+          - { runner: macos-15-intel,   goos: darwin, goarch: amd64, cgo: "1" }
+          - { runner: macos-15,         goos: darwin, goarch: arm64, cgo: "1" }
+    runs-on: ${{ matrix.runner }}
+    env:
+      CGO_ENABLED: ${{ matrix.cgo }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - name: assert native host
+        run: test "$(go env GOOS)/$(go env GOARCH)" = "${{ matrix.goos }}/${{ matrix.goarch }}"
+      - name: test (linux)
+        if: matrix.goos == 'linux'
+        run: make test
+      - name: test (darwin, disposable keychain; never the login keychain)
+        if: matrix.goos == 'darwin'
+        env: { OKU_KEYCHAIN_TEST_ACK: disposable-runner }
+        run: ./mise-tasks/macos-keychain-test.sh make test
+      - name: build archive (version stamped from tag)
+        run: VERSION="$TAG" PLATFORMS=${{ matrix.goos }}/${{ matrix.goarch }} ./mise-tasks/dist.sh
+      - name: smoke packaged binary
+        run: |
+          set -euo pipefail
+          n="oku_${TAG}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          mkdir -p smoke
+          tar -xzf "dist/$n.tar.gz" -C smoke
+          bin="smoke/$n/oku"
+          tar -tzf "dist/$n.tar.gz" | grep -q '/THIRD_PARTY_NOTICES$'
+          ./mise-tasks/binary-smoke.sh "$bin"
+          "$bin" version | tee version.txt
+          grep -qF "$TAG" version.txt || { echo "oku version does not report $TAG" >&2; exit 1; }
+          if [ "${{ matrix.goos }}" = darwin ]; then
+            otool -L "$bin" | grep -q Security.framework || { echo "darwin binary lacks Security.framework" >&2; exit 1; }
+            codesign --verify --strict --verbose=2 "$bin"
+          else
+            file "$bin" | grep -q 'statically linked' || { echo "linux binary not static" >&2; exit 1; }
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gh-release-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/oku_${{ env.TAG }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
+          if-no-files-found: error
+  publish:
+    needs: build   # only after all four native builds and smoke tests pass
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write   # create the release and upload assets
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: release, pattern: gh-release-*, merge-multiple: true }
+      - name: require all four targets + combined SHA256SUMS
+        run: |
+          set -euo pipefail
+          cd release
+          for t in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64; do
+            test -s "oku_${TAG}_${t}.tar.gz" || { echo "missing oku_${TAG}_${t}.tar.gz" >&2; exit 1; }
+          done
+          set -- ./*.tar.gz
+          test "$#" = 4 || { ls -l; echo "expected exactly 4 archives" >&2; exit 1; }
+          sha256sum -- *.tar.gz > SHA256SUMS
+          sha256sum -c SHA256SUMS
+          cat SHA256SUMS
+      - name: create or update GitHub Release
+        run: |
+          set -euo pipefail
+          cd release
+          pre=()
+          case "$TAG" in *-*) pre=(--prerelease) ;; esac
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG exists; replacing assets"
+            gh release upload "$TAG" --clobber -- *.tar.gz SHA256SUMS
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes "${pre[@]}" \
+              -- *.tar.gz SHA256SUMS
+          fi
