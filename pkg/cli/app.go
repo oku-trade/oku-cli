@@ -197,6 +197,7 @@ func (a *App) commandTable() map[string]*handler {
 		"auth status":        {summary: "Show Privy agent credential (--verify checks approval)", flags: authStatusFlags, run: a.cmdAuthStatus},
 		"auth unlock":        {summary: "Unlock the credential for a while so agents and MCP can use it (Linux)", flags: authUnlockFlags, run: a.cmdAuthUnlock},
 		"auth lock":          {summary: "Forget the cached unlock for the profile", run: a.cmdAuthLock},
+		"auth migrate":       {summary: "Move the credential between the file and desktop keyring stores (Linux): auth migrate --to file|keyring", flags: authMigrateFlags, run: a.cmdAuthMigrate},
 		"drafts repair":      {summary: "Repair malformed order-draft JSON from --stdin into a reviewable candidate (local only; never prepares or submits)", flags: draftFlags, run: a.cmdDraftsRepair},
 		"mcp serve":          {summary: "Run the MCP server on stdio (reads only unless --allow-mutations)", flags: mcpFlags, run: a.cmdMCPServe},
 		"auth logout":        {summary: "Log out and delete the local Privy agent credential", run: a.cmdAuthLogout},
@@ -335,7 +336,7 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 			e.g = globals{profile: cmd.String("profile"), network: cmd.String("network"), account: cmd.String("account"), json: cmd.Bool("json") || jsonOut, timeout: cmd.Duration("timeout")}
 			if cmd.IsSet("input") {
 				fail := func(err error) error { return &commandFailure{name, e.g.json, err} }
-				if h.flags == nil || path == "auth login" || path == "auth logout" {
+				if h.flags == nil || path == "auth login" || path == "auth logout" || path == "auth migrate" {
 					return fail(output.Errorf(output.CodeUsage, "--input is not available for %s", path))
 				}
 				if len(e.args) != 0 {

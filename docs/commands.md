@@ -32,10 +32,21 @@ Authorize a Privy embedded-wallet agent on the Oku website
 | `--api-url` | Oku API origin for the profile created when none exists | `` |
 | `--no-open` | print verification URL without opening browser | `false` |
 | `--timeout` | maximum time to wait for authorization | `10m0s` |
+| `--credential-store` | Linux: where to keep the credential, file (passphrase, default) or keyring (desktop Secret Service); default $OKU_CREDENTIAL_STORE, else the profile's current store. Ignored on macOS (Keychain) | `` |
 
 ## `oku auth logout`
 
 Log out and delete the local Privy agent credential
+
+## `oku auth migrate`
+
+Move the credential between the file and desktop keyring stores (Linux): auth migrate --to file|keyring
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--to` | target credential store on Linux: file (passphrase) or keyring (desktop Secret Service) | `` |
 
 ## `oku auth status`
 
