@@ -231,6 +231,7 @@ func (a *App) finishTelemetry(r *telemetryRun, exit int) {
 		}
 	}
 	host, key := telemetry.Endpoint(a.getenv)
+	telemetry.UserAgent = "oku-cli/" + a.Version + " (" + runtime.GOOS + "/" + runtime.GOARCH + ")"
 	_ = telemetry.Send(context.Background(), host, key, id, telemetry.EventCommand, props, time.Now())
 }
 
