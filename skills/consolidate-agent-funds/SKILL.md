@@ -29,11 +29,10 @@ Send fees to the agent address from the fee contracts or treasury (outside the C
 ## 2. List holdings
 
 ```sh
-oku wallet balances --chain CHAIN --json
-oku wallet balances --chains 8453,10,137,42161 --json
+oku wallet balances --chains 8453,10,137,42161 --tokens-file sweep.csv --json
 ```
 
-Record every ERC20 with a nonzero balance and its contract address. Use contract addresses, not symbols, from here on (symbols such as USDT on BNB can be ambiguous). Ignore dust worth less than gas plus fees; tell the user what you skipped.
+The sweep CSV is the primary inventory: `chain_id,token_address,amount` (optional header). Group rows by chain and check the live `balance` next to `csv_amount` and `mismatch`; the CSV amount is informational only and must never be used as a spend amount. The command shows native gas even without a manifest. Record nonzero token addresses, not symbols. Ignore dust worth less than gas plus fees and tell the user what you skipped. For each manifest token prepare a swap with `--amount max` using its contract address, then bridge the target asset with `--amount max` after confirming the swap. Do not infer missing tokens from an incomplete CSV.
 
 ## 3. Swap each token to one asset per chain
 

@@ -47,4 +47,8 @@ func TestTokenBalancesMulticall(t *testing.T) {
 	if len(balances) != 1 || balances[0].Int64() != 123456 || calls != 2 {
 		t.Fatalf("balances=%v calls=%d", balances, calls)
 	}
+	details, err := rpc.TokenDetails(context.Background(), 8453, "0x0000000000000000000000000000000000000001", []string{"0x0000000000000000000000000000000000000002"})
+	if err != nil || len(details) != 1 || details[0].Symbol != "TOK" || details[0].Decimals != 6 {
+		t.Fatalf("details=%+v error=%v", details, err)
+	}
 }
