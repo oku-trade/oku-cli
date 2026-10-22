@@ -225,3 +225,18 @@ func TestSwapImpactRejectsBrokenPools(t *testing.T) {
 		t.Fatal("fair route rejected")
 	}
 }
+
+func TestMispricedBothDirectionsAndClamp(t *testing.T) {
+	if !mispriced(400, 0.03) || mispriced(200, 0.03) {
+		t.Fatal("loss threshold")
+	}
+	if !mispriced(-26922, 0.03) || mispriced(-317, 0.03) {
+		t.Fatal("implausible gain must flag, small gain must not")
+	}
+	if mispriced(9999, math.Inf(1)) {
+		t.Fatal("override disables guardrail")
+	}
+	if lossBps(math.Inf(-1)) != -1_000_000 || lossBps(math.NaN()) != 0 {
+		t.Fatal("clamp")
+	}
+}

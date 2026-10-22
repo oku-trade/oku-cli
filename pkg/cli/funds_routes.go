@@ -282,6 +282,29 @@ func acceptableSwapImpact(v *v2.SimpleSwapQuote) bool {
 	return ok && acceptablePriceImpact(loss)
 }
 
+// lossBps converts a loss fraction to bps, clamped so absurd oracle values
+// (for example a near-zero input price) cannot overflow.
+func lossBps(loss float64) int64 {
+	if math.IsNaN(loss) {
+		return 0
+	}
+	return int64(math.Round(math.Max(-1_000_000, math.Min(1_000_000, loss*10_000))))
+}
+
+// mispriced flags a quote whose priced value disagrees with its output beyond
+// the guardrail in either direction: a large loss, or an implausible gain
+// (output priced well above input) that signals a broken oracle.
+func mispriced(lossBps int64, maxLoss float64) bool {
+	if math.IsInf(maxLoss, 1) {
+		return false
+	}
+	limit := int64(math.Round(maxLoss * 10_000))
+	return lossBps > limit || lossBps < -maxPricedGainBps
+}
+
+// maxPricedGainBps: a priced "gain" above 50% is treated as an oracle error.
+const maxPricedGainBps = 5000
+
 // usableImpact requires a finite valuation so the guardrail can be applied.
 func usableImpact(v *v2.SimpleSwapQuote) bool {
 	_, ok := swapLoss(v)
@@ -582,9 +605,9 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					q.OkuFeeRaw, q.OkuFeeToken, q.OkuFeeUSD, q.MarketImpact = swapFee(v.FeeInfo, q.InAmount, v.InUsdValue, v.OutUsdValue)
 					q.LossBps = 0
 					if loss, ok := swapLoss(v); ok {
-						q.LossBps = int64(math.Round(loss * 10_000))
+						q.LossBps = lossBps(loss)
 					}
-					q.HighImpact = !inBound || float64(q.LossBps)/10_000 > maxLossFraction(e)
+					q.HighImpact = !inBound || mispriced(q.LossBps, maxLossFraction(e))
 					q.NoSimulation = !v.IntentBased && v.Simulation == nil
 					q.Spender = quoteSpender(v.ApprovalsV2, q.InToken, q.InAmount)
 				}
@@ -788,8 +811,8 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if kind == "swap" && !q.Intent && float64(q.LossBps)/10_000 > maxLossFraction(e) {
-		return nil, output.Errorf(output.CodeRejected, "high impact: priced loss %.2f%% (in_usd %.4f, out_usd %.4f, oku fee %.4f) exceeds --max-loss-bps %d; rerun with a higher --max-loss-bps or --allow-high-impact only after reviewing the quote", float64(q.LossBps)/100, q.InUSD, q.OutUSD, q.OkuFeeUSD, int(maxLossFraction(e)*10_000))
+	if kind == "swap" && !q.Intent && q.HighImpact && !e.cmd.Bool("allow-high-impact") {
+		return nil, output.Errorf(output.CodeRejected, "high impact: priced loss %.2f%% (in_usd %.4f, out_usd %.4f, oku fee %.4f) is beyond the guardrail (--max-loss-bps %d, or a priced gain above %d%% which signals a broken oracle); rerun with a higher --max-loss-bps or --allow-high-impact only after reviewing the quote", float64(q.LossBps)/100, q.InUSD, q.OutUSD, q.OkuFeeUSD, int(maxLossFraction(e)*10_000), maxPricedGainBps/100)
 	}
 	router := routerFor(q.Chain)
 	if kind == "swap" && !q.Intent && (router == "" || !strings.EqualFold(q.Target, router) || q.InToken != "native" && q.Spender != "" && !strings.EqualFold(q.Spender, router)) {
