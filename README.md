@@ -4,13 +4,13 @@
 
 It supports Hyperliquid **mainnet** only. Agent-wallet EVM commands work on any EVM chain. Swaps work on every chain where Oku's swap markets are active and the shared `gfx-labs/chain-config` networks package (the same one the Oku backend uses) lists an Oku Router for a non-deprecated chain; the CLI takes the router address from that package and checks its code on chain before signing. Common chains have a built-in public RPC; for others set `OKU_RPC_URL_<CHAINID>`.
 
-For user-operated authentication, run `oku auth login` in a terminal. Sign on the Oku authorization page with the wallet you want to use as the account. The CLI derives that account from Hyperliquid's approved agent and creates a `default` profile if none exists; no account flag is needed. For production, use `oku auth login --api-url https://accounts.icarus.tools` on a fresh configuration.
+For user-operated authentication, run `oku auth login` in a terminal. Sign on the Oku authorization page with the wallet you want to use as the account. The CLI derives that account from Hyperliquid's approved agent and creates a `default` profile if none exists; no account flag is needed. The default API is production (`https://accounts.icarus.tools`). For staging, create the profile with `oku auth login --api-url https://accounts.lat.gfx.town` (or `oku profiles add NAME --api-url https://accounts.lat.gfx.town`). Existing profiles keep the API URL they were created with.
 
 > **Status: pre-release / private alpha development.**
 > - The repository is private. There is no published npm package, no hosted install script and no auto-update.
 > - Staging acceptance on 2026-10-14 verified Privy login, signed order submission, order listing and cancel. This is not production acceptance.
 > - Live checks with small amounts verified agent-wallet send, master deposit transfer, a single-step swap and an atomic approve+swap batch on Arbitrum (2026-10-19), and a Circle CCTP bridge Arbitrum to Base including the destination claim (2026-10-20). Transaction-based Oku bridge execution is available via `bridge prepare`, `submit`, `status`, `claim`, and `reconcile`; bridge calldata and approvals are backend-built without independent CLI verification, and destination claims require agent native gas on the destination chain.
-> - Accounts multi-app verification (account#530) and the authorize page (trade#3569) are merged. Production must use `https://oku.trade/agent/authorize`; staging currently uses `https://unitrade.lat.gfx.town/agent/authorize`.
+> - Accounts multi-app verification (account#530) and the authorize page (trade#3569) are merged. The authorize page URL comes from the Privy app configuration (the device-grant `verification_uri`), not from the CLI or Accounts. As of 2026-10-22 the built-in Oku Trade Agents app returns `https://unitrade.lat.gfx.town/agent/authorize` (staging) even for production logins. Production needs the Privy app switched to `https://oku.trade/agent/authorize`, which already serves.
 > - Earlier release checks in [docs/validation.md](docs/validation.md) predate this auth model.
 > - The command grammar may change.
 

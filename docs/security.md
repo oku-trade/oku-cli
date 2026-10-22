@@ -41,7 +41,7 @@ The Privy embedded agent wallet now has **EVM spending power independent of Hype
 
 ## Production deployment checks
 
-- Staging on 2026-10-14 verified the merged Accounts multi-app verifier (account#530), Privy login, chainId 1337 signed submit, list and cancel. The authorize page is merged (trade#3569). Check production deployment independently and switch staging's `https://unitrade.lat.gfx.town/agent/authorize` verification URI to `https://oku.trade/agent/authorize`.
+- Staging on 2026-10-14 verified the merged Accounts multi-app verifier (account#530), Privy login, chainId 1337 signed submit, list and cancel. The authorize page is merged (trade#3569). The CLI now defaults to production Accounts (`https://accounts.icarus.tools`); existing profiles keep their stored API URL. The Privy app's verification URI still pointed at `https://unitrade.lat.gfx.town/agent/authorize` on 2026-10-22 and must be switched to `https://oku.trade/agent/authorize`.
 - Session lifetime, grant revocation, agent-session attribution and backend recovery-to-approved-agent enforcement need operator review.
 - Hyperliquid named-agent slots (`oku1` through `oku3`) are shared with the web app. The dedicated Privy app must not silently reuse a retail embedded wallet already acting as the master.
 

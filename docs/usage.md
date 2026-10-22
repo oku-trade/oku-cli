@@ -115,7 +115,8 @@ oku version
 oku doctor
 oku config path | config show          # no secrets printed
 
-oku auth login                          # sign with your account wallet at https://oku.trade/agent/authorize
+oku auth login                          # production API by default; sign at the authorize page Privy returns
+                                        # staging: oku auth login --api-url https://accounts.lat.gfx.town
                                         # with no profiles, creates and selects profile "default"
 oku auth status [--verify]
 oku auth logout                         # best-effort session/grant revoke, deletes local credential

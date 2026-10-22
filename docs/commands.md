@@ -413,7 +413,7 @@ Add a profile: profiles add NAME --account 0x.. [--api-url URL] [--default]
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--api-url` | Oku account API origin | `https://accounts.lat.gfx.town` |
+| `--api-url` | Oku account API origin | `https://accounts.icarus.tools` |
 | `--privy-app-id` | Privy application ID (defaults to Oku Trade Agents) | `` |
 | `--default` | make this the default profile | `false` |
 

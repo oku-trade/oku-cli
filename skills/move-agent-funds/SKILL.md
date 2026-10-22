@@ -5,7 +5,7 @@ description: Move Oku Agent EVM funds via send, swap, cross-chain bridge (includ
 
 # Move Oku Agent Funds
 
-Use `oku docs commands --json` to confirm the installed command and flags. Never treat the embedded EVM agent wallet as the Hyperliquid master account. Only the master can deposit to its own Hyperliquid account. Agent USDC must first be transferred to the master EOA on Arbitrum, then the master deposits from its own wallet. `oku deposit address` requests a master-bound HyperUnit deposit address for external funding. Never broadcast an agent transaction directly to the Hyperliquid bridge.
+Use `oku docs commands --json` to confirm the installed command and flags. The default API is production (`https://accounts.icarus.tools`). Staging is opt-in through a profile created with `--api-url https://accounts.lat.gfx.town`, and existing profiles keep their stored URL, so confirm which one is active with `oku profiles list`. Never treat the embedded EVM agent wallet as the Hyperliquid master account. Only the master can deposit to its own Hyperliquid account. Agent USDC must first be transferred to the master EOA on Arbitrum, then the master deposits from its own wallet. `oku deposit address` requests a master-bound HyperUnit deposit address for external funding. Never broadcast an agent transaction directly to the Hyperliquid bridge.
 
 ## Inspect, quote, prepare
 

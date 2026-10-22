@@ -5,7 +5,7 @@ description: Fee sweep. Read the sweep CSV (chain_id,token_address,amount), chec
 
 # Consolidate Oku Agent Funds
 
-Use this for a fee sweep: protocol fees land in the agent wallet on several chains, and the agent turns them into one asset on one destination chain. Read `oku://skills/move-agent-funds` first for command details; this skill overrides only its per-submit approval rule. Confirm flags with `oku docs commands --json`. Use token contract addresses everywhere; `native` means the gas token. The zero address `0x0000000000000000000000000000000000000000` and `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` mean native too. The sweep CSV exports native fee rows as the zero address, and you can pass them to `--from`, `--to` and `--token` as-is. Symbols are not used.
+Use this for a fee sweep: protocol fees land in the agent wallet on several chains, and the agent turns them into one asset on one destination chain. Read `oku://skills/move-agent-funds` first for command details; this skill overrides only its per-submit approval rule. Confirm flags with `oku docs commands --json`. The default API is production (`https://accounts.icarus.tools`). Run the sweep against production unless the user names a staging profile (created with `--api-url https://accounts.lat.gfx.town`). Use token contract addresses everywhere; `native` means the gas token. The zero address `0x0000000000000000000000000000000000000000` and `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` mean native too. The sweep CSV exports native fee rows as the zero address, and you can pass them to `--from`, `--to` and `--token` as-is. Symbols are not used.
 
 ## Approval model
 
