@@ -161,7 +161,7 @@ func TestTelemetryEnabledPayloadAndOutputUnchanged(t *testing.T) {
 	if strings.Contains(string(raw), dead.URL) || strings.Contains(string(raw), "127.0.0.1") {
 		t.Fatalf("url leaked: %s", raw)
 	}
-	want := map[string]any{"command": "swap quote", "success": false, "chain_id": "42161", "amount_source": "exact",
+	want := map[string]any{"command": "swap quote", "success": false, "chain_id": float64(42161), "amount_source": "exact",
 		"from_kind": "native", "to_kind": "erc20", "api_env": "local", "json": true, "source": "oku-cli", "invoked_by": "non_tty"}
 	for k, v := range want {
 		if props[k] != v {
