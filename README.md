@@ -157,6 +157,7 @@ All of these except `validation.md` (repository-only evidence, not embedded) are
 - [docs/usage.md](docs/usage.md): commands, JSON contract, order lifecycle, risk actions, agent-wallet sends, deposits and swaps, draft repair, skills, MCP, journal
 - [docs/commands.md](docs/commands.md): generated command and flag reference (`make docs`, `make docs-check`)
 - [docs/security.md](docs/security.md): Privy signing model, credential storage, grant and agent revocation, agent-wallet swap verification and batch execution
+- [docs/telemetry.md](docs/telemetry.md): opt-in usage telemetry (off by default, `DO_NOT_TRACK=1` respected): exact fields, enable and disable
 - [docs/architecture.md](docs/architecture.md): code layout and how the CLI talks to Oku
 - [docs/deployment.md](docs/deployment.md): backend/frontend/release prerequisites
 - [docs/local-testing.md](docs/local-testing.md): local read-only checks and operator-led Privy login/trade guidance

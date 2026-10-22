@@ -577,6 +577,18 @@ Submit a verified EVM swap
 | `--intent` | intent id from 'swap prepare' (required) | `` |
 | `--digest` | intent digest from 'swap prepare' (required) | `` |
 
+## `oku telemetry disable`
+
+Opt out of usage telemetry and delete the install ID
+
+## `oku telemetry enable`
+
+Opt in to anonymous usage telemetry (off by default; DO_NOT_TRACK=1 always wins)
+
+## `oku telemetry status`
+
+Show whether telemetry is on, why, the install ID and exactly which fields are sent
+
 ## `oku version`
 
 Print version information
