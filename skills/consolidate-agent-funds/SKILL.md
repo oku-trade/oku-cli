@@ -37,11 +37,11 @@ Record every ERC20 with a nonzero balance and its contract address. Use contract
 
 ## 3. Swap each token to one asset per chain
 
-Pick a target asset that bridges well, normally native USDC on that chain.
+Pick a target asset that bridges well, normally native (Circle) USDC on that chain. Always pass token contract addresses (`--from`, `--to`); use `native` for the gas token. Symbols are only a convenience for obvious cases and can be ambiguous or missing. Common native USDC: Ethereum `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`, Arbitrum `0xaf88d065e77c8cC2239327C5EDb3A432268e5831`, Base `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, Optimism `0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`, Polygon `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`. Verify any address against `wallet balances` output before use.
 
 ```sh
-oku swap quote --chain CHAIN --from TOKEN_ADDRESS --to USDC --amount max --json
-oku swap prepare --chain CHAIN --from TOKEN_ADDRESS --to USDC --amount max --json
+oku swap quote --chain CHAIN --from TOKEN_ADDRESS --to USDC_ADDRESS --amount max --json
+oku swap prepare --chain CHAIN --from TOKEN_ADDRESS --to USDC_ADDRESS --amount max --json
 oku swap submit --intent ID --digest SHA --json        # after explicit approval
 oku swap status --intent ID --json
 ```
@@ -54,9 +54,9 @@ oku swap status --intent ID --json
 ## 4. Bridge to the target chain
 
 ```sh
-oku bridge quote --chain CHAIN --destination-chain TARGET --from USDC --to USDC --amount max --json
-oku bridge quote --chain CHAIN --destination-chain TARGET --from USDC --to USDC --amount max --route circleFast --json
-oku bridge prepare --chain CHAIN --destination-chain TARGET --from USDC --to USDC --amount max --route ROUTE --json
+oku bridge quote --chain CHAIN --destination-chain TARGET --from USDC_ADDRESS --to TARGET_USDC_ADDRESS --amount max --json
+oku bridge quote --chain CHAIN --destination-chain TARGET --from USDC_ADDRESS --to TARGET_USDC_ADDRESS --amount max --route circleFast --json
+oku bridge prepare --chain CHAIN --destination-chain TARGET --from USDC_ADDRESS --to TARGET_USDC_ADDRESS --amount max --route ROUTE --json
 oku bridge submit --intent ID --digest SHA --json      # after explicit approval
 oku bridge status --intent ID --json
 ```
