@@ -355,6 +355,7 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 	}
 	return w, c, routeQuote{Chain: chain, OutChain: dst, InToken: from, OutToken: to, InAmount: amount.String(), Recipient: recipient, amountText: amountText, ResolvedAmount: amountText, AmountSource: amountSource}, nil
 }
+
 // nativeTokenAlias returns the ERC-20 that is the chain's native currency,
 // where one exists (Celo's GoldToken).
 func nativeTokenAlias(chain uint64) string {
