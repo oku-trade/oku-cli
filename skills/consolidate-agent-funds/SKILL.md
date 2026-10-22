@@ -1,6 +1,6 @@
 ---
 name: consolidate-agent-funds
-description: Fee sweep. Read the sweep CSV (chain_id,token_address,amount), check live balances, pick one intermediate asset per chain by end-to-end value at the destination, swap every token into it with --amount max, bridge it to the destination (circleStandard for native USDC, else the best route), claim, and verify. Runs submits automatically under the user's instruction and pauses only on guardrails.
+description: Fee sweep. Read the sweep CSV (chain_id,token_address,amount), check live balances, pick one intermediate asset per chain by end-to-end value at the destination, swap every token into it with --amount max, bridge it to the destination (circleStandard for native USDC, else the best route), claim, and verify. Runs chains concurrently (sell per chain, bridge as soon as ready, one claim loop) and submits automatically under the user's instruction and pauses only on guardrails.
 ---
 
 # Consolidate Oku Agent Funds
@@ -30,7 +30,7 @@ The user may override thresholds in the instruction. Quote USD values (`in_usd`,
 
 **Check guardrails on the prepare output (`valuation`), not on `swap quote`.** `swap quote` is unauthenticated, so the backend prices it as an anonymous account. Trades under $25 then pay a flat $0.25 Oku fee (taken from the input), which makes small quotes look about $0.25 worse. `prepare` is authenticated and uses the agent's real fee tier (free trades, a volume tier or the same flat fee), so its `valuation.oku_fee_usd` is what actually applies. Raw `price_impact` includes the Oku fee; use `market_impact` for the market-only impact.
 
-Other hard rules: one intent at a time (an unresolved intent blocks the agent on **all chains**); never prepare a replacement for an unresolved intent; recipient stays the agent wallet (do not pass `--recipient`) unless the user named a destination address; intents expire about 3 minutes after prepare, so submit right after prepare and requote if expired.
+Other hard rules: one in-flight intent **per chain** (the journal gate is per agent and chain, so different chains run in parallel while each chain stays serial; an `OUTCOME_UNKNOWN` blocks only its chain until resolved); never prepare a replacement for an unresolved intent; recipient stays the agent wallet (do not pass `--recipient`) unless the user named a destination address; intents expire about 3 minutes after prepare, so submit right after prepare and requote if expired.
 
 ## 1. Read the CSV and live balances
 
@@ -62,9 +62,13 @@ Quote `in_amount`, `out_amount` and `min_out` are **raw base units**; `--amount`
 
 Gas check: the native balance left after the plan must cover the remaining swaps (about `gas_usd` per swap), the bridge, and a reserve. Never choose `native` as C if it requires selling gas below that. Before any Circle bridge, the agent needs native gas on the **destination** for the claim; if it has none, pause and ask the user to fund it (`oku wallet fund --chain DEST --token native`).
 
-## 3. Swap every token on the chain into C (automatic)
+## 3. Run the chains concurrently
 
-For each remaining token T, sequentially:
+Steps 1 and 2 give a plan per source chain: its tokens and its asset C. Then run these phases. **A guardrail pause on one chain pauses only that chain.** Report it and keep the others going.
+
+### Phase A: sell, one worker per chain (parallel across chains)
+
+Start one worker per source chain at the same time (separate shells or sub-agents; the journal is safe for concurrent processes). Inside a chain, sell **one token per intent, sequentially**. Never combine several tokens into one batch.
 
 ```sh
 oku swap prepare --chain CHAIN --from T --to C --amount max --json
@@ -72,25 +76,38 @@ oku swap submit --intent ID --digest SHA --json
 oku swap status --intent ID --json        # only if submit was ambiguous
 ```
 
-Prepare shows the resolved `amount` with `amount_source: max` (read by RPC from the agent's balance and bound into the digest). Check the guardrails on the prepare output, then submit immediately. `REJECTED: no eligible route` means skip and report the token; do not raise slippage. A fee-on-transfer or rebasing token that fails min-out once is skipped and reported.
+Prepare shows the resolved `amount` with `amount_source: max` (read by RPC and bound into the digest) and the `valuation` block. Check the guardrails on it, then submit immediately. Skip and report any token that gets `REJECTED: no eligible route`, or a fee-on-transfer/rebasing token that fails min-out once. On chains without the Privy 7702 batch, submit runs approve then swap as two transactions (`execution_mode: sequential`). If it stops between them, `status` shows `next_step` and resubmitting the same intent resumes the swap.
 
-## 4. Bridge C to the destination (automatic)
+### Phase B: bridge as soon as the chain is ready (parallel)
 
-When every swap on the chain is settled:
+The moment a chain's last sell settles, that chain's worker bridges C to the destination. Don't wait for other chains.
 
-- **C is native USDC and Circle supports the pair:** use `--route circleStandard` only. **Never `circleFast`**.
-- **Otherwise, or if circleStandard does not quote:** use the best non-intent route (`--no-intent`, default selection). If only an intent route quotes, pause and ask.
+- **C is native USDC and Circle supports the pair:** `--route circleStandard` only. **Never `circleFast`**.
+- **Otherwise, or if circleStandard does not quote:** the best non-intent route (`--no-intent`). If only an intent route quotes, pause that chain and ask.
 
 ```sh
 oku bridge prepare --chain CHAIN --destination-chain DEST --from C --to DEST_ASSET --amount max --route circleStandard --json
 oku bridge submit --intent ID --digest SHA --json
-oku bridge status --intent ID --json
-oku bridge claim --intent ID --json        # automatically, when claim_required is true
 ```
 
-Poll `bridge status` until `destination_fill.status` is `filled` or `claim_required` is true. Circle Standard takes 15-20 minutes; poll about every 60 seconds. On `claim_required`, run `bridge claim` (it never sends twice). Pause on `refunded`, `failed` or `expired`. You may move to the next chain's swaps while a Circle transfer is attesting, since the bridge intent is already submitted. Run the claim when it is ready.
+Once the source transaction confirms, the bridge no longer holds any gate, so the chain's worker is done.
 
-## 5. Verify and report
+### Phase C: one loop for all bridges in flight
+
+Before the first claim, make sure the agent holds native gas on DEST. If it has none, pause and ask the user to fund it (`oku wallet fund --chain DEST --token native`). Then, about every 60 seconds:
+
+```sh
+oku bridge status --all --json     # every unsettled bridge: chains, amount, age, destination status, claim_required
+oku bridge claim --ready --json    # claims every bridge reporting claim_required; idempotent, safe to rerun
+```
+
+`claim --ready` claims one at a time per destination chain and never double-claims. It reports a result per intent and keeps going past failures. Report `refunded`, `failed` or `expired` bridges and never re-bridge them. A claim that returns `OUTCOME_UNKNOWN` gates only the destination chain: run `oku bridge claim --intent ID` later to confirm it (it never resends). Circle Standard normally takes 15-20 minutes. Stop the loop when `status --all` is empty or only has bridges paused for the user.
+
+### Phase D: verify
+
+Run step 4 once every bridge is filled.
+
+## 4. Verify and report
 
 ```sh
 oku wallet balances --chains DEST --tokens-file dest.csv --json   # dest.csv lists DEST,DEST_ASSET
