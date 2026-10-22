@@ -220,7 +220,7 @@ Ten task skills are bundled:
 - `close-hyperliquid-position`
 - `manage-hyperliquid-risk`
 - `move-agent-funds`
-- `consolidate-agent-funds`
+- `consolidate-agent-funds`: fee sweep that ends with native USDC on Coinbase-depositable chains (Base and Arbitrum preferred), ready for a direct Coinbase deposit
 - `reconcile-hyperliquid-actions`
 
 Their source is the repository's `skills/` directory.
