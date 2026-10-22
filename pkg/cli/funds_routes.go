@@ -57,6 +57,12 @@ type routeQuote struct {
 	InToken        string `json:"in_token"`
 	OutToken       string `json:"out_token"`
 	ExpiresAt      string `json:"expires_at"`
+	// Informational backend valuations for guardrails; never used for execution.
+	InUSD       float64 `json:"in_usd"`
+	OutUSD      float64 `json:"out_usd"`
+	GasUSD      float64 `json:"gas_usd"`
+	FeesUSD     float64 `json:"fees_usd,omitempty"`
+	PriceImpact float64 `json:"price_impact,omitempty"`
 	// amountText is the decimal input sent to the backend, resolved from max/all.
 	amountText string
 }
@@ -416,6 +422,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					}
 					q.MinOut = min.String()
 					q.OutAmount = v.OutAmountRaw
+					q.InUSD, q.OutUSD, q.GasUSD, q.PriceImpact = v.InUsdValue, v.OutUsdValue, v.GasUsdValue, v.PriceImpact
 					q.Spender = quoteSpender(v.ApprovalsV2, q.InToken, q.InAmount)
 				}
 			}
@@ -536,6 +543,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					q.Target = ""
 					q.MinOut = min.String()
 					q.OutAmount = out.String()
+					q.InUSD, q.OutUSD, q.GasUSD, q.FeesUSD = v.InUsdValue, v.OutUsdValue, v.GasUsdValue, v.FeesUsdValue
 					q.Spender = quoteSpender(v.Approvals, q.InToken, q.InAmount)
 				}
 			}

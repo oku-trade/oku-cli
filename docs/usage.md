@@ -237,7 +237,7 @@ The server runs over stdio. Stdout carries only MCP protocol frames, and logs go
 - **Resources:** bundled docs and skills are available as `oku://docs/...` and `oku://skills/...`. There is also a local `drafts_repair` tool.
 - **Profile:** `oku --profile NAME mcp serve` pins the server to that profile. Tools use it, and a tool call naming a different profile is refused. Start a separate server for another profile. Without a launch profile, tools use a per-call `profile`, then `$OKU_PROFILE`, then the config default.
 - **Login:** the server never prompts. Run `oku auth login` in a terminal first. On Linux, the login (or `oku auth unlock`) keeps the credential unlocked for 8 hours in the kernel keyring; after that, tools return an auth error until the user runs `oku auth unlock` again.
-- **Approval:** a digest proves payload integrity, not human approval. Clients must get explicit user approval before calling `orders_submit`. Unknown outcomes follow the same reconcile-never-resend rules as the CLI.
+- **Approval:** a digest proves payload integrity, not human approval. Clients must get explicit user approval before calling `orders_submit`. For agent EVM fund movements, a user's standing instruction to run a defined consolidation (the `consolidate-agent-funds` skill) counts as approval for its submits, which pause on that skill's guardrails. Unknown outcomes follow the same reconcile-never-resend rules as the CLI.
 
 ## Local journal
 

@@ -1,80 +1,97 @@
 ---
 name: consolidate-agent-funds
-description: Consolidate many tokens held by the Oku Agent EVM wallet across chains into one asset on one chain (fee sweep). Reads the sweep CSV (chain_id,token_address,amount), checks live balances, swaps each token to a single asset per chain while keeping gas, bridges to a target chain preferring fast routes, handles Circle claims and verifies the final balance.
+description: Fee sweep. Read the sweep CSV (chain_id,token_address,amount), check live balances, pick one intermediate asset per chain by end-to-end value at the destination, swap every token into it with --amount max, bridge it to the destination (circleStandard for native USDC, else the best route), claim, and verify. Runs submits automatically under the user's instruction and pauses only on guardrails.
 ---
 
 # Consolidate Oku Agent Funds
 
-Use this for a fee sweep: protocol fees are sent to the agent wallet on several chains, then the agent turns them into one asset (usually USDC) on one target chain. Read `oku://skills/move-agent-funds` first; every rule there applies here. Confirm flags with `oku docs commands --json`.
+Use this for a fee sweep: protocol fees land in the agent wallet on several chains, and the agent turns them into one asset on one destination chain. Read `oku://skills/move-agent-funds` first for command details; this skill overrides only its per-submit approval rule. Confirm flags with `oku docs commands --json`. Use token contract addresses everywhere; `native` means the gas token. Symbols are not used.
 
-## Safety rules (never skip)
+## Approval model
 
-- **Explicit user approval before every submit and every claim.** Show chain, input, output, minimum output, route, recipient and expiry for each one. Batch approval ("do all of them") is acceptable only if the user gave it for a listed plan of exact quotes.
-- **Sequential only.** One unresolved onchain intent blocks new ones for the agent across **all chains**. Finish (confirmed, failed with nothing broadcast, or reconciled) each intent before preparing the next.
-- **Never retry `OUTCOME_UNKNOWN`.** Run `oku swap status` / `oku bridge status` for that intent until it resolves. Never prepare a replacement.
-- Recipient defaults to the agent wallet. Do not pass `--recipient` unless the user asks for an external destination and confirms the address.
-- Intents expire about 3 minutes after prepare. Prepare only when the user is ready to approve; requote after expiry.
-- Never sweep the last native gas on a chain. Swaps, sends and Circle claims all need gas on the chain they run on.
-- Do not retry failed quotes in a loop; respect HTTP 429 backoff.
+The user's instruction to run the consolidation (with the CSV, the destination chain and asset) **is the approval** for every swap, bridge and claim in this procedure. Do not ask per swap or per bridge. Restate the plan once before starting (chains, chosen asset per chain, destination, thresholds), then run it.
 
-## 1. Sweep in
+**Pause and ask the user only when a guardrail trips:**
+
+| Guardrail | Default |
+| --- | --- |
+| Swap `price_impact` worse than | 2% (`price_impact < -0.02`) |
+| Swap `out_usd` below `in_usd` by more than | 3% |
+| Bridge `out_usd` below `in_usd` by more than (stables) | 1% (non-stable assets: 3%) |
+| Slippage above the CLI default | any `--slippage-bps` above 50 |
+| Bridge route differs from the planned route | always |
+| Intent-based route (`intent_based: true`) | always (use `--no-intent`) |
+| Any submit or claim error | always |
+| `OUTCOME_UNKNOWN` | always; **never retry**, run status |
+| Bridge `refunded`, `failed` or `expired` | always; never re-bridge |
+| Plan would sell native gas below the reserve | always |
+
+The user may override thresholds in the instruction. Quote USD values (`in_usd`, `out_usd`, `gas_usd`, `fees_usd`, `price_impact`) come from the backend price oracle and are for guardrails only; amounts executed always come from chain reads.
+
+Other hard rules: one intent at a time (an unresolved intent blocks the agent on **all chains**); never prepare a replacement for an unresolved intent; recipient stays the agent wallet (do not pass `--recipient`) unless the user named a destination address; intents expire about 3 minutes after prepare, so submit right after prepare and requote if expired.
+
+## 1. Read the CSV and live balances
 
 ```sh
 oku wallet address --json
-oku wallet fund --chain CHAIN --token native --amount 0.002 --json   # optional gas top up; never signs
+oku wallet balances --chains 8453,10,137 --tokens-file sweep.csv --json
 ```
 
-Send fees to the agent address from the fee contracts or treasury (outside the CLI). The address is the same on every EVM chain. Make sure each chain holds a little native gas. The first token approval batch on each chain upgrades the agent to an EIP-7702 Kernel account (same address); chains without EIP-7702 support can only do single-transaction routes (native input) there.
+The CSV is `chain_id,token_address,amount` (optional header). Its `amount` is informational only (`csv_amount`, `mismatch`); never spend it. Per chain, keep tokens with nonzero live `balance`. Skip as **dust** any token whose quoted swap `gas_usd` is at least its `in_usd`. Report zero and dust rows as skipped; do not sell them.
 
-## 2. List holdings
+## 2. Choose one intermediate asset per chain
+
+Candidates on each source chain:
+- **Native USDC** (Circle-issued, CCTP). Ethereum `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`, Arbitrum `0xaf88d065e77c8cC2239327C5EDb3A432268e5831`, Base `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, Optimism `0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`, Polygon `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`, Avalanche `0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E`. Confirm others from Circle's list.
+- The chain's **primary stablecoin** only when there is no native USDC (for example USDT where it dominates). Use its address.
+- **`native`**.
+
+For each candidate C (read-only quotes):
 
 ```sh
-oku wallet balances --chains 8453,10,137,42161 --tokens-file sweep.csv --json
+# each CSV token T on the chain (skip when T is C)
+oku swap quote --chain CHAIN --from T --to C --amount max --json
+# sum out_amount over tokens, plus any existing balance of C (for native C, only what the swaps add; never the gas reserve)
+oku bridge quote --chain CHAIN --destination-chain DEST --from C --to DEST_ASSET --amount SUM --json
+oku bridge quote --chain CHAIN --destination-chain DEST --from C --to DEST_ASSET --amount SUM --route circleStandard --json   # when C is native USDC
 ```
 
-The sweep CSV is the primary inventory: `chain_id,token_address,amount` (optional header). Group rows by chain and check the live `balance` next to `csv_amount` and `mismatch`; the CSV amount is informational only and must never be used as a spend amount. The command shows native gas even without a manifest. Record nonzero token addresses, not symbols. Ignore dust worth less than gas plus fees and tell the user what you skipped. For each manifest token prepare a swap with `--amount max` using its contract address, then bridge the target asset with `--amount max` after confirming the swap. Do not infer missing tokens from an incomplete CSV.
+Quote `in_amount`, `out_amount` and `min_out` are **raw base units**; `--amount` takes a decimal. Convert SUM with C's decimals (from `wallet balances`, or 18 for native) before the bridge quote. Score(C) = bridge `out_amount` in the destination asset (for native USDC, use the circleStandard quote; it has no bridge fee). Pick the highest score. If the best score is within 0.3% of native USDC's score, **choose native USDC** (CCTP burn and mint has no slippage). Record the scores and the reason for each chain.
 
-## 3. Swap each token to one asset per chain
+Gas check: the native balance left after the plan must cover the remaining swaps (about `gas_usd` per swap), the bridge, and a reserve. Never choose `native` as C if it requires selling gas below that. Before any Circle bridge, the agent needs native gas on the **destination** for the claim; if it has none, pause and ask the user to fund it (`oku wallet fund --chain DEST --token native`).
 
-Pick a target asset that bridges well, normally native (Circle) USDC on that chain. Always pass token contract addresses (`--from`, `--to`); use `native` for the gas token. Symbols are only a convenience for obvious cases and can be ambiguous or missing. Common native USDC: Ethereum `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`, Arbitrum `0xaf88d065e77c8cC2239327C5EDb3A432268e5831`, Base `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, Optimism `0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`, Polygon `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`. Verify any address against `wallet balances` output before use.
+## 3. Swap every token on the chain into C (automatic)
+
+For each remaining token T, sequentially:
 
 ```sh
-oku swap quote --chain CHAIN --from TOKEN_ADDRESS --to USDC_ADDRESS --amount max --json
-oku swap prepare --chain CHAIN --from TOKEN_ADDRESS --to USDC_ADDRESS --amount max --json
-oku swap submit --intent ID --digest SHA --json        # after explicit approval
-oku swap status --intent ID --json
+oku swap prepare --chain CHAIN --from T --to C --amount max --json
+oku swap submit --intent ID --digest SHA --json
+oku swap status --intent ID --json        # only if submit was ambiguous
 ```
 
-- `--amount max` uses the full balance. For native input it keeps a gas reserve (`--gas-reserve` overrides it). Never swap native to zero.
-- `REJECTED: no eligible route`: the token is illiquid or unsupported. Report it and leave it. Do not raise slippage beyond the CLI maximum (300 bps) to force a fill.
-- Fee-on-transfer or rebasing tokens may fail minimum output checks or leave dust. Requote with a slightly smaller explicit amount once, then report.
-- Prepare prints the resolved `amount` with `amount_source: max`; that exact amount is bound into the digest. Show it to the user. Never use the CSV amount as the spend amount.
-- If the CSV token is already the target asset, skip the swap.
-- Check the quote's output value against input value. A large loss means poor liquidity; ask before submitting.
+Prepare shows the resolved `amount` with `amount_source: max` (read by RPC from the agent's balance and bound into the digest). Check the guardrails on the prepare output, then submit immediately. `REJECTED: no eligible route` means skip and report the token; do not raise slippage. A fee-on-transfer or rebasing token that fails min-out once is skipped and reported.
 
-## 4. Bridge to the target chain
+## 4. Bridge C to the destination (automatic)
+
+When every swap on the chain is settled:
+
+- **C is native USDC and Circle supports the pair:** use `--route circleStandard` only. **Never `circleFast`**.
+- **Otherwise, or if circleStandard does not quote:** use the best non-intent route (`--no-intent`, default selection). If only an intent route quotes, pause and ask.
 
 ```sh
-oku bridge quote --chain CHAIN --destination-chain TARGET --from USDC_ADDRESS --to TARGET_USDC_ADDRESS --amount max --json
-oku bridge quote --chain CHAIN --destination-chain TARGET --from USDC_ADDRESS --to TARGET_USDC_ADDRESS --amount max --route circleFast --json
-oku bridge prepare --chain CHAIN --destination-chain TARGET --from USDC_ADDRESS --to TARGET_USDC_ADDRESS --amount max --route ROUTE --json
-oku bridge submit --intent ID --digest SHA --json      # after explicit approval
+oku bridge prepare --chain CHAIN --destination-chain DEST --from C --to DEST_ASSET --amount max --route circleStandard --json
+oku bridge submit --intent ID --digest SHA --json
 oku bridge status --intent ID --json
+oku bridge claim --intent ID --json        # automatically, when claim_required is true
 ```
 
-- The default route is the best net value, not the fastest. For USDC it often picks `circleStandard` (15-20 minutes and usually a destination claim). Prefer passing `--route` explicitly: `circleFast`, `across` or `relay` when they quote, and compare net output against the default. Show the user both if they differ materially.
-- Native to native works with `--from native --to native` (not the `ETH` symbol). The CLI sends native as the zero address, which account and canoe expect.
-- Bridge one source chain at a time, after all swaps on that chain have confirmed.
-- Do not bridge the same chain's last gas.
+Poll `bridge status` until `destination_fill.status` is `filled` or `claim_required` is true. Circle Standard takes 15-20 minutes; poll about every 60 seconds. On `claim_required`, run `bridge claim` (it never sends twice). Pause on `refunded`, `failed` or `expired`. You may move to the next chain's swaps while a Circle transfer is attesting, since the bridge intent is already submitted. Run the claim when it is ready.
 
-## 5. Claims
-
-Poll `oku bridge status --intent ID --json` until `destination_fill.status` is `filled` or `claim_required` is true. If a claim is required, the agent needs native gas on the **target** chain. If it has none, fund it with `oku wallet fund --chain TARGET --token native` and wait for the user. Then, with approval, run `oku bridge claim --intent ID --json`. It is idempotent and never sends twice. Statuses `refunded`, `failed`, `expired`: report and stop, never re-bridge automatically.
-
-## 6. Verify
+## 5. Verify and report
 
 ```sh
-oku wallet balances --chains TARGET,SOURCE_CHAINS --tokens-file sweep.csv --json
+oku wallet balances --chains DEST --tokens-file dest.csv --json   # dest.csv lists DEST,DEST_ASSET
 ```
 
-Report: per chain, what was swapped, skipped (no route or dust) and bridged; intent IDs and transaction hashes; final target balance; any open claims or unknown outcomes. Leftover gas on source chains is expected.
+Compare the destination balance increase with the sum of bridge `min_out`. Report a table per chain: tokens sold (amount, out), skipped tokens and why, chosen asset and score reasoning, bridge route, intent IDs and tx hashes, received amount. List any open claims, guardrail pauses or unknown outcomes. Leftover gas on source chains is expected.
