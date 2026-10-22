@@ -44,10 +44,7 @@ func (a *App) cmdFundsReconcile(e *env, kind string) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeNotFound, err, "intent")
 	}
-	need := len(r.Templates)
-	if r.Batch != nil {
-		need = 1
-	}
+	next, need := reconcileTemplateIndex(len(r.Templates), len(r.Hashes), r.Batch != nil, r.ApprovalSkipped)
 	if r.Kind != kind || !strings.EqualFold(r.Sender, w.agent) || (r.State != "unknown" && r.State != "sending") || len(r.Hashes) >= need {
 		return nil, output.Errorf(output.CodeIntentState, "only unresolved unknown intents with an unrecorded transaction can attach a hash")
 	}
@@ -57,7 +54,7 @@ func (a *App) cmdFundsReconcile(e *env, kind string) (*result, error) {
 	if r.Batch != nil {
 		err = rpc.VerifyBatchTransaction(ctx, r.OnchainIntent, *r.Batch, hash)
 	} else {
-		err = rpc.VerifyTransaction(ctx, r.ChainID, hash, w.agent, r.Templates[len(r.Hashes)])
+		err = rpc.VerifyTransaction(ctx, r.ChainID, hash, w.agent, r.Templates[next])
 	}
 	if err != nil {
 		return nil, output.Wrap(output.CodePayloadMismatch, err, "recovered transaction differs")
@@ -75,3 +72,17 @@ func (a *App) cmdFundsReconcile(e *env, kind string) (*result, error) {
 func (a *App) cmdSendReconcile(e *env) (*result, error)   { return a.cmdFundsReconcile(e, "send") }
 func (a *App) cmdSwapReconcile(e *env) (*result, error)   { return a.cmdFundsReconcile(e, "swap") }
 func (a *App) cmdBridgeReconcile(e *env) (*result, error) { return a.cmdFundsReconcile(e, "bridge") }
+
+// reconcileTemplateIndex returns which template a recovered hash must match
+// and how many hashes the intent needs. A sequential route whose approval was
+// skipped (allowance already sufficient) records no approve hash.
+func reconcileTemplateIndex(templates, hashes int, batch, approvalSkipped bool) (next, need int) {
+	if batch {
+		return 0, 1
+	}
+	offset := 0
+	if approvalSkipped {
+		offset = 1
+	}
+	return hashes + offset, templates - offset
+}
