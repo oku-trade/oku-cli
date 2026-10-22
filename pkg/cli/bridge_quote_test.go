@@ -3,6 +3,8 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -113,5 +115,49 @@ func bridgeQuoteGeneration(t *testing.T, reported, polled float64) {
 	prepared := h.run("bridge", "prepare", "--chain", "42161", "--destination-chain", "8453", "--from", "0xaf88d065e77c8cc2239327c5edb3a432268e5831", "--to", "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", "--amount", "0.5", "--recipient", h.fake.agentAddress, "--json")
 	if prepared.code != 0 || prepared.data()["target"] != nil || prepared.data()["state"] != "prepared" {
 		t.Fatalf("bridge prepare without executionInfo: %s %s", prepared.stdout, prepared.stderr)
+	}
+}
+
+func TestBridgeQuoteMaxNativeKeepsGasReserve(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	rpc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Method string `json:"method"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		switch req.Method {
+		case "eth_chainId":
+			fmt.Fprint(w, `{"result":"0x2105"}`)
+		case "eth_getBalance":
+			fmt.Fprint(w, `{"result":"0xde0b6b3a7640000"}`) // 1 ETH
+		default:
+			t.Errorf("unexpected RPC %s", req.Method)
+		}
+	}))
+	t.Cleanup(rpc.Close)
+	h.rpcURL = rpc.URL
+	h.rpcChain = "8453"
+	var sent any
+	h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
+		switch method {
+		case "GetSupportedBridges":
+			return map[string]any{"bridges": []any{map[string]any{"name": "lifi", "active": true, "supportedChains": []string{"eip155:8453", "eip155:42161"}}}}, true
+		case "Create":
+			sent = body["params"].(map[string]any)["inTokenAmount"]
+			return map[string]any{"orderId": "order"}, true
+		case "UpdateQuoteParams":
+			return map[string]any{"orderId": "order", "generation": 1}, true
+		case "GetNewQuotes":
+			return map[string]any{"quotes": map[string]any{"lifi": map[string]any{"bridge": "lifi", "fetched": true, "quoteId": "quote", "quote": map[string]any{
+				"inChainId": 8453, "outChainId": 42161, "inToken": map[string]any{"address": "native", "decimals": 18}, "outToken": map[string]any{"address": "native", "decimals": 18},
+				"inAmount": "0.999", "minAmountOut": "0.99", "outAmount": "0.995", "outUsdValue": 20, "feesUsdValue": 1, "gasUsdValue": 1,
+			}}}}, true
+		}
+		return nil, false
+	}
+	r := h.run("bridge", "quote", "--chain", "8453", "--destination-chain", "42161", "--from", "native", "--to", "native", "--amount", "max", "--json")
+	if r.code != 0 || sent != "0.999" || r.data()["in_amount"] != "999000000000000000" {
+		t.Fatalf("max native bridge sent %v: %s %s", sent, r.stdout, r.stderr)
 	}
 }

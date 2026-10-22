@@ -205,7 +205,7 @@ Unknown broadcasts must never be resubmitted. Start with `swap status --intent I
 
 ## Agent skills
 
-Nine task skills are bundled:
+Ten task skills are bundled:
 
 - `learn-oku`
 - `ensure-hyperliquid-authentication`
@@ -215,6 +215,7 @@ Nine task skills are bundled:
 - `close-hyperliquid-position`
 - `manage-hyperliquid-risk`
 - `move-agent-funds`
+- `consolidate-agent-funds`
 - `reconcile-hyperliquid-actions`
 
 Their source is the repository's `skills/` directory.

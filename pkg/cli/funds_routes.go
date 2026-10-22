@@ -28,7 +28,7 @@ const (
 )
 
 func routeFlags(bridge bool) []urfave.Flag {
-	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137"}, &urfave.StringFlag{Name: "from", Usage: "input token address or unambiguous symbol"}, &urfave.StringFlag{Name: "to", Usage: "output token address or unambiguous symbol"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}, &urfave.StringFlag{Name: "route", Usage: "select only this swap router or bridge"}, &urfave.BoolFlag{Name: "no-intent", Usage: "exclude typed-data intent routes"}}
+	flags := []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137"}, &urfave.StringFlag{Name: "from", Usage: "input token address or unambiguous symbol"}, &urfave.StringFlag{Name: "to", Usage: "output token address or unambiguous symbol"}, &urfave.StringFlag{Name: "amount", Usage: "exact input decimal amount or max/all (full onchain balance)"}, &urfave.StringFlag{Name: "gas-reserve", Usage: "native gas reserve in native units for max/all (default 0.001, Ethereum 0.01)"}, &urfave.IntFlag{Name: "slippage-bps", Value: 50, Usage: "maximum slippage in basis points, 0-300"}, &urfave.StringFlag{Name: "recipient", Usage: "EVM recipient (default: agent wallet)"}, &urfave.StringFlag{Name: "route", Usage: "select only this swap router or bridge"}, &urfave.BoolFlag{Name: "no-intent", Usage: "exclude typed-data intent routes"}}
 	if bridge {
 		flags = append(flags, &urfave.StringFlag{Name: "destination-chain", Usage: "destination EVM chain ID"})
 	}
@@ -55,6 +55,8 @@ type routeQuote struct {
 	InToken    string `json:"in_token"`
 	OutToken   string `json:"out_token"`
 	ExpiresAt  string `json:"expires_at"`
+	// amountText is the decimal input sent to the backend, resolved from max/all.
+	amountText string
 }
 
 func positiveRaw(s string) (*big.Int, error) {
@@ -233,11 +235,18 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 	if !decimals.IsInt64() || decimals.Int64() < 0 || decimals.Int64() > 36 {
 		return nil, nil, routeQuote{}, output.Errorf(output.CodeInvalidArgument, "unsupported token decimals")
 	}
-	amount, err := parseUnits(str(e, "amount"), int(decimals.Int64()))
+	amountText := str(e, "amount")
+	if isMaxAmount(amountText) {
+		amountText, _, err = a.resolveMaxAmount(e, chain, from, w.agent, int(decimals.Int64()))
+		if err != nil {
+			return nil, nil, routeQuote{}, err
+		}
+	}
+	amount, err := parseUnits(amountText, int(decimals.Int64()))
 	if err != nil {
 		return nil, nil, routeQuote{}, output.Wrap(output.CodeInvalidDecimal, err, "amount")
 	}
-	return w, c, routeQuote{Chain: chain, OutChain: dst, InToken: from, OutToken: to, InAmount: amount.String(), Recipient: recipient}, nil
+	return w, c, routeQuote{Chain: chain, OutChain: dst, InToken: from, OutToken: to, InAmount: amount.String(), Recipient: recipient, amountText: amountText}, nil
 }
 func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolvedWallet, error) {
 	w, c, q, err := a.routeInputs(e, kind, prepare)
@@ -268,7 +277,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			return q, nil, output.Errorf(output.CodeRejected, "no active swap markets support chain %d", q.Chain)
 		}
 		var created v2.SwapCreateResponse
-		req := &v2.SwapCreateRequest{Integration: "", Params: &v2.SwapQuoteParams{Chain: int64(q.Chain), EnabledMarkets: markets, Account: w.agent, IsExactIn: true, InTokenAddress: q.InToken, OutTokenAddress: q.OutToken, TokenAmount: str(e, "amount"), SlippagePpm: ppm, DstAddress: q.Recipient, UseOkuRouter: true, UsePermit2: false, EnableJit: false}}
+		req := &v2.SwapCreateRequest{Integration: "", Params: &v2.SwapQuoteParams{Chain: int64(q.Chain), EnabledMarkets: markets, Account: w.agent, IsExactIn: true, InTokenAddress: q.InToken, OutTokenAddress: q.OutToken, TokenAmount: q.amountText, SlippagePpm: ppm, DstAddress: q.Recipient, UseOkuRouter: true, UsePermit2: false, EnableJit: false}}
 		if err = c.Swap(ctx, "Create", req, &created, prepare); err != nil {
 			return q, nil, apiError(err, "swap Create")
 		}
@@ -413,7 +422,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 			return q, nil, output.Errorf(output.CodeRejected, "no active bridge supports both chains")
 		}
 		var created v2.BridgeCreateResponse
-		req := &v2.BridgeCreateRequest{Integration: "", Params: &v2.BridgeQuoteParams{InChain: int64(q.Chain), OutChain: int64(q.OutChain), EnabledBridges: bridges, InChainCaip2: fmt.Sprintf("eip155:%d", q.Chain), OutChainCaip2: fmt.Sprintf("eip155:%d", q.OutChain), Account: w.agent, DstAddress: q.Recipient, InTokenAddress: q.InToken, OutTokenAddress: q.OutToken, InTokenAmount: str(e, "amount"), SlippagePpm: ppm}}
+		req := &v2.BridgeCreateRequest{Integration: "", Params: &v2.BridgeQuoteParams{InChain: int64(q.Chain), OutChain: int64(q.OutChain), EnabledBridges: bridges, InChainCaip2: fmt.Sprintf("eip155:%d", q.Chain), OutChainCaip2: fmt.Sprintf("eip155:%d", q.OutChain), Account: w.agent, DstAddress: q.Recipient, InTokenAddress: q.InToken, OutTokenAddress: q.OutToken, InTokenAmount: q.amountText, SlippagePpm: ppm}}
 		if err = c.Bridge(ctx, "Create", req, &created, prepare); err != nil {
 			return q, nil, apiError(err, "bridge Create")
 		}

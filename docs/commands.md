@@ -78,7 +78,8 @@ Prepare a backend-built transaction bridge
 | `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
 | `--from` | input token address or unambiguous symbol | `` |
 | `--to` | output token address or unambiguous symbol | `` |
-| `--amount` | exact input decimal amount | `` |
+| `--amount` | exact input decimal amount or max/all (full onchain balance) | `` |
+| `--gas-reserve` | native gas reserve in native units for max/all (default 0.001, Ethereum 0.01) | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
 | `--route` | select only this swap router or bridge | `` |
@@ -97,7 +98,8 @@ Quote EVM-to-EVM bridge routes
 | `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
 | `--from` | input token address or unambiguous symbol | `` |
 | `--to` | output token address or unambiguous symbol | `` |
-| `--amount` | exact input decimal amount | `` |
+| `--amount` | exact input decimal amount or max/all (full onchain balance) | `` |
+| `--gas-reserve` | native gas reserve in native units for max/all (default 0.001, Ethereum 0.01) | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
 | `--route` | select only this swap router or bridge | `` |
@@ -506,7 +508,8 @@ Prepare an agent EVM swap
 | `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
 | `--from` | input token address or unambiguous symbol | `` |
 | `--to` | output token address or unambiguous symbol | `` |
-| `--amount` | exact input decimal amount | `` |
+| `--amount` | exact input decimal amount or max/all (full onchain balance) | `` |
+| `--gas-reserve` | native gas reserve in native units for max/all (default 0.001, Ethereum 0.01) | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
 | `--route` | select only this swap router or bridge | `` |
@@ -524,7 +527,8 @@ Quote exact-in EVM swap routes
 | `--chain` | source EVM chain ID supported by Oku swap, e.g. 42161, 8453, 10, 137 | `` |
 | `--from` | input token address or unambiguous symbol | `` |
 | `--to` | output token address or unambiguous symbol | `` |
-| `--amount` | exact input decimal amount | `` |
+| `--amount` | exact input decimal amount or max/all (full onchain balance) | `` |
+| `--gas-reserve` | native gas reserve in native units for max/all (default 0.001, Ethereum 0.01) | `` |
 | `--slippage-bps` | maximum slippage in basis points, 0-300 | `50` |
 | `--recipient` | EVM recipient (default: agent wallet) | `` |
 | `--route` | select only this swap router or bridge | `` |
