@@ -100,6 +100,37 @@ func TestRouteExecutionAuthorization(t *testing.T) {
 	}
 }
 
+func TestSwapImpactExcludesInputOkuFee(t *testing.T) {
+	withFee := &v2.SimpleSwapQuote{
+		InAmountRaw: "1000000", InUsdValue: 1, OutUsdValue: 0.74,
+		PriceImpact: 0.26,
+		FeeInfo:     &v2.FeeInfo{InputTokenFeeInfo: &v2.TokenFeeInfo{AmountRaw: "250000"}},
+	}
+	if !acceptableSwapImpact(withFee) {
+		t.Fatal("market price unchanged after a 25% Oku fee must pass")
+	}
+	withFee.OutUsdValue = 0.60
+	if acceptableSwapImpact(withFee) {
+		t.Fatal("20% market shortfall must fail even after removing Oku fee")
+	}
+	withFee.FeeInfo = nil
+	if acceptableSwapImpact(withFee) {
+		t.Fatal("unknown fee must retain upstream impact guard")
+	}
+	withFee.PriceImpact = math.Inf(-1)
+	if acceptableSwapImpact(withFee) {
+		t.Fatal("infinite impact must fail")
+	}
+}
+
+func TestNativeSwapTokenMatch(t *testing.T) {
+	for _, quoted := range []string{"native", "0x0000000000000000000000000000000000000000"} {
+		if !bridgeTokenMatches(quoted, "native") {
+			t.Fatalf("native representation %q rejected", quoted)
+		}
+	}
+}
+
 func TestSwapMarketSelectionAndLegacyApproval(t *testing.T) {
 	if !acceptablePriceImpact(-0.0039) || acceptablePriceImpact(math.NaN()) || acceptablePriceImpact(0.16) {
 		t.Fatal("favourable price impact rejected or unsafe impact accepted")

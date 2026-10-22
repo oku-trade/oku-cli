@@ -181,6 +181,7 @@ func consistentSwapApprovals(legacy []*v2.ApprovalPayload, modern []*v2.Approval
 	}
 	return true
 }
+
 // swapFee extracts the Oku fee from a quote and the market impact without it.
 // Input-side fees are priced pro rata from in_usd; output-side fees from out_usd.
 func swapFee(info *v2.FeeInfo, inRaw string, inUSD, outUSD float64) (string, string, float64, float64) {
@@ -207,7 +208,20 @@ func swapFee(info *v2.FeeInfo, inRaw string, inUSD, outUSD float64) (string, str
 }
 
 func acceptablePriceImpact(impact float64) bool {
-	return !math.IsNaN(impact) && impact <= 0.15
+	return !math.IsNaN(impact) && !math.IsInf(impact, 0) && impact <= 0.15
+}
+
+func acceptableSwapImpact(v *v2.SimpleSwapQuote) bool {
+	if v == nil {
+		return false
+	}
+	// Upstream price impact includes the Oku fee. For input-side fees,
+	// compare output against the actual amount traded instead.
+	_, _, feeUSD, marketImpact := swapFee(v.FeeInfo, v.InAmountRaw, v.InUsdValue, v.OutUsdValue)
+	if feeUSD > 0 && v.InUsdValue > feeUSD && v.OutUsdValue > 0 {
+		return acceptablePriceImpact(-marketImpact)
+	}
+	return acceptablePriceImpact(v.PriceImpact)
 }
 func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *api.Client, routeQuote, error) {
 	var w *resolvedWallet
@@ -414,7 +428,7 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 					continue
 				}
 				v := entry.Quote
-				if e.cmd.Bool("no-intent") && v.IntentBased || v.ChainId != int32(q.Chain) || !v.IsExactIn || !v.IntentBased && !acceptablePriceImpact(v.PriceImpact) || math.IsNaN(v.NetUsdValue) {
+				if e.cmd.Bool("no-intent") && v.IntentBased || v.ChainId != int32(q.Chain) || !v.IsExactIn || !v.IntentBased && !acceptableSwapImpact(v) || math.IsNaN(v.NetUsdValue) {
 					continue
 				}
 				input, ie := positiveRaw(v.InAmountRaw)
