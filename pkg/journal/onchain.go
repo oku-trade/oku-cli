@@ -184,7 +184,7 @@ func (j *Journal) SkipApproval(id string) error {
 }
 
 // ClaimForBridge finds a previously created claim, including terminal claims.
-// The journal lock must be held while checking and creating a claim.
+// The destination chain lock must be held while checking and creating a claim.
 func (j *Journal) ClaimForBridge(parent string) (*OnchainRecord, error) {
 	rows, err := j.db.Query(`SELECT intent_id FROM onchain_intents WHERE profile=? AND kind='claim' ORDER BY created_at`, j.binding.Profile)
 	if err != nil {
@@ -207,11 +207,43 @@ func (j *Journal) ClaimForBridge(parent string) (*OnchainRecord, error) {
 		if err != nil {
 			return nil, err
 		}
-		if r.ParentIntent == parent && r.State != "failed" {
+		if r.ParentIntent == parent {
 			return r, nil
 		}
 	}
 	return nil, ErrNotFound
+}
+
+// ListOnchainBridges returns this profile's bridge records without holding a
+// database cursor while loading individual records.
+func (j *Journal) ListOnchainBridges() ([]*OnchainRecord, error) {
+	rows, err := j.db.Query(`SELECT intent_id FROM onchain_intents WHERE profile=? AND kind='bridge' ORDER BY created_at,intent_id`, j.binding.Profile)
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*OnchainRecord, 0, len(ids))
+	for _, id := range ids {
+		r, e := j.GetOnchain(id)
+		if e != nil {
+			return nil, e
+		}
+		result = append(result, r)
+	}
+	return result, nil
 }
 
 // SetOnchainBatch durably records batch metadata while the intent is in state.
@@ -231,7 +263,7 @@ func (j *Journal) SetOnchainBatch(id, state string, b Batch) error {
 	return nil
 }
 
-// BeginOnchain atomically checks the agent-wide unresolved gate and marks the intent
+// BeginOnchain atomically checks the agent-and-chain unresolved gate and marks the intent
 // sending before any network call. A sending intent must never be replayed.
 func (j *Journal) BeginOnchain(id, digest, agent string) error {
 	tx, err := j.begin()
@@ -240,7 +272,8 @@ func (j *Journal) BeginOnchain(id, digest, agent string) error {
 	}
 	defer tx.Rollback()
 	var current, stored, sender string
-	err = tx.QueryRow(`SELECT state,digest,agent FROM onchain_intents WHERE profile=? AND intent_id=?`, j.binding.Profile, id).Scan(&current, &stored, &sender)
+	var chain uint64
+	err = tx.QueryRow(`SELECT state,digest,agent,chain_id FROM onchain_intents WHERE profile=? AND intent_id=?`, j.binding.Profile, id).Scan(&current, &stored, &sender, &chain)
 	if err != nil {
 		return err
 	}
@@ -248,7 +281,7 @@ func (j *Journal) BeginOnchain(id, digest, agent string) error {
 		return ErrConflict
 	}
 	var blocked string
-	err = tx.QueryRow(`SELECT intent_id FROM onchain_intents WHERE agent=? AND state IN ('sending','sent','unknown') AND NOT(profile=? AND intent_id=?) LIMIT 1`, strings.ToLower(agent), j.binding.Profile, id).Scan(&blocked)
+	err = tx.QueryRow(`SELECT intent_id FROM onchain_intents WHERE agent=? AND chain_id=? AND state IN ('sending','sent','unknown') AND NOT(profile=? AND intent_id=?) LIMIT 1`, strings.ToLower(agent), chain, j.binding.Profile, id).Scan(&blocked)
 	if err == nil {
 		return fmt.Errorf("%w: onchain intent %s", ErrUnresolved, blocked)
 	}

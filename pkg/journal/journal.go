@@ -3,6 +3,7 @@ package journal
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"embed"
 	"encoding/json"
@@ -176,7 +177,7 @@ func openDB(base string) (*sql.DB, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	pragmas := []string{"PRAGMA busy_timeout=5000", "PRAGMA foreign_keys=ON", "PRAGMA journal_mode=WAL", "PRAGMA synchronous=FULL"}
+	pragmas := []string{"PRAGMA busy_timeout=15000", "PRAGMA foreign_keys=ON", "PRAGMA journal_mode=WAL", "PRAGMA synchronous=FULL"}
 	if runtime.GOOS == "darwin" {
 		pragmas = append(pragmas, "PRAGMA fullfsync=ON", "PRAGMA checkpoint_fullfsync=ON")
 	}
@@ -227,7 +228,20 @@ func (j *Journal) Close() error { return j.db.Close() }
 
 // Lock remains compatible with existing callers, but should not span network requests.
 func (j *Journal) Lock() (func(), error) {
-	f, err := os.OpenFile(filepath.Join(j.base, "journal.lock"), os.O_CREATE|os.O_RDWR, 0600)
+	return j.lockFile("journal.lock")
+}
+
+// LockChain serializes transactions for one agent on one EVM chain across processes.
+func (j *Journal) LockChain(agent string, chain uint64) (func(), error) {
+	if agent == "" || chain == 0 {
+		return nil, errors.New("agent and chain required for chain lock")
+	}
+	key := sha256.Sum256([]byte(fmt.Sprintf("%s:%d", strings.ToLower(agent), chain)))
+	return j.lockFile(fmt.Sprintf("chain-%x.lock", key))
+}
+
+func (j *Journal) lockFile(name string) (func(), error) {
+	f, err := os.OpenFile(filepath.Join(j.base, name), os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, err
 	}

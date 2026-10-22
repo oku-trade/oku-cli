@@ -233,11 +233,18 @@ func (a *App) cmdFundsSubmit(e *env, kind string) (*result, error) {
 	if len(r.Templates) != 1 || !verifySendTemplate(r.OnchainIntent) {
 		return nil, output.Errorf(output.CodePayloadMismatch, "transaction template does not match intent")
 	}
-	unlock, err := j.Lock()
+	unlock, err := j.LockChain(w.agent, r.ChainID)
 	if err != nil {
 		return nil, err
 	}
 	defer unlock()
+	r, err = j.GetOnchain(r.ID)
+	if err != nil {
+		return nil, err
+	}
+	if r.State != "prepared" || r.Digest != str(e, "digest") {
+		return nil, output.Errorf(output.CodeIntentState, "intent changed while waiting for chain lock")
+	}
 	s, err := e.unlock(w.profile, "")
 	if err != nil {
 		return nil, err

@@ -35,7 +35,7 @@ oku swap reconcile --intent ID --tx-hash TX_HASH --json
 
 Submitting signs and broadcasts with Privy, so get the user's approval first: either explicit approval of this intent, or a standing instruction for a defined batch such as a fee sweep run under `oku://skills/consolidate-agent-funds`, which then pauses on its guardrails. A transaction route with approval uses an atomic `wallet_sendCalls` batch only on chains supporting EIP-7702 with a deployed Kernel delegate. Otherwise it submits exact approval and trade sequentially, so approval can confirm without trade. `status` shows `next_step` at a safe resume boundary; submit the same sealed execution digest again to send only the trade. `OUTCOME_UNKNOWN` still requires status or reconcile before any retry. A single-step route (such as native ETH input) sends one normal transaction. Submit waits for the chain's confirmation depth: under a minute on fast L2s such as Arbitrum, several minutes on Ethereum, Polygon or BNB Chain; if it returns OUTCOME_UNKNOWN after broadcast, run status rather than resubmitting. Chain RPC defaults to Oku's eRPC gateway, which serves the receipts and recent history that batch lookup needs; `OKU_RPC_URL_<CHAINID>` overrides it and is required only for chains unknown or deprecated in chain-config.
 
-`INSUFFICIENT_GAS`, `INSUFFICIENT_BALANCE`, or `REJECTED` with **nothing broadcast** closes the intent: correct the problem and prepare a new one. On `OUTCOME_UNKNOWN`, **never retry submit or prepare a replacement**. Run `oku swap status --intent ID --json` (for a batch, this locates it by nonce and confirms its receipt), or `oku swap reconcile --intent ID --tx-hash TX_HASH --json` only with an independently recovered hash; use the corresponding `send` or `deposit` status for those intents. One unresolved intent blocks new onchain intents for the agent. MCP exposes submit and reconcile only with `--allow-mutations`. Privy wallet spending permissions are independent of Hyperliquid agent trading limits.
+`INSUFFICIENT_GAS`, `INSUFFICIENT_BALANCE`, or `REJECTED` with **nothing broadcast** closes the intent: correct the problem and prepare a new one. On `OUTCOME_UNKNOWN`, **never retry submit or prepare a replacement**. Run `oku swap status --intent ID --json` (for a batch, this locates it by nonce and confirms its receipt), or `oku swap reconcile --intent ID --tx-hash TX_HASH --json` only with an independently recovered hash; use the corresponding `send` or `deposit` status for those intents. An unresolved intent blocks new onchain intents for the agent on that chain only. Other chains remain available; a confirmed bridge source no longer gates its source chain. MCP exposes submit and reconcile only with `--allow-mutations`. Privy wallet spending permissions are independent of Hyperliquid agent trading limits.
 
 ## Bridge between EVM chains
 
@@ -46,6 +46,8 @@ oku bridge quote --chain 42161 --destination-chain 8453 --from USDC --to USDC --
 oku bridge prepare --chain 42161 --destination-chain 8453 --from USDC --to USDC --amount 10 --json
 oku bridge submit --intent ID --digest SHA --json
 oku bridge status --intent ID --json
+oku bridge status --all --json          # list unsettled bridges, or omit --intent
+oku bridge claim --ready --json         # claim eligible bridges sequentially, continue on errors
 oku bridge claim --intent ID --json        # only when status reports claim_required
 oku bridge reconcile --intent ID --tx-hash TX_HASH --json
 ```

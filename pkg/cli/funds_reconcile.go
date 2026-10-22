@@ -30,7 +30,11 @@ func (a *App) cmdFundsReconcile(e *env, kind string) (*result, error) {
 		return nil, err
 	}
 	defer j.Close()
-	unlock, err := j.Lock()
+	r, err := j.GetOnchain(str(e, "intent"))
+	if err != nil {
+		return nil, output.Wrap(output.CodeNotFound, err, "intent")
+	}
+	unlock, err := j.LockChain(w.agent, r.ChainID)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +44,7 @@ func (a *App) cmdFundsReconcile(e *env, kind string) (*result, error) {
 			unlock()
 		}
 	}()
-	r, err := j.GetOnchain(str(e, "intent"))
+	r, err = j.GetOnchain(str(e, "intent"))
 	if err != nil {
 		return nil, output.Wrap(output.CodeNotFound, err, "intent")
 	}

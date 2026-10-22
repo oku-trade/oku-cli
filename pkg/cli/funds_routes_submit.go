@@ -38,11 +38,18 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	if r.State == "prepared" && (err != nil || !a.Now().Before(expires)) {
 		return nil, output.Errorf(output.CodeIntentState, "quote expired; prepare a new intent")
 	}
-	unlock, err := j.Lock()
+	unlock, err := j.LockChain(w.agent, r.ChainID)
 	if err != nil {
 		return nil, err
 	}
 	defer unlock()
+	r, err = j.GetOnchain(r.ID)
+	if err != nil {
+		return nil, err
+	}
+	if r.Kind != kind || !strings.EqualFold(r.Sender, w.agent) || r.Digest != str(e, "digest") || r.State != "prepared" && !(r.State == "sending" && r.ExecutionMode == "sequential" && r.StepIndex > 0 && !r.StepInFlight) {
+		return nil, output.Errorf(output.CodeIntentState, "intent changed while waiting for chain lock")
+	}
 	if r.State == "sending" {
 		return a.resumeRouteSequential(e, w, j, r)
 	}
@@ -456,8 +463,13 @@ func historyFill(trade *v1.OrderTrade) destinationFill {
 	}
 	return f
 }
-func (a *App) cmdSwapStatus(e *env) (*result, error)   { return a.cmdRouteStatus(e, "swap") }
-func (a *App) cmdBridgeStatus(e *env) (*result, error) { return a.cmdRouteStatus(e, "bridge") }
+func (a *App) cmdSwapStatus(e *env) (*result, error) { return a.cmdRouteStatus(e, "swap") }
+func (a *App) cmdBridgeStatus(e *env) (*result, error) {
+	if e.cmd.Bool("all") || str(e, "intent") == "" {
+		return a.cmdBridgeStatusAll(e)
+	}
+	return a.cmdRouteStatus(e, "bridge")
+}
 
 type destinationFill struct {
 	Status string `json:"status"`

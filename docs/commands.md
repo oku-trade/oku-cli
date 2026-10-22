@@ -59,13 +59,14 @@ Unlock the credential for a while so agents and MCP can use it (Linux)
 
 ## `oku bridge claim`
 
-Claim a bridge transfer on its destination chain
+Claim a bridge transfer or all ready transfers with --ready
 
 ### Options
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--intent` | intent id (required) | `` |
+| `--intent` | bridge intent ID | `` |
+| `--ready` | claim all ready bridge intents | `false` |
 
 ## `oku bridge prepare`
 
@@ -119,13 +120,14 @@ Attach and verify a recovered bridge transaction hash
 
 ## `oku bridge status`
 
-Reconcile source transaction and report destination delivery from Oku order history
+Reconcile a bridge or list unsettled bridges with --all
 
 ### Options
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--intent` | intent id (required) | `` |
+| `--intent` | bridge intent ID | `` |
+| `--all` | list unsettled bridge intents | `false` |
 
 ## `oku bridge submit`
 
