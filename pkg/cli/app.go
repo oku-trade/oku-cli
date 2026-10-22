@@ -181,6 +181,7 @@ func (a *App) commandTable() map[string]*handler {
 		"bridge claim":       {summary: "Claim a bridge transfer or all ready transfers with --ready", flags: bridgeClaimFlags, run: a.cmdBridgeClaim},
 		"bridge reconcile":   {summary: "Attach and verify a recovered bridge transaction hash", flags: reconcileFlags, run: a.cmdBridgeReconcile},
 		"version":            {summary: "Print version information", run: a.cmdVersion},
+		"self-update":        {summary: "Upgrade this binary from the latest GitHub release (--check to only compare)", flags: selfUpdateFlags, run: a.cmdSelfUpdate},
 		"doctor":             {summary: "Check configuration, connectivity and credentials", run: a.cmdDoctor},
 		"config path":        {summary: "Print config, credential and state paths", run: a.cmdConfigPath},
 		"config show":        {summary: "Show configuration (no secrets)", run: a.cmdConfigShow},
@@ -387,6 +388,12 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 			limit := maxTimeout
 			if name == "auth.login" {
 				limit = 15 * time.Minute
+			}
+			if name == "self-update" {
+				limit = selfUpdateMaxTimeout
+				if !cmd.IsSet("timeout") {
+					e.g.timeout = selfUpdateTimeout
+				}
 			}
 			if e.g.timeout <= 0 || e.g.timeout > limit {
 				return &commandFailure{name, e.g.json, output.Errorf(output.CodeUsage, "--timeout must be between 1ns and %s", limit)}

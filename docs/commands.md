@@ -429,6 +429,18 @@ Remove a profile without credentials: profiles remove NAME
 
 Set the default profile: profiles use NAME
 
+## `oku self-update`
+
+Upgrade this binary from the latest GitHub release (--check to only compare)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--check` | only report the current and latest version; download nothing | `false` |
+| `--version` | install this release tag (vX.Y.Z) instead of the latest; allows downgrades | `` |
+| `--force` | reinstall even if already on that version (does not override mise/nix/Homebrew refusal) | `false` |
+
 ## `oku send prepare`
 
 Prepare an agent EVM transfer
