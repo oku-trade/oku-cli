@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"github.com/oku-trade/oku-cli/pkg/journal"
 	"math/big"
 	"strings"
 
@@ -12,7 +13,7 @@ func isMaxAmount(s string) bool { return strings.EqualFold(s, "max") || strings.
 
 // resolveMaxAmount reads the latest chain state, not indexed holdings. A native
 // reserve covers ordinary gas but cannot guarantee future fees or L2 data fees.
-func (a *App) resolveMaxAmount(e *env, chain uint64, token, wallet string, decimals int) (string, *big.Int, error) {
+func (a *App) resolveMaxAmount(e *env, chain uint64, token, wallet string, decimals int, destinations ...string) (string, *big.Int, error) {
 	ctx, cancel := e.requestCtx()
 	defer cancel()
 	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
@@ -27,16 +28,30 @@ func (a *App) resolveMaxAmount(e *env, chain uint64, token, wallet string, decim
 		return "", nil, output.Wrap(output.CodeUpstream, err, "reading onchain input balance")
 	}
 	if token == "native" {
-		reserve := "0.001"
-		if chain == 1 {
-			reserve = "0.01"
-		}
+		var units *big.Int
 		if override := strings.TrimSpace(e.cmd.String("gas-reserve")); override != "" {
-			reserve = override
-		}
-		units, parseErr := parseNonnegativeUnits(reserve, 18)
-		if parseErr != nil {
-			return "", nil, output.Wrap(output.CodeInvalidDecimal, parseErr, "gas reserve")
+			units, err = parseNonnegativeUnits(override, 18)
+			if err != nil {
+				return "", nil, output.Wrap(output.CodeInvalidDecimal, err, "gas reserve")
+			}
+		} else {
+			destination := wallet
+			if len(destinations) > 0 {
+				destination = destinations[0]
+			}
+			if !onchain.ValidAddress(destination) {
+				destination = wallet
+			}
+			units, err = rpc.Estimate(ctx, chain, wallet, []journal.OnchainTemplate{{ChainID: chain, To: destination, Value: "0x0"}})
+			if err != nil {
+				return "", nil, output.Wrap(output.CodeUpstream, err, "estimating maximum spend gas")
+			}
+			// Estimate includes a 30% gas-limit buffer. Add another 50% and an L2 data-fee margin.
+			units.Mul(units, big.NewInt(3))
+			units.Div(units, big.NewInt(2))
+			if chain != 1 {
+				units.Add(units, big.NewInt(100000000000000))
+			}
 		}
 		raw.Sub(raw, units)
 	}

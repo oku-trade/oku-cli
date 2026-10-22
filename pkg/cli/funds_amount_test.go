@@ -1,9 +1,24 @@
 package cli
 
 import (
+	"github.com/oku-trade/oku-cli/pkg/journal"
 	"math/big"
 	"testing"
 )
+
+func TestResolvedAmountBoundInDigest(t *testing.T) {
+	in := journal.OnchainIntent{ID: "resolved", Kind: "send", Amount: "1.25", Token: "native", Templates: []journal.OnchainTemplate{{ChainID: 8453, Value: "0x1158e460913d0000"}}}
+	digest := in.Digest()
+	in.Amount = "1.26"
+	if in.Digest() == digest {
+		t.Fatal("resolved amount absent from intent digest")
+	}
+	in.Amount = "1.25"
+	in.Templates[0].Value = "0x1"
+	if in.Digest() == digest {
+		t.Fatal("submitted transfer value absent from intent digest")
+	}
+}
 
 func TestMaxAmountFormatting(t *testing.T) {
 	cases := []struct {

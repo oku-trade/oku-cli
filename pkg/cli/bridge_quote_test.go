@@ -131,6 +131,12 @@ func TestBridgeQuoteMaxNativeKeepsGasReserve(t *testing.T) {
 			fmt.Fprint(w, `{"result":"0x2105"}`)
 		case "eth_getBalance":
 			fmt.Fprint(w, `{"result":"0xde0b6b3a7640000"}`) // 1 ETH
+		case "eth_gasPrice":
+			fmt.Fprint(w, `{"result":"0x3b9aca00"}`)
+		case "eth_feeHistory":
+			fmt.Fprint(w, `{"result":{"baseFeePerGas":[]}}`)
+		case "eth_estimateGas":
+			fmt.Fprint(w, `{"result":"0x5208"}`)
 		default:
 			t.Errorf("unexpected RPC %s", req.Method)
 		}
@@ -151,13 +157,13 @@ func TestBridgeQuoteMaxNativeKeepsGasReserve(t *testing.T) {
 		case "GetNewQuotes":
 			return map[string]any{"quotes": map[string]any{"lifi": map[string]any{"bridge": "lifi", "fetched": true, "quoteId": "quote", "quote": map[string]any{
 				"inChainId": 8453, "outChainId": 42161, "inToken": map[string]any{"address": "native", "decimals": 18}, "outToken": map[string]any{"address": "native", "decimals": 18},
-				"inAmount": "0.999", "minAmountOut": "0.99", "outAmount": "0.995", "outUsdValue": 20, "feesUsdValue": 1, "gasUsdValue": 1,
+				"inAmount": sent, "minAmountOut": "0.99", "outAmount": "0.995", "outUsdValue": 20, "feesUsdValue": 1, "gasUsdValue": 1,
 			}}}}, true
 		}
 		return nil, false
 	}
 	r := h.run("bridge", "quote", "--chain", "8453", "--destination-chain", "42161", "--from", "native", "--to", "native", "--amount", "max", "--json")
-	if r.code != 0 || sent != "0.999" || r.data()["in_amount"] != "999000000000000000" {
+	if r.code != 0 || sent != "0.99985905" || r.data()["in_amount"] != "999859050000000000" {
 		t.Fatalf("max native bridge sent %v: %s %s", sent, r.stdout, r.stderr)
 	}
 }

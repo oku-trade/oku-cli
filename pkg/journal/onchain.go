@@ -15,27 +15,29 @@ import (
 
 // OnchainIntent binds every economic field and every ordered transaction template.
 type OnchainIntent struct {
-	ID           string            `json:"intent_id"`
-	Kind         string            `json:"kind"`
-	Intent       bool              `json:"intent_based,omitempty"`
-	ChainID      uint64            `json:"chain_id"`
-	Sender       string            `json:"sender"`
-	Recipient    string            `json:"recipient"`
-	Token        string            `json:"token"`
-	Amount       string            `json:"amount"`
-	Templates    []OnchainTemplate `json:"templates"`
-	OrderID      string            `json:"order_id,omitempty"`
-	ParentIntent string            `json:"parent_intent,omitempty"`
-	QuoteID      string            `json:"quote_id,omitempty"`
-	Generation   int32             `json:"generation,omitempty"`
-	Route        string            `json:"route,omitempty"`
-	Target       string            `json:"target,omitempty"`
-	Spender      string            `json:"spender,omitempty"`
-	OutToken     string            `json:"out_token,omitempty"`
-	OutChain     uint64            `json:"out_chain,omitempty"`
-	MinOut       string            `json:"min_out,omitempty"`
-	ExpiresAt    string            `json:"expires_at,omitempty"`
-	CreatedAt    string            `json:"created_at"`
+	ID             string            `json:"intent_id"`
+	Kind           string            `json:"kind"`
+	Intent         bool              `json:"intent_based,omitempty"`
+	ChainID        uint64            `json:"chain_id"`
+	Sender         string            `json:"sender"`
+	Recipient      string            `json:"recipient"`
+	Token          string            `json:"token"`
+	Amount         string            `json:"amount"`
+	ResolvedAmount string            `json:"resolved_amount,omitempty"`
+	AmountSource   string            `json:"amount_source,omitempty"`
+	Templates      []OnchainTemplate `json:"templates"`
+	OrderID        string            `json:"order_id,omitempty"`
+	ParentIntent   string            `json:"parent_intent,omitempty"`
+	QuoteID        string            `json:"quote_id,omitempty"`
+	Generation     int32             `json:"generation,omitempty"`
+	Route          string            `json:"route,omitempty"`
+	Target         string            `json:"target,omitempty"`
+	Spender        string            `json:"spender,omitempty"`
+	OutToken       string            `json:"out_token,omitempty"`
+	OutChain       uint64            `json:"out_chain,omitempty"`
+	MinOut         string            `json:"min_out,omitempty"`
+	ExpiresAt      string            `json:"expires_at,omitempty"`
+	CreatedAt      string            `json:"created_at"`
 }
 type OnchainTemplate struct {
 	ChainID  uint64 `json:"chain_id"`

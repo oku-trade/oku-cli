@@ -56,7 +56,7 @@ func executionError(err error, kind string, chain uint64, token string) error {
 const onchainExecBudget = 10 * time.Minute
 
 func sendPrepareFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID, e.g. 42161 (needs an RPC: built-in or OKU_RPC_URL_<id>)"}, &urfave.StringFlag{Name: "token", Usage: "ERC-20 contract address or native"}, &urfave.StringFlag{Name: "amount", Usage: "exact decimal amount or max/all"}, &urfave.StringFlag{Name: "gas-reserve", Usage: "native gas reserve in native units for max/all (default 0.001, Ethereum 0.01)"}, &urfave.StringFlag{Name: "to", Usage: "recipient EVM address (defaults to profile master)"}, &urfave.StringFlag{Name: "intent-id", Usage: "optional idempotency ID"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID, e.g. 42161 (needs an RPC: built-in or OKU_RPC_URL_<id>)"}, &urfave.StringFlag{Name: "token", Usage: "ERC-20 contract address or native"}, &urfave.StringFlag{Name: "amount", Usage: "exact decimal amount or max/all"}, &urfave.StringFlag{Name: "gas-reserve", Usage: "override estimated native gas reserve in native units for max/all"}, &urfave.StringFlag{Name: "to", Usage: "recipient EVM address (defaults to profile master)"}, &urfave.StringFlag{Name: "intent-id", Usage: "optional idempotency ID"}}
 }
 func depositPrepareFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.StringFlag{Name: "amount", Usage: "USDC amount on Arbitrum"}, &urfave.StringFlag{Name: "to", Usage: "must equal profile master address if supplied"}, &urfave.StringFlag{Name: "intent-id", Usage: "optional idempotency ID"}}
@@ -138,8 +138,9 @@ func (a *App) cmdFundsPrepare(e *env, kind string) (*result, error) {
 		}
 	}
 	amountText := str(e, "amount")
-	if kind == "send" && isMaxAmount(amountText) {
-		amountText, _, err = a.resolveMaxAmount(e, chain, token, w.agent, decimals)
+	maxAmount := kind == "send" && isMaxAmount(amountText)
+	if maxAmount {
+		amountText, _, err = a.resolveMaxAmount(e, chain, token, w.agent, decimals, recipient)
 		if err != nil {
 			return nil, err
 		}
@@ -162,6 +163,10 @@ func (a *App) cmdFundsPrepare(e *env, kind string) (*result, error) {
 		t.Decimals = decimals
 	}
 	in := journal.OnchainIntent{ID: id, Kind: kind, ChainID: chain, Sender: w.agent, Recipient: recipient, Token: token, Amount: amountText, Templates: []journal.OnchainTemplate{t}, CreatedAt: a.Now().UTC().Format(time.RFC3339Nano)}
+	if maxAmount {
+		in.AmountSource = "max"
+		in.ResolvedAmount = amountText
+	}
 	j, err := openJournal(w.profile)
 	if err != nil {
 		return nil, err
