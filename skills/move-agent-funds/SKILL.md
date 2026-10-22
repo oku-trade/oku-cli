@@ -5,7 +5,7 @@ description: Move Oku Agent EVM funds via send, swap, cross-chain bridge (includ
 
 # Move Oku Agent Funds
 
-Use `oku docs commands --json` to confirm the installed command and flags. Never treat the embedded EVM agent wallet as the Hyperliquid master account. Only the master can deposit to its own Hyperliquid account. Agent USDC must first be transferred to the master EOA on Arbitrum, then the master deposits from its own wallet. `oku deposit address` requests a master-bound HyperUnit deposit address for external funding. Never broadcast an agent transaction directly to the Hyperliquid bridge.
+Use `oku docs commands --json` to confirm the installed command and flags. The default API is production (`https://accounts.icarus.tools`). Staging is opt-in through a profile created with `--api-url https://accounts.staging.invalid`, and existing profiles keep their stored URL, so confirm which one is active with `oku profiles list`. Never treat the embedded EVM agent wallet as the Hyperliquid master account. Only the master can deposit to its own Hyperliquid account. Agent USDC must first be transferred to the master EOA on Arbitrum, then the master deposits from its own wallet. `oku deposit address` requests a master-bound HyperUnit deposit address for external funding. Never broadcast an agent transaction directly to the Hyperliquid bridge.
 
 ## Inspect, quote, prepare
 
@@ -33,9 +33,9 @@ oku send reconcile --intent ID --tx-hash TX_HASH --json
 oku swap reconcile --intent ID --tx-hash TX_HASH --json
 ```
 
-Submitting signs and broadcasts with Privy, so ask for explicit approval first. A transaction swap requiring token approval sends **one atomic** Privy `wallet_sendCalls` batch `[approve exact amount to OkuRouter, swap]` via EIP-7702. The first batch upgrades the agent wallet to a Kernel smart account without changing its address; the approval cannot confirm without the swap. A single-step route (such as native ETH input) sends one normal transaction. Submit waits for the chain's confirmation depth: under a minute on fast L2s such as Arbitrum, several minutes on Ethereum, Polygon or BNB Chain; if it returns OUTCOME_UNKNOWN after broadcast, run status rather than resubmitting. Chain RPC defaults to Oku's eRPC gateway, which serves the receipts and recent history that batch lookup needs; `OKU_RPC_URL_<CHAINID>` overrides it and is required only for chains unknown or deprecated in chain-config.
+Submitting signs and broadcasts with Privy, so get the user's approval first: either explicit approval of this intent, or a standing instruction for a defined batch such as a fee sweep run under `oku://skills/consolidate-agent-funds`, which then pauses on its guardrails. A transaction route with approval uses an atomic `wallet_sendCalls` batch only on chains supporting EIP-7702 with a deployed Kernel delegate. Otherwise it submits exact approval and trade sequentially, so approval can confirm without trade. `status` shows `next_step` at a safe resume boundary; submit the same sealed execution digest again to send only the trade. `OUTCOME_UNKNOWN` still requires status or reconcile before any retry. A single-step route (such as native ETH input) sends one normal transaction. Submit waits for the chain's confirmation depth: under a minute on fast L2s such as Arbitrum, several minutes on Ethereum, Polygon or BNB Chain; if it returns OUTCOME_UNKNOWN after broadcast, run status rather than resubmitting. Chain RPC defaults to Oku's eRPC gateway, which serves the receipts and recent history that batch lookup needs; `OKU_RPC_URL_<CHAINID>` overrides it and is required only for chains unknown or deprecated in chain-config.
 
-`INSUFFICIENT_GAS`, `INSUFFICIENT_BALANCE`, or `REJECTED` with **nothing broadcast** closes the intent: correct the problem and prepare a new one. On `OUTCOME_UNKNOWN`, **never retry submit or prepare a replacement**. Run `oku swap status --intent ID --json` (for a batch, this locates it by nonce and confirms its receipt), or `oku swap reconcile --intent ID --tx-hash TX_HASH --json` only with an independently recovered hash; use the corresponding `send` or `deposit` status for those intents. One unresolved intent blocks new onchain intents for the agent. MCP exposes submit and reconcile only with `--allow-mutations`. Privy wallet spending permissions are independent of Hyperliquid agent trading limits.
+`INSUFFICIENT_GAS`, `INSUFFICIENT_BALANCE`, or `REJECTED` with **nothing broadcast** closes the intent: correct the problem and prepare a new one. On `OUTCOME_UNKNOWN`, **never retry submit or prepare a replacement**. Run `oku swap status --intent ID --json` (for a batch, this locates it by nonce and confirms its receipt), or `oku swap reconcile --intent ID --tx-hash TX_HASH --json` only with an independently recovered hash; use the corresponding `send` or `deposit` status for those intents. An unresolved intent blocks new onchain intents for the agent on that chain only. Other chains remain available; a confirmed bridge source no longer gates its source chain. MCP exposes submit and reconcile only with `--allow-mutations`. Privy wallet spending permissions are independent of Hyperliquid agent trading limits.
 
 ## Bridge between EVM chains
 
@@ -46,6 +46,8 @@ oku bridge quote --chain 42161 --destination-chain 8453 --from USDC --to USDC --
 oku bridge prepare --chain 42161 --destination-chain 8453 --from USDC --to USDC --amount 10 --json
 oku bridge submit --intent ID --digest SHA --json
 oku bridge status --intent ID --json
+oku bridge status --all --json          # list unsettled bridges, or omit --intent
+oku bridge claim --ready --json         # claim eligible bridges sequentially, continue on errors
 oku bridge claim --intent ID --json        # only when status reports claim_required
 oku bridge reconcile --intent ID --tx-hash TX_HASH --json
 ```
@@ -55,7 +57,7 @@ Use `--route NAME` on quote and prepare to request CoW Swap, Aori or another spe
 
 CoW Swap can reject quotes below about $25 notional when a flat fee applies. Use `--route cowswap` to surface the backend reason; do not retry a failed quote automatically. On `INSUFFICIENT_GAS` or `INSUFFICIENT_BALANCE`, run `oku wallet fund --chain CHAIN --token native|usdc|TOKEN_ADDRESS` and ask the user to pay through the displayed QR or web page. This command never signs or transfers; omit `--amount` if the amount is unspecified, and use `--no-open` to avoid opening the browser.
 
-2. **Submit** (explicit user approval required). For transaction bridges, an approval plus the bridge call go out as one atomic batch; a single call is one transaction. Submit confirms the **source** chain only.
+2. **Submit** (requires user approval: explicit per intent, or a standing consolidation instruction under `consolidate-agent-funds` with its guardrails). For transaction bridges, an approval plus the bridge call go out as one atomic batch; a single call is one transaction. Submit confirms the **source** chain only.
 3. **Status.** `bridge status` reports destination delivery for every bridge from Oku's order history (the web app's source), in `destination_fill.status`:
    - `pending`: in flight. Circle Standard typically takes 15-20 minutes; Circle Fast and most other bridges take seconds to a few minutes.
    - `filled`: delivered; `fill_tx` is the destination transaction and `destination_settled` is true.

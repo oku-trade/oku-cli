@@ -32,7 +32,7 @@ oku profiles add <name> --account 0x...
 oku auth login --profile <name>
 ```
 
-The default API `https://accounts.staging.invalid` is staging; production uses `https://accounts.icarus.tools`. On a fresh configuration, select production with `oku auth login --api-url https://accounts.icarus.tools`; for an existing named profile, select its API URL when adding the profile. The Privy app is built in; `--privy-app-id` or `OKU_PRIVY_APP_ID` can override it.
+The default API is production, `https://accounts.icarus.tools`. Staging is opt-in: on a fresh configuration use `oku auth login --api-url https://accounts.staging.invalid`, or add a staging profile with `--api-url https://accounts.staging.invalid`. Existing profiles keep the API URL they were created with (check `oku profiles list`). The Privy app is built in; `--privy-app-id` or `OKU_PRIVY_APP_ID` can override it.
 
 ## Locked credential (Linux)
 

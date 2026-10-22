@@ -3,6 +3,8 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -13,6 +15,39 @@ func TestBridgeQuoteFollowsGenerationAndAcceptsAcrossWithoutSimulation(t *testin
 	// app then polls generation 1. An explicit generation is used as given.
 	for _, tc := range []struct{ reported, polled float64 }{{7, 7}, {0, 1}} {
 		t.Run(fmt.Sprint(tc.reported), func(t *testing.T) { bridgeQuoteGeneration(t, tc.reported, tc.polled) })
+	}
+}
+
+func TestBridgeQuoteNativeAddressAliases(t *testing.T) {
+	for _, address := range []string{"0x0000000000000000000000000000000000000000", "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"} {
+		t.Run(address, func(t *testing.T) {
+			h := newHarness(t)
+			h.enroll()
+			h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
+				switch method {
+				case "GetSupportedBridges":
+					return map[string]any{"bridges": []any{map[string]any{"name": "lifi", "active": true, "supportedChains": []string{"eip155:8453", "eip155:42161"}}}}, true
+				case "Create":
+					params := body["params"].(map[string]any)
+					if params["inTokenAddress"] != "0x0000000000000000000000000000000000000000" || params["outTokenAddress"] != "0x0000000000000000000000000000000000000000" {
+						t.Errorf("native request changed: %v", params)
+					}
+					return map[string]any{"orderId": "order"}, true
+				case "UpdateQuoteParams":
+					return map[string]any{"orderId": "order", "generation": 1}, true
+				case "GetNewQuotes":
+					return map[string]any{"quotes": map[string]any{"lifi": map[string]any{"bridge": "lifi", "fetched": true, "quoteId": "quote", "quote": map[string]any{
+						"inChainId": 8453, "outChainId": 42161, "inToken": map[string]any{"address": address, "decimals": 18}, "outToken": map[string]any{"address": address, "decimals": 18},
+						"inAmount": "0.01", "minAmountOut": "0.009", "outAmount": "0.0095", "outUsdValue": 20, "feesUsdValue": 1, "gasUsdValue": 1,
+					}}}}, true
+				}
+				return nil, false
+			}
+			r := h.run("bridge", "quote", "--chain", "8453", "--destination-chain", "42161", "--from", "native", "--to", "native", "--amount", "0.01", "--json")
+			if r.code != 0 || r.data()["route"] != "lifi" {
+				t.Fatalf("native bridge quote: %s %s", r.stdout, r.stderr)
+			}
+		})
 	}
 }
 
@@ -80,5 +115,58 @@ func bridgeQuoteGeneration(t *testing.T, reported, polled float64) {
 	prepared := h.run("bridge", "prepare", "--chain", "42161", "--destination-chain", "8453", "--from", "0xaf88d065e77c8cc2239327c5edb3a432268e5831", "--to", "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", "--amount", "0.5", "--recipient", h.fake.agentAddress, "--json")
 	if prepared.code != 0 || prepared.data()["target"] != nil || prepared.data()["state"] != "prepared" {
 		t.Fatalf("bridge prepare without executionInfo: %s %s", prepared.stdout, prepared.stderr)
+	}
+	if v, ok := prepared.data()["valuation"].(map[string]any); !ok || v["out_amount"] == "" || v["in_usd"] == nil {
+		t.Fatalf("bridge prepare must report valuation: %s", prepared.stdout)
+	}
+}
+
+func TestBridgeQuoteMaxNativeKeepsGasReserve(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	rpc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Method string `json:"method"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		switch req.Method {
+		case "eth_chainId":
+			fmt.Fprint(w, `{"result":"0x2105"}`)
+		case "eth_getBalance":
+			fmt.Fprint(w, `{"result":"0xde0b6b3a7640000"}`) // 1 ETH
+		case "eth_gasPrice":
+			fmt.Fprint(w, `{"result":"0x3b9aca00"}`)
+		case "eth_feeHistory":
+			fmt.Fprint(w, `{"result":{"baseFeePerGas":[]}}`)
+		case "eth_estimateGas":
+			fmt.Fprint(w, `{"result":"0x5208"}`)
+		default:
+			t.Errorf("unexpected RPC %s", req.Method)
+		}
+	}))
+	t.Cleanup(rpc.Close)
+	h.rpcURL = rpc.URL
+	h.rpcChain = "8453"
+	var sent any
+	h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
+		switch method {
+		case "GetSupportedBridges":
+			return map[string]any{"bridges": []any{map[string]any{"name": "lifi", "active": true, "supportedChains": []string{"eip155:8453", "eip155:42161"}}}}, true
+		case "Create":
+			sent = body["params"].(map[string]any)["inTokenAmount"]
+			return map[string]any{"orderId": "order"}, true
+		case "UpdateQuoteParams":
+			return map[string]any{"orderId": "order", "generation": 1}, true
+		case "GetNewQuotes":
+			return map[string]any{"quotes": map[string]any{"lifi": map[string]any{"bridge": "lifi", "fetched": true, "quoteId": "quote", "quote": map[string]any{
+				"inChainId": 8453, "outChainId": 42161, "inToken": map[string]any{"address": "native", "decimals": 18}, "outToken": map[string]any{"address": "native", "decimals": 18},
+				"inAmount": sent, "minAmountOut": "0.99", "outAmount": "0.995", "outUsdValue": 20, "feesUsdValue": 1, "gasUsdValue": 1,
+			}}}}, true
+		}
+		return nil, false
+	}
+	r := h.run("bridge", "quote", "--chain", "8453", "--destination-chain", "42161", "--from", "native", "--to", "native", "--amount", "max", "--json")
+	if r.code != 0 || sent != "0.9987" || r.data()["in_amount"] != "998700000000000000" || r.data()["out_usd"] != 20.0 || r.data()["gas_usd"] != 1.0 {
+		t.Fatalf("max native bridge sent %v: %s %s", sent, r.stdout, r.stderr)
 	}
 }

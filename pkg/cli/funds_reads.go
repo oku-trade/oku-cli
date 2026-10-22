@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	"github.com/oku-trade/oku-cli/pkg/auth"
@@ -14,7 +13,7 @@ import (
 )
 
 func walletBalancesFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID, e.g. 42161 (or eip155: prefixed); default 42161"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID (default 42161)"}, &urfave.StringFlag{Name: "chains", Usage: "comma-separated EVM chain IDs"}, &urfave.BoolFlag{Name: "all-chains", Usage: "query common supported EVM chains"}, &urfave.StringFlag{Name: "tokens-file", Usage: "CSV token manifest (chain_id,token_address,amount); native rows use the zero address; reads the CSV chains when --chain/--chains is omitted"}, &urfave.BoolFlag{Name: "stables", Usage: "also read the chain's configured stablecoins from chain-config (intermediate-asset candidates)"}}
 }
 func depositAddressFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.StringFlag{Name: "asset", Usage: "HyperUnit asset symbol"}, &urfave.StringFlag{Name: "source-chain", Usage: "HyperUnit source chain CAIP-2 identifier"}}
@@ -52,33 +51,8 @@ func (a *App) cmdWalletAddress(e *env) (*result, error) {
 		fmt.Fprintf(out, "Agent EVM wallet: %s\nMaster EOA: %s\n", w.agent, w.profile.Account)
 	}}, nil
 }
-func (a *App) cmdWalletBalances(e *env) (*result, error) {
-	w, err := agentWalletMetadata(e)
-	if err != nil {
-		return nil, err
-	}
-	chain := e.cmd.String("chain")
-	if chain == "" {
-		chain = "eip155:42161"
-	}
-	id, perr := strconv.ParseUint(strings.TrimPrefix(chain, "eip155:"), 10, 64)
-	if perr != nil || !onchain.Allowed(id) {
-		return nil, output.Errorf(output.CodeInvalidArgument, "unsupported EVM chain %q", chain)
-	}
-	chain = fmt.Sprintf("eip155:%d", id)
-	ctx, cancel := e.requestCtx()
-	defer cancel()
-	var native map[string]any
-	if err = e.client(w.profile).Onchain(ctx, "GetNativeBalance", map[string]any{"chain": chain, "address": w.agent}, &native, false); err != nil {
-		return nil, apiError(err, "GetNativeBalance")
-	}
-	var tokens map[string]any
-	if err = e.client(w.profile).Onchain(ctx, "GetOnchainTokenBalances", map[string]any{"walletAddress": w.agent, "includeRecommendedDefaultToken": true, "recommendChains": []string{chain}}, &tokens, false); err != nil {
-		return nil, apiError(err, "GetOnchainTokenBalances")
-	}
-	data := map[string]any{"agent": w.agent, "chain": chain, "native": native, "tokens": tokens, "source": "oku:OnchainService"}
-	return &result{data: data, human: func(out io.Writer) { fmt.Fprintf(out, "%s on %s: %v\n", w.agent, chain, native["balance"]) }}, nil
-}
+func (a *App) cmdWalletBalances(e *env) (*result, error) { return a.walletBalancesNative(e) }
+
 func (a *App) cmdDepositAddress(e *env) (*result, error) {
 	w, err := agentWalletMetadata(e)
 	if err != nil {
@@ -118,7 +92,6 @@ func (a *App) cmdDepositAddress(e *env) (*result, error) {
 		fmt.Fprintf(out, "Master-bound %s deposit address (%s): %s\nMinimum: %s\nFund externally from your own wallet; agent transfers do not credit the master.\n", asset, chain, response.DepositAddress, response.MinDeposit)
 	}}, nil
 }
-
 func validBase58Address(s string) bool {
 	if len(s) < 32 || len(s) > 44 {
 		return false
@@ -130,7 +103,6 @@ func validBase58Address(s string) bool {
 	}
 	return true
 }
-
 func validBitcoinAddress(s string) bool {
 	if len(s) >= 14 && len(s) <= 90 && (strings.HasPrefix(s, "bc1q") || strings.HasPrefix(s, "bc1p")) {
 		for _, c := range s[4:] {
@@ -142,7 +114,6 @@ func validBitcoinAddress(s string) bool {
 	}
 	return len(s) >= 26 && len(s) <= 35 && (strings.HasPrefix(s, "1") || strings.HasPrefix(s, "3")) && validBase58Alphabet(s)
 }
-
 func validBase58Alphabet(s string) bool {
 	for _, c := range s {
 		if !strings.ContainsRune("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz", c) {

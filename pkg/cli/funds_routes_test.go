@@ -100,6 +100,37 @@ func TestRouteExecutionAuthorization(t *testing.T) {
 	}
 }
 
+func TestSwapImpactExcludesInputOkuFee(t *testing.T) {
+	withFee := &v2.SimpleSwapQuote{
+		InAmountRaw: "1000000", InUsdValue: 1, OutUsdValue: 0.74,
+		PriceImpact: 0.26,
+		FeeInfo:     &v2.FeeInfo{InputTokenFeeInfo: &v2.TokenFeeInfo{AmountRaw: "250000"}},
+	}
+	if !acceptableSwapImpact(withFee) {
+		t.Fatal("market price unchanged after a 25% Oku fee must pass")
+	}
+	withFee.OutUsdValue = 0.60
+	if acceptableSwapImpact(withFee) {
+		t.Fatal("20% market shortfall must fail even after removing Oku fee")
+	}
+	withFee.FeeInfo = nil
+	if acceptableSwapImpact(withFee) {
+		t.Fatal("unknown fee must retain upstream impact guard")
+	}
+	withFee.PriceImpact = math.Inf(-1)
+	if acceptableSwapImpact(withFee) {
+		t.Fatal("infinite impact must fail")
+	}
+}
+
+func TestNativeSwapTokenMatch(t *testing.T) {
+	for _, quoted := range []string{"native", "0x0000000000000000000000000000000000000000"} {
+		if !bridgeTokenMatches(quoted, "native") {
+			t.Fatalf("native representation %q rejected", quoted)
+		}
+	}
+}
+
 func TestSwapMarketSelectionAndLegacyApproval(t *testing.T) {
 	if !acceptablePriceImpact(-0.0039) || acceptablePriceImpact(math.NaN()) || acceptablePriceImpact(0.16) {
 		t.Fatal("favourable price impact rejected or unsafe impact accepted")
@@ -140,5 +171,72 @@ func TestRouterForUsesChainConfig(t *testing.T) {
 		if got := routerFor(chain); !strings.EqualFold(got, want) {
 			t.Fatalf("chain %d: router %q, want %q", chain, got, want)
 		}
+	}
+}
+
+func TestSwapMinOutDerivesWithOrWithoutSimulation(t *testing.T) {
+	q := &v2.SimpleSwapQuote{OutAmountRaw: "1000000", SlippagePpm: 5000, Simulation: &v2.SimulationResult{AmountOutRaw: "999000"}}
+	if m, err := swapMinOut(q); err != nil || m.String() != "995000" {
+		t.Fatalf("derived %v %v", m, err)
+	}
+	q.Simulation.AmountOutRaw = "990000" // simulation below derived minimum
+	if _, err := swapMinOut(q); err == nil {
+		t.Fatal("must reject simulation below minimum")
+	}
+	q.Simulation = &v2.SimulationResult{Error: "execution reverted"}
+	if _, err := swapMinOut(q); err == nil {
+		t.Fatal("must reject a failed simulation")
+	}
+	q.Simulation = nil // market never simulates (filecoin usor)
+	if m, err := swapMinOut(q); err != nil || m.String() != "995000" {
+		t.Fatalf("no-simulation derived %v %v", m, err)
+	}
+	q = &v2.SimpleSwapQuote{OutAmountRaw: "1000000", MinAmountOutRaw: "990000"}
+	if m, err := swapMinOut(q); err != nil || m.String() != "990000" {
+		t.Fatalf("explicit %v %v", m, err)
+	}
+}
+
+func TestNativeTokenAliasOnlyCelo(t *testing.T) {
+	if nativeTokenAlias(42220) != "0x471EcE3750Da237f93B8E339c536989b8978a438" || nativeTokenAlias(8453) != "" {
+		t.Fatal("unexpected native alias")
+	}
+}
+
+func TestSwapLossFlagsBrokenPoolsWithoutHardReject(t *testing.T) {
+	broken := &v2.SimpleSwapQuote{InAmountRaw: "1000000000000000000", InUsdValue: 7.4, OutUsdValue: 0.022, PriceImpact: -0.997}
+	loss, ok := swapLoss(broken)
+	if !ok || loss < 0.99 || !usableImpact(broken) {
+		t.Fatalf("broken pool must be usable but flagged: loss %v ok %v", loss, ok)
+	}
+	nan := &v2.SimpleSwapQuote{InAmountRaw: "1", PriceImpact: math.NaN()}
+	if usableImpact(nan) {
+		t.Fatal("unpriced quote must not be selectable")
+	}
+}
+
+func TestSwapImpactRejectsBrokenPools(t *testing.T) {
+	broken := &v2.SimpleSwapQuote{InAmountRaw: "1000000000000000000", InUsdValue: 7.4, OutUsdValue: 0.022, PriceImpact: -0.997}
+	if acceptableSwapImpact(broken) {
+		t.Fatal("-99% route accepted")
+	}
+	fair := &v2.SimpleSwapQuote{InAmountRaw: "1000000000000000000", InUsdValue: 2.39, OutUsdValue: 2.38, PriceImpact: -0.004}
+	if !acceptableSwapImpact(fair) {
+		t.Fatal("fair route rejected")
+	}
+}
+
+func TestMispricedOnlyLossesAndClamp(t *testing.T) {
+	if !mispriced(501, 0.05) || mispriced(500, 0.05) || mispriced(280, float64(defaultMaxLossBps)/10_000) {
+		t.Fatal("loss threshold (default 5%)")
+	}
+	if mispriced(-26922, 0.05) || mispriced(-317, 0.05) {
+		t.Fatal("priced gains never flag")
+	}
+	if mispriced(9999, math.Inf(1)) {
+		t.Fatal("override disables guardrail")
+	}
+	if lossBps(math.Inf(-1)) != -1_000_000 || lossBps(math.NaN()) != 0 {
+		t.Fatal("clamp")
 	}
 }
