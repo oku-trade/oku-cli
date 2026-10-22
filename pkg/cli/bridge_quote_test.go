@@ -29,7 +29,7 @@ func TestBridgeQuoteNativeAddressAliases(t *testing.T) {
 					return map[string]any{"bridges": []any{map[string]any{"name": "lifi", "active": true, "supportedChains": []string{"eip155:8453", "eip155:42161"}}}}, true
 				case "Create":
 					params := body["params"].(map[string]any)
-					if params["inTokenAddress"] != "native" || params["outTokenAddress"] != "native" {
+					if params["inTokenAddress"] != "0x0000000000000000000000000000000000000000" || params["outTokenAddress"] != "0x0000000000000000000000000000000000000000" {
 						t.Errorf("native request changed: %v", params)
 					}
 					return map[string]any{"orderId": "order"}, true
