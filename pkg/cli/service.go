@@ -40,7 +40,7 @@ var ServiceReads = map[string]bool{
 	"version": true, "doctor": true, "auth status": true, "profiles list": true,
 	"markets list": true, "markets quote": true, "markets funding": true,
 	"account summary": true, "positions list": true, "orders list": true,
-	"orders status": true, "fills list": true,
+	"orders status": true, "orders intents": true, "fills list": true,
 	"docs list": true, "docs show": true, "docs search": true, "docs commands": true,
 }
 

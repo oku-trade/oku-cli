@@ -194,6 +194,7 @@ func (a *App) commandTable() map[string]*handler {
 		"orders cancel":      {summary: "Cancel an open order: orders cancel --market COIN --order-id OID", flags: cancelFlags, run: a.cmdOrdersCancel},
 		"orders status":      {summary: "Status of an intent: orders status --intent ID", flags: statusFlags, run: a.cmdOrdersStatus},
 		"orders reconcile":   {summary: "Resolve unknown or in-flight intents with Oku", run: a.cmdOrdersReconcile},
+		"orders intents":     {summary: "List intents in the local journal (--unresolved for what doctor counts); never contacts Oku", flags: ordersIntentsFlags, run: a.cmdOrdersIntents},
 		"orders abandon":     {summary: "Cancel an unsigned server action so it can never execute", flags: statusFlags, run: a.cmdOrdersAbandon},
 		"fills list":         {summary: "Recent fills", flags: marketFilterFlags, run: a.cmdFillsList},
 		"docs list":          {summary: "List documentation bundled in this binary (offline)", run: a.cmdDocsList},

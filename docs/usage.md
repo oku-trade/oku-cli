@@ -144,6 +144,7 @@ oku orders prepare --market BTC --side buy|sell --type limit|market --size <dec>
 #   price up to that bound. Bare symbols such as RKLB resolve to HIP-3 markets (xyz:RKLB).
 oku orders submit --intent ID --digest SHA
 oku orders status --intent ID
+oku orders intents [--unresolved] [--state S] [--limit N]   # local journal only
 oku orders reconcile
 oku orders cancel --market COIN --order-id OID [--intent-id ID]
 oku orders abandon --intent ID          # only for never-signed intents

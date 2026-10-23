@@ -321,6 +321,18 @@ Cancel an open order: orders cancel --market COIN --order-id OID
 | `--order-id` | exchange order id (oid) to cancel (required) | `0` |
 | `--intent-id` | idempotency id (default: random) | `` |
 
+## `oku orders intents`
+
+List intents in the local journal (--unresolved for what doctor counts); never contacts Oku
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--unresolved` | only intents that still need reconciliation (what doctor counts) | `false` |
+| `--state` | only intents in this local state (prepared, created, submitting, unknown, submitted, rejected, abandoned) | `` |
+| `--limit` | show at most N, newest first (0 = all) | `0` |
+
 ## `oku orders list`
 
 Open orders
