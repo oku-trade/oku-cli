@@ -70,7 +70,7 @@ oku wallet balances --tokens-file sweep.csv --json        # reads every chain in
 
 The CSV is `chain_id,token_address,amount` (optional header). Its `amount` is informational only (`csv_amount`, `mismatch`); never spend it. Per chain, keep tokens with nonzero live `balance`. Skip as **dust** any token whose swap `gas_usd + oku_fee_usd` is at least its `in_usd` (assume a $0.25 flat fee on sells under $25 unless prepare shows less). Report zero and dust rows as skipped; do not sell them.
 
-For a successful query covering the requested chains, a requested ERC-20 omitted from `tokens` has zero balance. Read requested native-token rows from the `native` map, not `tokens`. Errors and unread chains are not zero balances. Ignore incidental gas balances unless `native` is itself a CSV asset. If all CSV assets are zero or were established as dust by quote costs (the dust rule above), report the skipped rows and stop without preparing swaps or entering the execution phases: nothing was consolidated.
+For a successful query covering the requested chains, a requested ERC-20 omitted from `tokens` has zero balance. Read requested native-token rows from the `native` map, not `tokens`. Errors and unread chains are not zero balances: a chain listed under `errors` in the balances output was not read, so report it as unread (set `OKU_RPC_URL_<CHAINID>` for `NO_RPC`) instead of treating its assets as zero. Ignore incidental gas balances unless `native` is itself a CSV asset. If all CSV assets are zero or were established as dust by quote costs (the dust rule above), report the skipped rows and stop without preparing swaps or entering the execution phases: nothing was consolidated.
 
 ## 2. Plan each source chain
 

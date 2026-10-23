@@ -620,7 +620,7 @@ Read the agent's EVM native balance
 | --- | --- | --- |
 | `--chain` | EVM chain ID (default 42161) | `` |
 | `--chains` | comma-separated EVM chain IDs | `` |
-| `--all-chains` | query common supported EVM chains | `false` |
+| `--all-chains` | query every active Oku chain; chains that fail or have no RPC are reported under errors and skipped | `false` |
 | `--tokens-file` | CSV token manifest (chain_id,token_address,amount); native rows use the zero address; reads the CSV chains when --chain/--chains is omitted | `` |
 | `--stables` | also read the chain's configured stablecoins from chain-config (intermediate-asset candidates) | `false` |
 

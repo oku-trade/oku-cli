@@ -166,3 +166,27 @@ func TestSendPrepareAcceptsZeroAddressAsNative(t *testing.T) {
 		t.Fatalf("send prepare with zero address: %s %s", r.stdout, r.stderr)
 	}
 }
+
+// One chain without an RPC endpoint is reported under errors and skipped;
+// the other chains are still read. Blast (81457) is deprecated in chain-config,
+// so it has no default endpoint.
+func TestWalletBalancesSkipsUnreadableChain(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	h.rpcURL = nativeRPC(t, "0xa4b1")
+	r := h.run("wallet", "balances", "--chains", "42161,81457", "--json")
+	if r.code != 0 {
+		t.Fatalf("balances: %s %s", r.stdout, r.stderr)
+	}
+	native, _ := r.data()["native"].(map[string]any)
+	if _, ok := native["eip155:42161"]; !ok {
+		t.Fatalf("readable chain missing: %s", r.stdout)
+	}
+	errs, _ := r.data()["errors"].([]any)
+	if len(errs) != 1 || errs[0].(map[string]any)["chain"] != "eip155:81457" || errs[0].(map[string]any)["code"] != "NO_RPC" {
+		t.Fatalf("unreadable chain not reported: %s", r.stdout)
+	}
+	if r := h.run("wallet", "balances", "--chain", "81457", "--json"); r.code == 0 {
+		t.Fatalf("all chains failing must be an error: %s", r.stdout)
+	}
+}
