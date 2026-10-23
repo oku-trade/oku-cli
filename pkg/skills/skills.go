@@ -160,6 +160,39 @@ func install(fsys fs.FS, root string, force bool) ([]FileResult, error) {
 	return results, nil
 }
 
+// Pristine reports whether any bundled skill is installed under root and
+// whether every installed bundled file still matches this build's content
+// (no user edits). Auto-update only refreshes pristine roots.
+func Pristine(root string) (installed, pristine bool, err error) { return pristineFS(assets, root) }
+
+func pristineFS(fsys fs.FS, root string) (bool, bool, error) {
+	sk, err := list(fsys)
+	if err != nil {
+		return false, false, err
+	}
+	installed, pristine := false, true
+	for _, s := range sk {
+		for _, f := range s.Files {
+			data, err := fs.ReadFile(fsys, path.Join(s.Name, f))
+			if err != nil {
+				return false, false, err
+			}
+			existing, err := os.ReadFile(filepath.Join(root, s.Name, filepath.FromSlash(f)))
+			switch {
+			case errors.Is(err, os.ErrNotExist):
+				continue
+			case err != nil:
+				return false, false, err
+			}
+			installed = true
+			if !bytes.Equal(existing, data) {
+				pristine = false
+			}
+		}
+	}
+	return installed, installed && pristine, nil
+}
+
 // Read returns a bundled skill file, e.g. Read("learn-oku", "SKILL.md").
 func Read(name, file string) ([]byte, error) {
 	if strings.Contains(name, "/") || name == "" || name == "." || name == ".." {

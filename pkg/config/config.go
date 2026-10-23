@@ -50,6 +50,18 @@ type File struct {
 	Profiles       map[string]*Profile `json:"profiles"`
 	// Telemetry is global (not per profile) and off unless explicitly enabled.
 	Telemetry *Telemetry `json:"telemetry,omitempty"`
+	// AutoUpdate is global and off unless explicitly enabled.
+	AutoUpdate *AutoUpdate `json:"auto_update,omitempty"`
+}
+
+// AutoUpdate holds the opt-in background update preference.
+type AutoUpdate struct {
+	Enabled bool `json:"enabled"`
+	// Interval is the minimum time between background checks, as a Go
+	// duration string. Empty means the default (24h).
+	Interval string `json:"interval,omitempty"`
+	// Skills also refreshes installed bundled skills after an update.
+	Skills bool `json:"skills"`
 }
 
 // Telemetry holds the opt-in usage telemetry preference.

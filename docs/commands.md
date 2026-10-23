@@ -58,6 +58,29 @@ Show Privy agent credential (--verify checks approval)
 
 Convert a passphrase-protected credential from an older release to the current format (one time, Linux)
 
+## `oku autoupdate disable`
+
+Turn off background self-update
+
+## `oku autoupdate enable`
+
+Opt in to background self-update (and skill refresh) at most once per interval (default 24h)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--interval` | minimum time between background checks, e.g. 24h or 6h (min 1h; default 24h) | `` |
+| `--no-skills` | update only the binary; leave installed skills alone | `false` |
+
+## `oku autoupdate run`
+
+Run one auto-update now: self-update, then refresh unmodified installed skills
+
+## `oku autoupdate status`
+
+Show the auto-update setting, last check and last result
+
 ## `oku bridge claim`
 
 Claim a bridge transfer or all ready transfers with --ready
