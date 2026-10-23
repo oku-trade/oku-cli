@@ -38,10 +38,10 @@ This only works on an existing isolated position. Amounts allow at most 6 decima
 
 ## Submit
 
-Both commands only prepare. Show the summary, get explicit approval, then run:
+Both commands only prepare. Show the summary, validate it against exactly the change the user asked for (market, leverage value, cross or isolated, margin amount sign), then run:
 
 ```sh
 oku orders submit --profile <p> --intent <intent_id> --digest <digest> --json
 ```
 
-Only a server state of `completed` means success. Once submitted, anything else, including an error status, is an unknown outcome. Re-read positions and follow reconcile-hyperliquid-actions. Never resend.
+Only a server state of `completed` means success. This skill never changes leverage or margin beyond what the user explicitly asked for; a generic trade request does not authorize a risk change, and a risk change is never bundled with an order. Once submitted, anything else, including an error status, is an unknown outcome. Re-read positions and follow reconcile-hyperliquid-actions. Never resend.
