@@ -246,12 +246,8 @@ type harness struct {
 	fake   *fakeOku
 	srv    *httptest.Server
 	stdin  string
-	passFn string
 	privy  *fakePrivy
 	rpcURL string
-	// Most CLI tests exercise command behavior, not the cost of scrypt. Keep
-	// protected credential coverage in enrollProtected and auth-specific tests.
-	unprotectedLogin bool
 	// rpcChain additionally routes OKU_RPC_URL_<rpcChain> to rpcURL.
 	rpcChain string
 	// extraEnv supplies additional environment variables to commands.
@@ -275,12 +271,10 @@ func newHarness(t *testing.T) *harness {
 	t.Setenv("OKU_CONFIG_DIR", filepath.Join(t.TempDir(), "cfg"))
 	t.Setenv("OKU_STATE_DIR", filepath.Join(t.TempDir(), "state"))
 	fake, srv := newFake(t)
-	pf := filepath.Join(t.TempDir(), "pass")
-	os.WriteFile(pf, []byte("correct horse battery\n"), 0o600)
 	pv := newFakePrivy(t)
 	fake.agentAddress = pv.signer.Address()
 	fake.approved = true
-	return &harness{t: t, fake: fake, srv: srv, passFn: pf, privy: pv}
+	return &harness{t: t, fake: fake, srv: srv, privy: pv}
 }
 
 type run struct {
@@ -294,19 +288,8 @@ func (h *harness) run(args ...string) run {
 	var out, errb bytes.Buffer
 	a := &App{
 		Stdout: &out, Stderr: &errb, Stdin: strings.NewReader(h.stdin),
-		ReadSecret: func(string) ([]byte, error) {
-			if h.unprotectedLogin {
-				return nil, nil
-			}
-			return nil, errNoTTY
-		},
+		ReadSecret: func(string) ([]byte, error) { return nil, errNoTTY },
 		Getenv: func(k string) string {
-			if k == "OKU_PASSPHRASE_FILE" {
-				if h.unprotectedLogin {
-					return ""
-				}
-				return h.passFn
-			}
 			if v, ok := h.extraEnv[k]; ok {
 				return v
 			}
@@ -351,19 +334,6 @@ func (r run) data() map[string]any {
 
 func (h *harness) enroll() {
 	h.t.Helper()
-	if runtime.GOOS != "darwin" {
-		h.unprotectedLogin = true
-		h.stdin = "yes\nstore without passphrase\n"
-		defer func() { h.unprotectedLogin = false; h.stdin = "" }()
-	}
-	h.enrollProtected()
-}
-
-// enrollProtected retains the real passphrase/KDF path for authentication and
-// credential security tests. Ordinary command tests use enroll to avoid
-// re-deriving a 128 MiB scrypt key for every CLI invocation under -race.
-func (h *harness) enrollProtected() {
-	h.t.Helper()
 	if r := h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code != 0 {
 		h.t.Fatalf("profiles add: %s %s", r.stdout, r.stderr)
 	}
@@ -375,7 +345,7 @@ func (h *harness) enrollProtected() {
 
 func TestEnrollmentFlow(t *testing.T) {
 	h := newHarness(t)
-	h.enrollProtected()
+	h.enroll()
 	if h.privy.pending != 1 {
 		t.Fatalf("device grant did not pass through pending: %d", h.privy.pending)
 	}
@@ -394,12 +364,9 @@ func TestEnrollmentFlow(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if bytes.Contains(raw, []byte("refresh-0")) || bytes.Contains(raw, []byte("access-0")) {
-			t.Fatal("token stored in plaintext")
+		fi, err := os.Stat(path)
+		if err != nil || fi.Mode().Perm() != 0o600 {
+			t.Fatalf("credential file must be 0600: %v", err)
 		}
 	}
 	if r := h.run("auth", "status", "--verify", "--json"); r.code != 0 {
@@ -461,7 +428,7 @@ func prepare(t *testing.T, h *harness, extra ...string) (string, string) {
 
 func TestPrepareSubmitHappyPath(t *testing.T) {
 	h := newHarness(t)
-	h.enrollProtected()
+	h.enroll()
 	id, dg := prepare(t, h)
 	if h.fake.creates != 0 {
 		t.Fatal("prepare contacted CreateAction")
@@ -664,7 +631,7 @@ func TestMarketOrderSlippageBound(t *testing.T) {
 
 func TestProfileBindingEnforced(t *testing.T) {
 	h := newHarness(t)
-	h.enrollProtected()
+	h.enroll()
 	id, dg := prepare(t, h)
 	// Hand-edit the config to point the enrolled profile at another API.
 	cfgPath := filepath.Join(os.Getenv("OKU_CONFIG_DIR"), "config.json")
@@ -688,23 +655,9 @@ func TestProfileBindingEnforced(t *testing.T) {
 	}
 }
 
-func TestNoPassphraseFailsClosed(t *testing.T) {
-	if runtime.GOOS == "darwin" {
-		t.Skip("native Keychain uses OS authorization rather than a file passphrase")
-	}
-	h := newHarness(t)
-	h.enrollProtected()
-	id, dg := prepare(t, h)
-	h.passFn = ""
-	r := h.run("orders", "submit", "--intent", id, "--digest", dg, "--json")
-	if r.errCode() != "SIGNER_UNAVAILABLE" || h.fake.creates != 0 {
-		t.Fatalf("got %s", r.stdout)
-	}
-}
-
 func TestRevokeReportsBoundaries(t *testing.T) {
 	h := newHarness(t)
-	h.enrollProtected()
+	h.enroll()
 	r := h.run("auth", "logout", "--json")
 	if r.code != 0 || r.data()["local_credentials"] != "deleted" || r.data()["boundaries"] == nil {
 		t.Fatalf("logout: %s", r.stdout)

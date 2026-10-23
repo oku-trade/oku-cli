@@ -30,18 +30,18 @@ func TestDedicatedNativeKeychain(t *testing.T) {
 	profile := "oku-ci-native-test"
 	md := Metadata{Profile: profile, Network: "testnet", APIURL: "https://api.example", AccountAddress: "0x111"}
 	sec := Secrets{RefreshToken: "test-only-token"}
-	if err := SavePrivy(profile, md, sec, nil); err != nil {
+	if err := SavePrivy(profile, md, sec); err != nil {
 		t.Fatal(err)
 	}
 	loaded, err := LoadPrivyMetadata(profile)
 	if err != nil || loaded.Profile != profile {
 		t.Fatalf("load metadata: %v", err)
 	}
-	_, got, err := UnlockPrivy(profile, nil)
+	_, got, err := LoadPrivy(profile)
 	if err != nil || got.RefreshToken != sec.RefreshToken {
 		t.Fatalf("unlock: %v", err)
 	}
-	if _, _, err := UnlockPrivy(profile+"-other", nil); !errors.Is(err, ErrNoCredentials) {
+	if _, _, err := LoadPrivy(profile + "-other"); !errors.Is(err, ErrNoCredentials) {
 		t.Fatalf("other profile resolved: %v", err)
 	}
 	if err := exec.Command("security", "lock-keychain", dedicated).Run(); err != nil {

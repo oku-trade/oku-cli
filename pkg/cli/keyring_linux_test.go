@@ -36,12 +36,10 @@ func credFileExists(t *testing.T) bool {
 	return err == nil
 }
 
-// Opt-in keyring login: no passphrase prompt, no credential file, store
-// recorded in the profile, status reports it, unlock/lock explain, logout
-// deletes the item.
+// Opt-in keyring login: no credential file, store recorded in the profile,
+// status reports it, unlock is a no-op, logout deletes the item.
 func TestKeyringLoginLifecycle(t *testing.T) {
 	h, m := keyringHarness(t)
-	h.extraEnv = map[string]string{"OKU_PASSPHRASE_FILE": ""}
 	if r := h.run("auth", "login", "--no-open", "--credential-store", "keyring", "--json"); r.code != 0 {
 		t.Fatalf("login: %s %s", r.stdout, r.stderr)
 	}
@@ -52,18 +50,16 @@ func TestKeyringLoginLifecycle(t *testing.T) {
 	if r.code != 0 || r.data()["credential_store"] != "keyring" {
 		t.Fatalf("status: %s", r.stdout)
 	}
-	for _, c := range []string{"unlock", "lock"} {
-		if r := h.run("auth", c, "--json"); r.code != 0 || !strings.Contains(r.stdout, "desktop keyring") {
-			t.Fatalf("%s: %s", c, r.stdout)
-		}
+	if r := h.run("auth", "unlock", "--json"); r.code != 0 || r.data()["migrated"] != false || !strings.Contains(r.stdout, "desktop keyring") {
+		t.Fatalf("unlock: %s", r.stdout)
 	}
 	if r := h.run("auth", "logout", "--json"); r.code != 0 || m.Len() != 0 {
 		t.Fatalf("logout: %s items=%d", r.stdout, m.Len())
 	}
 }
 
-// A keyring profile whose item vanished reports that instead of asking for a
-// passphrase or reading a file.
+// A keyring profile whose item vanished reports that instead of reading a
+// file.
 func TestKeyringMissingItemReported(t *testing.T) {
 	h, m := keyringHarness(t)
 	if r := h.run("auth", "login", "--no-open", "--credential-store", "keyring", "--json"); r.code != 0 {
@@ -106,7 +102,7 @@ func TestKeyringMigrateBothWays(t *testing.T) {
 	if r := h.run("auth", "login", "--no-open", "--json"); r.code != 0 {
 		t.Fatal(r.stdout)
 	}
-	_, before, err := auth.UnlockPrivy("main", []byte("correct horse battery"))
+	_, before, err := auth.LoadPrivy("main")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +112,7 @@ func TestKeyringMigrateBothWays(t *testing.T) {
 	if m.Len() != 1 || credFileExists(t) || profileStore(t) != "keyring" {
 		t.Fatal("migration to keyring incomplete")
 	}
-	if _, sec, err := auth.UnlockPrivy("main", nil); err != nil || *sec != *before {
+	if _, sec, err := auth.LoadPrivy("main"); err != nil || *sec != *before {
 		t.Fatalf("keyring copy: %v", err)
 	}
 	if r := h.run("auth", "migrate", "--to", "keyring", "--json"); r.code != 0 || r.data()["migrated"] != false {
@@ -128,7 +124,7 @@ func TestKeyringMigrateBothWays(t *testing.T) {
 	if m.Len() != 0 || !credFileExists(t) || profileStore(t) != "" {
 		t.Fatal("migration to file incomplete")
 	}
-	if _, sec, err := auth.UnlockPrivy("main", []byte("correct horse battery")); err != nil || *sec != *before {
+	if _, sec, err := auth.LoadPrivy("main"); err != nil || *sec != *before {
 		t.Fatalf("file copy: %v", err)
 	}
 	if r := h.run("auth", "status", "--verify", "--json"); r.code != 0 || r.data()["credential_store"] != "file" {

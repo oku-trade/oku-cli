@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "metadata": {
+    "profile": "main",
+    "network": "mainnet",
+    "api_url": "http://127.0.0.1:9",
+    "agent_address": "0x3333333333333333333333333333333333333333",
+    "account_address": "0x1111111111111111111111111111111111111111",
+    "created_at": "2026-10-14T00:00:00Z",
+    "status": "active",
+    "kind": "privy",
+    "session_id": "sess-1",
+    "privy_app_id": "cmv72u7fa001m0gk200vq97nd",
+    "privy_wallet_id": "wallet-1",
+    "access_expires_at": "2026-10-14T00:15:00Z",
+    "session_expires_at": "2026-11-14T00:00:00Z",
+    "generation": 3
+  },
+  "kdf": {
+    "name": "scrypt",
+    "salt": "rz2OC9gbYQEzJqe2F2Z5cw==",
+    "n": 131072,
+    "r": 8,
+    "p": 1
+  },
+  "nonce": "VBmxkYDOMBKWtxyphelE7H6pE78WqVqT",
+  "box": "8zFzLWqe8QFH+mxyEAUIZl+3MnCt8p0RalBl4ldDa1BthVSWBN1NQljp/2+TnTBNYR71cq5T5spDYjC4BRmRccvErqbMJyK9zo4ZsjMwyD6c/7cN//HpG/3RQYMaLiIxvzojFXVBdmzWAxlezsZm+bSraQ//tbi4ZOnSPYsH0MYH3bw2"
+}

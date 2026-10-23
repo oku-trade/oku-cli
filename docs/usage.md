@@ -40,10 +40,11 @@ A timeout or ambiguous Privy broadcast becomes `OUTCOME_UNKNOWN`. Never repeat `
 
 ## Credentials
 
-- **Linux:** an encrypted local file. You unlock it with an interactive masked TTY prompt. A successful unlock (including login) is cached in the kernel user keyring for 8 hours, like `sudo`, so agents and MCP can use the credential without prompting. `oku auth unlock [--for 2h]` refreshes it, `oku auth lock` forgets it, `OKU_UNLOCK_TTL=0` disables caching. The cache never touches disk and is cleared on reboot. For unattended servers, `OKU_PASSPHRASE_FILE=<path>` pointing at a mode-0600 file still works. Never pass the passphrase as an argument. A short, mismatched, or wrong passphrase re-prompts (up to 5 tries). At login you may leave the passphrase empty to store the credential unprotected; this asks twice and is insecure, since anyone who can read the file can sign as your agent.
-- **Linux, opt-in desktop keyring:** `oku auth login --credential-store keyring` (or `OKU_CREDENTIAL_STORE=keyring`) stores the credential in the freedesktop Secret Service (GNOME Keyring, KWallet, KeePassXC) instead. No oku passphrase; the keyring unlocks with your login session, like macOS. The choice is saved per profile. Move an existing profile with `oku auth migrate --to keyring` or back with `--to file` (prompts for the passphrase in your terminal only). Any process in your session can read an unlocked keyring item, so prefer the default file store on servers, shared machines and SSH sessions. If the keyring is unavailable the command fails; it never falls back to the file.
-- **macOS:** the native Keychain. No passphrase is requested. Official macOS builds need CGO and are built natively.
-- Neither platform has a plaintext fallback. See [security](security.md#credential-storage-by-platform).
+- **Linux (default):** a plain JSON file at `~/.config/oku/credentials/privy/<profile>.json`, mode 0600, readable only by your user. There is no passphrase, so agents, MCP and scripts can use it as soon as you log in. Like an SSH key without a passphrase, anyone who can read the file can act as your agent until you revoke it.
+- **Linux, opt-in desktop keyring:** `oku auth login --credential-store keyring` (or `OKU_CREDENTIAL_STORE=keyring`) stores the credential in the freedesktop Secret Service (GNOME Keyring, KWallet, KeePassXC) instead, encrypted at rest with your login password. The choice is saved per profile. Move an existing profile with `oku auth migrate --to keyring` or back with `--to file`. If the keyring is unavailable the command fails; it never falls back to the file.
+- **macOS:** the native Keychain. Official macOS builds need CGO and are built natively.
+- **Upgrading from a passphrase-protected credential:** older releases encrypted the Linux file with a passphrase. Commands now refuse that file with `AUTH_REQUIRED` and ask you to run `oku auth unlock` once in your own terminal. It asks for the old passphrase (or reads `OKU_PASSPHRASE_FILE`), converts the file in place and never asks again. Afterwards you can delete the passphrase file. `oku auth logout` also works on an unconverted file but cannot revoke its session or grant.
+- See [security](security.md#credential-storage-by-platform).
 
 ## Global flags
 
@@ -68,7 +69,7 @@ oku orders prepare --input - --json <<'JSON'
 JSON
 ```
 
-Only command-specific options belong in the object, without `--`. Keep `--profile`, `--json`, and other globals as flags. No positional arguments or command flags may accompany `--input`. Unknown keys, wrong types, trailing values, and inputs over 1 MiB fail with USAGE. Commands without flags and interactive login/logout do not accept it. `drafts repair --stdin` cannot share stdin with `--input -`. Prefer a file path when a passphrase prompt is needed; headless stdin requires the user to configure `OKU_PASSPHRASE_FILE` securely.
+Only command-specific options belong in the object, without `--`. Keep `--profile`, `--json`, and other globals as flags. No positional arguments or command flags may accompany `--input`. Unknown keys, wrong types, trailing values, and inputs over 1 MiB fail with USAGE. Commands without flags and interactive login/logout do not accept it. `drafts repair --stdin` cannot share stdin with `--input -`.
 
 Global flags work before or after a command. Use `--` to end flag parsing.
 
@@ -242,7 +243,7 @@ The server runs over stdio. Stdout carries only MCP protocol frames, and logs go
 - **Tools:** read-only by default. Mutation tools are exposed only with `--allow-mutations`. Login, logout and profile edits are never exposed.
 - **Resources:** bundled docs and skills are available as `oku://docs/...` and `oku://skills/...`. There is also a local `drafts_repair` tool.
 - **Profile:** `oku --profile NAME mcp serve` pins the server to that profile. Tools use it, and a tool call naming a different profile is refused. Start a separate server for another profile. Without a launch profile, tools use a per-call `profile`, then `$OKU_PROFILE`, then the config default.
-- **Login:** the server never prompts. Run `oku auth login` in a terminal first. On Linux, the login (or `oku auth unlock`) keeps the credential unlocked for 8 hours in the kernel keyring; after that, tools return an auth error until the user runs `oku auth unlock` again.
+- **Login:** the server never prompts. Run `oku auth login` in a terminal first; the server can use the credential from then on. A credential from an older passphrase-protected release returns an auth error until the user runs `oku auth unlock` once.
 - **Authorization:** a digest proves payload integrity, not user authorization. A clear user instruction to trade, close, cancel or change risk, or a standing instruction for a defined batch, authorizes the corresponding submits within that scope. Clients must prepare and validate each payload against the authorized account, market, side, size, price/slippage and risk bounds, but need not ask for another confirmation of every preview. Ask when required inputs are missing or an action would exceed the authorized scope. Re-preparing an expired or definitively rejected action does not require another confirmation if all original bounds still hold. Agent EVM fund movements under the `consolidate-agent-funds` skill follow its standing authorization and guardrails. Unknown outcomes follow the same reconcile-never-resend rules as the CLI.
 
 ## Local journal

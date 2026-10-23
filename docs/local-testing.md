@@ -19,7 +19,7 @@ oku auth login --profile local --no-open
 oku auth status --profile local --verify
 ```
 
-`auth login` prints the URL and user code to stderr, even with `--json`. The human completes the web authorization. Neither the code nor the passphrase should be shared in chat. On Linux the passphrase encrypts tokens, not a private key. On macOS the native Keychain stores tokens. If the grant expires before completion, start a new login rather than reusing a device code.
+`auth login` prints the URL and user code to stderr, even with `--json`. The human completes the web authorization. The code should not be shared in chat. On Linux the tokens are stored in a 0600 file (or the desktop keyring with `--credential-store keyring`); no private key is stored. On macOS the native Keychain stores tokens. If the grant expires before completion, start a new login rather than reusing a device code.
 
 Run a minimal order only under a clear human instruction or bounded test-batch authorization: `orders prepare`, validate the payload and digest against that authorization, `orders submit`, then inspect status in Oku and Hyperliquid. A separate confirmation of every preview is not required when the action stays within the authorized bounds. Verify that an interrupted remote signature leaves a retryable local `created` intent, while an ambiguous `ConfirmAction` remains unresolved for reconciliation. Finally, `oku auth logout` deletes the local credential, but the operator must separately revoke the HL named agent, cancel orders and close positions as appropriate.
 

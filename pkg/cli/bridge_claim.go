@@ -164,7 +164,7 @@ func (a *App) claimBridgeIntent(e *env, id string) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, sec, _, err := e.unlockCredential(w.profile.Name)
+	_, sec, err := e.loadCredential(w.profile.Name)
 	if err != nil {
 		return nil, err
 	}

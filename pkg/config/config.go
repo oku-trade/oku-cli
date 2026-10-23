@@ -39,7 +39,7 @@ type Profile struct {
 	APIURL     string `json:"api_url"`
 	Account    string `json:"account,omitempty"`
 	// CredentialStore records where the profile's credential lives on Linux:
-	// "file" (default, passphrase-sealed) or "keyring" (Secret Service).
+	// "file" (default, plain 0600 file) or "keyring" (Secret Service).
 	CredentialStore string `json:"credential_store,omitempty"`
 }
 

@@ -18,8 +18,8 @@ import (
 // Service exposes the command handlers in-process so other front ends (the
 // MCP server) share the exact validation, authentication, signing and journal
 // code paths of the executable instead of shelling out to it. A Service never
-// prompts: it has no terminal, so commands needing a passphrase or pairing
-// code fail with a structured auth error.
+// prompts: it has no terminal, so login, logout and legacy credential
+// conversion fail with a structured error.
 type Service struct {
 	// mu serializes calls: handlers share one App and a journal per call,
 	// and financial commands must not interleave within a server.
