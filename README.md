@@ -1,9 +1,9 @@
 # Oku Agent (`oku`)
 
-Swap, bridge and trade perps on Oku from your terminal or your AI agent.
+Swap and bridge across 30+ chains and trade perps on Oku, from your terminal or your AI agent.
 
-- **Swap** any token at the best available rate. Oku compares DEX aggregators and intent solvers, and transaction swaps settle through the Oku Router.
-- **Bridge** across EVM chains with Oku's bridge meta-aggregator. The agent picks the route with the best net value, or the one you name.
+- **Swap** any token on 30+ chains at the best available rate. Oku compares DEX aggregators and intent solvers, and transaction swaps settle through the Oku Router.
+- **Bridge** across 30+ EVM chains with Oku's bridge meta-aggregator. The agent picks the route with the best net value, or the one you name.
 - **Trade perps** on Hyperliquid with Oku: market and limit orders, leverage, margin, positions and fills.
 - **Built for agents.** Every command has a versioned JSON contract (`oku.cli/v1`), and the binary ships offline docs (`oku docs`), task skills (`oku skills`) and an MCP server (`oku mcp serve`). Every trade is prepared and shown for review before it is signed.
 

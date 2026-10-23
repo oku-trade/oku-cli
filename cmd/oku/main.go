@@ -1,4 +1,4 @@
-// Command oku is the Oku Agent: swap, bridge and trade perps on Oku from the command line.
+// Command oku is the Oku Agent: swap and bridge across 30+ chains and trade perps on Oku from the command line.
 package main
 
 import (
