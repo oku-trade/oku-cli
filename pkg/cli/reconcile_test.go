@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -73,5 +74,58 @@ func TestReconcileReachesBeyondFirstBatch(t *testing.T) {
 	}
 	if h.fake.maxReconcile == 0 || h.fake.maxReconcile > reconcileBatch {
 		t.Fatalf("batch size %d exceeds %d", h.fake.maxReconcile, reconcileBatch)
+	}
+}
+
+// An accepted order sent through another API origin (for example staging)
+// must not make reconcile fail: it is settled from Hyperliquid's orderStatus,
+// and an order Hyperliquid cannot settle is skipped and reported.
+func TestReconcileOtherOriginUsesHyperliquid(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	p, err := (&env{app: NewApp("t")}).profile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Records are seeded the way an earlier staging profile with the same
+	// name would have written them.
+	j, err := journal.OpenBinding(journal.Binding{Profile: p.Name, Network: p.Network, Account: strings.ToLower(p.Account), Origin: "https://staging.example"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed := func(id string, oid int64) {
+		in := trading.Intent{Version: 1, ID: id, Kind: trading.KindOrder, Network: p.Network, Account: p.Account, APIURL: "https://staging.example", CreatedAt: time.Unix(1, 0).UTC().Format(time.RFC3339)}
+		rec, _, err := j.Create(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rec.State, rec.ActionID = journal.StateCreated, "act-"+id
+		if err = j.Put(rec, ""); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = j.BeginSubmission(rec, "signer"); err != nil {
+			t.Fatal(err)
+		}
+		rec.State, rec.ServerState, rec.OrderID = journal.StateSubmitted, "submitted", oid
+		if err = j.Put(rec, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	seed("other-filled", 11)
+	seed("other-open", 12)
+	if err = j.Close(); err != nil {
+		t.Fatal(err)
+	}
+	h.fake.hlOrders = map[int64]string{11: "filled", 12: "open"}
+	r := h.run("orders", "reconcile", "--json")
+	if r.code != 0 {
+		t.Fatalf("reconcile failed on other-origin intents: %s", r.stdout)
+	}
+	if s := h.run("orders", "status", "--intent", "other-filled", "--json"); s.data()["server_state"] != "filled" {
+		t.Fatalf("filled order not settled: %s", s.stdout)
+	}
+	skipped, _ := r.data()["skipped_other_api"].([]any)
+	if len(skipped) != 1 || skipped[0].(map[string]any)["intent_id"] != "other-open" {
+		t.Fatalf("open order not reported as skipped: %s", r.stdout)
 	}
 }

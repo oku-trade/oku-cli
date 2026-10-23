@@ -32,6 +32,8 @@ type fakeOku struct {
 	approveAcct  string
 	agentAddress string
 	approved     bool
+	// hlOrders answers Hyperliquid orderStatus by oid.
+	hlOrders     map[int64]string
 	rejectExtend bool
 	// riskAction overrides the leverage/margin action the server builds.
 	riskAction func(kind string, meta map[string]any) string
@@ -80,6 +82,15 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/info" {
 		if body["type"] == "perpDexs" {
 			reply([]any{nil, map[string]string{"name": "xyz"}, map[string]string{"name": "flx"}})
+			return
+		}
+		if body["type"] == "orderStatus" {
+			oid, _ := body["oid"].(float64)
+			if status := f.hlOrders[int64(oid)]; status != "" {
+				reply(map[string]any{"status": "order", "order": map[string]any{"order": map[string]any{"oid": int64(oid)}, "status": status}})
+			} else {
+				reply(map[string]string{"status": "unknownOid"})
+			}
 			return
 		}
 		if body["type"] != "userRole" || body["user"] != f.agentAddress {
