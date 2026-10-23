@@ -84,13 +84,13 @@ func setProfileStore(profile string, st auth.Store) error {
 }
 
 func authMigrateFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "to", Usage: "target credential store on Linux: file (passphrase) or keyring (desktop Secret Service)"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "to", Usage: "target credential store on Linux: file (0600 file) or keyring (desktop Secret Service)"}}
 }
 
 // cmdAuthMigrate moves a profile's credential between the file and keyring
-// stores without a new login: read from the current store (prompting for the
-// file passphrase in the user's own terminal), write to the target, verify the
-// read-back, record the store in the profile, then delete the old copy.
+// stores without a new login: read from the current store, write to the
+// target, verify the read-back, record the store in the profile, then delete
+// the old copy.
 func (a *App) cmdAuthMigrate(e *env) (*result, error) {
 	p, err := e.profile()
 	if err != nil {
@@ -120,9 +120,6 @@ func (a *App) cmdAuthMigrate(e *env) (*result, error) {
 			fmt.Fprintf(w, "Profile %s already uses the %s store.\n", p.Name, to)
 		}}, nil
 	}
-	if !e.app.StdinIsTTY {
-		return nil, output.Errorf(output.CodeUsage, "auth migrate requires an interactive terminal")
-	}
 	if err = auth.CheckStore(to); err != nil {
 		return nil, storeUnavailable(to, err)
 	}
@@ -131,7 +128,7 @@ func (a *App) cmdAuthMigrate(e *env) (*result, error) {
 	} else if err != nil {
 		return nil, credentialLoadError(err)
 	}
-	md, sec, _, err := e.unlockCredential(p.Name)
+	md, sec, err := e.loadCredential(p.Name)
 	if err != nil {
 		var oe *output.Error
 		if errors.As(err, &oe) {
@@ -142,21 +139,11 @@ func (a *App) cmdAuthMigrate(e *env) (*result, error) {
 	if err = e.checkBinding(md, p); err != nil {
 		return nil, err
 	}
-	var pass []byte
-	md.Unprotected = false
-	if to == auth.StoreFile {
-		e.pass = nil
-		np, err := e.chooseFilePassphrase()
-		if err != nil {
-			return nil, err
-		}
-		pass, md.Unprotected = np.pass, np.unprotected
-	}
-	if err = auth.SavePrivyIn(to, p.Name, *md, *sec, pass); err != nil {
+	if err = auth.SavePrivyIn(to, p.Name, *md, *sec); err != nil {
 		_ = auth.DeletePrivyIn(to, p.Name)
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "writing credential to the "+string(to)+" store")
 	}
-	if got, gotSec, err := auth.UnlockPrivyIn(to, p.Name, pass); err != nil || got.Generation != md.Generation || *gotSec != *sec {
+	if got, gotSec, err := auth.LoadPrivyIn(to, p.Name); err != nil || got.Generation != md.Generation || *gotSec != *sec {
 		_ = auth.DeletePrivyIn(to, p.Name)
 		return nil, output.Errorf(output.CodeSignerUnavailable, "credential read-back from the %s store failed; nothing was changed", to)
 	}
@@ -164,15 +151,9 @@ func (a *App) cmdAuthMigrate(e *env) (*result, error) {
 		_ = auth.DeletePrivyIn(to, p.Name)
 		return nil, output.Wrap(output.CodeConfigError, err, "recording credential store")
 	}
-	if from == auth.StoreFile {
-		e.forgetPassphrase(p.Name)
-	}
 	warning := ""
 	if err = auth.DeletePrivyIn(from, p.Name); err != nil {
 		warning = fmt.Sprintf("could not delete the old %s credential: %v", from, err)
-	}
-	if to == auth.StoreFile && !md.Unprotected && e.rememberPassphrase(p.Name, pass, e.unlockTTL()) {
-		e.diag("Unlocked for %s. Run 'oku auth lock' to lock now.", e.unlockTTL())
 	}
 	data := map[string]any{"profile": p.Name, "credential_store": string(to), "from": string(from), "migrated": true}
 	if warning != "" {

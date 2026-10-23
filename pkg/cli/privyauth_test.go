@@ -239,20 +239,19 @@ func (f *fakePrivy) serve(w http.ResponseWriter, r *http.Request) {
 
 func TestPrivyRefreshRotationPersistedAndAdopted(t *testing.T) {
 	h := newHarness(t)
-	h.enrollProtected()
-	pass := []byte("correct horse battery")
-	md, sec, err := auth.UnlockPrivy("main", pass)
+	h.enroll()
+	md, sec, err := auth.LoadPrivy("main")
 	if err != nil {
 		t.Fatal(err)
 	}
 	md.AccessExpiresAt = time.Now().Add(time.Minute).UTC().Format(time.RFC3339)
-	if err = auth.SavePrivy("main", *md, *sec, pass); err != nil {
+	if err = auth.SavePrivy("main", *md, *sec); err != nil {
 		t.Fatal(err)
 	}
 	if r := h.run("auth", "status", "--verify", "--json"); r.code != 0 {
 		t.Fatalf("refresh: %s", r.stdout)
 	}
-	_, after, err := auth.UnlockPrivy("main", pass)
+	_, after, err := auth.LoadPrivy("main")
 	if err != nil || after.RefreshToken != "refresh-1" {
 		t.Fatalf("rotation not persisted: %v %+v", err, after)
 	}
@@ -277,14 +276,13 @@ func TestPrivyLoginRejectsAccountFlag(t *testing.T) {
 
 func TestPrivySessionReexchangeDropsExpiredHeaders(t *testing.T) {
 	h := newHarness(t)
-	h.enrollProtected()
-	pass := []byte("correct horse battery")
-	md, sec, err := auth.UnlockPrivy("main", pass)
+	h.enroll()
+	md, sec, err := auth.LoadPrivy("main")
 	if err != nil {
 		t.Fatal(err)
 	}
 	md.SessionExpiresAt = time.Now().Add(time.Minute).UTC().Format(time.RFC3339)
-	if err = auth.SavePrivy("main", *md, *sec, pass); err != nil {
+	if err = auth.SavePrivy("main", *md, *sec); err != nil {
 		t.Fatal(err)
 	}
 	h.fake.rejectExtend = true
@@ -318,7 +316,7 @@ func TestPrivyLoginRequiresTerminalBeforeDeviceGrant(t *testing.T) {
 
 func TestPrivySignFailureReturnsToCreated(t *testing.T) {
 	h := newHarness(t)
-	h.enrollProtected()
+	h.enroll()
 	id, digest := prepare(t, h)
 	h.privy.failSign = true
 	r := h.run("orders", "submit", "--intent", id, "--digest", digest, "--json")
@@ -343,7 +341,7 @@ func TestPrivySignFailureReturnsToCreated(t *testing.T) {
 
 func TestPrivyWrongSignerNeverReachesConfirm(t *testing.T) {
 	h := newHarness(t)
-	h.enrollProtected()
+	h.enroll()
 	id, digest := prepare(t, h)
 	h.privy.wrongSigner = true
 	r := h.run("orders", "submit", "--intent", id, "--digest", digest, "--json")

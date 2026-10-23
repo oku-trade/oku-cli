@@ -15,10 +15,15 @@ Use the same profile and API environment throughout recovery. `oku docs commands
 
 ## Find unresolved intents
 
+`doctor` also counts local `submitted` records unless their cached `server_state` is `completed`, `filled`, `cancelled`, `canceled` or `error`. Account-wide blocking states are `signing`, `submitting` and `unknown`. A count alone neither proves an unknown outcome nor justifies bypassing a blocker, regardless of record age or market.
+
 ```sh
 oku doctor --profile <p> --json                    # counts unresolved intents
+oku orders intents --profile <p> --unresolved --json   # lists them: state, server_state, order_id, api_url
 oku orders status --profile <p> --intent <id> --json
 ```
+
+`orders intents` reads only the local journal. Each row has `current_api`: an unresolved intent sent through a different API origin (for example staging) cannot be reconciled from this profile; use a profile on that origin. A row with `state: submitted`, `server_state: submitted` and an `order_id` was accepted by the exchange; reconcile refreshes whether it later filled or was canceled.
 
 ## Resolve with Oku
 

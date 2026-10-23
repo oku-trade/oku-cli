@@ -24,6 +24,7 @@ oku markets list --json                       # size decimals, max leverage, iso
 ## Interpreting results
 
 - Every read includes `meta.fetched_at` and `meta.source`. Report the time along with the numbers.
+- `meta.fetched_at` is the CLI-local result construction time, not an exchange snapshot time, and separate reads or the sub-calls inside `account summary` are not atomic. A fill's `time` is its Unix-millisecond execution time, not its fetch time.
 - Missing, stale or error data is an error. Never report it as a zero balance or "no positions".
 - `markets quote` returns only mark, mid and oracle prices, with no bid or ask. If a task needs the best bid or ask, report it as unavailable instead of using mid in its place.
 - Hyperliquid position sizes are signed. A negative size is short.

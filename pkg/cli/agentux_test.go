@@ -144,9 +144,6 @@ func callTool(t *testing.T, cs *sdk.ClientSession, name string, args map[string]
 
 func testService(h *harness) *Service {
 	return NewService("test", os.Stderr, func(k string) string {
-		if k == "OKU_PASSPHRASE_FILE" {
-			return h.passFn
-		}
 		if k == "OKU_PRIVY_AUTH_URL" {
 			return h.privy.server.URL
 		}

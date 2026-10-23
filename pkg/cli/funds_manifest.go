@@ -2,13 +2,16 @@ package cli
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gfx-labs/chain-config/dist/networks"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
@@ -26,6 +29,18 @@ func chainStables(chain uint64) []string {
 		out = append(out, a.Hex())
 	}
 	return out
+}
+
+// allOkuChains lists every non-deprecated EVM chain in chain-config that has
+// an Oku Router, as a comma-separated chain ID list.
+func allOkuChains() string {
+	ids := []string{}
+	for _, n := range networks.AllNetworks {
+		if n.IsEVM() && !n.Deprecated && n.Oku.Router != (common.Address{}) {
+			ids = append(ids, strconv.FormatUint(uint64(n.ChainId), 10))
+		}
+	}
+	return strings.Join(ids, ",")
 }
 
 // nativeSymbol returns the chain's native currency symbol from chain-config.
@@ -103,7 +118,7 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 		selected = e.cmd.String("chains")
 	}
 	if e.cmd.Bool("all-chains") {
-		selected = "1,10,56,137,8453,42161,43114,81457"
+		selected = allOkuChains()
 	}
 	if selected == "" && len(manifest) > 0 {
 		// Without an explicit chain selection, read every chain in the CSV.
@@ -147,18 +162,21 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 		Mismatch  bool   `json:"mismatch"`
 		Stable    bool   `json:"stable,omitempty"`
 	}
-	tokens := []row{}
-	native := map[string]row{}
-	chains := []string{}
+	type chainResult struct {
+		native row
+		tokens []row
+		err    error
+	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
 	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
-	for _, id := range ids {
+	// Each chain is read independently so one unreachable or unconfigured
+	// chain never hides the balances of the others.
+	readChain := func(id uint64) chainResult {
 		chain := fmt.Sprintf("eip155:%d", id)
-		chains = append(chains, chain)
 		balance, er := rpc.Balance(ctx, id, w.agent)
 		if er != nil {
-			return nil, output.Wrap(output.CodeUpstream, er, "native balance")
+			return chainResult{err: fmt.Errorf("native balance: %w", er)}
 		}
 		nativeRow := row{Chain: chain, Address: zeroAddress, Symbol: nativeSymbol(id), Decimals: 18, Balance: formatUnits(balance, 18), Raw: balance.String()}
 		candidates := manifest[id]
@@ -172,7 +190,6 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 			}
 			addresses = append(addresses, c.Address)
 		}
-		native[chain] = nativeRow
 		stables := chainStables(id)
 		if e.cmd.Bool("stables") {
 			for _, st := range stables {
@@ -187,8 +204,9 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 		}
 		details, er := rpc.TokenDetails(ctx, id, w.agent, addresses)
 		if er != nil {
-			return nil, output.Wrap(output.CodeUpstream, er, "multicall token metadata")
+			return chainResult{err: fmt.Errorf("multicall token metadata: %w", er)}
 		}
+		rows := []row{}
 		for _, d := range details {
 			csvAmount := ""
 			for _, c := range candidates {
@@ -202,27 +220,118 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 			for _, st := range stables {
 				stable = stable || strings.EqualFold(st, d.Address)
 			}
-			tokens = append(tokens, row{Chain: chain, Address: d.Address, Symbol: d.Symbol, Decimals: d.Decimals, Balance: actual, Raw: d.Balance.String(), CSVAmount: csvAmount, Mismatch: csvAmount != "" && csvAmount != actual, Stable: stable})
+			rows = append(rows, row{Chain: chain, Address: d.Address, Symbol: d.Symbol, Decimals: d.Decimals, Balance: actual, Raw: d.Balance.String(), CSVAmount: csvAmount, Mismatch: csvAmount != "" && csvAmount != actual, Stable: stable})
 		}
+		return chainResult{native: nativeRow, tokens: rows}
+	}
+	results := make([]chainResult, len(ids))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 8)
+	for i, id := range ids {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			results[i] = readChain(id)
+		}()
+	}
+	wg.Wait()
+	type chainError struct {
+		Chain   string `json:"chain"`
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}
+	tokens := []row{}
+	native := map[string]row{}
+	chains := []string{}
+	failed := []chainError{}
+	for i, id := range ids {
+		chain := fmt.Sprintf("eip155:%d", id)
+		r := results[i]
+		if r.err != nil {
+			code := "UPSTREAM_ERROR"
+			if errors.Is(r.err, onchain.ErrNoRPC) {
+				code = "NO_RPC"
+			}
+			failed = append(failed, chainError{Chain: chain, Code: code, Message: r.err.Error()})
+			continue
+		}
+		chains = append(chains, chain)
+		native[chain] = r.native
+		tokens = append(tokens, r.tokens...)
+	}
+	if len(chains) == 0 {
+		return nil, output.Errorf(output.CodeUpstream, "no chain could be read: %s", failed[0].Message).WithDetail("errors", failed)
 	}
 	hint := ""
 	if e.cmd.String("tokens-file") == "" {
 		hint = "Provide --tokens-file FILE to check ERC-20 holdings against a CSV manifest."
 	}
 	data := map[string]any{"agent": w.agent, "chains": chains, "native": native, "tokens": tokens}
+	if len(failed) > 0 {
+		data["errors"] = failed
+	}
 	if hint != "" {
 		data["hint"] = hint
 	}
 	return &result{data: data, human: func(out io.Writer) {
-		fmt.Fprintf(out, "Agent %s\n", w.agent)
-		for _, chain := range chains {
-			fmt.Fprintf(out, "%s native: %s (%s raw)\n", chain, native[chain].Balance, native[chain].Raw)
+		fmt.Fprintf(out, "Agent %s\n\n", w.agent)
+		withCSV := e.cmd.String("tokens-file") != ""
+		tw := newTable(out)
+		if withCSV {
+			fmt.Fprintln(tw, "CHAIN\tID\tASSET\tBALANCE\tCSV\tMISMATCH\tADDRESS")
+		} else {
+			fmt.Fprintln(tw, "CHAIN\tID\tASSET\tBALANCE\tADDRESS")
 		}
-		for _, token := range tokens {
-			fmt.Fprintf(out, "%s %s (%s): %s (%s raw), CSV %s, mismatch %t\n", token.Chain, token.Symbol, token.Address, token.Balance, token.Raw, token.CSVAmount, token.Mismatch)
+		line := func(r row) {
+			id := strings.TrimPrefix(r.Chain, "eip155:")
+			name := id
+			if n, err := strconv.ParseUint(id, 10, 64); err == nil {
+				name = chainName(n)
+			}
+			addr := r.Address
+			if addr == zeroAddress {
+				addr = "native"
+			}
+			if withCSV {
+				mismatch := ""
+				if r.Mismatch {
+					mismatch = "yes"
+				}
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", name, id, r.Symbol, r.Balance, orDash(r.CSVAmount), mismatch, addr)
+				return
+			}
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", name, id, r.Symbol, r.Balance, addr)
+		}
+		for _, chain := range chains {
+			line(native[chain])
+			for _, token := range tokens {
+				if token.Chain == chain {
+					line(token)
+				}
+			}
+		}
+		tw.Flush()
+		if len(failed) > 0 {
+			fmt.Fprintln(out, "\nSkipped:")
+			tw = newTable(out)
+			for _, f := range failed {
+				fmt.Fprintf(tw, "%s\t%s\t%s\n", strings.TrimPrefix(f.Chain, "eip155:"), f.Code, f.Message)
+			}
+			tw.Flush()
 		}
 		if hint != "" {
-			fmt.Fprintln(out, hint)
+			fmt.Fprintln(out, "\n"+hint)
 		}
 	}}, nil
+}
+
+// chainName is the chain-config short name (for example arbitrum), or the
+// numeric ID when the chain is unknown.
+func chainName(chain uint64) string {
+	if n, err := networks.NetworkByNumber(chain); err == nil && n != nil && n.InternalName != "" {
+		return n.InternalName
+	}
+	return strconv.FormatUint(chain, 10)
 }

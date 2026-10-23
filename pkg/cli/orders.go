@@ -5,11 +5,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	urfave "github.com/urfave/cli/v3"
 	"io"
 	"strings"
 	"sync"
 	"time"
+
+	urfave "github.com/urfave/cli/v3"
 
 	"github.com/oku-trade/oku-cli/pkg/api"
 	"github.com/oku-trade/oku-cli/pkg/decimal"
@@ -712,6 +713,7 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 	// account-blocking submitting/unknown records first. A fixed cap on
 	// the oldest records starved everything beyond it.
 	var blockers, others []string
+	var otherOrigin []*journal.Record
 	byAction := map[string]*journal.Record{}
 	for _, r := range un {
 		if r.State == journal.StateSigning {
@@ -733,6 +735,26 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 			continue
 		}
 		if r.ActionID == "" || byAction[r.ActionID] != nil {
+			continue
+		}
+		// Actions live on the API origin they were created on. Asking another
+		// origin fails the whole batch with not_found. An order the exchange
+		// accepted (it has an oid) is settled directly from Hyperliquid;
+		// anything else is skipped and reported.
+		if r.Intent.APIURL != p.APIURL {
+			if r.Intent.Kind == trading.KindOrder && r.State == journal.StateSubmitted && r.OrderID > 0 {
+				ctx, cancel := e.requestCtx()
+				status, hlErr := e.hlOrderStatus(ctx, r.Intent.Account, r.OrderID)
+				cancel()
+				if final := hlTerminal(status); hlErr == nil && final != "" {
+					applyServerState(r, final, r.OrderID, "")
+					if err := j.Put(r, "reconcile: hyperliquid orderStatus "+status); err != nil {
+						return nil, output.Wrap(output.CodeInternal, err, "journal")
+					}
+					continue
+				}
+			}
+			otherOrigin = append(otherOrigin, r)
 			continue
 		}
 		byAction[r.ActionID] = r
@@ -786,15 +808,35 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 		}
 	}
 	data := map[string]any{"checked": views, "still_unknown": unknown}
+	skipped := []map[string]string{}
+	for _, r := range otherOrigin {
+		skipped = append(skipped, map[string]string{"intent_id": r.Intent.ID, "api_url": r.Intent.APIURL})
+	}
+	if len(skipped) > 0 {
+		data["skipped_other_api"] = skipped
+	}
 	return &result{data: data, human: func(w io.Writer) {
 		if len(un) == 0 {
 			fmt.Fprintln(w, "nothing to reconcile")
 			return
 		}
+		tw := newTable(w)
+		fmt.Fprintln(tw, "INTENT\tKIND\tMARKET\tSTATE\tSERVER\tOID\tLAST ERROR")
 		for _, r := range un {
-			recordResult(r).human(w)
+			oid := "-"
+			if r.OrderID != 0 {
+				oid = fmt.Sprint(r.OrderID)
+			}
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", r.Intent.ID, orDash(r.Intent.Kind), orDash(r.Intent.Market), r.State, orDash(r.ServerState), oid, orDash(api.Redact(r.LastError)))
 		}
-		fmt.Fprintf(w, "%d intent(s) still unknown\n", unknown)
+		tw.Flush()
+		fmt.Fprintf(w, "\n%d intent(s) still unknown\n", unknown)
+		if len(skipped) > 0 {
+			fmt.Fprintf(w, "%d intent(s) skipped: sent through a different API than this profile's (%s); reconcile them with a profile on that API:\n", len(skipped), p.APIURL)
+			for _, s := range skipped {
+				fmt.Fprintf(w, "  %s  %s\n", s["intent_id"], s["api_url"])
+			}
+		}
 	}}, nil
 }
 

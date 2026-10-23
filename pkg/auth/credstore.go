@@ -15,8 +15,8 @@ import (
 type Store string
 
 const (
-	// StoreFile is the passphrase-sealed file (default on Linux and other
-	// non-macOS platforms).
+	// StoreFile is a plain 0600 file (default on Linux and other non-macOS
+	// platforms).
 	StoreFile Store = "file"
 	// StoreKeyring is the freedesktop Secret Service (GNOME Keyring, KWallet,
 	// KeePassXC). Opt-in, Linux only.
@@ -96,12 +96,12 @@ func StoreFor(profile string) (Store, error) {
 
 // SavePrivy stores the Privy (Accounts session) credential in the profile's
 // recorded store.
-func SavePrivy(profile string, md Metadata, s Secrets, passphrase []byte) error {
+func SavePrivy(profile string, md Metadata, s Secrets) error {
 	st, err := StoreFor(profile)
 	if err != nil {
 		return err
 	}
-	return SavePrivyIn(st, profile, md, s, passphrase)
+	return SavePrivyIn(st, profile, md, s)
 }
 
 // LoadPrivyMetadata returns non-secret metadata. For native stores (Keychain,
@@ -114,14 +114,14 @@ func LoadPrivyMetadata(profile string) (*Metadata, error) {
 	return LoadPrivyMetadataIn(st, profile)
 }
 
-// UnlockPrivy loads metadata and secrets. The passphrase is used only by the
-// file store.
-func UnlockPrivy(profile string, passphrase []byte) (*Metadata, *Secrets, error) {
+// LoadPrivy loads metadata and secrets from the profile's recorded store. A
+// file credential from an older release returns ErrLegacyCredential.
+func LoadPrivy(profile string) (*Metadata, *Secrets, error) {
 	st, err := StoreFor(profile)
 	if err != nil {
 		return nil, nil, err
 	}
-	return UnlockPrivyIn(st, profile, passphrase)
+	return LoadPrivyIn(st, profile)
 }
 
 // DeletePrivy removes the credential from the profile's recorded store.
@@ -134,14 +134,16 @@ func DeletePrivy(profile string) error {
 }
 
 // SavePrivyIn writes the credential to an explicit store (login, migrate).
-// Native stores ignore the passphrase.
-func SavePrivyIn(st Store, profile string, md Metadata, s Secrets, passphrase []byte) error {
+func SavePrivyIn(st Store, profile string, md Metadata, s Secrets) error {
 	md.Kind = KindPrivy
 	if st == StoreFile {
 		if !fileStoreSupported {
 			return ErrUnsupportedPlatform
 		}
-		return fileSave(privyKey(profile), md, s, passphrase)
+		if md.Profile != profile {
+			return errors.New("credential binding incomplete or profile mismatch")
+		}
+		return fileSave(privyKey(profile), md, s)
 	}
 	ns, err := nativeStore(st)
 	if err != nil {
@@ -158,17 +160,17 @@ func LoadPrivyMetadataIn(st Store, profile string) (*Metadata, error) {
 		}
 		return fileLoadMetadata(privyKey(profile))
 	}
-	md, _, err := UnlockPrivyIn(st, profile, nil)
+	md, _, err := LoadPrivyIn(st, profile)
 	return md, err
 }
 
-// UnlockPrivyIn reads metadata and secrets from an explicit store.
-func UnlockPrivyIn(st Store, profile string, passphrase []byte) (*Metadata, *Secrets, error) {
+// LoadPrivyIn reads metadata and secrets from an explicit store.
+func LoadPrivyIn(st Store, profile string) (*Metadata, *Secrets, error) {
 	if st == StoreFile {
 		if !fileStoreSupported {
 			return nil, nil, ErrUnsupportedPlatform
 		}
-		return fileUnlock(privyKey(profile), passphrase)
+		return fileRead(privyKey(profile))
 	}
 	ns, err := nativeStore(st)
 	if err != nil {

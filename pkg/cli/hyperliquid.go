@@ -106,3 +106,60 @@ func (e *env) hip3Dexes() []string {
 	}
 	return out
 }
+
+// hlOrderStatus reads one order's status from Hyperliquid's public info API
+// ("filled", "canceled", "open", "marginCanceled", ...). It returns "" when
+// Hyperliquid does not know the order.
+func (e *env) hlOrderStatus(ctx context.Context, user string, oid int64) (string, error) {
+	endpoint := e.app.Getenv("OKU_HYPERLIQUID_INFO_URL")
+	if endpoint == "" {
+		endpoint = hyperliquidInfoURL
+	}
+	input, _ := json.Marshal(map[string]any{"type": "orderStatus", "user": user, "oid": oid})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(input))
+	if err != nil {
+		return "", errors.New("invalid hyperliquid info URL")
+	}
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return "", errors.New("hyperliquid orderStatus request failed")
+	}
+	var out struct {
+		Status string `json:"status"`
+		Order  struct {
+			Order struct {
+				Oid int64 `json:"oid"`
+			} `json:"order"`
+			Status string `json:"status"`
+		} `json:"order"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return "", errors.New("invalid hyperliquid orderStatus response")
+	}
+	if out.Status != "order" {
+		return "", nil
+	}
+	if out.Order.Order.Oid != oid {
+		return "", errors.New("hyperliquid returned a different order")
+	}
+	return out.Order.Status, nil
+}
+
+// hlTerminal maps a Hyperliquid order status to the server state reconcile
+// records. Only final statuses count; open or unknown orders stay unresolved.
+func hlTerminal(status string) string {
+	switch {
+	case status == "filled":
+		return "filled"
+	case status == "canceled" || strings.HasSuffix(status, "Canceled"):
+		return "cancelled"
+	}
+	return ""
+}

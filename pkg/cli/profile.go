@@ -3,11 +3,11 @@ package cli
 import (
 	"errors"
 	"fmt"
-	urfave "github.com/urfave/cli/v3"
 	"io"
 	"runtime"
 	"strings"
-	"text/tabwriter"
+
+	urfave "github.com/urfave/cli/v3"
 
 	"github.com/oku-trade/oku-cli/pkg/api"
 	"github.com/oku-trade/oku-cli/pkg/auth"
@@ -141,7 +141,7 @@ func printProfiles(w io.Writer, f *config.File) {
 		fmt.Fprintln(w, "no profiles; add one with: oku profiles add NAME --account 0x...")
 		return
 	}
-	tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+	tw := newTable(w)
 	fmt.Fprintln(tw, "\tNAME\tNETWORK\tACCOUNT\tAPI")
 	for _, n := range f.Names() {
 		p := f.Profiles[n]

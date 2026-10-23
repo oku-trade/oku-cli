@@ -6,24 +6,28 @@
 
 The account is the user's **external** Hyperliquid master wallet. It holds funds and signs `approveAgent` and builder-fee approval on the Oku authorization page, not in this binary. The trading agent is a distinct Privy **embedded** Ethereum wallet, approved by the master as a Hyperliquid named agent. Oku Agent stores no local agent private key. `oku orders submit` requests `eth_signTypedData_v4` from Privy for the Hyperliquid Agent domain (`Exchange`, version `1`, chainId `1337`, zero verifying contract), and locally recovers the signature against the approved embedded-wallet address before sending it to Oku.
 
-**A readable credential permits signing anything the Privy grant allows on that embedded wallet until revoked.** Revocation may leave an existing access JWT valid for up to 15 minutes. Recommend a Privy policy limiting the wallet to `eth_signTypedData_v4` on that Agent domain. Host compromise, a leaked Linux passphrase file, any process reading an unlocked Linux desktop keyring item, or a compromised macOS Keychain item can bypass CLI safeguards. The CLI's digest, risk checks and confirmations are guardrails, not a security boundary. The embedded wallet should hold only funds deliberately allocated to agent EVM operations, with a strict Privy policy and minimal gas. Never mistake those balances for Hyperliquid master collateral.
+**A readable credential permits signing anything the Privy grant allows on that embedded wallet until revoked.** Revocation may leave an existing access JWT valid for up to 15 minutes. Recommend a Privy policy limiting the wallet to `eth_signTypedData_v4` on that Agent domain. Host compromise, any process running as the user reading the Linux credential file or an unlocked desktop keyring item, or a compromised macOS Keychain item can bypass CLI safeguards. The CLI's digest, risk checks and confirmations are guardrails, not a security boundary. The embedded wallet should hold only funds deliberately allocated to agent EVM operations, with a strict Privy policy and minimal gas. Never mistake those balances for Hyperliquid master collateral.
 
 ## Credential storage
 
 | Platform | Storage | Unlock |
 |---|---|---|
-| Linux | scrypt + XChaCha20-Poly1305 encrypted file | Masked interactive prompt, then cached in the kernel user keyring (same uid, never on disk, 8h TTL, `oku auth lock` clears it). Optional mode-0600 `OKU_PASSPHRASE_FILE` for unattended use. Opt-in unprotected mode (empty passphrase plus two typed confirmations) relies only on file permissions. |
-| Linux, opt-in `keyring` store | Freedesktop Secret Service item in the default collection (GNOME Keyring, KWallet, KeePassXC) | Unlocked with the desktop login session, no oku passphrase and no kernel keyring cache. `oku auth unlock` and `lock` only explain that the desktop keyring controls locking. |
-| macOS | Keychain | Native Keychain authorization, no CLI passphrase. |
+| Linux (default `file` store) | Plain JSON file, mode 0600, in a 0700 directory | File permissions only. Readable by your user and root. Not encrypted at rest. |
+| Linux, opt-in `keyring` store | Freedesktop Secret Service item in the default collection (GNOME Keyring, KWallet, KeePassXC) | Encrypted at rest with your login password; unlocked with the desktop login session. |
+| macOS | Keychain | Native Keychain authorization. |
 
 ### Choosing a Linux store
 
-The Linux store is chosen per profile at `oku auth login --credential-store file|keyring` (or `OKU_CREDENTIAL_STORE`), recorded as `credential_store` in the profile config, and changed later with `oku auth migrate --to file|keyring`. `oku auth status` and `oku doctor` show the store in use. There is never a fallback between stores: if a profile says `keyring` and the Secret Service is unreachable (no D-Bus session bus, no provider, a locked collection that was not unlocked, SSH or headless sessions), commands fail with an error instead of reading or writing the file, and a missing keyring item is reported as missing rather than prompting for a passphrase.
+The Linux store is chosen per profile at `oku auth login --credential-store file|keyring` (or `OKU_CREDENTIAL_STORE`), recorded as `credential_store` in the profile config, and changed later with `oku auth migrate --to file|keyring`. `oku auth status` and `oku doctor` show the store in use. There is never a fallback between stores: if a profile says `keyring` and the Secret Service is unreachable (no D-Bus session bus, no provider, a locked collection that was not unlocked, SSH or headless sessions), commands fail with an error instead of reading or writing the file, and a missing keyring item is reported as missing.
 
-**Trust model of the keyring store.** Once the desktop keyring collection is unlocked (normally at graphical login), any process running as the same user in that session can read the item over D-Bus. Secret Service has no per-application access control, so this is at least as permissive as the macOS login Keychain and weaker than it, because macOS can restrict an item to specific apps. The protection is your login password and screen lock, not an oku passphrase. Choose:
+**Why there is no passphrase.** Earlier releases sealed the Linux file with a passphrase. In practice agents and MCP need the credential without a human present, so the passphrase was either cached for hours or stored in `OKU_PASSPHRASE_FILE` next to the credential. Both gave any process running as the user the same access a plain 0600 file does, with extra steps. The file store now says what it is: permissions-only protection, the same model as an SSH key without a passphrase or the GitHub CLI's fallback token file. Credentials from those releases are converted once by `oku auth unlock`; until then commands return `AUTH_REQUIRED` with that hint.
 
-- **file + passphrase** (default) for servers, shared machines, SSH sessions, or when you want unlock to be an explicit, time-limited action.
-- **keyring** for a single-user desktop where you already trust every process in your session and want macOS-like behavior.
+**Trust model of the keyring store.** Once the desktop keyring collection is unlocked (normally at graphical login), any process running as the same user in that session can read the item over D-Bus. Secret Service has no per-application access control, so while you are logged in this is no stronger than the 0600 file. Its advantage is encryption at rest: a copied disk, backup or synced home directory does not expose the tokens. Choose:
+
+- **file** (default) for servers, containers, SSH sessions and any machine without a desktop keyring.
+- **keyring** on a desktop where you want the credential encrypted at rest.
+
+Neither store protects against malware running as your user. The real limits are the Privy grant policy, a small agent wallet balance and revoking the agent quickly.
 
 The keyring item is labeled `Oku Agent (<profile>)` with attributes `service=com.oku.trade.cli.credentials.v1`, `account=<sha256(config dir)>:privy:<profile>`, `profile` and `kind`. Its secret is the same versioned JSON record (metadata and secrets) the macOS Keychain item holds. `oku auth logout` deletes it.
 
@@ -33,7 +37,7 @@ The credential contains Privy access and rotating refresh tokens and an Oku sess
 
 `journal.sqlite` holds intents, action IDs and burned nonces, not credentials. `signing` holds the account gate while Privy signs; a signing failure or crash-left signing state can return to `created` without sending anything to Hyperliquid. Once `ConfirmAction` may have been sent, the action stays `submitting` or `unknown` until reconciliation. The gate is local to one machine: simultaneous use of the same Privy agent on multiple machines can collide on nonces or exposure.
 
-MCP starts read-only; mutation tools require explicit enablement. Neither MCP nor the Service API runs `auth login` or `auth logout` or prompts for credentials. The user logs in from their own terminal. On Linux with the file store, headless MCP access works while the credential is unlocked (`oku auth unlock` in the user's terminal), or with a user-supplied `OKU_PASSPHRASE_FILE`. With the keyring store it works whenever the desktop keyring is unlocked and the MCP process can reach the session bus. While unlocked, any process running as the same user can use the credential, which is the same trust model as ssh-agent.
+MCP starts read-only; mutation tools require explicit enablement. Neither MCP nor the Service API runs `auth login` or `auth logout` or prompts for credentials. The user logs in from their own terminal. On Linux with the file store, MCP can use the credential as soon as the user has logged in. With the keyring store it works whenever the desktop keyring is unlocked and the MCP process can reach the session bus.
 
 ## Swap and bridge authorization limits
 

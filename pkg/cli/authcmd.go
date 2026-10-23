@@ -17,17 +17,16 @@ import (
 )
 
 func authLoginFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "api-url", Usage: "Oku API origin for the profile created when none exists"}, &urfave.BoolFlag{Name: "no-open", Usage: "print verification URL without opening browser"}, &urfave.DurationFlag{Name: "timeout", Value: 10 * time.Minute, Usage: "maximum time to wait for authorization"}, &urfave.StringFlag{Name: "credential-store", Usage: "Linux: where to keep the credential, file (passphrase, default) or keyring (desktop Secret Service); default $OKU_CREDENTIAL_STORE, else the profile's current store. Ignored on macOS (Keychain)"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "api-url", Usage: "Oku API origin for the profile created when none exists"}, &urfave.BoolFlag{Name: "no-open", Usage: "print verification URL without opening browser"}, &urfave.DurationFlag{Name: "timeout", Value: 10 * time.Minute, Usage: "maximum time to wait for authorization"}, &urfave.StringFlag{Name: "credential-store", Usage: "Linux: where to keep the credential, file (0600 file, default) or keyring (desktop Secret Service); default $OKU_CREDENTIAL_STORE, else the profile's current store. Ignored on macOS (Keychain)"}}
 }
 func authStatusFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.BoolFlag{Name: "verify", Usage: "refresh the credential and check Hyperliquid agent approval"}}
 }
-func authUnlockFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.DurationFlag{Name: "for", Value: defaultUnlockTTL, Usage: "how long to stay unlocked (kernel keyring, cleared on reboot or 'oku auth lock')"}}
-}
 
-// cmdAuthUnlock prompts once in the user's terminal and caches the verified
-// passphrase so agents and MCP can sign without OKU_PASSPHRASE_FILE.
+// cmdAuthUnlock converts a credential written by an older release, which was
+// sealed with a passphrase, into the current plain 0600 file. It asks for the
+// old passphrase once in the user's own terminal (or reads
+// OKU_PASSPHRASE_FILE). Current credentials need nothing, so it is a no-op.
 func (a *App) cmdAuthUnlock(e *env) (*result, error) {
 	p, err := e.profile()
 	if err != nil {
@@ -36,68 +35,69 @@ func (a *App) cmdAuthUnlock(e *env) (*result, error) {
 	if p.Name == "" {
 		return nil, output.Errorf(output.CodeProfileNotFound, "no profile selected")
 	}
-	ttl := e.cmd.Duration("for")
-	if ttl <= 0 || ttl > 7*24*time.Hour {
-		return nil, output.Errorf(output.CodeInvalidArgument, "--for must be between 1s and 168h")
+	release, err := auth.LockProfile(p.Name)
+	if err != nil {
+		return nil, output.Wrap(output.CodeSignerUnavailable, err, "locking credential")
 	}
-	if st, stErr := auth.StoreFor(p.Name); stErr == nil && st != auth.StoreFile {
-		return nativeLockResult(p.Name, st, "unlocked"), nil
+	defer release()
+	st, err := auth.StoreFor(p.Name)
+	if err != nil {
+		return nil, output.Wrap(output.CodeConfigError, err, "loading credential store")
 	}
-	md, err := auth.LoadPrivyMetadata(p.Name)
+	noop := func(msg string) *result {
+		return &result{data: map[string]any{"profile": p.Name, "credential_store": string(st), "migrated": false, "message": msg}, human: func(w io.Writer) {
+			fmt.Fprintln(w, msg)
+		}}
+	}
+	if st != auth.StoreFile {
+		return noop("Nothing to unlock: this profile keeps its credential in the " + storeName(st) + "."), nil
+	}
+	needPass, err := auth.LegacyNeedsPassphrase(p.Name)
 	if errors.Is(err, auth.ErrNoCredentials) {
-		return nil, output.Errorf(output.CodeAuthRequired, "run oku auth login")
+		return nil, missingCredential(p.Name)
 	}
 	if err != nil {
-		return nil, err
+		if _, mdErr := auth.LoadPrivyMetadata(p.Name); mdErr == nil {
+			return noop("Nothing to unlock: the credential is already in the current format."), nil
+		}
+		return nil, credentialLoadError(err)
 	}
-	if md.Unprotected || e.app.UnlockCache == nil {
-		return &result{data: map[string]any{"profile": p.Name, "unlocked": true, "cached": false}, human: func(w io.Writer) {
-			fmt.Fprintln(w, "No unlock needed on this credential.")
-		}}, nil
+	var md *auth.Metadata
+	for attempt := 1; ; attempt++ {
+		var pass []byte
+		if needPass {
+			if pass, err = e.legacyPassphrase(); err != nil {
+				return nil, err
+			}
+		}
+		md, err = auth.MigrateLegacy(p.Name, pass)
+		if err == nil {
+			break
+		}
+		retry := needPass && errors.Is(err, auth.ErrBadPassphrase) && e.app.StdinIsTTY && e.app.Getenv("OKU_PASSPHRASE_FILE") == "" && attempt < maxPassphraseAttempts
+		if !retry {
+			return nil, output.Wrap(output.CodeSignerUnavailable, err, "converting credential")
+		}
+		e.diag("Wrong passphrase. Try again.")
 	}
-	if !e.app.StdinIsTTY && e.app.Getenv("OKU_PASSPHRASE_FILE") == "" {
-		return nil, output.Errorf(output.CodeUsage, "auth unlock requires an interactive terminal")
+	if err = e.checkBinding(md, p); err != nil {
+		e.diag("The converted credential does not match profile %q; run 'oku auth login' if commands report a binding error.", p.Name)
 	}
-	e.forgetPassphrase(p.Name)
-	_, _, pass, err := e.unlockCredential(p.Name)
-	if err != nil {
-		return nil, err
-	}
-	if !e.rememberPassphrase(p.Name, pass, ttl) {
-		return nil, output.Errorf(output.CodeSignerUnavailable, "could not store the unlock in the kernel keyring")
-	}
-	until := e.app.Now().Add(ttl)
-	return &result{data: map[string]any{"profile": p.Name, "unlocked": true, "cached": true, "until": until.UTC().Format(time.RFC3339)}, human: func(w io.Writer) {
-		fmt.Fprintf(w, "Unlocked profile %s until %s. Run 'oku auth lock' to lock now.\n", p.Name, until.Local().Format("Jan 2 15:04"))
-	}}, nil
-}
-func (a *App) cmdAuthLock(e *env) (*result, error) {
-	p, err := e.profile()
-	if err != nil {
-		return nil, err
-	}
-	if p.Name == "" {
-		return nil, output.Errorf(output.CodeProfileNotFound, "no profile selected")
-	}
-	if st, stErr := auth.StoreFor(p.Name); stErr == nil && st != auth.StoreFile {
-		return nativeLockResult(p.Name, st, "locked"), nil
-	}
-	e.forgetPassphrase(p.Name)
-	return &result{data: map[string]any{"profile": p.Name, "locked": true}, human: func(w io.Writer) {
-		fmt.Fprintf(w, "Locked profile %s.\n", p.Name)
+	path, _ := auth.PrivyPath(p.Name)
+	return &result{data: map[string]any{"profile": p.Name, "credential_store": string(st), "migrated": true, "path": path}, human: func(w io.Writer) {
+		fmt.Fprintf(w, "Converted profile %s. The credential is now a plain file readable only by you (%s); no passphrase is needed anymore.\n", p.Name, path)
+		fmt.Fprintln(w, "You can delete any old passphrase file and unset OKU_PASSPHRASE_FILE.")
 	}}, nil
 }
 
-// nativeLockResult explains that Keychain and Secret Service credentials are
-// locked and unlocked by the OS login session, not by oku.
-func nativeLockResult(profile string, st auth.Store, field string) *result {
-	msg := "This profile keeps its credential in the desktop keyring; your login session locks and unlocks it, so there is nothing for oku to " + strings.TrimSuffix(field, "ed") + "."
-	if st == auth.StoreKeychain {
-		msg = "This profile keeps its credential in the macOS Keychain; macOS controls locking, so there is nothing for oku to " + strings.TrimSuffix(field, "ed") + "."
+func storeName(st auth.Store) string {
+	switch st {
+	case auth.StoreKeychain:
+		return "macOS Keychain"
+	case auth.StoreKeyring:
+		return "desktop keyring"
 	}
-	return &result{data: map[string]any{"profile": profile, "credential_store": string(st), "cached": false, "message": msg}, human: func(w io.Writer) {
-		fmt.Fprintln(w, msg)
-	}}
+	return string(st) + " store"
 }
 
 var boundaries = map[string]string{
@@ -164,13 +164,9 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	if timeout <= 0 {
 		return nil, output.Errorf(output.CodeInvalidArgument, "timeout must be positive")
 	}
-	// Choose the passphrase before anything is authorized remotely, so a typo
-	// here can never leave an approved session or grant behind.
+	// Check the credential store before anything is authorized remotely, so an
+	// unusable keyring never leaves an approved session or grant behind.
 	st, prevStore, err := e.loginStore(p.Name, create)
-	if err != nil {
-		return nil, err
-	}
-	np, err := e.choosePassphrase(st)
 	if err != nil {
 		return nil, err
 	}
@@ -291,9 +287,9 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 		}
 
 	}
-	md := auth.Metadata{Kind: auth.KindPrivy, Profile: p.Name, Network: p.Network, APIURL: p.APIURL, PrivyAppID: pc.AppID, AccountAddress: strings.ToLower(p.Account), AgentAddress: strings.ToLower(wallet.Address), PrivyWalletID: wallet.ID, AccessExpiresAt: tok.AccessExpiresAt.UTC().Format(time.RFC3339), SessionID: exchange.Session.SessionID, SessionExpiresAt: exchange.Session.ExpiresAt, CreatedAt: e.app.Now().UTC().Format(time.RFC3339), Status: "active", Generation: 1, Unprotected: np.unprotected}
+	md := auth.Metadata{Kind: auth.KindPrivy, Profile: p.Name, Network: p.Network, APIURL: p.APIURL, PrivyAppID: pc.AppID, AccountAddress: strings.ToLower(p.Account), AgentAddress: strings.ToLower(wallet.Address), PrivyWalletID: wallet.ID, AccessExpiresAt: tok.AccessExpiresAt.UTC().Format(time.RFC3339), SessionID: exchange.Session.SessionID, SessionExpiresAt: exchange.Session.ExpiresAt, CreatedAt: e.app.Now().UTC().Format(time.RFC3339), Status: "active", Generation: 1}
 	sec := auth.Secrets{AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken, SessionToken: exchange.Session.Token}
-	if err = auth.SavePrivyIn(st, p.Name, md, sec, np.pass); err != nil {
+	if err = auth.SavePrivyIn(st, p.Name, md, sec); err != nil {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "saving credential")
 	}
 	if !create && st != prevStore {
@@ -307,10 +303,6 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 		e.diag("Profile %q now keeps its credential in the %s store.", p.Name, st)
 	}
 	saved = true
-	e.forgetPassphrase(p.Name)
-	if !np.unprotected && e.rememberPassphrase(p.Name, np.pass, e.unlockTTL()) {
-		e.diag("Unlocked for %s so agents can trade without asking again. Run 'oku auth lock' to lock now.", e.unlockTTL())
-	}
 	return statusResult(&md, true), nil
 }
 func statusResult(md *auth.Metadata, verified bool) *result {
@@ -381,7 +373,17 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 			fmt.Fprintln(w, "Local credential deleted; binding changed, remote grants were not revoked. "+boundaries["not_revoked"])
 		}}, nil
 	}
-	md, sec, _, err := e.unlockCredential(p.Name)
+	md, sec, err := auth.LoadPrivy(p.Name)
+	if errors.Is(err, auth.ErrLegacyCredential) {
+		// Logout must work without the old passphrase: delete the local copy
+		// and report that remote sessions were not revoked.
+		if deleteErr := auth.DeletePrivy(p.Name); deleteErr != nil {
+			return nil, output.Wrap(output.CodeSignerUnavailable, deleteErr, "deleting credential")
+		}
+		return &result{data: map[string]any{"local_credentials": "deleted", "oku_session": "not_attempted", "privy_grant": "not_attempted", "warning": "old passphrase-protected credential deleted without revoking its session or grant", "boundaries": boundaries}, human: func(w io.Writer) {
+			fmt.Fprintln(w, "Local credential deleted; it was in the old passphrase format, so its Oku session and Privy grant were not revoked. "+boundaries["not_revoked"])
+		}}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +414,6 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 	if err = auth.DeletePrivy(p.Name); err != nil {
 		return nil, err
 	}
-	e.forgetPassphrase(p.Name)
 	return &result{data: map[string]any{"local_credentials": "deleted", "oku_session": remote, "privy_grant": grant, "boundaries": boundaries}, human: func(w io.Writer) {
 		fmt.Fprintf(w, "Local credential deleted; %s; Privy grant %s.\n%s\n", remote, grant, boundaries["not_revoked"])
 	}}, nil

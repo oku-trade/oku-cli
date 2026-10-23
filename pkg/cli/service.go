@@ -18,8 +18,8 @@ import (
 // Service exposes the command handlers in-process so other front ends (the
 // MCP server) share the exact validation, authentication, signing and journal
 // code paths of the executable instead of shelling out to it. A Service never
-// prompts: it has no terminal, so commands needing a passphrase or pairing
-// code fail with a structured auth error.
+// prompts: it has no terminal, so login, logout and legacy credential
+// conversion fail with a structured error.
 type Service struct {
 	// mu serializes calls: handlers share one App and a journal per call,
 	// and financial commands must not interleave within a server.
@@ -40,7 +40,7 @@ var ServiceReads = map[string]bool{
 	"version": true, "doctor": true, "auth status": true, "profiles list": true,
 	"markets list": true, "markets quote": true, "markets funding": true,
 	"account summary": true, "positions list": true, "orders list": true,
-	"orders status": true, "fills list": true,
+	"orders status": true, "orders intents": true, "fills list": true,
 	"docs list": true, "docs show": true, "docs search": true, "docs commands": true,
 }
 

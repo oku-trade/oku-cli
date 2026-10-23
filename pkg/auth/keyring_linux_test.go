@@ -21,7 +21,7 @@ func keyringProfile(t *testing.T, store string) {
 }
 
 // A keyring profile stores, loads and deletes through the Secret Service
-// boundary only: no credential file, no passphrase.
+// boundary only: no credential file.
 func TestKeyringStoreRoundTrip(t *testing.T) {
 	keyringProfile(t, "keyring")
 	m := &MemoryKeyring{}
@@ -30,13 +30,13 @@ func TestKeyringStoreRoundTrip(t *testing.T) {
 		t.Fatalf("store recorded in profile: %v %v", st, err)
 	}
 	md := Metadata{Profile: "p", Network: "mainnet", APIURL: "https://api.example", AccountAddress: "0x111"}
-	if err := SavePrivy("p", md, Secrets{RefreshToken: "r"}, nil); err != nil {
+	if err := SavePrivy("p", md, Secrets{RefreshToken: "r"}); err != nil {
 		t.Fatal(err)
 	}
 	if path, _ := PrivyPath("p"); fileExists(path) {
 		t.Fatal("keyring profile wrote a credential file")
 	}
-	got, sec, err := UnlockPrivy("p", nil)
+	got, sec, err := LoadPrivy("p")
 	if err != nil || got.Kind != KindPrivy || sec.RefreshToken != "r" {
 		t.Fatalf("readback: %v", err)
 	}
@@ -52,20 +52,20 @@ func TestKeyringStoreRoundTrip(t *testing.T) {
 // back to the file store, even when a credential file exists.
 func TestKeyringUnavailableNoFallback(t *testing.T) {
 	keyringProfile(t, "")
-	md := Metadata{Profile: "p", Network: "mainnet", APIURL: "https://api.example", AccountAddress: "0x111", Unprotected: true}
-	if err := SavePrivy("p", md, Secrets{RefreshToken: "file"}, nil); err != nil {
+	md := Metadata{Profile: "p", Network: "mainnet", APIURL: "https://api.example", AccountAddress: "0x111"}
+	if err := SavePrivy("p", md, Secrets{RefreshToken: "file"}); err != nil {
 		t.Fatal(err)
 	}
 	keyringProfile(t, "keyring")
 	m := &MemoryKeyring{Unavailable: true}
 	defer UseKeyringForTest(m)()
-	if _, _, err := UnlockPrivy("p", nil); !errors.Is(err, ErrKeychainUnavailable) {
+	if _, _, err := LoadPrivy("p"); !errors.Is(err, ErrKeychainUnavailable) {
 		t.Fatalf("want unavailable, got %v", err)
 	}
 	if err := CheckStore(StoreKeyring); !errors.Is(err, ErrKeychainUnavailable) {
 		t.Fatalf("probe: %v", err)
 	}
-	if err := SavePrivyIn(StoreKeyring, "p", md, Secrets{}, nil); !errors.Is(err, ErrKeychainUnavailable) {
+	if err := SavePrivyIn(StoreKeyring, "p", md, Secrets{}); !errors.Is(err, ErrKeychainUnavailable) {
 		t.Fatalf("save: %v", err)
 	}
 }

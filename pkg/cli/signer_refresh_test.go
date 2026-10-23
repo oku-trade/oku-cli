@@ -13,9 +13,8 @@ import (
 
 func TestSignerRefreshesAndAdoptsAtAuthenticationBoundary(t *testing.T) {
 	h := newHarness(t)
-	h.enrollProtected()
-	pass := []byte("correct horse battery")
-	md, sec, err := auth.UnlockPrivy("main", pass)
+	h.enroll()
+	md, sec, err := auth.LoadPrivy("main")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +27,7 @@ func TestSignerRefreshesAndAdoptsAtAuthenticationBoundary(t *testing.T) {
 	checked := 0
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/wallets/authenticate") {
-			_, persisted, err := auth.UnlockPrivy("main", pass)
+			_, persisted, err := auth.LoadPrivy("main")
 			if err != nil || persisted.AccessToken != expected || persisted.RefreshToken != expectedRefresh || r.Header.Get("Authorization") != "Bearer "+expected {
 				t.Errorf("not persisted before authenticate: %+v %v header=%q", persisted, err, r.Header.Get("Authorization"))
 			}
@@ -42,8 +41,6 @@ func TestSignerRefreshesAndAdoptsAtAuthenticationBoundary(t *testing.T) {
 	e := &env{app: NewApp("t"), ctx: context.Background(), g: globals{timeout: maxTimeout}}
 	e.app.Getenv = func(name string) string {
 		switch name {
-		case "OKU_PASSPHRASE_FILE":
-			return h.passFn
 		case "OKU_PRIVY_APP_ID":
 			return md.PrivyAppID
 		case "OKU_PRIVY_AUTH_URL":
@@ -55,12 +52,12 @@ func TestSignerRefreshesAndAdoptsAtAuthenticationBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	md, sec, err = auth.UnlockPrivy("main", pass)
+	md, sec, err = auth.LoadPrivy("main")
 	if err != nil {
 		t.Fatal(err)
 	}
 	md.AccessExpiresAt = time.Now().Add(time.Minute).UTC().Format(time.RFC3339)
-	if err := auth.SavePrivy("main", *md, *sec, pass); err != nil {
+	if err := auth.SavePrivy("main", *md, *sec); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.signerFor(p, s); err != nil {
@@ -71,14 +68,14 @@ func TestSignerRefreshesAndAdoptsAtAuthenticationBoundary(t *testing.T) {
 	}
 	// A second process has already rotated again. Reload must adopt its token,
 	// not refresh using the now-invalid previous refresh token.
-	md, sec, err = auth.UnlockPrivy("main", pass)
+	md, sec, err = auth.LoadPrivy("main")
 	if err != nil {
 		t.Fatal(err)
 	}
 	md.AccessExpiresAt = time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
 	sec.AccessToken, sec.RefreshToken = "access-newer", "refresh-newer"
 	md.Generation++
-	if err := auth.SavePrivy("main", *md, *sec, pass); err != nil {
+	if err := auth.SavePrivy("main", *md, *sec); err != nil {
 		t.Fatal(err)
 	}
 	expected = "access-newer"

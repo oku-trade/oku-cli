@@ -3,130 +3,119 @@
 package auth
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
-	"strings"
 	"testing"
 )
 
 func setup(t *testing.T) { t.Helper(); t.Setenv("OKU_CONFIG_DIR", t.TempDir()) }
 
-func TestSealRoundTripAndNoPlaintext(t *testing.T) {
+// The file store is plain JSON readable only by the owner, and refuses files
+// other users can read.
+func TestFileStoreRoundTripAndPermissions(t *testing.T) {
 	setup(t)
-	md := Metadata{Profile: "p", Kind: KindPrivy, AccountAddress: "0x1111111111111111111111111111111111111111"}
-	sec := Secrets{RefreshToken: "supersecret-refresh"}
-	pass := []byte("correct horse")
-	if err := SavePrivy("p", md, sec, pass); err != nil {
+	md := Metadata{Profile: "p", Network: "mainnet", APIURL: "https://a", SessionID: "sid", Generation: 4}
+	if err := SavePrivy("p", md, Secrets{SessionToken: "s", RefreshToken: "r"}); err != nil {
 		t.Fatal(err)
 	}
 	p, _ := PrivyPath("p")
-	raw, _ := os.ReadFile(p)
-	if strings.Contains(string(raw), sec.RefreshToken) {
-		t.Fatal("secret stored in plaintext")
-	}
-	fi, _ := os.Stat(p)
-	if fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(p); fi.Mode().Perm() != 0o600 {
 		t.Fatalf("mode %o", fi.Mode().Perm())
 	}
-	if _, _, err := UnlockPrivy("p", []byte("wrong pass")); !errors.Is(err, ErrBadPassphrase) {
-		t.Fatalf("wrong passphrase: %v", err)
-	}
-	_, got, err := UnlockPrivy("p", pass)
-	if err != nil || got.RefreshToken != sec.RefreshToken {
-		t.Fatalf("unlock: %v", err)
-	}
-	var doc map[string]any
-	_ = json.Unmarshal(raw, &doc)
-	doc["metadata"].(map[string]any)["account_address"] = "0x2222222222222222222222222222222222222222"
-	tampered, _ := json.Marshal(doc)
-	_ = os.WriteFile(p, tampered, 0o600)
-	if _, _, err := UnlockPrivy("p", pass); !errors.Is(err, ErrBadPassphrase) {
-		t.Fatalf("tampered metadata accepted: %v", err)
+	got, sec, err := LoadPrivy("p")
+	if err != nil || got.Kind != KindPrivy || got.SessionID != "sid" || got.Generation != 4 || sec.RefreshToken != "r" {
+		t.Fatalf("readback: %+v %+v %v", got, sec, err)
 	}
 	_ = os.Chmod(p, 0o644)
 	if _, err := LoadPrivyMetadata("p"); err == nil {
 		t.Fatal("world-readable credential file accepted")
 	}
-}
-
-func TestUnprotectedCredential(t *testing.T) {
-	setup(t)
-	md := Metadata{Profile: "p", Kind: KindPrivy, Unprotected: true}
-	if err := SavePrivy("p", md, Secrets{RefreshToken: "r"}, []byte("correct horse")); err == nil {
-		t.Fatal("unprotected credential accepted a passphrase")
-	}
-	if err := SavePrivy("p", md, Secrets{RefreshToken: "r"}, nil); err != nil {
-		t.Fatal(err)
-	}
-	if _, s, err := UnlockPrivy("p", nil); err != nil || s.RefreshToken != "r" {
-		t.Fatalf("unlock: %v", err)
-	}
-	// A protected credential cannot be downgraded by flipping the flag or KDF.
-	if err := SavePrivy("q", Metadata{Profile: "q", Kind: KindPrivy}, Secrets{RefreshToken: "r"}, []byte("correct horse")); err != nil {
-		t.Fatal(err)
-	}
-	p, _ := PrivyPath("q")
-	raw, _ := os.ReadFile(p)
-	var doc map[string]any
-	_ = json.Unmarshal(raw, &doc)
-	doc["kdf"] = map[string]any{"name": "none"}
-	doc["metadata"].(map[string]any)["unprotected"] = true
-	tampered, _ := json.Marshal(doc)
-	_ = os.WriteFile(p, tampered, 0o600)
-	if _, _, err := UnlockPrivy("q", nil); !errors.Is(err, ErrBadPassphrase) {
-		t.Fatalf("downgraded credential unlocked: %v", err)
-	}
-}
-
-func TestCorruptCredentialFilesFailClosed(t *testing.T) {
-	setup(t)
-	if err := SavePrivy("p", Metadata{Profile: "p"}, Secrets{RefreshToken: "secret"}, []byte("correct horse")); err != nil {
-		t.Fatal(err)
-	}
-	p, _ := PrivyPath("p")
-	orig, _ := os.ReadFile(p)
-	cases := map[string]func(map[string]any){
-		"short nonce": func(d map[string]any) { d["nonce"] = "AAAA" },
-		"huge N":      func(d map[string]any) { d["kdf"].(map[string]any)["n"] = 1 << 30 },
-		"weak N":      func(d map[string]any) { d["kdf"].(map[string]any)["n"] = 1 << 10 },
-		"big p":       func(d map[string]any) { d["kdf"].(map[string]any)["p"] = 1 << 20 },
-	}
-	for name, mutate := range cases {
-		var doc map[string]any
-		_ = json.Unmarshal(orig, &doc)
-		mutate(doc)
-		raw, _ := json.Marshal(doc)
-		_ = os.WriteFile(p, raw, 0o600)
-		if _, _, err := UnlockPrivy("p", []byte("correct horse")); err == nil {
-			t.Errorf("%s: accepted", name)
-		}
-	}
 	_ = os.WriteFile(p, make([]byte, maxCredFile+1), 0o600)
 	if _, err := LoadPrivyMetadata("p"); err == nil {
-		t.Error("oversized file accepted")
-	}
-}
-
-func TestPrivyRecordRoundTripAndDelete(t *testing.T) {
-	setup(t)
-	pass := []byte("correct horse")
-	md := Metadata{Profile: "p", Network: "mainnet", APIURL: "https://a", WalletAddress: "0x2222222222222222222222222222222222222222", SessionID: "sid"}
-	if err := SavePrivy("p", md, Secrets{SessionToken: "sesstok-secret"}, pass); err != nil {
-		t.Fatal(err)
-	}
-	stored, err := LoadPrivyMetadata("p")
-	if err != nil || stored.Kind != KindPrivy {
-		t.Fatalf("metadata: %v", err)
-	}
-	loaded, sec, err := UnlockPrivy("p", pass)
-	if err != nil || sec.SessionToken != "sesstok-secret" || loaded.SessionID != "sid" {
-		t.Fatal(err)
+		t.Fatal("oversized file accepted")
 	}
 	if err := DeletePrivy("p"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := LoadPrivyMetadata("p"); !errors.Is(err, ErrNoCredentials) {
 		t.Fatal(err)
+	}
+}
+
+// installLegacy copies a credential written by the previous passphrase-sealed
+// release (recorded in testdata) into place for profile "main".
+func installLegacy(t *testing.T, name string) string {
+	t.Helper()
+	setup(t)
+	raw, err := os.ReadFile("testdata/" + name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, _ := PrivyPath("main")
+	if err := os.MkdirAll(p[:len(p)-len("/main.json")], 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// A legacy passphrase-sealed credential keeps its metadata readable, refuses
+// secrets until migrated, converts once with the right passphrase, and is a
+// plain credential afterwards.
+func TestLegacyPassphraseCredentialMigrates(t *testing.T) {
+	path := installLegacy(t, "legacy-passphrase.json")
+	if md, err := LoadPrivyMetadata("main"); err != nil || md.AgentAddress != "0x3333333333333333333333333333333333333333" || md.Generation != 3 {
+		t.Fatalf("legacy metadata: %+v %v", md, err)
+	}
+	if _, _, err := LoadPrivy("main"); !errors.Is(err, ErrLegacyCredential) {
+		t.Fatalf("legacy secrets: %v", err)
+	}
+	if need, err := LegacyNeedsPassphrase("main"); err != nil || !need {
+		t.Fatalf("needs passphrase: %v %v", need, err)
+	}
+	before, _ := os.ReadFile(path)
+	if _, err := MigrateLegacy("main", []byte("wrong passphrase")); !errors.Is(err, ErrBadPassphrase) {
+		t.Fatalf("wrong passphrase: %v", err)
+	}
+	if after, _ := os.ReadFile(path); string(after) != string(before) {
+		t.Fatal("failed migration modified the file")
+	}
+	md, err := MigrateLegacy("main", []byte("correct horse battery"))
+	if err != nil || md.Generation != 3 {
+		t.Fatalf("migrate: %v", err)
+	}
+	_, sec, err := LoadPrivy("main")
+	if err != nil || sec.RefreshToken != "legacy-refresh-token" || sec.SessionToken != "legacy-session-token" {
+		t.Fatalf("after migrate: %+v %v", sec, err)
+	}
+	if _, err := LegacyNeedsPassphrase("main"); err == nil {
+		t.Fatal("migrated credential still reported as legacy")
+	}
+}
+
+// A legacy credential stored without a passphrase migrates with no input, and
+// tampering with the sealed metadata or KDF is rejected rather than converted.
+func TestLegacyUnprotectedAndTampered(t *testing.T) {
+	installLegacy(t, "legacy-unprotected.json")
+	if need, err := LegacyNeedsPassphrase("main"); err != nil || need {
+		t.Fatalf("needs passphrase: %v %v", need, err)
+	}
+	if _, err := MigrateLegacy("main", nil); err != nil {
+		t.Fatal(err)
+	}
+	path := installLegacy(t, "legacy-passphrase.json")
+	raw, _ := os.ReadFile(path)
+	tampered := []byte(string(raw))
+	for i := range tampered {
+		if string(tampered[i:i+7]) == "0x11111" {
+			copy(tampered[i:], "0x22222")
+			break
+		}
+	}
+	_ = os.WriteFile(path, tampered, 0o600)
+	if _, err := MigrateLegacy("main", []byte("correct horse battery")); !errors.Is(err, ErrBadPassphrase) {
+		t.Fatalf("tampered metadata migrated: %v", err)
 	}
 }

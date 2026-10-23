@@ -3,14 +3,8 @@ package cli
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
-	"fmt"
-	"io"
 	"os"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -22,270 +16,35 @@ import (
 	"github.com/oku-trade/oku-cli/pkg/signing"
 )
 
-// maxPassphraseAttempts bounds interactive re-prompts so a stuck terminal
-// cannot loop forever.
+// maxPassphraseAttempts bounds interactive re-prompts when migrating a
+// legacy passphrase-protected credential.
 const maxPassphraseAttempts = 5
 
-// newPassphrase is the login-time choice: a passphrase, or (after explicit
-// confirmation) none at all.
-type newPassphrase struct {
-	pass        []byte
-	unprotected bool
+// legacyCredentialError tells the user to convert a credential written by an
+// older release before it can be used.
+func legacyCredentialError(profile string) error {
+	return output.Errorf(output.CodeAuthRequired, "profile %q has a credential in the old passphrase-protected format; run 'oku auth unlock' in your own terminal once to convert it", profile).
+		WithDetail("hint", "oku auth unlock --profile "+profile)
 }
 
-// passphrase returns the cached or entered passphrase for unlocking an existing
-// credential. With confirm it prompts for a new one (tests and legacy callers).
-func (e *env) passphrase(confirm bool) ([]byte, error) {
-	if runtime.GOOS == "darwin" {
-		return nil, nil
+// loadCredential reads a profile's credential under the caller's profile lock.
+func (e *env) loadCredential(profile string) (*auth.Metadata, *auth.Secrets, error) {
+	md, sec, err := auth.LoadPrivy(profile)
+	if errors.Is(err, auth.ErrLegacyCredential) {
+		return nil, nil, legacyCredentialError(profile)
 	}
-	if confirm {
-		np, err := e.chooseFilePassphrase()
-		if err != nil {
-			return nil, err
-		}
-		return np.pass, nil
-	}
-	return e.filePassphrase()
+	return md, sec, err
 }
 
-// choosePassphrase picks the passphrase for a new credential. Invalid or
-// mismatched entries re-prompt instead of failing the login. An empty entry
-// offers to skip the passphrase, which requires two explicit confirmations.
-func (e *env) choosePassphrase(st auth.Store) (*newPassphrase, error) {
-	if st != auth.StoreFile {
-		return &newPassphrase{}, nil
-	}
-	return e.chooseFilePassphrase()
-}
-func (e *env) chooseFilePassphrase() (*newPassphrase, error) {
-	if e.app.Getenv("OKU_PASSPHRASE_FILE") != "" || !e.app.StdinIsTTY {
-		p, err := e.filePassphrase()
-		if err != nil {
-			return nil, err
-		}
-		return &newPassphrase{pass: p}, nil
-	}
-	for attempt := 0; attempt < maxPassphraseAttempts; attempt++ {
-		p, err := e.app.ReadSecret("New Oku Agent credential passphrase (8+ characters, empty to skip): ")
-		if err != nil {
-			return nil, output.Wrap(output.CodeSignerUnavailable, err, "reading passphrase")
-		}
-		if len(p) == 0 {
-			ok, err := e.confirmNoPassphrase()
-			if err != nil {
-				return nil, err
-			}
-			if ok {
-				return &newPassphrase{unprotected: true}, nil
-			}
-			continue
-		}
-		if len(p) < 8 {
-			e.diag("Passphrase must be at least 8 characters. Try again.")
-			continue
-		}
-		again, err := e.app.ReadSecret("Repeat passphrase: ")
-		if err != nil {
-			return nil, output.Wrap(output.CodeSignerUnavailable, err, "reading passphrase")
-		}
-		if !bytes.Equal(p, again) {
-			e.diag("Passphrases do not match. Try again.")
-			continue
-		}
-		e.pass = bytes.Clone(p)
-		return &newPassphrase{pass: p}, nil
-	}
-	return nil, output.Errorf(output.CodeInvalidArgument, "no valid passphrase after %d attempts", maxPassphraseAttempts)
-}
-
-// confirmNoPassphrase asks twice before storing a credential without a
-// passphrase. Anything but the exact answers keeps the passphrase.
-func (e *env) confirmNoPassphrase() (bool, error) {
-	e.diag("\nWARNING: storing the credential WITHOUT a passphrase is INSECURE.")
-	e.diag("Anyone or any program that can read %s can trade and sign as your agent until you revoke it.", credentialDirHint())
-	ans, err := e.readLine("ARE YOU SURE you want to skip the passphrase? Type 'yes' to continue: ")
-	if err != nil {
-		return false, err
-	}
-	if strings.TrimSpace(ans) != "yes" {
-		e.diag("Keeping passphrase protection.")
-		return false, nil
-	}
-	ans, err = e.readLine("ARE YOU REALLY, REALLY SURE? THIS IS INSECURE. Type 'store without passphrase' to confirm: ")
-	if err != nil {
-		return false, err
-	}
-	if strings.TrimSpace(ans) != "store without passphrase" {
-		e.diag("Keeping passphrase protection.")
-		return false, nil
-	}
-	e.diag("Storing credential without a passphrase.")
-	return true, nil
-}
-
-func credentialDirHint() string {
-	if p, err := auth.PrivyPath("x"); err == nil {
-		return filepath.Dir(p)
-	}
-	return "the credential file"
-}
-
-// readLine reads one echoed line from stdin. It reads byte by byte so no input
-// beyond the newline is consumed.
-func (e *env) readLine(prompt string) (string, error) {
-	if !e.app.StdinIsTTY || e.app.Stdin == nil {
-		return "", output.Errorf(output.CodeSignerUnavailable, "confirmation requires an interactive terminal")
-	}
-	fmt.Fprint(e.app.Stderr, prompt)
-	var line []byte
-	buf := make([]byte, 1)
-	for {
-		n, err := e.app.Stdin.Read(buf)
-		if n == 1 {
-			if buf[0] == '\n' {
-				break
-			}
-			line = append(line, buf[0])
-		}
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return "", output.Wrap(output.CodeSignerUnavailable, err, "reading confirmation")
-		}
-	}
-	return strings.TrimRight(string(line), "\r"), nil
-}
-
-// unlockCache keeps a passphrase in the kernel user keyring keyed by the
-// credential file path (not the profile name), so separate config dirs never
-// share an entry.
-type unlockCache interface {
-	Get(path string) []byte
-	Put(path string, pass []byte, ttl time.Duration) error
-	Forget(path string)
-}
-
-type keyringCache struct{}
-
-func cacheKey(path string) string {
-	sum := sha256.Sum256([]byte(path))
-	return hex.EncodeToString(sum[:12])
-}
-func (keyringCache) Get(path string) []byte { return auth.CachedPassphrase(cacheKey(path)) }
-func (keyringCache) Put(path string, pass []byte, ttl time.Duration) error {
-	return auth.CachePassphrase(cacheKey(path), pass, ttl)
-}
-func (keyringCache) Forget(path string) { auth.ForgetPassphrase(cacheKey(path)) }
-
-// defaultUnlockTTL is how long an interactively entered passphrase stays
-// cached. OKU_UNLOCK_TTL overrides it; 0 disables caching.
-const defaultUnlockTTL = 8 * time.Hour
-
-func (e *env) unlockTTL() time.Duration {
-	if v := e.app.Getenv("OKU_UNLOCK_TTL"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d >= 0 {
-			return d
-		}
-	}
-	return defaultUnlockTTL
-}
-
-// rememberPassphrase caches a verified passphrase so later non-interactive
-// commands (coding agents, MCP) can use the credential.
-func (e *env) rememberPassphrase(profile string, pass []byte, ttl time.Duration) bool {
-	if e.app.UnlockCache == nil || len(pass) == 0 || ttl <= 0 {
-		return false
-	}
-	path, err := auth.PrivyPath(profile)
-	if err != nil {
-		return false
-	}
-	return e.app.UnlockCache.Put(path, pass, ttl) == nil
-}
-func (e *env) cachedPassphrase(profile string) []byte {
-	if e.app.UnlockCache == nil {
-		return nil
-	}
-	path, err := auth.PrivyPath(profile)
-	if err != nil {
-		return nil
-	}
-	return e.app.UnlockCache.Get(path)
-}
-func (e *env) forgetPassphrase(profile string) {
-	if e.app.UnlockCache == nil {
-		return
-	}
-	if path, err := auth.PrivyPath(profile); err == nil {
-		e.app.UnlockCache.Forget(path)
-	}
-}
-
-// unlockCredential loads and decrypts a profile's credential. Sources, in
-// order: an Unprotected credential, OKU_PASSPHRASE_FILE, the unlock cache,
-// then an interactive prompt. A wrong interactive passphrase re-prompts.
-// A successful interactive unlock is cached for OKU_UNLOCK_TTL.
-func (e *env) unlockCredential(profile string) (*auth.Metadata, *auth.Secrets, []byte, error) {
-	st, err := auth.StoreFor(profile)
-	if err != nil {
-		return nil, nil, nil, output.Wrap(output.CodeConfigError, err, "loading credential store")
-	}
-	if st != auth.StoreFile {
-		// Keychain and Secret Service unlock with the user's login session;
-		// there is no oku passphrase and nothing to cache.
-		md, sec, err := auth.UnlockPrivy(profile, nil)
-		return md, sec, nil, err
-	}
-	{
-		if pre, err := auth.LoadPrivyMetadata(profile); err == nil && pre.Unprotected {
-			md, sec, err := auth.UnlockPrivy(profile, []byte{})
-			return md, sec, []byte{}, err
-		}
-	}
-	if e.pass == nil && e.app.Getenv("OKU_PASSPHRASE_FILE") == "" {
-		if cached := e.cachedPassphrase(profile); cached != nil {
-			md, sec, err := auth.UnlockPrivy(profile, cached)
-			if err == nil {
-				e.pass = bytes.Clone(cached)
-				return md, sec, cached, nil
-			}
-			if errors.Is(err, auth.ErrBadPassphrase) {
-				e.forgetPassphrase(profile)
-			}
-		}
-	}
-	interactive := e.app.Getenv("OKU_PASSPHRASE_FILE") == "" && e.app.StdinIsTTY
-	prompted := interactive && e.pass == nil
-	for attempt := 1; ; attempt++ {
-		pass, err := e.passphrase(false)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		md, sec, err := auth.UnlockPrivy(profile, pass)
-		if err == nil {
-			if prompted {
-				e.rememberPassphrase(profile, pass, e.unlockTTL())
-			}
-			return md, sec, pass, nil
-		}
-		if !errors.Is(err, auth.ErrBadPassphrase) || !interactive || attempt >= maxPassphraseAttempts {
-			return nil, nil, nil, err
-		}
-		e.pass = nil
-		prompted = true
-		e.diag("Wrong passphrase. Try again.")
-	}
-}
-
-func (e *env) filePassphrase() ([]byte, error) {
+// legacyPassphrase reads the passphrase of a legacy credential from
+// OKU_PASSPHRASE_FILE or an interactive prompt. Only auth unlock uses it.
+func (e *env) legacyPassphrase() ([]byte, error) {
 	if path := e.app.Getenv("OKU_PASSPHRASE_FILE"); path != "" {
 		fi, err := os.Stat(path)
 		if err != nil {
 			return nil, output.Wrap(output.CodeSignerUnavailable, err, "reading passphrase file")
 		}
-		if fi.Mode().Perm()&0077 != 0 {
+		if fi.Mode().Perm()&0o077 != 0 {
 			return nil, output.Errorf(output.CodeSignerUnavailable, "OKU_PASSPHRASE_FILE must be mode 0600")
 		}
 		b, err := os.ReadFile(path)
@@ -295,16 +54,12 @@ func (e *env) filePassphrase() ([]byte, error) {
 		return bytes.TrimRight(b, "\r\n"), nil
 	}
 	if !e.app.StdinIsTTY {
-		return nil, output.Errorf(output.CodeSignerUnavailable, "credential is locked: run 'oku auth unlock' in your own terminal (keeps it unlocked for %s), or set OKU_PASSPHRASE_FILE to a 0600 file", defaultUnlockTTL)
+		return nil, output.Errorf(output.CodeUsage, "converting the old credential needs its passphrase: run 'oku auth unlock' in your own terminal")
 	}
-	if e.pass != nil {
-		return bytes.Clone(e.pass), nil
-	}
-	p, err := e.app.ReadSecret("Oku Agent credential passphrase: ")
+	p, err := e.app.ReadSecret("Passphrase of your existing Oku Agent credential: ")
 	if err != nil {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "reading passphrase")
 	}
-	e.pass = bytes.Clone(p)
 	return p, nil
 }
 
@@ -383,13 +138,13 @@ func (e *env) unlock(p *resolved, _ string) (*session, error) {
 	if err = e.checkBinding(pre, p); err != nil {
 		return nil, err
 	}
-	md, sec, pass, err := e.unlockCredential(p.Name)
+	md, sec, err := e.loadCredential(p.Name)
 	if err != nil {
 		var oe *output.Error
 		if errors.As(err, &oe) {
 			return nil, err
 		}
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "unlocking credential")
+		return nil, output.Wrap(output.CodeSignerUnavailable, err, "loading credential")
 	}
 	if md == nil || sec == nil {
 		return nil, output.Errorf(output.CodeSignerUnavailable, "credential incomplete")
@@ -406,10 +161,10 @@ func (e *env) unlock(p *resolved, _ string) (*session, error) {
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
-	if err := e.refreshLocked(ctx, p.Name, md, sec, pass, pc); err != nil {
+	if err := e.refreshLocked(ctx, p.Name, md, sec, pc); err != nil {
 		return nil, err
 	}
-	save := func() error { md.Generation++; return auth.SavePrivy(p.Name, *md, *sec, pass) }
+	save := func() error { md.Generation++; return auth.SavePrivy(p.Name, *md, *sec) }
 	c := e.client(p)
 	sessionExpiry, _ := time.Parse(time.RFC3339, md.SessionExpiresAt)
 	if sessionExpiry.Before(e.app.Now().Add(15*time.Minute)) || md.SessionID == "" || sec.SessionToken == "" {
@@ -458,7 +213,7 @@ func (e *env) invalidateSession(profile string, failed *session) {
 		return
 	}
 	defer release()
-	md, sec, pass, err := e.unlockCredential(profile)
+	md, sec, err := e.loadCredential(profile)
 	if err != nil {
 		return
 	}
@@ -467,12 +222,12 @@ func (e *env) invalidateSession(profile string, failed *session) {
 	}
 	md.SessionID, md.SessionExpiresAt, sec.SessionToken = "", "", ""
 	md.Generation++
-	_ = auth.SavePrivy(profile, *md, *sec, pass)
+	_ = auth.SavePrivy(profile, *md, *sec)
 }
 
 // refreshLocked must be called after reloading under LockProfile. Rotation is
 // persisted before the new access token is used for any network operation.
-func (e *env) refreshLocked(ctx context.Context, profile string, md *auth.Metadata, sec *auth.Secrets, pass []byte, pc *privy.Client) error {
+func (e *env) refreshLocked(ctx context.Context, profile string, md *auth.Metadata, sec *auth.Secrets, pc *privy.Client) error {
 	expiry, _ := time.Parse(time.RFC3339, md.AccessExpiresAt)
 	if !expiry.Before(e.app.Now().Add(2 * time.Minute)) {
 		return nil
@@ -484,7 +239,7 @@ func (e *env) refreshLocked(ctx context.Context, profile string, md *auth.Metada
 	sec.RefreshToken, sec.AccessToken = tok.RefreshToken, tok.AccessToken
 	md.AccessExpiresAt = tok.AccessExpiresAt.UTC().Format(time.RFC3339)
 	md.Generation++
-	if err := auth.SavePrivy(profile, *md, *sec, pass); err != nil {
+	if err := auth.SavePrivy(profile, *md, *sec); err != nil {
 		return output.Wrap(output.CodeSignerUnavailable, err, "persisting rotated refresh token; run oku auth login if rotation was lost")
 	}
 	return nil
@@ -495,7 +250,7 @@ func (e *env) signerFor(p *resolved, s *session) (signing.Signer, error) {
 		return nil, err
 	}
 	defer release()
-	md, sec, pass, err := e.unlockCredential(p.Name)
+	md, sec, err := e.loadCredential(p.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -511,7 +266,7 @@ func (e *env) signerFor(p *resolved, s *session) (signing.Signer, error) {
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
-	if err := e.refreshLocked(ctx, p.Name, md, sec, pass, pc); err != nil {
+	if err := e.refreshLocked(ctx, p.Name, md, sec, pc); err != nil {
 		return nil, err
 	}
 	ps, err := pc.Authenticate(ctx, sec.AccessToken)
@@ -527,7 +282,7 @@ func (e *env) signerFor(p *resolved, s *session) (signing.Signer, error) {
 }
 
 // missingCredential explains a missing credential. A keyring profile whose
-// item vanished is reported as such instead of asking for a passphrase.
+// item vanished is reported as such.
 func missingCredential(profile string) error {
 	if st, err := auth.StoreFor(profile); err == nil && st == auth.StoreKeyring {
 		return output.Errorf(output.CodeAuthRequired, "profile %q uses the desktop keyring but its credential item is missing; run oku auth login", profile)

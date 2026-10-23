@@ -2,5 +2,5 @@
 
 package auth
 
-// macOS never uses the passphrase file store.
+// macOS always uses the Keychain, never the file store.
 const fileStoreSupported = false

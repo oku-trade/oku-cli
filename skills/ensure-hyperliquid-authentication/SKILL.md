@@ -15,7 +15,7 @@ oku auth status --profile <name> --json
 oku auth status --profile <name> --verify --json
 ```
 
-The account is the external Hyperliquid master wallet. The agent is a separate Privy embedded Ethereum wallet approved by that master. `--verify` refreshes credentials as needed and checks the agent approval. If missing or expired, ask the user to complete the authorization page rather than retrying trades.
+The account is the external Hyperliquid master wallet. The agent is a separate Privy embedded Ethereum wallet approved by that master. Plain status reads only local metadata and reports `verified: false`. `status: active` alongside a past `access_expires_at` is normal and proves nothing about live approval. `--verify` refreshes credentials as needed, may renew the Oku session and save updated credentials, and then checks the agent approval. Do not run it when told to stay read-only. If missing or expired, ask the user to complete the authorization page rather than retrying trades.
 
 ## User-operated login
 
@@ -34,15 +34,17 @@ oku auth login --profile <name>
 
 The default API is production, `https://accounts.icarus.tools`. Staging is opt-in: on a fresh configuration use `oku auth login --api-url https://accounts.staging.invalid`, or add a staging profile with `--api-url https://accounts.staging.invalid`. Existing profiles keep the API URL they were created with (check `oku profiles list`). The Privy app is built in; `--privy-app-id` or `OKU_PRIVY_APP_ID` can override it.
 
-## Locked credential (Linux)
+## Credential storage (Linux)
 
-On Linux the default `file` credential store encrypts the credential with a passphrase; a profile can instead use the desktop `keyring` store. Check `credential_store` in `oku auth status --json` first. With the `file` store, login and any command the user runs in their own terminal keep it unlocked for 8 hours in the kernel keyring (like `sudo`), so agents and MCP can then trade without prompting. If a command fails with `SIGNER_UNAVAILABLE` and "credential is locked", ask the user to run this in their own terminal, then retry:
+On Linux the default `file` store is a plain 0600 file with no passphrase, so agents and MCP can use it right after login. A profile can instead use the desktop `keyring` store; check `credential_store` in `oku auth status --json`. With the keyring store, a "credential store unavailable" error means the user must unlock their desktop keyring (or run `oku auth migrate --to file` on a headless machine).
+
+Credentials from older releases were protected by a passphrase. If a command fails with `AUTH_REQUIRED` and mentions the old passphrase-protected format, ask the user to run this once in their own terminal, then retry:
 
 ```sh
-oku auth unlock            # optional: --for 2h
+oku auth unlock
 ```
 
-`oku auth lock` forgets the unlock immediately. If `oku auth status --json` shows `"credential_store": "keyring"` (`store keyring` in `oku doctor`), the credential lives in the desktop keyring instead, and the kernel-keyring unlock above does not apply: there is no oku passphrase, and a "credential store unavailable" error means the user must unlock their desktop keyring (or run `oku auth migrate --to file` on a headless machine). Never ask for the passphrase in chat. `OKU_PASSPHRASE_FILE` remains available for unattended servers but is not needed for normal use.
+It asks for the old passphrase once and converts the credential. Never ask for the passphrase in chat.
 
 The CLI prints a URL and user code. The user visits the Oku authorization page, signs the Hyperliquid agent approval with their external master wallet, and approves the Privy device grant. That browser-signing wallet becomes the account, even if the profile previously held a different address. The CLI reads the approved agent's master from Hyperliquid and stores credentials only when its role is `agent`. Use `--no-open` to prevent automatic browser launch. Login is never available over MCP or the Service API.
 

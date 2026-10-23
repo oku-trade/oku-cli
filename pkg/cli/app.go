@@ -9,14 +9,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/cli/browser"
 	"github.com/oku-trade/oku-cli/pkg/api"
-	"github.com/oku-trade/oku-cli/pkg/auth"
 	"github.com/oku-trade/oku-cli/pkg/output"
 	urfave "github.com/urfave/cli/v3"
 )
@@ -37,7 +35,8 @@ type App struct {
 	// StdinIsTTY enables interactive masked prompts. When false, commands
 	// never prompt; they fail with a structured error instead.
 	StdinIsTTY bool
-	// ReadSecret reads a line from the terminal without echo.
+	// ReadSecret reads a line from the terminal without echo. It is used only
+	// to convert legacy passphrase-protected credentials.
 	ReadSecret func(prompt string) ([]byte, error)
 	Getenv     func(string) string
 	Now        func() time.Time
@@ -45,9 +44,6 @@ type App struct {
 	Sleep   func(ctx context.Context, d time.Duration) error
 	OpenURL func(string) error
 	Version string
-	// UnlockCache keeps unlocked passphrases between invocations (Linux
-	// kernel keyring). Nil disables caching.
-	UnlockCache unlockCache
 
 	// wrapHandlers, when set by tests, may replace handlers after the
 	// command table is built (flags are preserved by the caller).
@@ -69,30 +65,18 @@ func NewApp(version string) *App {
 		Getenv:     os.Getenv,
 		Now:        time.Now,
 		Sleep:      sleepCtx,
-		OpenURL: func(url string) error {
-			command := "xdg-open"
-			if runtime.GOOS == "darwin" {
-				command = "open"
-			}
-			cmd := exec.Command(command, url)
-			if err := cmd.Start(); err != nil {
-				return err
-			}
-			go func() { _ = cmd.Wait() }()
-			return nil
-		},
-		Version:     version,
-		UnlockCache: defaultUnlockCache(),
+		OpenURL:    openBrowser,
+		Version:    version,
 	}
 }
 
-// defaultUnlockCache is a variable so tests can keep the real kernel keyring
-// out of the suite.
-var defaultUnlockCache = func() unlockCache {
-	if auth.UnlockCacheSupported() {
-		return keyringCache{}
-	}
-	return nil
+// openBrowser opens url with the platform handler (ShellExecute on Windows,
+// open on macOS, xdg-open and fallbacks including wslview on Linux). The
+// opener's output goes to stderr so it never corrupts --json stdout.
+func openBrowser(url string) error {
+	browser.Stdout = os.Stderr
+	browser.Stderr = os.Stderr
+	return browser.OpenURL(url)
 }
 
 func sleepCtx(ctx context.Context, d time.Duration) error {
@@ -122,9 +106,6 @@ type env struct {
 	cmd  flagSource
 	args []string // positional arguments after the command path
 	ctx  context.Context
-	// pass caches an interactively entered passphrase for this one command
-	// invocation, so unlock and the signing boundary prompt only once.
-	pass []byte
 }
 
 // flagSource is the flag view handlers read. *urfave.Command satisfies it
@@ -195,8 +176,7 @@ func (a *App) commandTable() map[string]*handler {
 		"profiles remove":    {summary: "Remove a profile without credentials: profiles remove NAME", run: a.cmdProfilesRemove},
 		"auth login":         {summary: "Authorize a Privy embedded-wallet agent on the Oku website", flags: authLoginFlags, run: a.cmdAuthLogin},
 		"auth status":        {summary: "Show Privy agent credential (--verify checks approval)", flags: authStatusFlags, run: a.cmdAuthStatus},
-		"auth unlock":        {summary: "Unlock the credential for a while so agents and MCP can use it (Linux)", flags: authUnlockFlags, run: a.cmdAuthUnlock},
-		"auth lock":          {summary: "Forget the cached unlock for the profile", run: a.cmdAuthLock},
+		"auth unlock":        {summary: "Convert a passphrase-protected credential from an older release to the current format (one time, Linux)", run: a.cmdAuthUnlock},
 		"auth migrate":       {summary: "Move the credential between the file and desktop keyring stores (Linux): auth migrate --to file|keyring", flags: authMigrateFlags, run: a.cmdAuthMigrate},
 		"drafts repair":      {summary: "Repair malformed order-draft JSON from --stdin into a reviewable candidate (local only; never prepares or submits)", flags: draftFlags, run: a.cmdDraftsRepair},
 		"mcp serve":          {summary: "Run the MCP server on stdio (reads only unless --allow-mutations)", flags: mcpFlags, run: a.cmdMCPServe},
@@ -214,6 +194,7 @@ func (a *App) commandTable() map[string]*handler {
 		"orders cancel":      {summary: "Cancel an open order: orders cancel --market COIN --order-id OID", flags: cancelFlags, run: a.cmdOrdersCancel},
 		"orders status":      {summary: "Status of an intent: orders status --intent ID", flags: statusFlags, run: a.cmdOrdersStatus},
 		"orders reconcile":   {summary: "Resolve unknown or in-flight intents with Oku", run: a.cmdOrdersReconcile},
+		"orders intents":     {summary: "List intents in the local journal (--unresolved for what doctor counts); never contacts Oku", flags: ordersIntentsFlags, run: a.cmdOrdersIntents},
 		"orders abandon":     {summary: "Cancel an unsigned server action so it can never execute", flags: statusFlags, run: a.cmdOrdersAbandon},
 		"fills list":         {summary: "Recent fills", flags: marketFilterFlags, run: a.cmdFillsList},
 		"docs list":          {summary: "List documentation bundled in this binary (offline)", run: a.cmdDocsList},

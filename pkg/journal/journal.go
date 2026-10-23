@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/oku-trade/oku-cli/pkg/config"
@@ -241,19 +240,7 @@ func (j *Journal) LockChain(agent string, chain uint64) (func(), error) {
 }
 
 func (j *Journal) lockFile(name string) (func(), error) {
-	f, err := os.OpenFile(filepath.Join(j.base, name), os.O_CREATE|os.O_RDWR, 0600)
-	if err != nil {
-		return nil, err
-	}
-	if err = f.Chmod(0600); err != nil {
-		f.Close()
-		return nil, err
-	}
-	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
-		f.Close()
-		return nil, err
-	}
-	return func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); _ = f.Close() }, nil
+	return config.LockPath(filepath.Join(j.base, name))
 }
 func (j *Journal) Get(id string) (*Record, error) {
 	if !trading.ValidIntentID(id) {
@@ -442,6 +429,10 @@ func (j *Journal) List() ([]*Record, error) {
 	}
 	return out, nil
 }
+
+// Unresolved reports whether a record still needs reconciliation.
+func (r *Record) Unresolved() bool { return unresolved(r) }
+
 func unresolved(r *Record) bool {
 	switch r.State {
 	case StateCreating, StateSigning, StateSubmitting, StateUnknown:
