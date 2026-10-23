@@ -15,7 +15,7 @@ oku auth status --profile <name> --json
 oku auth status --profile <name> --verify --json
 ```
 
-The account is the external Hyperliquid master wallet. The agent is a separate Privy embedded Ethereum wallet approved by that master. `--verify` refreshes credentials as needed and checks the agent approval. If missing or expired, ask the user to complete the authorization page rather than retrying trades.
+The account is the external Hyperliquid master wallet. The agent is a separate Privy embedded Ethereum wallet approved by that master. Plain status reads only local metadata and reports `verified: false`. `status: active` alongside a past `access_expires_at` is normal and proves nothing about live approval. `--verify` refreshes credentials as needed, may renew the Oku session and save updated credentials, and then checks the agent approval. Do not run it when told to stay read-only. If missing or expired, ask the user to complete the authorization page rather than retrying trades.
 
 ## User-operated login
 

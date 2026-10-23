@@ -15,6 +15,8 @@ Use the same profile and API environment throughout recovery. `oku docs commands
 
 ## Find unresolved intents
 
+`doctor` also counts local `submitted` records unless their cached `server_state` is `completed`, `filled`, `cancelled`, `canceled` or `error`. Account-wide blocking states are `signing`, `submitting` and `unknown`. A count alone neither proves an unknown outcome nor justifies bypassing a blocker, regardless of record age or market.
+
 ```sh
 oku doctor --profile <p> --json                    # counts unresolved intents
 oku orders status --profile <p> --intent <id> --json
