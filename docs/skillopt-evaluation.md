@@ -58,6 +58,23 @@ The lower runtime and call count cannot be attributed solely to the skill edits:
 
 Authentication candidates were checked against the actual active desktop-keyring session. Consolidation required two reviewer corrections before the final read-only evaluation followed the requested-token distinction and empty-sweep stop correctly. No funded consolidation or fresh login was performed.
 
+## Round two (parallel)
+
+All ten skills received a second reflection pass in four parallel lanes: Hyperliquid trading (five skills), EVM funds, authentication and consolidation, and discovery and account reads. Only the Hyperliquid lane placed live orders: one 0.005 ETH market entry, a reduce-only exit and an explicit-price post-only order that was placed and canceled. Independent fill audit found 0.013650 USDC net cost, including builder fees, which the exchange counts inside `fee`. ETH ended flat with no open orders. AVAX, BNB and ZRO sizes were unchanged. The funds evaluator stopped at quoted losses of 108 and 116 bps against a 100 bps limit and sent no transaction.
+
+Three baseline traces were interleaved with other sessions. They were preserved, excluded from primary evidence and replaced with exclusively created read-only reruns. Every trace used for a final decision contains exactly one session and one result.
+
+| Skill | Round-two result |
+|---|---|
+| `move-agent-funds` | Retained: `--max-loss-bps` omitted or `0` uses the 500 bps default. Source-verified in `maxLossFraction`, not exercised by a prepare. |
+| `inspect-hyperliquid-account` | Retained: `fetched_at` is CLI-local, reads and `account summary` sub-calls are not atomic, and fill `time` is execution time. A withdrawable-field edit was dropped because baseline already handled it. |
+| `reconcile-hyperliquid-actions` | Retained: doctor's count includes nonterminal `submitted` records, while only `signing`, `submitting` and `unknown` block. The first candidate evaluator misclassified a filled record. The final wording lists terminal server states and passed a source-grounded interpretation check, not a second live run. |
+| `ensure-hyperliquid-authentication` | Retained: plain status is cached metadata with `verified: false`, and `--verify` may refresh, renew and save credentials. Confirmed by a clean reflection. `--verify` was not run. |
+| `consolidate-agent-funds` | Unchanged: the clean reflection rejected the proposed CSV-identity edit because the clean baseline already listed skipped rows correctly. |
+| `learn-oku`, `open-hyperliquid-position`, `close-hyperliquid-position`, `manage-hyperliquid-orders`, `manage-hyperliquid-risk` | Unchanged: proposals duplicated existing guidance or made claims that source review rejected. |
+
+Round two did not exercise funded swaps, bridges, consolidation, leverage changes, auth verification or induced unknown outcomes.
+
 ## Limits and artifacts
 
 This does not demonstrate recovery from reorgs, ambiguous broadcasts, authentication revocation, liquidation, required bridge claims or funded consolidation. Real authentication verification can refresh a near-expiry credential, so it is not guaranteed to be a side-effect-free status read.
