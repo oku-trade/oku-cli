@@ -68,4 +68,21 @@ Local runner scripts, prompts, model trajectories, proposed/rejected patches, an
 
 The two swap runs passed all four financial outcome checks. The bridge baseline passed three of four, and its candidate run passed all four. These are descriptive pilot results, not statistically reliable estimates or proof of broad safety.
 
-No ambiguous broadcasts, RPC outages during transaction execution, reorgs, expired solver orders, required bridge claims, or Hyperliquid perps were exercised. Successful ordinary swaps and bridges do not validate recovery from those cases. No new test files were needed and no scaffolding tests were added to the repository.
+In the original four-run pilot, no ambiguous broadcasts, RPC outages during transaction execution, reorgs, expired solver orders, required bridge claims, or Hyperliquid perps were exercised. Successful ordinary swaps and bridges do not validate recovery from those cases. No new test files were needed and no scaffolding tests were added to the repository.
+
+## Hyperliquid follow-up
+
+The subsequent live evaluation added a Hyperliquid ETH round trip. The user approved setting ETH to 10x isolated and buying 0.005 ETH, followed by a reduce-only close with 50 bps slippage. The leverage action reached server state `completed`. Entry and close reached `filled`:
+
+| Action | Exchange order ID | Size | Fill price |
+|---|---|---:|---:|
+| Open ETH long | `583160267544` | 0.005 ETH | 2389.9 USDC |
+| Reduce-only close | `583160459613` | 0.005 ETH | 2389.6 USDC |
+
+Gross realized P&L was -0.0015 USDC. Fill fees totaled 0.013141 USDC, including builder fees, for **0.014641 USDC net cost**. The isolated position snapshot showed 1.187879 USDC margin used. After the close, ETH was absent from positions and the fresh open-order list was empty. Existing AVAX, BNB and ZRO position sizes remained unchanged. ETH's per-market configuration remains 10x isolated; no unrelated market configuration was changed.
+
+The account also contains an older October 15 staging-origin RKLB journal record in `submitted` state. Production reconciliation returned `NOT_FOUND`. It was retained, not erased or declared settled. Source inspection confirmed that this submitted record is not an account-blocking signing/submitting/unknown action.
+
+This follow-up validates an ordinary risk-setting action, entry and reduce-only close. It does not validate cancellation, partial fills, ambiguous submissions or recovery from exchange outages. The operator, rather than a fresh autonomous evaluator, executed this follow-up.
+
+The user then requested removing redundant per-preview confirmation prompts. Hyperliquid guidance now treats a clear action request or bounded standing instruction as authorization within its scope. Payload validation, digest checks, explicit risk-change authorization, missing-input questions and unknown-outcome reconciliation remain required. This is a user-requested policy change, not an optimizer-discovered performance improvement.
