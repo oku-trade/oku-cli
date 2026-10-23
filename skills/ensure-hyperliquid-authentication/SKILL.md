@@ -1,6 +1,6 @@
 ---
 name: ensure-hyperliquid-authentication
-description: Check or establish Oku Agent Privy authorization for Hyperliquid perps, including account binding, embedded-wallet approval, session expiry and logout. Use before authenticated reads or trades, or when Oku reports an auth error.
+description: Check or establish Oku Agent Privy authorization, including account binding, embedded-wallet approval, session expiry and logout. Use before authenticated reads, swaps, bridges or trades, or when Oku reports an auth error.
 ---
 
 # Ensure Oku Agent authentication

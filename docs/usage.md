@@ -23,7 +23,7 @@ A timeout or ambiguous Privy broadcast becomes `OUTCOME_UNKNOWN`. Never repeat `
 - `--json` writes exactly one JSON document to **stdout**. Diagnostics go to **stderr**.
 - Envelope fields: `schema_version` (`oku.cli/v1`), `request_id`, `command`, `ok`, `data`, and `error` (`code`, `message`, `retryable`, optional `details`) or `null`.
 - Quantities and prices are decimal strings.
-- Only Hyperliquid **mainnet** is supported. Trading requires a profile with an account. In automation, always pass `--profile` explicitly.
+- Perps trading supports Hyperliquid **mainnet** only; swaps, bridges and sends use `--chain`. Trading requires a profile with an account. In automation, always pass `--profile` explicitly.
 
 ### Exit codes
 

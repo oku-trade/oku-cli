@@ -1,6 +1,6 @@
 ---
 name: learn-oku
-description: Orient in the Oku Agent (oku) for Hyperliquid perps. Use first whenever a task involves oku, Oku positions, markets or orders, to discover the installed version, commands, docs, output schema and capabilities before acting.
+description: Orient in the Oku Agent (oku) for Oku swaps, bridges, agent-wallet transfers and Hyperliquid perps. Use first whenever a task involves oku, Oku swaps or bridges, positions, markets or orders, to discover the installed version, commands, docs, output schema and capabilities before acting.
 ---
 
 # Learn the Oku Agent
@@ -13,7 +13,7 @@ description: Orient in the Oku Agent (oku) for Hyperliquid perps. Use first when
 - Prefer JSON input for commands with flags: read `oku docs schema --command 'orders prepare'` before writing JSON (or `oku docs schema --all --json` for every schema). Then use `oku orders prepare --input order.json --json`. For stdin: `oku orders prepare --input - --json <<'JSON'` followed by the object and `JSON`. Never mix command flags or positional arguments with `--input`.
 - Never read, guess, print or move key material, passphrases, `OKU_PASSPHRASE_FILE`, pairing codes, or the user's wallet or master key. Only the user enters those. If the credential is locked, ask the user to run `oku auth unlock` in their own terminal.
 - Never enable telemetry on the user's behalf: do not run `oku telemetry enable`, set `OKU_TELEMETRY=1`, or edit its config. Only the human opts in. Reading `oku telemetry status` is fine.
-- Only Hyperliquid mainnet is supported. Mutations spend real funds, so every order is prepared and shown before submission. Do not pad that with extra questions: infer obvious values (full size for a close, double size for a flip, market type and default slippage) and go straight to a preview.
+- Perps run on Hyperliquid mainnet only. Swaps, bridges and sends run from the agent's EVM wallet on supported chains. Mutations spend real funds, so every order, swap, bridge and send is prepared and shown before submission. Do not pad that with extra questions: infer obvious values (full size for a close, double size for a flip, market type and default slippage) and go straight to a preview.
 - Authentication is user-operated: `oku auth login` in the user's terminal, optionally with `--profile NAME`. The default API is production (`https://accounts.icarus.tools`). Pass `--api-url https://accounts.lat.gfx.town` only when creating a staging profile. The account is the wallet signed with in the browser, not a login flag.
 
 ## Discover the installed build
