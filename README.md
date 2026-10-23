@@ -1,6 +1,13 @@
 # Oku Agent (`oku`)
 
-`oku` is the Oku Agent: a Go command-line client for Oku. It swaps tokens through the Oku Router, bridges funds between EVM chains, sends and deposits from the agent's embedded EVM wallet, and trades Hyperliquid perps through the Oku account service (`gfxcafe.oku.account.v2.PerpsService`). It is built for people and coding agents. It prints human-readable tables by default and offers a versioned JSON contract (`oku.cli/v1`) with `--json`. It also ships offline docs (`oku docs`), bundled task skills (`oku skills`) and a stdio MCP server (`oku mcp serve`).
+Swap, bridge and trade perps on Oku from your terminal or your AI agent.
+
+- **Swap** any token at the best available rate. Oku compares DEX aggregators and intent solvers, and transaction swaps settle through the Oku Router.
+- **Bridge** across EVM chains with Oku's bridge meta-aggregator. The agent picks the route with the best net value, or the one you name.
+- **Trade perps** on Hyperliquid with Oku: market and limit orders, leverage, margin, positions and fills.
+- **Built for agents.** Every command has a versioned JSON contract (`oku.cli/v1`), and the binary ships offline docs (`oku docs`), task skills (`oku skills`) and an MCP server (`oku mcp serve`). Every trade is prepared and shown for review before it is signed.
+
+`oku` is a non-custodial Go CLI. It trades from an embedded agent wallet that you approve on oku.trade, and talks to the Oku account service (`gfxcafe.oku.account.v2.PerpsService`) for perps. It prints human-readable tables by default and JSON with `--json`.
 
 Perps trading supports Hyperliquid **mainnet** only. Agent-wallet EVM commands (send, swap, bridge) work on any EVM chain. Swaps work on every chain where Oku's swap markets are active and the shared `gfx-labs/chain-config` networks package (the same one the Oku backend uses) lists an Oku Router for a non-deprecated chain; the CLI takes the router address from that package and checks its code on chain before signing. Common chains have a built-in public RPC; for others set `OKU_RPC_URL_<CHAINID>`.
 

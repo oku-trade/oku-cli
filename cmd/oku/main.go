@@ -1,4 +1,4 @@
-// Command oku is the Oku Agent CLI for Oku swaps, bridges and Hyperliquid perps.
+// Command oku is the Oku Agent: swap, bridge and trade perps on Oku from the command line.
 package main
 
 import (

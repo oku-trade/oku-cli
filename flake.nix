@@ -1,5 +1,5 @@
 {
-  description = "Oku Agent CLI: swaps, bridges and Hyperliquid perps on Oku";
+  description = "Oku Agent: swap, bridge and trade perps on Oku from the command line";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

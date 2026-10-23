@@ -1,6 +1,6 @@
 ---
 name: learn-oku
-description: Orient in the Oku Agent (oku) for Oku swaps, bridges, agent-wallet transfers and Hyperliquid perps. Use first whenever a task involves oku, Oku swaps or bridges, positions, markets or orders, to discover the installed version, commands, docs, output schema and capabilities before acting.
+description: Orient in the Oku Agent (oku), which swaps, bridges and trades Hyperliquid perps on Oku. Use first whenever a task involves oku, Oku swaps or bridges, positions, markets or orders, to discover the installed version, commands, docs, output schema and capabilities before acting.
 ---
 
 # Learn the Oku Agent
