@@ -22,6 +22,8 @@ oku deposit prepare --amount 10 --json
 
 Resolve ambiguous token symbols with explicit contract addresses. Swap quote and prepare default to the enrolled agent wallet. Swap quotes use the backend `GetFlowstreamQuotes` long-poll, the same stream as the web app; allow up to about 8 seconds to collect routes. Prepare writes a journal intent. Show the recipient, chain, router, minimum output, expiry and digest before submitting. A swap intent expires about 3 minutes after prepare, so obtain approval and submit promptly; if it expires, prepare anew. Keep native ETH on Arbitrum (or native gas on the selected chain) in the agent wallet for swaps and sends. Gas estimates include a buffer but cannot guarantee L2 data fees.
 
+`oku wallet balances` can inspect specific ERC-20 holdings using a `--tokens-file` manifest (`chain_id,token_address,amount`). The `amount` column only sets the `mismatch` annotation and never filters rows. Tokens with a zero balance are omitted, so a requested token missing from a successful (`ok: true`) explicit manifest query has a zero balance. Its absence does not mean the balance equals the requested amount. A failed or malformed `balanceOf` read returns an error rather than omitting the row.
+
 ## Submit and reconcile
 
 ```sh
