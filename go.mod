@@ -4,6 +4,7 @@ go 1.27.1
 
 require (
 	connectrpc.com/connect v1.19.1
+	github.com/cli/browser v1.3.0
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0
 	github.com/ethereum/go-ethereum v1.16.5
 	github.com/gfx-labs/chain-config/dist/networks v1.19.2

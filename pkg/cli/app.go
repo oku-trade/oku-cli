@@ -9,12 +9,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/cli/browser"
 	"github.com/oku-trade/oku-cli/pkg/api"
 	"github.com/oku-trade/oku-cli/pkg/output"
 	urfave "github.com/urfave/cli/v3"
@@ -66,20 +65,18 @@ func NewApp(version string) *App {
 		Getenv:     os.Getenv,
 		Now:        time.Now,
 		Sleep:      sleepCtx,
-		OpenURL: func(url string) error {
-			command := "xdg-open"
-			if runtime.GOOS == "darwin" {
-				command = "open"
-			}
-			cmd := exec.Command(command, url)
-			if err := cmd.Start(); err != nil {
-				return err
-			}
-			go func() { _ = cmd.Wait() }()
-			return nil
-		},
-		Version: version,
+		OpenURL:    openBrowser,
+		Version:    version,
 	}
+}
+
+// openBrowser opens url with the platform handler (ShellExecute on Windows,
+// open on macOS, xdg-open and fallbacks including wslview on Linux). The
+// opener's output goes to stderr so it never corrupts --json stdout.
+func openBrowser(url string) error {
+	browser.Stdout = os.Stderr
+	browser.Stderr = os.Stderr
+	return browser.OpenURL(url)
 }
 
 func sleepCtx(ctx context.Context, d time.Duration) error {
