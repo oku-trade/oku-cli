@@ -26,6 +26,8 @@ oku positions leverage --profile <p> --market BTC --leverage <user N> --mode cro
 
 Leverage is a whole number from 1 up to the market maximum. Cross mode is refused on isolated-only markets. Higher leverage moves the liquidation price closer.
 
+In a prepared leverage intent, `is_cross` is omitted when false: an absent field means isolated mode, and `"is_cross": true` means cross. The preview `summary` line repeats the market, leverage and mode, and must match the requested change exactly. After `completed`, confirm with a fresh `oku positions list`; a market with no open position has no row to check yet, so rely on the summary then and re-verify once a position exists.
+
 ## Isolated margin
 
 Prefer `{"market":"BTC","amount":"10"}` in `margin.json` after reading `oku docs schema --command 'positions margin'`, then `oku positions margin --profile <p> --input margin.json --json`. Alternatively use flags:

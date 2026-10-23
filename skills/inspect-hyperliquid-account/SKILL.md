@@ -25,6 +25,7 @@ oku markets list --json                       # size decimals, max leverage, iso
 
 - Every read includes `meta.fetched_at` and `meta.source`. Report the time along with the numbers.
 - Missing, stale or error data is an error. Never report it as a zero balance or "no positions".
+- `markets quote` returns only mark, mid and oracle prices, with no bid or ask. If a task needs the best bid or ask, report it as unavailable instead of using mid in its place.
 - Hyperliquid position sizes are signed. A negative size is short.
 - `orders list` shows all exchange orders, including ones placed outside Oku. Local intent history is `oku orders status --intent ID`.
 
