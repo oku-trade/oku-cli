@@ -5,11 +5,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	urfave "github.com/urfave/cli/v3"
 	"io"
 	"strings"
 	"sync"
 	"time"
+
+	urfave "github.com/urfave/cli/v3"
 
 	"github.com/oku-trade/oku-cli/pkg/api"
 	"github.com/oku-trade/oku-cli/pkg/decimal"
@@ -791,10 +792,17 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 			fmt.Fprintln(w, "nothing to reconcile")
 			return
 		}
+		tw := newTable(w)
+		fmt.Fprintln(tw, "INTENT\tKIND\tMARKET\tSTATE\tSERVER\tOID\tLAST ERROR")
 		for _, r := range un {
-			recordResult(r).human(w)
+			oid := "-"
+			if r.OrderID != 0 {
+				oid = fmt.Sprint(r.OrderID)
+			}
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", r.Intent.ID, orDash(r.Intent.Kind), orDash(r.Intent.Market), r.State, orDash(r.ServerState), oid, orDash(api.Redact(r.LastError)))
 		}
-		fmt.Fprintf(w, "%d intent(s) still unknown\n", unknown)
+		tw.Flush()
+		fmt.Fprintf(w, "\n%d intent(s) still unknown\n", unknown)
 	}}, nil
 }
 

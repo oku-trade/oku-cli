@@ -330,9 +330,11 @@ func (a *App) cmdTelemetryStatus(*env) (*result, error) {
 		}
 		fmt.Fprintf(w, "install id: %s\n", id)
 		fmt.Fprintf(w, "event %s sends only these fields:\n", telemetry.EventCommand)
+		tw := newTable(w)
 		for _, k := range fields {
-			fmt.Fprintf(w, "  %-24s %s\n", k, telemetry.AllowedProperties[k])
+			fmt.Fprintf(tw, "  %s\t%s\n", k, telemetry.AllowedProperties[k])
 		}
+		tw.Flush()
 		fmt.Fprintln(w, "never sent: addresses, amounts, tx hashes, intent/order IDs, error messages, credentials, paths. DO_NOT_TRACK=1 always disables.")
 	}}, nil
 }

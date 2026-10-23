@@ -276,18 +276,62 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 		data["hint"] = hint
 	}
 	return &result{data: data, human: func(out io.Writer) {
-		fmt.Fprintf(out, "Agent %s\n", w.agent)
+		fmt.Fprintf(out, "Agent %s\n\n", w.agent)
+		withCSV := e.cmd.String("tokens-file") != ""
+		tw := newTable(out)
+		if withCSV {
+			fmt.Fprintln(tw, "CHAIN\tID\tASSET\tBALANCE\tCSV\tMISMATCH\tADDRESS")
+		} else {
+			fmt.Fprintln(tw, "CHAIN\tID\tASSET\tBALANCE\tADDRESS")
+		}
+		line := func(r row) {
+			id := strings.TrimPrefix(r.Chain, "eip155:")
+			name := id
+			if n, err := strconv.ParseUint(id, 10, 64); err == nil {
+				name = chainName(n)
+			}
+			addr := r.Address
+			if addr == zeroAddress {
+				addr = "native"
+			}
+			if withCSV {
+				mismatch := ""
+				if r.Mismatch {
+					mismatch = "yes"
+				}
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", name, id, r.Symbol, r.Balance, orDash(r.CSVAmount), mismatch, addr)
+				return
+			}
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", name, id, r.Symbol, r.Balance, addr)
+		}
 		for _, chain := range chains {
-			fmt.Fprintf(out, "%s native: %s (%s raw)\n", chain, native[chain].Balance, native[chain].Raw)
+			line(native[chain])
+			for _, token := range tokens {
+				if token.Chain == chain {
+					line(token)
+				}
+			}
 		}
-		for _, token := range tokens {
-			fmt.Fprintf(out, "%s %s (%s): %s (%s raw), CSV %s, mismatch %t\n", token.Chain, token.Symbol, token.Address, token.Balance, token.Raw, token.CSVAmount, token.Mismatch)
-		}
-		for _, f := range failed {
-			fmt.Fprintf(out, "%s skipped: %s\n", f.Chain, f.Message)
+		tw.Flush()
+		if len(failed) > 0 {
+			fmt.Fprintln(out, "\nSkipped:")
+			tw = newTable(out)
+			for _, f := range failed {
+				fmt.Fprintf(tw, "%s\t%s\t%s\n", strings.TrimPrefix(f.Chain, "eip155:"), f.Code, f.Message)
+			}
+			tw.Flush()
 		}
 		if hint != "" {
-			fmt.Fprintln(out, hint)
+			fmt.Fprintln(out, "\n"+hint)
 		}
 	}}, nil
+}
+
+// chainName is the chain-config short name (for example arbitrum), or the
+// numeric ID when the chain is unknown.
+func chainName(chain uint64) string {
+	if n, err := networks.NetworkByNumber(chain); err == nil && n != nil && n.InternalName != "" {
+		return n.InternalName
+	}
+	return strconv.FormatUint(chain, 10)
 }

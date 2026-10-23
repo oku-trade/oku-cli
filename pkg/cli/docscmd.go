@@ -60,9 +60,11 @@ func (a *App) cmdDocsList(e *env) (*result, error) {
 		return nil, output.Wrap(output.CodeInternal, err, "listing docs")
 	}
 	return &result{data: map[string]any{"docs": list}, human: func(w io.Writer) {
+		tw := newTable(w)
 		for _, d := range list {
-			fmt.Fprintf(w, "%-16s %s\n", d.Name, d.Title)
+			fmt.Fprintf(tw, "%s\t%s\n", d.Name, d.Title)
 		}
+		tw.Flush()
 	}}, nil
 }
 
@@ -130,8 +132,10 @@ func (a *App) cmdDocsCommands(e *env) (*result, error) {
 			_, _ = w.Write(buf.Bytes())
 			return
 		}
+		tw := newTable(w)
 		for _, x := range list {
-			fmt.Fprintf(w, "%-24s %s\n", x.Command, x.Summary)
+			fmt.Fprintf(tw, "%s\t%s\n", x.Command, x.Summary)
 		}
+		tw.Flush()
 	}}, nil
 }

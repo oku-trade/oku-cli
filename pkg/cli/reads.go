@@ -2,11 +2,11 @@ package cli
 
 import (
 	"fmt"
-	urfave "github.com/urfave/cli/v3"
 	"io"
 	"strings"
-	"text/tabwriter"
 	"time"
+
+	urfave "github.com/urfave/cli/v3"
 
 	"github.com/oku-trade/oku-cli/pkg/api"
 	"github.com/oku-trade/oku-cli/pkg/output"
@@ -82,7 +82,7 @@ func (a *App) cmdMarketsList(e *env) (*result, error) {
 	}
 	data := map[string]any{"meta": e.meta(p, "", "GetMarkets"), "markets": resp.Markets}
 	return &result{data: data, human: func(w io.Writer) {
-		tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+		tw := newTable(w)
 		fmt.Fprintln(tw, "MARKET\tMARK\tMID\tFUNDING\tMAX LEV\tSZ DEC\tASSET")
 		for _, m := range resp.Markets {
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%d\t%d\n", m.Coin, m.MarkPx, m.MidPx, m.Funding, m.MaxLeverage, m.SzDecimals, m.AssetID)
@@ -172,7 +172,7 @@ func (a *App) cmdMarketsFunding(e *env) (*result, error) {
 	}
 	return &result{data: data, human: func(w io.Writer) {
 		fmt.Fprintf(w, "%s current hourly funding: %s\n", coin, orDash(current))
-		tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+		tw := newTable(w)
 		fmt.Fprintln(tw, "TIME\tRATE\tPREMIUM")
 		for _, r := range hist.Rates {
 			fmt.Fprintf(tw, "%s\t%s\t%s\n", time.UnixMilli(int64(r.Time)).UTC().Format(time.RFC3339), r.FundingRate, r.Premium)
@@ -252,7 +252,7 @@ func (a *App) cmdPositionsList(e *env) (*result, error) {
 			fmt.Fprintln(w, "no open positions")
 			return
 		}
-		tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+		tw := newTable(w)
 		fmt.Fprintln(tw, "MARKET\tSIZE\tENTRY\tVALUE\tUPNL\tLIQ\tLEVERAGE")
 		for _, x := range pos.Positions {
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s %d\n", x.Coin, x.Szi, x.EntryPx, x.PositionValue, x.UnrealizedPnl, orDash(x.LiquidationPx), x.LeverageType, x.LeverageValue)
@@ -288,7 +288,7 @@ func (a *App) cmdOrdersList(e *env) (*result, error) {
 			fmt.Fprintln(w, "no open orders")
 			return
 		}
-		tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+		tw := newTable(w)
 		fmt.Fprintln(tw, "OID\tMARKET\tSIDE\tSIZE\tPRICE\tTYPE\tREDUCE\tCLOID")
 		for _, o := range resp.OpenOrders {
 			fmt.Fprintf(tw, "%d\t%s\t%s\t%s\t%s\t%s\t%v\t%s\n", o.Oid, o.Coin, sideName(o.Side), o.Sz, o.LimitPx, o.OrderType, o.ReduceOnly, orDash(o.Cloid))
@@ -325,7 +325,7 @@ func (a *App) cmdFillsList(e *env) (*result, error) {
 			fmt.Fprintln(w, "no fills")
 			return
 		}
-		tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+		tw := newTable(w)
 		fmt.Fprintln(tw, "TIME\tMARKET\tDIR\tSIZE\tPRICE\tFEE\tPNL\tOID")
 		for _, f := range resp.Fills {
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s %s\t%s\t%d\n", time.UnixMilli(int64(f.Time)).UTC().Format(time.RFC3339), f.Coin, f.Dir, f.Sz, f.Px, f.Fee, f.FeeToken, f.ClosedPnl, f.Oid)

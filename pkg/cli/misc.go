@@ -3,8 +3,9 @@ package cli
 import (
 	"errors"
 	"fmt"
-	urfave "github.com/urfave/cli/v3"
 	"io"
+
+	urfave "github.com/urfave/cli/v3"
 
 	"github.com/oku-trade/oku-cli/pkg/api"
 	"github.com/oku-trade/oku-cli/pkg/auth"
@@ -32,12 +33,16 @@ func (a *App) cmdSkillsList(e *env) (*result, error) {
 		targets[t], _ = skills.ResolveDir(t, "")
 	}
 	return &result{data: map[string]any{"skills": list, "targets": targets}, human: func(w io.Writer) {
-		for _, s := range list {
-			fmt.Fprintf(w, "%s (%d files)\n", s.Name, len(s.Files))
-		}
 		if len(list) == 0 {
 			fmt.Fprintln(w, "no skills bundled in this build")
+			return
 		}
+		tw := newTable(w)
+		fmt.Fprintln(tw, "SKILL\tFILES")
+		for _, s := range list {
+			fmt.Fprintf(tw, "%s\t%d\n", s.Name, len(s.Files))
+		}
+		tw.Flush()
 	}}, nil
 }
 
@@ -62,9 +67,11 @@ func skillsResult(root string, res []skills.FileResult, err error, verb string) 
 		return nil, output.Wrap(output.CodeInternal, err, "skills")
 	}
 	return &result{data: map[string]any{"root": root, "files": res}, human: func(w io.Writer) {
+		tw := newTable(w)
 		for _, r := range res {
-			fmt.Fprintf(w, "%-11s %s\n", r.Action, r.Path)
+			fmt.Fprintf(tw, "%s\t%s\n", r.Action, r.Path)
 		}
+		tw.Flush()
 	}}, nil
 }
 
@@ -137,12 +144,14 @@ func (a *App) cmdDoctor(e *env) (*result, error) {
 		ok = ok && c.OK
 	}
 	return &result{data: map[string]any{"ok": ok, "checks": checks}, human: func(w io.Writer) {
+		tw := newTable(w)
 		for _, c := range checks {
-			mark := "ok  "
+			mark := "ok"
 			if !c.OK {
 				mark = "FAIL"
 			}
-			fmt.Fprintf(w, "[%s] %-12s %s\n", mark, c.Name, c.Detail)
+			fmt.Fprintf(tw, "%s\t%s\t%s\n", mark, c.Name, c.Detail)
 		}
+		tw.Flush()
 	}}, nil
 }

@@ -140,14 +140,27 @@ func (a *App) cmdBridgeStatusAll(e *env) (*result, error) {
 		return nil, err
 	}
 	return &result{data: entries, human: func(out io.Writer) {
-		fmt.Fprintln(out, "INTENT\tSOURCE\tDESTINATION\tROUTE\tAMOUNT\tSTATE\tDESTINATION\tCLAIM\tAGE")
+		if len(entries) == 0 {
+			fmt.Fprintln(out, "no unsettled bridges")
+			return
+		}
+		tw := newTable(out)
+		fmt.Fprintln(tw, "INTENT\tFROM\tTO\tROUTE\tAMOUNT\tSTATE\tFILL\tCLAIM\tAGE")
 		for _, r := range entries {
 			state := r.State
 			if r.Expired {
 				state = "prepared (EXPIRED, never submitted)"
 			}
-			fmt.Fprintf(out, "%s\t%d\t%d\t%s\t%s\t%s\t%s\t%t (%s)\t%s\n", r.IntentID, r.SourceChain, r.DestinationChain, r.Route, r.Amount, state, r.DestinationFill.Status, r.ClaimRequired, r.ClaimIntentID, r.Age)
+			claim := "-"
+			if r.ClaimRequired {
+				claim = "required"
+				if r.ClaimIntentID != "" {
+					claim = r.ClaimIntentID
+				}
+			}
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", r.IntentID, chainName(r.SourceChain), chainName(r.DestinationChain), r.Route, r.Amount, state, orDash(r.DestinationFill.Status), claim, r.Age)
 		}
+		tw.Flush()
 	}}, nil
 }
 
@@ -188,12 +201,15 @@ func (a *App) cmdBridgeClaimReady(e *env) (*result, error) {
 		outcomes = append(outcomes, outcome)
 	}
 	return &result{data: outcomes, human: func(out io.Writer) {
-		for _, r := range outcomes {
-			fmt.Fprintf(out, "%s: %s", r.IntentID, r.Status)
-			if r.Error != "" {
-				fmt.Fprintf(out, " (%s)", r.Error)
-			}
-			fmt.Fprintln(out)
+		if len(outcomes) == 0 {
+			fmt.Fprintln(out, "no bridges ready to claim")
+			return
 		}
+		tw := newTable(out)
+		fmt.Fprintln(tw, "INTENT\tSTATUS\tERROR")
+		for _, r := range outcomes {
+			fmt.Fprintf(tw, "%s\t%s\t%s\n", r.IntentID, r.Status, orDash(r.Error))
+		}
+		tw.Flush()
 	}}, nil
 }
