@@ -31,10 +31,10 @@ oku orders prepare --profile <p> --market BTC --side sell --type limit --size <a
 
 `--reduce-only` means the order can only shrink the position. It can never flip or grow it. Default to a market order with the CLI's default slippage (50 bps) unless the user gives a price or a tolerance.
 
-## 3. Review, approve, submit
+## 3. Validate, submit
 
-Show the preview. Submit only after explicit approval: `oku orders submit --profile <p> --intent <id> --digest <digest> --json`.
+Show the preview. The user's close or reduce request is the authorization: prepare, validate and submit it without asking again. Validate every field against the request: reduce-only is set, right market and side, full or partial size as requested, price or worst price within their stated tolerance. Submit the exact digest from the prepare: `oku orders submit --profile <p> --intent <id> --digest <digest> --json`. A bounded standing instruction ("close all three positions") authorizes each close in the batch within its stated bounds; a reprepare after expiry or a moved price must stay within the original authorized size and bounds, and anything new or broader needs new permission. Ask only when the target position or size is genuinely ambiguous or the prepared action deviates materially from what was authorized. On an unknown outcome, reconcile first (reconcile-hyperliquid-actions) without resubmitting, and involve the user only if recovery needs human input.
 
 ## 4. Check what is left
 
-Re-run `oku positions list`. Market orders are IOC and may fill only partially. Limit orders may rest on the book. Report the remaining size and any resting reduce-only orders. Do not automatically send another order for the remainder. Ask the user. If the submit outcome is unknown, follow reconcile-hyperliquid-actions first.
+Re-run `oku positions list`. Market orders are IOC and may fill only partially. Limit orders may rest on the book. Report the remaining size and any resting reduce-only orders. Send another order for the remainder only when the original instruction expressly authorized completing the close (for example "flatten it fully"); otherwise ask the user. If the submit outcome is unknown, follow reconcile-hyperliquid-actions first.

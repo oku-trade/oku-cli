@@ -287,7 +287,7 @@ func (f *commandFailure) Error() string { return f.err.Error() }
 func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 	cmds := a.commands()
 	root := &urfave.Command{
-		Name: "oku", Usage: "Oku Agent for Hyperliquid mainnet perps",
+		Name: "oku", Usage: "Oku Agent: swap and bridge across 30+ chains and trade perps on Oku from the command line",
 		Writer: a.Stdout, ErrWriter: io.Discard, HideVersion: true,
 		OnUsageError: func(_ context.Context, cmd *urfave.Command, err error, _ bool) error {
 			return &commandFailure{name: strings.ReplaceAll(strings.TrimPrefix(cmd.FullName(), "oku "), " ", "."), json: jsonOut, err: output.Errorf(output.CodeUsage, "%v", err)}

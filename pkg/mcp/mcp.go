@@ -99,7 +99,7 @@ func ToolName(path string) string { return strings.ReplaceAll(path, " ", "_") }
 // NewServer builds the MCP server.
 func NewServer(b Backend, cfg Config) *sdk.Server {
 	s := sdk.NewServer(&sdk.Implementation{Name: "oku", Version: cfg.Version}, &sdk.ServerOptions{
-		Instructions: "Oku Agent for Hyperliquid mainnet perps and the agent's EVM wallet (send, swap, bridge, deposit to the master). Read the oku://docs and oku://skills resources first (oku://skills/move-agent-funds for funds). " +
+		Instructions: "Oku Agent: swap any token and bridge across 30+ EVM chains, and trade Hyperliquid perps on Oku. Swaps, bridges and sends run from the agent's EVM wallet; perps trade for the user's master account. Read the oku://docs and oku://skills resources first (oku://skills/move-agent-funds for swaps, bridges and transfers). " +
 			"Infer only what the request implies (full size to close, twice the size to flip, market type, default slippage); ask when size or side is ambiguous. Mutations use prepare, then an explicit user-approved submit bound to the returned digest. " +
 			"An unknown outcome is not a failure: reconcile, never resend.",
 	})

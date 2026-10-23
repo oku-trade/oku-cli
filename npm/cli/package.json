@@ -1,7 +1,7 @@
 {
   "name": "@oku-trade/cli",
   "version": "0.0.0-dev",
-  "description": "Oku Agent trading interface (launcher for the native binary)",
+  "description": "Oku Agent: swap and bridge across 30+ chains and trade perps on Oku from the command line (launcher for the native binary)",
   "license": "UNLICENSED",
   "bin": { "oku": "bin/oku.js" },
   "files": ["bin/oku.js", "README.md"],

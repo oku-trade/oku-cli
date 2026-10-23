@@ -30,8 +30,8 @@ This asks Oku for the authoritative state of each unresolved intent and records 
 
 ## Outcomes
 
-- **Submitted or completed:** done. Report the effect, such as a fill or a resting oid.
-- **Rejected:** nothing executed. Trying again needs a new prepare and new user approval.
+- **Submitted or completed:** done. Report the effect, such as a fill or a resting oid. A `submitted` local record can remain stale after a later fill or cancel, so confirm with fresh `orders list`, `positions list` and `fills list` before treating it as proof the order is still resting.
+- **Rejected:** nothing executed. The intent is closed. A retry is a new prepare, submitted without asking again only within the original authorized scope; anything new or broader needs new permission. An unknown outcome is never retried: reconcile first.
 - **Still unknown:** stop, report it, and run reconcile again later. New exposure stays blocked while an intent is unknown. That is intentional.
 - **Never signed (prepared or created):** `oku orders abandon --intent <id>` makes sure it can never execute.
 

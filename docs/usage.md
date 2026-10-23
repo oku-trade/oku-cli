@@ -23,7 +23,7 @@ A timeout or ambiguous Privy broadcast becomes `OUTCOME_UNKNOWN`. Never repeat `
 - `--json` writes exactly one JSON document to **stdout**. Diagnostics go to **stderr**.
 - Envelope fields: `schema_version` (`oku.cli/v1`), `request_id`, `command`, `ok`, `data`, and `error` (`code`, `message`, `retryable`, optional `details`) or `null`.
 - Quantities and prices are decimal strings.
-- Only Hyperliquid **mainnet** is supported. Trading requires a profile with an account. In automation, always pass `--profile` explicitly.
+- Perps trading supports Hyperliquid **mainnet** only; swaps, bridges and sends use `--chain`. Trading requires a profile with an account. In automation, always pass `--profile` explicitly.
 
 ### Exit codes
 
@@ -243,7 +243,7 @@ The server runs over stdio. Stdout carries only MCP protocol frames, and logs go
 - **Resources:** bundled docs and skills are available as `oku://docs/...` and `oku://skills/...`. There is also a local `drafts_repair` tool.
 - **Profile:** `oku --profile NAME mcp serve` pins the server to that profile. Tools use it, and a tool call naming a different profile is refused. Start a separate server for another profile. Without a launch profile, tools use a per-call `profile`, then `$OKU_PROFILE`, then the config default.
 - **Login:** the server never prompts. Run `oku auth login` in a terminal first. On Linux, the login (or `oku auth unlock`) keeps the credential unlocked for 8 hours in the kernel keyring; after that, tools return an auth error until the user runs `oku auth unlock` again.
-- **Approval:** a digest proves payload integrity, not human approval. Clients must get explicit user approval before calling `orders_submit`. For agent EVM fund movements, a user's standing instruction to run a defined consolidation (the `consolidate-agent-funds` skill) counts as approval for its submits, which pause on that skill's guardrails. Unknown outcomes follow the same reconcile-never-resend rules as the CLI.
+- **Authorization:** a digest proves payload integrity, not user authorization. A clear user instruction to trade, close, cancel or change risk, or a standing instruction for a defined batch, authorizes the corresponding submits within that scope. Clients must prepare and validate each payload against the authorized account, market, side, size, price/slippage and risk bounds, but need not ask for another confirmation of every preview. Ask when required inputs are missing or an action would exceed the authorized scope. Re-preparing an expired or definitively rejected action does not require another confirmation if all original bounds still hold. Agent EVM fund movements under the `consolidate-agent-funds` skill follow its standing authorization and guardrails. Unknown outcomes follow the same reconcile-never-resend rules as the CLI.
 
 ## Local journal
 

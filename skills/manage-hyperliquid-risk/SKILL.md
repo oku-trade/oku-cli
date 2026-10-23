@@ -26,6 +26,8 @@ oku positions leverage --profile <p> --market BTC --leverage <user N> --mode cro
 
 Leverage is a whole number from 1 up to the market maximum. Cross mode is refused on isolated-only markets. Higher leverage moves the liquidation price closer.
 
+In a prepared leverage intent, `is_cross` is omitted when false: an absent field means isolated mode, and `"is_cross": true` means cross. The preview `summary` line repeats the market, leverage and mode, and must match the requested change exactly. After `completed`, confirm with a fresh `oku positions list`; a market with no open position has no row to check yet, so rely on the summary then and re-verify once a position exists.
+
 ## Isolated margin
 
 Prefer `{"market":"BTC","amount":"10"}` in `margin.json` after reading `oku docs schema --command 'positions margin'`, then `oku positions margin --profile <p> --input margin.json --json`. Alternatively use flags:
@@ -38,10 +40,10 @@ This only works on an existing isolated position. Amounts allow at most 6 decima
 
 ## Submit
 
-Both commands only prepare. Show the summary, get explicit approval, then run:
+Both commands only prepare. Show the summary, validate it against exactly the change the user asked for (market, leverage value, cross or isolated, margin amount sign), then run:
 
 ```sh
 oku orders submit --profile <p> --intent <intent_id> --digest <digest> --json
 ```
 
-Only a server state of `completed` means success. Once submitted, anything else, including an error status, is an unknown outcome. Re-read positions and follow reconcile-hyperliquid-actions. Never resend.
+Only a server state of `completed` means success. This skill never changes leverage or margin beyond what the user explicitly asked for; a generic trade request does not authorize a risk change, and a risk change is never bundled with an order. Once submitted, anything else, including an error status, is an unknown outcome. Re-read positions and follow reconcile-hyperliquid-actions. Never resend.

@@ -122,11 +122,16 @@ func (r *telemetryRun) collectCommand(path string, e *env, declared map[string]b
 		}
 		return strings.TrimSpace(e.cmd.String(name))
 	}
+	// Numeric, to match the web app's chain_id property type in PostHog.
 	if v := str("chain"); isChainID(v) {
-		r.props["chain_id"] = v
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+			r.props["chain_id"] = n
+		}
 	}
 	if v := str("destination-chain"); isChainID(v) {
-		r.props["destination_chain"] = v
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+			r.props["destination_chain"] = n
+		}
 	}
 	if v := safeRouteName(str("route")); v != "" {
 		r.props["route"] = v
