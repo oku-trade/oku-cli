@@ -429,6 +429,7 @@ func (j *Journal) List() ([]*Record, error) {
 	}
 	return out, nil
 }
+
 // Unresolved reports whether a record still needs reconciliation.
 func (r *Record) Unresolved() bool { return unresolved(r) }
 
