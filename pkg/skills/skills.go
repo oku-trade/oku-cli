@@ -8,6 +8,9 @@ package skills
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -21,6 +24,18 @@ import (
 )
 
 var assets = oku.Skills()
+
+const manifestName = ".oku-skills.json"
+
+func hashOf(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+
+func readManifest(root string) map[string]string {
+	m := map[string]string{}
+	if b, err := os.ReadFile(filepath.Join(root, manifestName)); err == nil {
+		_ = json.Unmarshal(b, &m)
+	}
+	return m
+}
 
 // Skill describes a bundled skill.
 type Skill struct {
@@ -146,7 +161,10 @@ func install(fsys fs.FS, root string, force bool) ([]FileResult, error) {
 	if conflict {
 		return results, ErrExists
 	}
+	manifest := map[string]string{}
 	for _, o := range ops {
+		rel, _ := filepath.Rel(root, o.dst)
+		manifest[filepath.ToSlash(rel)] = hashOf(o.data)
 		if o.res.Action == "unchanged" {
 			continue
 		}
@@ -157,12 +175,16 @@ func install(fsys fs.FS, root string, force bool) ([]FileResult, error) {
 			return results, err
 		}
 	}
-	return results, nil
+	b, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return results, err
+	}
+	return results, os.WriteFile(filepath.Join(root, manifestName), append(b, '\n'), 0o644)
 }
 
 // Pristine reports whether any bundled skill is installed under root and
-// whether every installed bundled file still matches this build's content
-// (no user edits). Auto-update only refreshes pristine roots.
+// whether every installed bundled file still matches this build's content or
+// the hash recorded when oku installed it (no user edits). Auto-update only refreshes pristine roots.
 func Pristine(root string) (installed, pristine bool, err error) { return pristineFS(assets, root) }
 
 func pristineFS(fsys fs.FS, root string) (bool, bool, error) {
@@ -171,6 +193,7 @@ func pristineFS(fsys fs.FS, root string) (bool, bool, error) {
 		return false, false, err
 	}
 	installed, pristine := false, true
+	manifest := readManifest(root)
 	for _, s := range sk {
 		for _, f := range s.Files {
 			data, err := fs.ReadFile(fsys, path.Join(s.Name, f))
@@ -185,7 +208,7 @@ func pristineFS(fsys fs.FS, root string) (bool, bool, error) {
 				return false, false, err
 			}
 			installed = true
-			if !bytes.Equal(existing, data) {
+			if !bytes.Equal(existing, data) && manifest[s.Name+"/"+f] != hashOf(existing) {
 				pristine = false
 			}
 		}
@@ -240,6 +263,7 @@ func uninstall(fsys fs.FS, root string, force bool) ([]FileResult, error) {
 			}
 		}
 	}
+	_ = os.Remove(filepath.Join(root, manifestName))
 	for _, s := range sk {
 		removeEmptyDirs(filepath.Join(root, s.Name))
 	}

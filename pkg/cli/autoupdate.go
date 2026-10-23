@@ -222,6 +222,18 @@ func (a *App) cmdAutoUpdateStatus(*env) (*result, error) {
 	if s.LastRun != nil {
 		data["last_result"] = s.LastRun
 	}
+	stale := []string{}
+	for t := range skills.Targets {
+		if root, err := skills.ResolveDir(t, ""); err == nil {
+			if inst, pr, err := skills.Pristine(root); err == nil && inst && !pr {
+				stale = append(stale, root)
+			}
+		}
+	}
+	sort.Strings(stale)
+	if len(stale) > 0 {
+		data["skills_unmanaged"] = stale
+	}
 	return &result{data: data, human: func(w io.Writer) {
 		state := "off"
 		if enabled {
@@ -242,6 +254,9 @@ func (a *App) cmdAutoUpdateStatus(*env) (*result, error) {
 			} else {
 				fmt.Fprintf(w, "last result: up to date (%v)\n", r["current"])
 			}
+		}
+		if len(stale) > 0 {
+			fmt.Fprintf(w, "skills in %s differ from this build: run `oku skills install --force` once so auto-update can manage them\n", strings.Join(stale, ", "))
 		}
 		if enabled {
 			fmt.Fprintf(w, "log: %v\n", data["log"])

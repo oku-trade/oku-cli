@@ -72,4 +72,17 @@ func TestPristine(t *testing.T) {
 	if inst, pr, _ := pristineFS(testFS, root); !inst || pr {
 		t.Fatal("edited file must not be pristine")
 	}
+
+	old := t.TempDir()
+	v0 := fstest.MapFS{"oku-perps/SKILL.md": {Data: []byte("skill v0")}}
+	if _, err := install(v0, old, false); err != nil {
+		t.Fatal(err)
+	}
+	if inst, pr, _ := pristineFS(testFS, old); !inst || !pr {
+		t.Fatal("older oku install with manifest should be pristine")
+	}
+	_ = os.WriteFile(filepath.Join(old, "oku-perps", "SKILL.md"), []byte("edited"), 0o644)
+	if _, pr, _ := pristineFS(testFS, old); pr {
+		t.Fatal("edited older install must not be pristine")
+	}
 }
