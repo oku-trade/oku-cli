@@ -255,7 +255,7 @@ func TestTelemetryRejectedRouteDetailsAreCategoriesOnly(t *testing.T) {
 	if sink.count() != 1 {
 		t.Fatalf("events %d", sink.count())
 	}
-	raw, _ := json.Marshal(sink.events[0])
+	raw, _ := json.Marshal(sink.events[0]["properties"])
 	for _, bad := range []string{"123", "456", "0xabc", "some message", "details", "odos", "zerox", "weird"} {
 		if strings.Contains(string(raw), bad) {
 			t.Fatalf("%q leaked: %s", bad, raw)

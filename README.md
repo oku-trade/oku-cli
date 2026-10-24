@@ -76,7 +76,17 @@ oku self-update           # download, verify SHA256SUMS and replace this binary 
 oku self-update --version v0.1.0   # install a specific release (downgrades allowed)
 ```
 
-`self-update` uses `GITHUB_TOKEN`/`GH_TOKEN`, else `gh auth token`, and never needs sudo. It only replaces binaries installed by `install.sh` or a release tarball: mise, Nix and Homebrew installs are refused (use `mise up github:oku-trade/oku-cli` and so on), and so are source builds (`git pull && make install`). It never runs on its own; no other command checks for updates.
+`self-update` uses `GITHUB_TOKEN`/`GH_TOKEN`, else `gh auth token`, and never needs sudo. It only replaces binaries installed by `install.sh` or a release tarball: mise, Nix and Homebrew installs are refused (use `mise up github:oku-trade/oku-cli` and so on), and so are source builds (`git pull && make install`). By default it never runs on its own.
+
+#### Opt-in auto-update
+
+```sh
+oku autoupdate enable [--interval 24h] [--no-skills]   # off by default
+oku autoupdate status    # setting, last check, last result, log path
+oku autoupdate disable
+```
+
+When enabled, any `oku` command checks whether the interval (default 24h, minimum 1h) has passed since the last check. If so it records the check and starts a detached `oku autoupdate run` in the background, so the command you ran is never delayed or changed. That job does exactly what `oku self-update` does, then, if the binary changed, refreshes oku skills installed under the standard jcode/claude/codex skill directories. Skill directories containing user-edited oku skill files are left alone. Output goes to `autoupdate.log` in the state dir. Set `OKU_NO_AUTO_UPDATE=1` to skip background checks for a shell or CI job.
 
 ## Install (mise)
 
