@@ -167,6 +167,10 @@ func (a *App) commandTable() map[string]*handler {
 		"bridge reconcile":   {summary: "Attach and verify a recovered bridge transaction hash", flags: reconcileFlags, run: a.cmdBridgeReconcile},
 		"version":            {summary: "Print version information", run: a.cmdVersion},
 		"self-update":        {summary: "Upgrade this binary from the latest GitHub release (--check to only compare)", flags: selfUpdateFlags, run: a.cmdSelfUpdate},
+		"autoupdate enable":  {summary: "Opt in to background self-update (and skill refresh) at most once per interval (default 24h)", flags: autoUpdateEnableFlags, run: a.cmdAutoUpdateEnable},
+		"autoupdate disable": {summary: "Turn off background self-update", run: a.cmdAutoUpdateDisable},
+		"autoupdate status":  {summary: "Show the auto-update setting, last check and last result", run: a.cmdAutoUpdateStatus},
+		"autoupdate run":     {summary: "Run one auto-update now: self-update, then refresh unmodified installed skills", run: a.cmdAutoUpdateRun},
 		"doctor":             {summary: "Check configuration, connectivity and credentials", run: a.cmdDoctor},
 		"config path":        {summary: "Print config, credential and state paths", run: a.cmdConfigPath},
 		"config show":        {summary: "Show configuration (no secrets)", run: a.cmdConfigShow},
@@ -225,6 +229,7 @@ func (a *App) Run(args []string) int {
 	code := a.run(args)
 	a.maybeTelemetryHint(a.tel, code)
 	a.finishTelemetry(a.tel, code)
+	a.maybeAutoUpdate(a.tel.command)
 	return code
 }
 
@@ -389,7 +394,7 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 			if name == "auth.login" {
 				limit = 15 * time.Minute
 			}
-			if name == "self-update" {
+			if name == "self-update" || name == "autoupdate.run" {
 				limit = selfUpdateMaxTimeout
 				if !cmd.IsSet("timeout") {
 					e.g.timeout = selfUpdateTimeout
