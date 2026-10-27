@@ -97,6 +97,8 @@ type globals struct {
 	account string
 	json    bool
 	timeout time.Duration
+	// inProcess is set for Service (MCP) calls, which must not block forever.
+	inProcess bool
 }
 
 // env is passed to each command handler.
@@ -159,6 +161,10 @@ func (a *App) commandTable() map[string]*handler {
 		"swap submit":        {summary: "Submit a verified EVM swap", flags: func() []urfave.Flag { return submitFlagsFor("swap") }, run: a.cmdSwapSubmit},
 		"swap status":        {summary: "Reconcile an EVM swap", flags: statusFlags, run: a.cmdSwapStatus},
 		"swap reconcile":     {summary: "Attach and verify a recovered swap transaction hash", flags: reconcileFlags, run: a.cmdSwapReconcile},
+		"swap orders create": {summary: "Create a client-side take-profit/stop-loss/trailing-stop exit (token -> native); fires only while 'swap orders watch' runs", flags: swapOrdersCreateFlags, run: a.cmdSwapOrdersCreate},
+		"swap orders list":   {summary: "List client-side swap exit orders from the local journal", flags: swapOrdersListFlags, run: a.cmdSwapOrdersList},
+		"swap orders cancel": {summary: "Cancel an active swap exit order (refused once triggered)", flags: swapOrdersCancelFlags, run: a.cmdSwapOrdersCancel},
+		"swap orders watch":  {summary: "Price active swap exit orders and sell when one fires (--once, --dry-run)", flags: swapOrdersWatchFlags, run: a.cmdSwapOrdersWatch},
 		"bridge quote":       {summary: "Quote EVM-to-EVM bridge routes", flags: func() []urfave.Flag { return routeFlags(true) }, run: a.cmdBridgeQuote},
 		"bridge prepare":     {summary: "Prepare a backend-built transaction bridge", flags: func() []urfave.Flag { return routePrepareFlags(true) }, run: a.cmdBridgePrepare},
 		"bridge submit":      {summary: "Submit a backend-built EVM bridge", flags: func() []urfave.Flag { return submitFlagsFor("bridge") }, run: a.cmdBridgeSubmit},
@@ -242,9 +248,7 @@ func (a *App) run(args []string) int {
 		unknown = strings.TrimPrefix(cmd.FullName()+" "+name, "oku ")
 	}
 	root.CommandNotFound = unknownCommand
-	for _, group := range root.Commands {
-		group.CommandNotFound = unknownCommand
-	}
+	eachGroup(root, func(group *urfave.Command) { group.CommandNotFound = unknownCommand })
 	err := root.Run(context.Background(), append([]string{"oku"}, args...))
 	if unknown != "" {
 		return a.fail(jsonOut, reqID, strings.ReplaceAll(unknown, " ", "."), output.Errorf(output.CodeUsage, "unknown command %q; run 'oku help'", unknown))
@@ -425,27 +429,38 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 			}
 			return nil
 		}
-		if len(parts) == 1 {
-			root.Commands = append(root.Commands, leaf)
-			continue
-		}
-		group := groups[parts[0]]
-		if group == nil {
-			group = &urfave.Command{Name: parts[0], Usage: parts[0] + " commands", OnUsageError: root.OnUsageError}
-			group.Action = func(_ context.Context, cmd *urfave.Command) error {
-				name := strings.TrimPrefix(cmd.FullName(), "oku ")
-				if cmd.Args().Len() > 0 {
-					unknown := name + " " + cmd.Args().First()
-					return &commandFailure{name: strings.ReplaceAll(unknown, " ", "."), json: jsonOut, err: output.Errorf(output.CodeUsage, "unknown command %q; run 'oku help'", unknown)}
+		parent := root
+		for depth := 1; depth < len(parts); depth++ {
+			prefix := strings.Join(parts[:depth], " ")
+			group := groups[prefix]
+			if group == nil {
+				group = &urfave.Command{Name: parts[depth-1], Usage: prefix + " commands", OnUsageError: root.OnUsageError}
+				group.Action = func(_ context.Context, cmd *urfave.Command) error {
+					name := strings.TrimPrefix(cmd.FullName(), "oku ")
+					if cmd.Args().Len() > 0 {
+						unknown := name + " " + cmd.Args().First()
+						return &commandFailure{name: strings.ReplaceAll(unknown, " ", "."), json: jsonOut, err: output.Errorf(output.CodeUsage, "unknown command %q; run 'oku help'", unknown)}
+					}
+					return &commandFailure{name: strings.ReplaceAll(name, " ", "."), json: jsonOut, err: output.Errorf(output.CodeUsage, "missing subcommand for %s", cmd.FullName())}
 				}
-				return &commandFailure{name: name, json: jsonOut, err: output.Errorf(output.CodeUsage, "missing subcommand for %s", cmd.FullName())}
+				groups[prefix] = group
+				parent.Commands = append(parent.Commands, group)
 			}
-			groups[parts[0]] = group
-			root.Commands = append(root.Commands, group)
+			parent = group
 		}
-		group.Commands = append(group.Commands, leaf)
+		parent.Commands = append(parent.Commands, leaf)
 	}
 	return root
+}
+
+// eachGroup calls fn for every command that has subcommands, depth first.
+func eachGroup(cmd *urfave.Command, fn func(*urfave.Command)) {
+	for _, child := range cmd.Commands {
+		if len(child.Commands) > 0 {
+			fn(child)
+			eachGroup(child, fn)
+		}
+	}
 }
 
 func sortedCommandNames(cmds map[string]*handler) []string {
@@ -468,13 +483,14 @@ func (a *App) commandName(args []string) string {
 		if strings.HasPrefix(arg, "-") {
 			continue
 		}
-		if i+1 < len(args) {
-			if _, ok := commands[arg+" "+args[i+1]]; ok {
-				return arg + "." + args[i+1]
+		for n := 3; n >= 1; n-- {
+			if i+n > len(args) {
+				continue
 			}
-		}
-		if _, ok := commands[arg]; ok {
-			return arg
+			path := strings.Join(args[i:i+n], " ")
+			if _, ok := commands[path]; ok {
+				return strings.ReplaceAll(path, " ", ".")
+			}
 		}
 	}
 	return "oku"

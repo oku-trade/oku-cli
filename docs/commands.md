@@ -552,6 +552,57 @@ Remove installed skills that match the bundled version
 | `--dir` | explicit skills directory (overrides --target) | `` |
 | `--force` | overwrite or remove files that differ from the bundled version | `false` |
 
+## `oku swap orders cancel`
+
+Cancel an active swap exit order (refused once triggered)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--order` | swap order ID (required) | `` |
+
+## `oku swap orders create`
+
+Create a client-side take-profit/stop-loss/trailing-stop exit (token -> native); fires only while 'swap orders watch' runs
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID of the position, e.g. 42161 (required) | `` |
+| `--token` | ERC-20 address of the token to sell for native (required) | `` |
+| `--amount` | token amount to sell when triggered (or use --all) | `` |
+| `--all` | sell the full token balance when triggered | `false` |
+| `--take-profit-pct` | sell when value rises this many percent above the cost basis | `` |
+| `--stop-loss-pct` | sell when value falls this many percent below the cost basis | `` |
+| `--trailing-stop-pct` | sell when value falls this many percent below the highest value seen since creation | `` |
+| `--slippage-bps` | maximum slippage of the sell in basis points, 0-300 | `50` |
+| `--basis` | native cost basis of the amount (overrides the journal; required for take-profit/stop-loss without a confirmed journal buy) | `` |
+| `--id` | optional unique swap order ID | `` |
+
+## `oku swap orders list`
+
+List client-side swap exit orders from the local journal
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--state` | only orders in this state (active, triggered, executing, filled, failed, cancelled) | `` |
+
+## `oku swap orders watch`
+
+Price active swap exit orders and sell when one fires (--once, --dry-run)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--interval` | time between price checks, e.g. 15s or 1m (min 1s) | `15s` |
+| `--once` | run one check and exit | `false` |
+| `--dry-run` | report what would trigger; never prepares or sells and leaves the journal unchanged | `false` |
+
 ## `oku swap prepare`
 
 Prepare an agent EVM swap
