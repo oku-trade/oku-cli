@@ -404,6 +404,33 @@ func TestTokenPricesNativeRatio(t *testing.T) {
 	}
 }
 
+func TestSwapOrderDefaultExecUsesValidHandlerFlags(t *testing.T) {
+	t.Setenv("OKU_CONFIG_DIR", filepath.Join(t.TempDir(), "cfg"))
+	f := &config.File{Version: 1, DefaultProfile: "main", Profiles: map[string]*config.Profile{"main": {Network: "mainnet", APIURL: config.DefaultAPIURL, Account: acct}}}
+	if err := f.Save(); err != nil {
+		t.Fatal(err)
+	}
+	j := openSwapJournal(t)
+	a := &App{Getenv: func(string) string { return "" }, Now: time.Now, Version: "test"}
+	e := &env{app: a, ctx: context.Background(), g: globals{timeout: time.Second}}
+	x := a.defaultSwapOrderExec(e, j)
+	o := &journal.SwapOrder{ID: "so-flags", ChainID: 42161, Token: soToken, Amount: "all", SlippageBps: 75}
+	// Without an enrolled agent the real handlers stop at the signer check,
+	// which proves the synthesized flags were accepted (no USAGE/INTERNAL).
+	for name, err := range map[string]error{
+		"prepare": func() error { _, _, err := x.prepare(o); return err }(),
+		"submit":  x.submit("so-flags-sell-1", strings.Repeat("0", 64)),
+	} {
+		if code := output.As(err).Code; code == output.CodeUsage || code == output.CodeInternal || err == nil {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	sub, err := subEnv(e, routePrepareFlags(false), map[string]any{"chain": "42161", "from": soToken, "to": "native", "amount": "all", "slippage-bps": int64(75), "no-intent": true, "intent-id": "so-flags-sell-1"})
+	if err != nil || sub.cmd.Int("slippage-bps") != 75 || !sub.cmd.Bool("no-intent") || sub.cmd.String("to") != "native" || sub.cmd.Int("max-loss-bps") != 0 || sub.cmd.Bool("allow-high-impact") {
+		t.Fatalf("sell flags: %v", err)
+	}
+}
+
 func TestSwapOrderWatchRefusesUnboundedInProcess(t *testing.T) {
 	s := NewService("test", &bytes.Buffer{}, func(string) string { return "" })
 	s.AllowMutations(true)
