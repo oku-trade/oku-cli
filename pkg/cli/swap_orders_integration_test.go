@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/oku-trade/oku-cli/pkg/journal"
 )
 
 // tokenRPC answers the chain-ID check, ERC-20 decimals() (6) and
@@ -187,5 +189,56 @@ func TestSwapOrdersCreateRefusesSecondAllOrder(t *testing.T) {
 	h.run("swap", "orders", "cancel", "--order", "so-all-1", "--json")
 	if r := h.run("swap", "orders", "create", "--chain", "42161", "--token", token, "--all", "--trailing-stop-pct", "10", "--id", "so-all-3", "--json"); r.code != 0 {
 		t.Fatalf("--all after cancel: %s", r.stdout)
+	}
+}
+
+// The default cost basis sums confirmed native buys of the token to the agent
+// and ignores non-native and unconfirmed buys.
+func TestSwapOrdersCreateJournalBasis(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	token := "0x3333333333333333333333333333333333333333"
+	agent := h.fake.agentAddress
+	h.fake.routeReply = func(method string, _ map[string]any) (any, bool) {
+		if method == "GetTokenPrice" {
+			return map[string]any{"results": []any{
+				map[string]any{"chain": "eip155:42161", "address": eip7528Address, "priceUsd": 2000},
+				map[string]any{"chain": "eip155:42161", "address": token, "priceUsd": 0.05},
+			}}, true
+		}
+		return nil, false
+	}
+	h.rpcURL = tokenRPC(t, big.NewInt(25_000_000))
+	j, err := journal.Open("main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, b := range []struct {
+		id, in, amount, minOut string
+		confirmed              bool
+	}{
+		{"buy-native-1", "native", "1000000000000000000", "10000000", true},
+		{"buy-native-2", "native", "2000000000000000000", "20000000", true},
+		{"buy-usdc", "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", "9000000000000000000", "5000000", true},
+		{"buy-pending", "native", "7000000000000000000", "5000000", false},
+	} {
+		in := journal.OnchainIntent{ID: b.id, Kind: "swap", ChainID: 42161, Sender: agent, Recipient: agent, Token: b.in, OutToken: token, Amount: b.amount, MinOut: b.minOut, Templates: []journal.OnchainTemplate{{ChainID: 42161, To: token, Value: "0x0"}}}
+		if _, err = j.CreateOnchain(in); err != nil {
+			t.Fatal(err)
+		}
+		if b.confirmed {
+			if err = j.AdvanceOnchain(b.id, "prepared", "confirmed", ""); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err = j.Close(); err != nil {
+		t.Fatal(err)
+	}
+	// 3 native for 30 tokens: 15 tokens cost 1.5 native.
+	r := h.run("swap", "orders", "create", "--chain", "42161", "--token", token, "--amount", "15", "--take-profit-pct", "50", "--id", "so-basis", "--json")
+	d := r.data()
+	if r.code != 0 || d["basis_source"] != "journal" || d["basis"] != "1.5" || d["take_profit_value"] != "2.25" {
+		t.Fatalf("journal basis: %s %s", r.stdout, r.stderr)
 	}
 }
