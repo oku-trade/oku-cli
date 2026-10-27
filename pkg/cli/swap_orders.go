@@ -27,8 +27,9 @@ const (
 	minSwapOrderInterval     = time.Second
 	// maxSwapOrderAttempts bounds re-triggering after a sell could not be
 	// prepared (no route, balance) or was prepared but never broadcast.
-	// Nothing is signed then. High-impact refusals are not counted: the
-	// order stays armed and retries every check.
+	// Nothing is signed then. High-impact refusals and transient prepare
+	// errors (upstream, rate limit, timeout) are not counted: the order
+	// stays armed and retries every check.
 	maxSwapOrderAttempts = 3
 	// tokenPriceBatch is the most tokens one GetTokenPrice request carries.
 	tokenPriceBatch = 25
@@ -702,6 +703,10 @@ func (a *App) evaluateSwapOrder(ctx context.Context, j *journal.Journal, x swapO
 // sellSwapOrder claims the order with a compare-and-set before anything is
 // prepared, so a cancel or a second watcher can never cause a second sell.
 func (a *App) sellSwapOrder(ctx context.Context, j *journal.Journal, x swapOrderExec, o *journal.SwapOrder, trigger string, entry swapOrderTickEntry) swapOrderTickEntry {
+	if err := ctx.Err(); err != nil {
+		entry.Error = "not sold: watcher stopping"
+		return entry
+	}
 	if err := j.TransitionSwapOrder(o.ID, journal.SwapOrderActive, journal.SwapOrderTriggered, journal.SwapOrderPatch{Trigger: &trigger}); err != nil {
 		entry.Error = "order changed before selling: " + err.Error()
 		if current, _ := j.GetSwapOrder(o.ID); current != nil {
@@ -715,7 +720,7 @@ func (a *App) sellSwapOrder(ctx context.Context, j *journal.Journal, x swapOrder
 		oe := output.As(err)
 		msg := "prepare: " + oe.Message
 		entry.Error = msg
-		to, count := journal.SwapOrderActive, oe.Details["reason"] != highImpactReason
+		to, count := journal.SwapOrderActive, countsAsSwapOrderAttempt(err)
 		if count && o.Attempts+1 >= maxSwapOrderAttempts {
 			to = journal.SwapOrderFailed
 			msg = fmt.Sprintf("%s (gave up after %d attempts; nothing was signed)", msg, maxSwapOrderAttempts)
@@ -734,6 +739,23 @@ func (a *App) sellSwapOrder(ctx context.Context, j *journal.Journal, x swapOrder
 	submitErr := x.submit(sellCtx, intent, digest)
 	cancel()
 	return a.settleSwapOrder(j, x, o.ID, o.Attempts, intent, submitErr, entry)
+}
+
+// countsAsSwapOrderAttempt reports whether a prepare error is a permanent
+// refusal (no route, insufficient balance) that should use up an attempt.
+func countsAsSwapOrderAttempt(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return false
+	}
+	oe := output.As(err)
+	if oe.Retryable || oe.Details["reason"] == highImpactReason {
+		return false
+	}
+	switch oe.Code {
+	case output.CodeUpstream, output.CodeUpstreamTimeout, output.CodeRateLimited:
+		return false
+	}
+	return true
 }
 
 // settleSwapOrder moves an executing order to filled or failed from the

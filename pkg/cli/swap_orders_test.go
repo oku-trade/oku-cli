@@ -537,6 +537,48 @@ func TestSwapOrderHighImpactDoesNotCountAttempts(t *testing.T) {
 	}
 }
 
+func TestSwapOrderTransientPrepareErrorsDoNotCountAttempts(t *testing.T) {
+	for name, prepErr := range map[string]error{
+		"retryable":  output.Errorf(output.CodeRejected, "try again").WithRetry(),
+		"upstream":   output.Errorf(output.CodeUpstream, "quote service down"),
+		"timeout":    output.Errorf(output.CodeUpstreamTimeout, "quote timed out"),
+		"rate_limit": output.Errorf(output.CodeRateLimited, "slow down"),
+		"deadline":   output.Wrap(output.CodeInternal, context.DeadlineExceeded, "quote"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			j := openSwapJournal(t)
+			a := &App{Now: time.Now}
+			f := &fakeSwapExec{prepareErr: prepErr}
+			x := f.exec()
+			newSwapOrder(t, j, "so-transient", func(o *journal.SwapOrder) { o.StopLossPct = "10" })
+			for i := 0; i < maxSwapOrderAttempts+2; i++ {
+				tickAt(t, a, j, f, x, "0.001", false)
+			}
+			o := orderState(t, j, "so-transient")
+			if f.prepares != maxSwapOrderAttempts+2 || o.State != journal.SwapOrderActive || o.Attempts != 0 {
+				t.Fatalf("transient prepare error: %+v prepares=%d", o, f.prepares)
+			}
+		})
+	}
+}
+
+func TestSwapOrderCancelledContextLeavesOrderActive(t *testing.T) {
+	j := openSwapJournal(t)
+	a := &App{Now: time.Now}
+	f := &fakeSwapExec{price: "0.001", result: "confirmed"}
+	x := f.exec()
+	newSwapOrder(t, j, "so-cancelled", func(o *journal.SwapOrder) { o.StopLossPct = "10" })
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := a.swapOrdersTick(ctx, j, x, soAgent, false); err != nil {
+		t.Fatal(err)
+	}
+	o := orderState(t, j, "so-cancelled")
+	if f.prepares != 0 || f.submits != 0 || o.State != journal.SwapOrderActive || o.Attempts != 0 {
+		t.Fatalf("cancelled tick sold or counted: %+v prepares=%d submits=%d", o, f.prepares, f.submits)
+	}
+}
+
 func TestSwapOrderWatchKeepsCheckingResumedOrder(t *testing.T) {
 	j := openSwapJournal(t)
 	sleeps := 0
