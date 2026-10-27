@@ -55,7 +55,7 @@ func (f *fakeSwapExec) exec() swapOrderExec {
 			f.states[id] = "prepared"
 			return id, "digest", nil
 		},
-		submit: func(intent, _ string) error {
+		submit: func(_ context.Context, intent, _ string) error {
 			f.submits++
 			f.states[intent] = f.result
 			return f.submitErr
@@ -93,7 +93,7 @@ func newSwapOrder(t *testing.T, j *journal.Journal, id string, mutate func(*jour
 func tickAt(t *testing.T, a *App, j *journal.Journal, f *fakeSwapExec, x swapOrderExec, price string, dry bool) *swapOrderTick {
 	t.Helper()
 	f.price = price
-	tick, err := a.swapOrdersTick(j, x, soAgent, dry)
+	tick, err := a.swapOrdersTick(context.Background(), j, x, soAgent, dry)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -420,7 +420,7 @@ func TestSwapOrderDefaultExecUsesValidHandlerFlags(t *testing.T) {
 	// which proves the synthesized flags were accepted (no USAGE/INTERNAL).
 	for name, err := range map[string]error{
 		"prepare": func() error { _, _, err := x.prepare(o); return err }(),
-		"submit":  x.submit("so-flags-sell-1", strings.Repeat("0", 64)),
+		"submit":  x.submit(context.Background(), "so-flags-sell-1", strings.Repeat("0", 64)),
 	} {
 		if code := output.As(err).Code; code == output.CodeUsage || code == output.CodeInternal || err == nil {
 			t.Errorf("%s: %v", name, err)
@@ -470,7 +470,7 @@ func TestSwapOrderPreparedSellRetriesWithNewIntent(t *testing.T) {
 	a := &App{Now: time.Now}
 	f := &fakeSwapExec{}
 	x := journalSellExec(t, j, f)
-	x.submit = func(string, string) error {
+	x.submit = func(context.Context, string, string) error {
 		f.submits++
 		return output.Errorf(output.CodeInsufficientGas, "no gas")
 	}
@@ -499,7 +499,7 @@ func TestSwapOrderNonPreparedSellNeverRetried(t *testing.T) {
 			a := &App{Now: time.Now}
 			f := &fakeSwapExec{}
 			x := journalSellExec(t, j, f)
-			x.submit = func(intent, digest string) error {
+			x.submit = func(_ context.Context, intent, digest string) error {
 				f.submits++
 				if err := j.BeginOnchain(intent, digest, soAgent); err != nil {
 					t.Fatal(err)
@@ -580,5 +580,39 @@ func TestJournalBasisSkipsOtherRecipients(t *testing.T) {
 	basis, err := journalBasis(j, soAgent, 42161, soToken, big.NewInt(10))
 	if err != nil || basis == nil || basis.Cmp(big.NewRat(1000, 1_000_000_000_000_000_000)) != 0 {
 		t.Fatalf("basis: %v %v", basis, err)
+	}
+}
+
+func TestSwapOrderInterruptDuringSellFinishesSell(t *testing.T) {
+	j := openSwapJournal(t)
+	sleeps := 0
+	a := &App{Now: time.Now, Sleep: func(context.Context, time.Duration) error { sleeps++; return nil }}
+	f := &fakeSwapExec{price: "0.001", result: "confirmed"}
+	x := f.exec()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	inner := x.submit
+	var submitCtxErr error
+	var deadline time.Time
+	x.submit = func(sctx context.Context, intent, digest string) error {
+		cancel()
+		submitCtxErr = sctx.Err()
+		deadline, _ = sctx.Deadline()
+		return inner(sctx, intent, digest)
+	}
+	newSwapOrder(t, j, "so-ctrlc", func(o *journal.SwapOrder) { o.StopLossPct = "10" })
+	newSwapOrder(t, j, "so-next", func(o *journal.SwapOrder) { o.StopLossPct = "10" })
+	ticks, _, stopped, err := a.watchSwapOrders(ctx, j, x, soAgent, false, false, time.Second, func(string, ...any) {})
+	if err != nil || stopped != "interrupted" || ticks != 1 || sleeps != 0 {
+		t.Fatalf("watch: ticks=%d stopped=%s sleeps=%d err=%v", ticks, stopped, sleeps, err)
+	}
+	if submitCtxErr != nil || deadline.IsZero() || time.Until(deadline) > onchainExecBudget {
+		t.Fatalf("sell context: err=%v deadline=%v", submitCtxErr, deadline)
+	}
+	if o := orderState(t, j, "so-ctrlc"); o.State != journal.SwapOrderFilled || f.submits != 1 {
+		t.Fatalf("interrupted sell did not finish: %+v submits=%d", o, f.submits)
+	}
+	if o := orderState(t, j, "so-next"); o.State != journal.SwapOrderActive {
+		t.Fatalf("second order sold after interrupt: %+v", o)
 	}
 }

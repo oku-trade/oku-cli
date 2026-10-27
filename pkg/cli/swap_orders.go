@@ -486,7 +486,9 @@ type swapOrderExec struct {
 	prices func(chain uint64, tokens []string) (map[string]*big.Rat, error)
 	// prepare journals a sell intent for o and returns its ID and digest.
 	prepare func(o *journal.SwapOrder) (string, string, error)
-	submit  func(intent, digest string) error
+	// submit signs and broadcasts a prepared sell. ctx is detached from the
+	// watch context, so Ctrl-C never abandons a sell mid-broadcast.
+	submit func(ctx context.Context, intent, digest string) error
 	// intentState returns the journal state of a sell intent.
 	intentState func(intent string) (string, error)
 }
@@ -513,8 +515,10 @@ func (a *App) defaultSwapOrderExec(e *env, j *journal.Journal) swapOrderExec {
 			}
 			return prepared.ID, prepared.Digest, nil
 		},
-		submit: func(intent, digest string) error {
-			sub, err := subEnv(e, submitFlagsFor("swap"), map[string]any{"intent": intent, "digest": digest})
+		submit: func(ctx context.Context, intent, digest string) error {
+			detached := *e
+			detached.ctx = ctx
+			sub, err := subEnv(&detached, submitFlagsFor("swap"), map[string]any{"intent": intent, "digest": digest})
 			if err != nil {
 				return err
 			}
@@ -561,7 +565,7 @@ type swapOrderTick struct {
 
 // swapOrdersTick evaluates every open order of agent once and sells at most
 // one triggered order at a time. In dry-run mode it reads prices only.
-func (a *App) swapOrdersTick(j *journal.Journal, x swapOrderExec, agent string, dryRun bool) (*swapOrderTick, error) {
+func (a *App) swapOrdersTick(ctx context.Context, j *journal.Journal, x swapOrderExec, agent string, dryRun bool) (*swapOrderTick, error) {
 	tick := &swapOrderTick{At: a.Now().UTC().Format(time.RFC3339Nano), DryRun: dryRun, Orders: []swapOrderTickEntry{}}
 	listMine := func() ([]*journal.SwapOrder, error) {
 		open, err := j.ListSwapOrders(journal.SwapOrderActive, journal.SwapOrderTriggered, journal.SwapOrderExecuting)
@@ -636,7 +640,7 @@ func (a *App) swapOrdersTick(j *journal.Journal, x swapOrderExec, agent string, 
 			continue
 		}
 		for _, o := range orders {
-			entry := a.evaluateSwapOrder(j, x, o, prices[strings.ToLower(o.Token)], dryRun, sold)
+			entry := a.evaluateSwapOrder(ctx, j, x, o, prices[strings.ToLower(o.Token)], dryRun, sold)
 			if entry.SellIntentID != "" {
 				sold = true
 			}
@@ -653,7 +657,7 @@ func (a *App) swapOrdersTick(j *journal.Journal, x swapOrderExec, agent string, 
 // Once a sell ran this tick (deferSell), further triggers wait for the next
 // tick, so one transaction is in flight at a time and an order sharing the
 // token sees the post-sell balance.
-func (a *App) evaluateSwapOrder(j *journal.Journal, x swapOrderExec, o *journal.SwapOrder, price *big.Rat, dryRun, deferSell bool) swapOrderTickEntry {
+func (a *App) evaluateSwapOrder(ctx context.Context, j *journal.Journal, x swapOrderExec, o *journal.SwapOrder, price *big.Rat, dryRun, deferSell bool) swapOrderTickEntry {
 	entry := swapOrderTickEntry{OrderID: o.ID, State: o.State}
 	if price == nil {
 		entry.Error = "no price available"
@@ -687,12 +691,12 @@ func (a *App) evaluateSwapOrder(j *journal.Journal, x swapOrderExec, o *journal.
 		entry.Error = "deferred: another sell ran this check"
 		return entry
 	}
-	return a.sellSwapOrder(j, x, o, trigger, entry)
+	return a.sellSwapOrder(ctx, j, x, o, trigger, entry)
 }
 
 // sellSwapOrder claims the order with a compare-and-set before anything is
 // prepared, so a cancel or a second watcher can never cause a second sell.
-func (a *App) sellSwapOrder(j *journal.Journal, x swapOrderExec, o *journal.SwapOrder, trigger string, entry swapOrderTickEntry) swapOrderTickEntry {
+func (a *App) sellSwapOrder(ctx context.Context, j *journal.Journal, x swapOrderExec, o *journal.SwapOrder, trigger string, entry swapOrderTickEntry) swapOrderTickEntry {
 	if err := j.TransitionSwapOrder(o.ID, journal.SwapOrderActive, journal.SwapOrderTriggered, journal.SwapOrderPatch{Trigger: &trigger}); err != nil {
 		entry.Error = "order changed before selling: " + err.Error()
 		if current, _ := j.GetSwapOrder(o.ID); current != nil {
@@ -721,7 +725,9 @@ func (a *App) sellSwapOrder(j *journal.Journal, x swapOrderExec, o *journal.Swap
 		return entry
 	}
 	entry.State, entry.SellIntentID = journal.SwapOrderExecuting, intent
-	submitErr := x.submit(intent, digest)
+	sellCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), onchainExecBudget)
+	submitErr := x.submit(sellCtx, intent, digest)
+	cancel()
 	return a.settleSwapOrder(j, x, o.ID, o.Attempts, intent, submitErr, entry)
 }
 
@@ -864,7 +870,7 @@ func (a *App) watchSwapOrders(ctx context.Context, j *journal.Journal, x swapOrd
 	ticks := 0
 	var last *swapOrderTick
 	for {
-		tick, terr := a.swapOrdersTick(j, x, agent, dryRun)
+		tick, terr := a.swapOrdersTick(ctx, j, x, agent, dryRun)
 		ticks++
 		if tick != nil {
 			last = tick
@@ -889,6 +895,9 @@ func (a *App) watchSwapOrders(ctx context.Context, j *journal.Journal, x swapOrd
 		}
 		if tick != nil && tick.Active == 0 {
 			return ticks, last, "no_active_orders", nil
+		}
+		if ctx.Err() != nil {
+			return ticks, last, "interrupted", nil
 		}
 		if err := a.Sleep(ctx, interval); err != nil {
 			return ticks, last, "interrupted", nil
