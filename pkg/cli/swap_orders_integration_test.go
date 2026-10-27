@@ -76,6 +76,8 @@ func TestSwapOrdersExecutableLifecycle(t *testing.T) {
 			}}}}, true
 		case "UpdateQuoteSelect":
 			return nil, false // unhandled: fake returns an error before anything is signed
+		case "Ping":
+			return map[string]any{"orderId": body["orderId"], "status": "failed"}, true
 		}
 		return nil, false
 	}
@@ -165,7 +167,7 @@ func TestSwapOrdersExecutableLifecycle(t *testing.T) {
 func TestSwapOrdersCreateRefusesSecondAllOrder(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
-	token := "0x3333333333333333333333333333333333333333"
+	token := "0x33333333333333333333333333333333333abcde"
 	h.fake.routeReply = func(method string, _ map[string]any) (any, bool) {
 		if method == "GetTokenPrice" {
 			return map[string]any{"results": []any{
@@ -179,7 +181,7 @@ func TestSwapOrdersCreateRefusesSecondAllOrder(t *testing.T) {
 	if r := h.run("swap", "orders", "create", "--chain", "42161", "--token", token, "--all", "--trailing-stop-pct", "5", "--id", "so-all-1", "--json"); r.code != 0 || r.data()["size"] != "25" {
 		t.Fatalf("first --all: %s %s", r.stdout, r.stderr)
 	}
-	r := h.run("swap", "orders", "create", "--chain", "42161", "--token", strings.ToUpper(token[:2])+token[2:], "--all", "--trailing-stop-pct", "10", "--id", "so-all-2", "--json")
+	r := h.run("swap", "orders", "create", "--chain", "42161", "--token", "0x"+strings.ToUpper(token[2:]), "--all", "--trailing-stop-pct", "10", "--id", "so-all-2", "--json")
 	if r.errCode() != "INTENT_CONFLICT" || !strings.Contains(r.stdout, "so-all-1") {
 		t.Fatalf("second --all must be INTENT_CONFLICT: %s", r.stdout)
 	}
