@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -89,12 +90,20 @@ func TestSwapOrdersExecutableLifecycle(t *testing.T) {
 	}
 
 	// Acceptable quote: prepare journals a sell intent, submit fails before
-	// broadcast, so the order fails without needs_reconcile and never re-sells.
+	// broadcast, so the order re-arms and retries with a new intent ID until
+	// it gives up, without needs_reconcile, and never re-sells after that.
 	inUSD, outUSD = 1, 0.99
 	w = h.run("swap", "orders", "watch", "--once", "--json")
 	o = w.data()["last"].(map[string]any)["orders"].([]any)[0].(map[string]any)
-	if o["state"] != "failed" || o["sell_intent_id"] != "so-e2e-sell-2" || !strings.Contains(o["error"].(string), "not broadcast") {
+	if o["state"] != "active" || o["sell_intent_id"] != "so-e2e-sell-1" || !strings.Contains(o["error"].(string), "not broadcast") {
 		t.Fatalf("sell: %s %s", w.stdout, w.stderr)
+	}
+	for i := 2; i <= maxSwapOrderAttempts; i++ {
+		w = h.run("swap", "orders", "watch", "--once", "--json")
+	}
+	o = w.data()["last"].(map[string]any)["orders"].([]any)[0].(map[string]any)
+	if o["state"] != "failed" || o["sell_intent_id"] != fmt.Sprintf("so-e2e-sell-%d", maxSwapOrderAttempts) || !strings.Contains(o["error"].(string), "not broadcast") {
+		t.Fatalf("final sell: %s %s", w.stdout, w.stderr)
 	}
 	creates := calls["Create"]
 	h.run("swap", "orders", "watch", "--once", "--json")
@@ -105,10 +114,10 @@ func TestSwapOrdersExecutableLifecycle(t *testing.T) {
 		t.Fatalf("cancel after trigger: %s", r.stdout)
 	}
 	l := h.run("swap", "orders", "list", "--json").data()["orders"].([]any)[0].(map[string]any)
-	if l["needs_reconcile"] != false || l["attempts"] != float64(1) || l["trigger"] != "stop_loss" {
+	if l["needs_reconcile"] != false || l["attempts"] != float64(maxSwapOrderAttempts) || l["trigger"] != "stop_loss" {
 		t.Fatalf("list: %v", l)
 	}
-	if s := h.run("swap", "status", "--intent", "so-e2e-sell-2", "--json"); !strings.Contains(s.stdout, "so-e2e-sell-2") {
+	if s := h.run("swap", "status", "--intent", "so-e2e-sell-1", "--json"); !strings.Contains(s.stdout, "so-e2e-sell-1") {
 		t.Fatalf("sell intent not in swap journal: %s", s.stdout)
 	}
 }

@@ -16,8 +16,11 @@ import (
 
 // Swap order states: active -> triggered -> executing -> filled|failed. A
 // triggered order returns to active only when preparing the sell failed
-// before anything was journaled or signed. Once executing (a sell intent is
-// bound) it never sells again. Only an active order can be cancelled.
+// before anything was journaled or signed. An executing order returns to
+// active only while its bound sell intent is still prepared (never signed or
+// broadcast); that intent is failed in the same transaction so it can never
+// be submitted later. Otherwise an executing order never sells again. Only an
+// active order can be cancelled.
 const (
 	SwapOrderActive    = "active"
 	SwapOrderTriggered = "triggered"
@@ -164,6 +167,19 @@ func (j *Journal) TransitionSwapOrder(id, from, to string, p SwapOrderPatch) err
 	if o.State != from {
 		return fmt.Errorf("%w: swap order %s is %s, not %s", ErrConflict, id, o.State, from)
 	}
+	if from == SwapOrderExecuting && to == SwapOrderActive {
+		var intentState string
+		err = tx.QueryRow(`SELECT state FROM onchain_intents WHERE profile=? AND intent_id=?`, j.binding.Profile, o.SellIntentID).Scan(&intentState)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		if intentState != "prepared" {
+			return fmt.Errorf("%w: swap order %s sell intent %s is %q, not prepared", ErrConflict, id, o.SellIntentID, intentState)
+		}
+		if _, err = tx.Exec(`UPDATE onchain_intents SET state='failed',updated_at=? WHERE profile=? AND intent_id=? AND state='prepared'`, j.now().UTC().Format(time.RFC3339Nano), j.binding.Profile, o.SellIntentID); err != nil {
+			return err
+		}
+	}
 	if p.Trigger != nil {
 		o.Trigger = *p.Trigger
 	}
@@ -200,7 +216,7 @@ func validSwapOrderTransition(from, to string) bool {
 	case SwapOrderTriggered:
 		return to == SwapOrderExecuting || to == SwapOrderFailed || to == SwapOrderActive
 	case SwapOrderExecuting:
-		return to == SwapOrderFilled || to == SwapOrderFailed
+		return to == SwapOrderFilled || to == SwapOrderFailed || to == SwapOrderActive
 	}
 	return false
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -229,7 +230,7 @@ func TestSwapOrderUnknownSubmitNeverRetried(t *testing.T) {
 func TestSwapOrderPrepareFailureRetriesThenGivesUp(t *testing.T) {
 	j := openSwapJournal(t)
 	a := &App{Now: time.Now}
-	f := &fakeSwapExec{prepareErr: output.Errorf(output.CodeRejected, "high impact")}
+	f := &fakeSwapExec{prepareErr: output.Errorf(output.CodeRejected, "no eligible route")}
 	x := f.exec()
 	newSwapOrder(t, j, "so-prep", func(o *journal.SwapOrder) { o.StopLossPct = "10" })
 	for i := 1; i <= maxSwapOrderAttempts+2; i++ {
@@ -438,5 +439,146 @@ func TestSwapOrderWatchRefusesUnboundedInProcess(t *testing.T) {
 	var oe *output.Error
 	if !errors.As(err, &oe) || oe.Code != output.CodeUsage || !strings.Contains(oe.Message, "once") {
 		t.Fatalf("in-process watch: %v", err)
+	}
+}
+
+// journalSellExec prepares real journaled sell intents, so the
+// executing -> active transition sees their journal state.
+func journalSellExec(t *testing.T, j *journal.Journal, f *fakeSwapExec) swapOrderExec {
+	x := f.exec()
+	x.prepare = func(o *journal.SwapOrder) (string, string, error) {
+		f.prepares++
+		id := fmt.Sprintf("%s-sell-%d", o.ID, o.Attempts+1)
+		r, err := j.CreateOnchain(journal.OnchainIntent{ID: id, Kind: "swap", ChainID: o.ChainID, Sender: soAgent, Recipient: soAgent, Token: o.Token, OutToken: "native", Amount: "1", Templates: []journal.OnchainTemplate{{ChainID: o.ChainID, To: soToken, Value: "0x0"}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id, r.Digest, nil
+	}
+	x.intentState = func(intent string) (string, error) {
+		r, err := j.GetOnchain(intent)
+		if err != nil {
+			return "", err
+		}
+		return r.State, nil
+	}
+	return x
+}
+
+func TestSwapOrderPreparedSellRetriesWithNewIntent(t *testing.T) {
+	j := openSwapJournal(t)
+	a := &App{Now: time.Now}
+	f := &fakeSwapExec{}
+	x := journalSellExec(t, j, f)
+	x.submit = func(string, string) error {
+		f.submits++
+		return output.Errorf(output.CodeInsufficientGas, "no gas")
+	}
+	newSwapOrder(t, j, "so-retry", func(o *journal.SwapOrder) { o.StopLossPct = "10" })
+	tick := tickAt(t, a, j, f, x, "0.001", false)
+	o := orderState(t, j, "so-retry")
+	if o.State != journal.SwapOrderActive || o.Attempts != 1 || o.NeedsReconcile || tick.Active != 1 || !strings.Contains(o.LastError, "not broadcast") {
+		t.Fatalf("first unbroadcast sell: %+v tick=%+v", o, tick)
+	}
+	if r, _ := j.GetOnchain("so-retry-sell-1"); r == nil || r.State != "failed" {
+		t.Fatalf("stale sell intent left submittable: %+v", r)
+	}
+	for i := 0; i < maxSwapOrderAttempts; i++ {
+		tickAt(t, a, j, f, x, "0.001", false)
+	}
+	o = orderState(t, j, "so-retry")
+	if f.prepares != maxSwapOrderAttempts || o.State != journal.SwapOrderFailed || o.NeedsReconcile || o.SellIntentID != fmt.Sprintf("so-retry-sell-%d", maxSwapOrderAttempts) {
+		t.Fatalf("after retries: %+v prepares=%d", o, f.prepares)
+	}
+}
+
+func TestSwapOrderNonPreparedSellNeverRetried(t *testing.T) {
+	for _, state := range []string{"sending", "sent", "unknown", "failed"} {
+		t.Run(state, func(t *testing.T) {
+			j := openSwapJournal(t)
+			a := &App{Now: time.Now}
+			f := &fakeSwapExec{}
+			x := journalSellExec(t, j, f)
+			x.submit = func(intent, digest string) error {
+				f.submits++
+				if err := j.BeginOnchain(intent, digest, soAgent); err != nil {
+					t.Fatal(err)
+				}
+				if state != "sending" {
+					if err := j.AdvanceOnchain(intent, "sending", state, ""); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return errors.New("boom")
+			}
+			newSwapOrder(t, j, "so-once", func(o *journal.SwapOrder) { o.StopLossPct = "10" })
+			tickAt(t, a, j, f, x, "0.001", false)
+			tickAt(t, a, j, f, x, "0.001", false)
+			o := orderState(t, j, "so-once")
+			if f.prepares != 1 || o.State != journal.SwapOrderFailed || o.NeedsReconcile != (state != "failed") {
+				t.Fatalf("%s: %+v prepares=%d", state, o, f.prepares)
+			}
+		})
+	}
+}
+
+func TestSwapOrderHighImpactDoesNotCountAttempts(t *testing.T) {
+	j := openSwapJournal(t)
+	a := &App{Now: time.Now}
+	f := &fakeSwapExec{prepareErr: output.Errorf(output.CodeRejected, "high impact").WithDetail("reason", highImpactReason)}
+	x := f.exec()
+	newSwapOrder(t, j, "so-impact", func(o *journal.SwapOrder) { o.StopLossPct = "10" })
+	for i := 0; i < maxSwapOrderAttempts+2; i++ {
+		tickAt(t, a, j, f, x, "0.001", false)
+	}
+	o := orderState(t, j, "so-impact")
+	if f.prepares != maxSwapOrderAttempts+2 || o.State != journal.SwapOrderActive || o.Attempts != 0 {
+		t.Fatalf("high impact: %+v prepares=%d", o, f.prepares)
+	}
+}
+
+func TestSwapOrderWatchKeepsCheckingResumedOrder(t *testing.T) {
+	j := openSwapJournal(t)
+	sleeps := 0
+	a := &App{Now: time.Now, Sleep: func(context.Context, time.Duration) error {
+		sleeps++
+		if sleeps >= 3 {
+			return context.Canceled
+		}
+		return nil
+	}}
+	f := &fakeSwapExec{price: "0.01"}
+	x := f.exec()
+	newSwapOrder(t, j, "so-resume", func(o *journal.SwapOrder) { o.StopLossPct = "10" })
+	trigger := "stop_loss"
+	if err := j.TransitionSwapOrder("so-resume", journal.SwapOrderActive, journal.SwapOrderTriggered, journal.SwapOrderPatch{Trigger: &trigger}); err != nil {
+		t.Fatal(err)
+	}
+	ticks, last, stopped, err := a.watchSwapOrders(context.Background(), j, x, soAgent, false, false, time.Second, func(string, ...any) {})
+	if err != nil || stopped != "interrupted" || ticks != 3 || last.Active != 1 || len(last.Orders) != 1 || last.Orders[0].Value != "1" {
+		t.Fatalf("watch: ticks=%d stopped=%s last=%+v err=%v", ticks, stopped, last, err)
+	}
+	if o := orderState(t, j, "so-resume"); o.State != journal.SwapOrderActive || o.LastValue != "1" || f.prepares != 0 {
+		t.Fatalf("resumed order not evaluated: %+v", o)
+	}
+}
+
+func TestJournalBasisSkipsOtherRecipients(t *testing.T) {
+	j := openSwapJournal(t)
+	for _, b := range []struct{ id, recipient, amount, minOut string }{
+		{"buy-mine", soAgent, "1000", "10"},
+		{"buy-gift", "0x2222222222222222222222222222222222222222", "9000", "10"},
+	} {
+		in := journal.OnchainIntent{ID: b.id, Kind: "swap", ChainID: 42161, Sender: soAgent, Recipient: b.recipient, Token: "native", OutToken: soToken, Amount: b.amount, MinOut: b.minOut, Templates: []journal.OnchainTemplate{{ChainID: 42161, To: soToken, Value: "0x0"}}}
+		if _, err := j.CreateOnchain(in); err != nil {
+			t.Fatal(err)
+		}
+		if err := j.AdvanceOnchain(b.id, "prepared", "confirmed", ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	basis, err := journalBasis(j, soAgent, 42161, soToken, big.NewInt(10))
+	if err != nil || basis == nil || basis.Cmp(big.NewRat(1000, 1_000_000_000_000_000_000)) != 0 {
+		t.Fatalf("basis: %v %v", basis, err)
 	}
 }

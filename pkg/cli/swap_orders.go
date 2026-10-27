@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -25,7 +26,9 @@ const (
 	defaultSwapOrderInterval = 15 * time.Second
 	minSwapOrderInterval     = time.Second
 	// maxSwapOrderAttempts bounds re-triggering after a sell could not be
-	// prepared (no route, high impact, balance). Nothing is signed then.
+	// prepared (no route, balance) or was prepared but never broadcast.
+	// Nothing is signed then. High-impact refusals are not counted: the
+	// order stays armed and retries every check.
 	maxSwapOrderAttempts = 3
 	// tokenPriceBatch is the most tokens one GetTokenPrice request carries.
 	tokenPriceBatch = 25
@@ -132,7 +135,7 @@ func journalBasis(j *journal.Journal, agent string, chain uint64, token string, 
 	}
 	spent, got := new(big.Int), new(big.Int)
 	for _, r := range swaps {
-		if r.Token != "native" && !strings.EqualFold(r.Token, nativeTokenAlias(chain)) || !strings.EqualFold(r.OutToken, token) {
+		if r.Token != "native" && !strings.EqualFold(r.Token, nativeTokenAlias(chain)) || !strings.EqualFold(r.OutToken, token) || !strings.EqualFold(r.Recipient, agent) {
 			continue
 		}
 		in, ok1 := new(big.Int).SetString(r.Amount, 10)
@@ -195,14 +198,16 @@ func (a *App) tokenPrices(e *env, chain uint64, tokens []string) (map[string]*bi
 		}
 	}
 	native, ok := usd[nativeKey]
-	if !ok {
+	nativeRat := new(big.Rat).SetFloat64(native)
+	if !ok || nativeRat == nil {
 		return nil, output.Errorf(output.CodeUpstream, "no native price on chain %d", chain).WithRetry()
 	}
 	out := map[string]*big.Rat{}
 	for _, t := range tokens {
 		if v, ok := usd[strings.ToLower(t)]; ok {
-			r := new(big.Rat).SetFloat64(v)
-			out[strings.ToLower(t)] = r.Quo(r, new(big.Rat).SetFloat64(native))
+			if r := new(big.Rat).SetFloat64(v); r != nil {
+				out[strings.ToLower(t)] = r.Quo(r, nativeRat)
+			}
 		}
 	}
 	return out, nil
@@ -558,22 +563,41 @@ type swapOrderTick struct {
 // one triggered order at a time. In dry-run mode it reads prices only.
 func (a *App) swapOrdersTick(j *journal.Journal, x swapOrderExec, agent string, dryRun bool) (*swapOrderTick, error) {
 	tick := &swapOrderTick{At: a.Now().UTC().Format(time.RFC3339Nano), DryRun: dryRun, Orders: []swapOrderTickEntry{}}
-	open, err := j.ListSwapOrders(journal.SwapOrderActive, journal.SwapOrderTriggered, journal.SwapOrderExecuting)
-	if err != nil {
-		return nil, output.Wrap(output.CodeInternal, err, "journal")
-	}
-	mine := []*journal.SwapOrder{}
-	for _, o := range open {
-		if strings.EqualFold(o.Agent, agent) {
-			mine = append(mine, o)
+	listMine := func() ([]*journal.SwapOrder, error) {
+		open, err := j.ListSwapOrders(journal.SwapOrderActive, journal.SwapOrderTriggered, journal.SwapOrderExecuting)
+		if err != nil {
+			return nil, output.Wrap(output.CodeInternal, err, "journal")
 		}
+		mine := []*journal.SwapOrder{}
+		for _, o := range open {
+			if strings.EqualFold(o.Agent, agent) {
+				mine = append(mine, o)
+			}
+		}
+		return mine, nil
+	}
+	mine, err := listMine()
+	if err != nil {
+		return nil, err
 	}
 	// Orders a previous watcher left mid-flight are resolved from the journal
-	// first, never resubmitted.
+	// first, never resubmitted. Orders resumed to active are then evaluated
+	// from a fresh read.
 	if !dryRun {
+		resumed := map[string]bool{}
 		for _, o := range mine {
 			if o.State != journal.SwapOrderActive {
-				tick.Orders = append(tick.Orders, a.resumeSwapOrder(j, x, o))
+				entry := a.resumeSwapOrder(j, x, o)
+				if entry.State == journal.SwapOrderActive {
+					resumed[o.ID] = true
+				} else {
+					tick.Orders = append(tick.Orders, entry)
+				}
+			}
+		}
+		if len(resumed) > 0 {
+			if mine, err = listMine(); err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -679,14 +703,15 @@ func (a *App) sellSwapOrder(j *journal.Journal, x swapOrderExec, o *journal.Swap
 	entry.State = journal.SwapOrderTriggered
 	intent, digest, err := x.prepare(o)
 	if err != nil {
-		msg := "prepare: " + output.As(err).Message
+		oe := output.As(err)
+		msg := "prepare: " + oe.Message
 		entry.Error = msg
-		to := journal.SwapOrderActive
-		if o.Attempts+1 >= maxSwapOrderAttempts {
+		to, count := journal.SwapOrderActive, oe.Details["reason"] != highImpactReason
+		if count && o.Attempts+1 >= maxSwapOrderAttempts {
 			to = journal.SwapOrderFailed
 			msg = fmt.Sprintf("%s (gave up after %d attempts; nothing was signed)", msg, maxSwapOrderAttempts)
 		}
-		if terr := j.TransitionSwapOrder(o.ID, journal.SwapOrderTriggered, to, journal.SwapOrderPatch{LastError: &msg, CountAttempt: true}); terr == nil {
+		if terr := j.TransitionSwapOrder(o.ID, journal.SwapOrderTriggered, to, journal.SwapOrderPatch{LastError: &msg, CountAttempt: count}); terr == nil {
 			entry.State = to
 		}
 		return entry
@@ -697,24 +722,37 @@ func (a *App) sellSwapOrder(j *journal.Journal, x swapOrderExec, o *journal.Swap
 	}
 	entry.State, entry.SellIntentID = journal.SwapOrderExecuting, intent
 	submitErr := x.submit(intent, digest)
-	return a.settleSwapOrder(j, x, o.ID, intent, submitErr, entry)
+	return a.settleSwapOrder(j, x, o.ID, o.Attempts, intent, submitErr, entry)
 }
 
 // settleSwapOrder moves an executing order to filled or failed from the
-// sell intent's journal state. Anything that may have broadcast without a
-// confirmed receipt is failed with needs_reconcile and never retried.
-func (a *App) settleSwapOrder(j *journal.Journal, x swapOrderExec, id, intent string, submitErr error, entry swapOrderTickEntry) swapOrderTickEntry {
+// sell intent's journal state. A sell that is still prepared (never signed)
+// re-arms the order, up to maxSwapOrderAttempts. Anything that may have
+// broadcast without a confirmed receipt is failed with needs_reconcile and
+// never retried.
+func (a *App) settleSwapOrder(j *journal.Journal, x swapOrderExec, id string, attempts int, intent string, submitErr error, entry swapOrderTickEntry) swapOrderTickEntry {
 	state, err := x.intentState(intent)
 	if err != nil {
 		state = "unknown"
 	}
 	unknown := submitErr != nil && output.As(submitErr).Code == output.CodeOutcomeUnknown
+	if state == "prepared" && !unknown && attempts+1 < maxSwapOrderAttempts {
+		msg := "sell was not broadcast"
+		if submitErr != nil {
+			msg += ": " + output.As(submitErr).Message
+		}
+		if err := j.TransitionSwapOrder(id, journal.SwapOrderExecuting, journal.SwapOrderActive, journal.SwapOrderPatch{LastError: &msg, CountAttempt: true}); err == nil {
+			entry.State, entry.Error = journal.SwapOrderActive, msg
+			return entry
+		}
+		state = "unknown"
+	}
 	to, reconcile, msg := journal.SwapOrderFailed, false, ""
 	switch {
 	case state == "confirmed" && !unknown:
 		to = journal.SwapOrderFilled
 	case state == "prepared" && !unknown:
-		msg = "sell was not broadcast"
+		msg = fmt.Sprintf("sell was not broadcast (gave up after %d attempts; nothing was signed)", maxSwapOrderAttempts)
 	case state == "failed" && !unknown:
 		msg = "sell failed"
 	default:
@@ -724,7 +762,7 @@ func (a *App) settleSwapOrder(j *journal.Journal, x swapOrderExec, id, intent st
 	if submitErr != nil {
 		msg = strings.TrimPrefix(msg+": "+output.As(submitErr).Message, ": ")
 	}
-	if err := j.TransitionSwapOrder(id, journal.SwapOrderExecuting, to, journal.SwapOrderPatch{LastError: &msg, NeedsReconcile: &reconcile}); err != nil {
+	if err := j.TransitionSwapOrder(id, journal.SwapOrderExecuting, to, journal.SwapOrderPatch{LastError: &msg, NeedsReconcile: &reconcile, CountAttempt: state == "prepared" && !unknown}); err != nil {
 		entry.Error = "settling: " + err.Error()
 		return entry
 	}
@@ -747,7 +785,7 @@ func (a *App) resumeSwapOrder(j *journal.Journal, x swapOrderExec, o *journal.Sw
 		}
 		return entry
 	}
-	return a.settleSwapOrder(j, x, o.ID, o.SellIntentID, nil, entry)
+	return a.settleSwapOrder(j, x, o.ID, o.Attempts, o.SellIntentID, nil, entry)
 }
 
 func (a *App) cmdSwapOrdersWatch(e *env) (*result, error) {
@@ -790,44 +828,9 @@ func (a *App) cmdSwapOrdersWatch(e *env) (*result, error) {
 	loop := *e
 	loop.ctx = ctx
 	x := a.defaultSwapOrderExec(&loop, j)
-	ticks := 0
-	var last *swapOrderTick
-	stopped := "once"
-	for {
-		tick, terr := a.swapOrdersTick(j, x, w.agent, dryRun)
-		ticks++
-		if tick != nil {
-			last = tick
-			if !once {
-				for _, o := range tick.Orders {
-					line := fmt.Sprintf("%s %s %s value=%s peak=%s", tick.At, o.OrderID, o.State, orDash(o.Value), orDash(o.Peak))
-					if o.Trigger != "" {
-						line += " trigger=" + o.Trigger
-					}
-					if o.Error != "" {
-						line += " error=" + o.Error
-					}
-					e.diag("%s", line)
-				}
-			}
-		}
-		if once {
-			if terr != nil {
-				return nil, terr
-			}
-			break
-		}
-		if terr != nil {
-			e.diag("%s tick error: %s", a.Now().UTC().Format(time.RFC3339), output.As(terr).Message)
-		}
-		if tick != nil && tick.Active == 0 {
-			stopped = "no_active_orders"
-			break
-		}
-		if err := a.Sleep(ctx, interval); err != nil {
-			stopped = "interrupted"
-			break
-		}
+	ticks, last, stopped, err := a.watchSwapOrders(ctx, j, x, w.agent, dryRun, once, interval, e.diag)
+	if err != nil {
+		return nil, err
 	}
 	data := map[string]any{"ticks": ticks, "stopped": stopped, "dry_run": dryRun, "last": last}
 	return &result{data: data, human: func(out io.Writer) {
@@ -853,4 +856,42 @@ func (a *App) cmdSwapOrdersWatch(e *env) (*result, error) {
 			fmt.Fprintf(out, "stopped after %d checks: %s\n", ticks, strings.ReplaceAll(stopped, "_", " "))
 		}
 	}}, nil
+}
+
+// watchSwapOrders runs ticks until once, no active orders remain, or ctx or
+// Sleep stops it. It returns the tick count, last tick and stop reason.
+func (a *App) watchSwapOrders(ctx context.Context, j *journal.Journal, x swapOrderExec, agent string, dryRun, once bool, interval time.Duration, diag func(string, ...any)) (int, *swapOrderTick, string, error) {
+	ticks := 0
+	var last *swapOrderTick
+	for {
+		tick, terr := a.swapOrdersTick(j, x, agent, dryRun)
+		ticks++
+		if tick != nil {
+			last = tick
+			if !once {
+				for _, o := range tick.Orders {
+					line := fmt.Sprintf("%s %s %s value=%s peak=%s", tick.At, o.OrderID, o.State, orDash(o.Value), orDash(o.Peak))
+					if o.Trigger != "" {
+						line += " trigger=" + o.Trigger
+					}
+					if o.Error != "" {
+						line += " error=" + o.Error
+					}
+					diag("%s", line)
+				}
+			}
+		}
+		if once {
+			return ticks, last, "once", terr
+		}
+		if terr != nil {
+			diag("%s tick error: %s", a.Now().UTC().Format(time.RFC3339), output.As(terr).Message)
+		}
+		if tick != nil && tick.Active == 0 {
+			return ticks, last, "no_active_orders", nil
+		}
+		if err := a.Sleep(ctx, interval); err != nil {
+			return ticks, last, "interrupted", nil
+		}
+	}
 }

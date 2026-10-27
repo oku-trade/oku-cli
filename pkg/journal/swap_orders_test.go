@@ -173,3 +173,39 @@ func TestListOnchainSwapsConfirmedOnly(t *testing.T) {
 		t.Fatal("other chain included")
 	}
 }
+
+func TestSwapOrderExecutingToActiveOnlyWhilePrepared(t *testing.T) {
+	j := open(t)
+	agent := "0x1111111111111111111111111111111111111111"
+	for _, id := range []string{"so-p", "so-s"} {
+		if _, err := j.CreateSwapOrder(swapOrder(id)); err != nil {
+			t.Fatal(err)
+		}
+		intent, trigger := id+"-sell-1", "stop_loss"
+		r, err := j.CreateOnchain(OnchainIntent{ID: intent, Kind: "swap", ChainID: 42161, Sender: agent, Recipient: agent, Token: "0x912CE59144191C1204E64559FE8253a0e49E6548", OutToken: "native", Amount: "1", Templates: []OnchainTemplate{{ChainID: 42161, To: "0x2222222222222222222222222222222222222222", Value: "0x0"}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if id == "so-s" {
+			if err = j.BeginOnchain(intent, r.Digest, agent); err != nil {
+				t.Fatal(err)
+			}
+		}
+		_ = j.TransitionSwapOrder(id, SwapOrderActive, SwapOrderTriggered, SwapOrderPatch{Trigger: &trigger})
+		if err = j.TransitionSwapOrder(id, SwapOrderTriggered, SwapOrderExecuting, SwapOrderPatch{SellIntentID: &intent}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := j.TransitionSwapOrder("so-s", SwapOrderExecuting, SwapOrderActive, SwapOrderPatch{CountAttempt: true}); !errors.Is(err, ErrConflict) {
+		t.Fatalf("re-armed a sending sell: %v", err)
+	}
+	if err := j.TransitionSwapOrder("so-p", SwapOrderExecuting, SwapOrderActive, SwapOrderPatch{CountAttempt: true}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := j.GetSwapOrder("so-p"); got.State != SwapOrderActive || got.Attempts != 1 {
+		t.Fatalf("re-armed: %+v", got)
+	}
+	if r, _ := j.GetOnchain("so-p-sell-1"); r.State != "failed" {
+		t.Fatalf("stale intent: %s", r.State)
+	}
+}

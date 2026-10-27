@@ -58,8 +58,10 @@ Exits are client-side and **only fire while `oku swap orders watch` runs**. Tell
 
 - **Cost basis.** Take-profit and stop-loss are relative to the cost basis: confirmed journal buys (`basis_source: journal`, an upper bound from minimum outputs), or `--basis NATIVE` when the journal has no buy. A trailing stop is relative to the highest value seen since creation.
 - **Selling.** A triggered sell uses the same prepare and submit guardrails as a manual swap. Creating an order and running watch are both fund movements under the user's authorization.
+- **Stop-loss is not a guaranteed price.** Checks run once per interval on oracle prices and the sell is a market swap, so on a fast drop it can fill well below the stop. If the quote then exceeds `--max-loss-bps`, the sell is refused and the order stays `active`, retrying every check without using an attempt. Tell the user this, and never suggest `--allow-high-impact` to make a stop fire.
+- **`--all`.** Triggers are valued on the balance recorded at creation, but the sell uses the full balance held at trigger time.
 - **Dry run.** Use `--dry-run` to show what would trigger without trading.
-- **Failed sells.** A `failed` order with `needs_reconcile: true` had an unknown submit outcome. Run `oku swap status --intent SELL_INTENT_ID`, and never recreate or retry the sell before it resolves.
+- **Failed sells.** A sell that could not be prepared or was never broadcast re-arms the order, up to 3 attempts. A `failed` order with `needs_reconcile: true` had an unknown submit outcome. Run `oku swap status --intent SELL_INTENT_ID`, and never recreate or retry the sell before it resolves.
 
 ## Bridge between EVM chains
 
