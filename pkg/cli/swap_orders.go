@@ -270,18 +270,20 @@ func (a *App) cmdSwapOrdersCreate(e *env) (*result, error) {
 		return nil, output.Errorf(output.CodeInvalidArgument, "unsupported token decimals")
 	}
 	decimals := int(dec.Int64())
-	var size *big.Int
+	balance, err := rpc.Call(ctx, chain, token, "0x70a08231"+strings.Repeat("0", 24)+strings.ToLower(w.agent[2:]))
+	if err != nil {
+		return nil, output.Wrap(output.CodeUpstream, err, "reading token balance")
+	}
+	size := balance
 	if all {
-		size, err = rpc.Call(ctx, chain, token, "0x70a08231"+strings.Repeat("0", 24)+strings.ToLower(w.agent[2:]))
-		if err != nil {
-			return nil, output.Wrap(output.CodeUpstream, err, "reading token balance")
-		}
 		if size.Sign() <= 0 {
 			return nil, output.Errorf(output.CodeInsufficientBalance, "agent holds none of %s on chain %d", token, chain)
 		}
 		amount = "all"
 	} else if size, err = parseUnits(amount, decimals); err != nil {
 		return nil, output.Wrap(output.CodeInvalidDecimal, err, "amount")
+	} else if size.Cmp(balance) > 0 {
+		return nil, output.Errorf(output.CodeInsufficientBalance, "--amount %s exceeds the agent balance of %s on chain %d", amount, formatUnits(balance, decimals), chain)
 	}
 	j, err := openJournal(w.profile)
 	if err != nil {
@@ -318,6 +320,9 @@ func (a *App) cmdSwapOrdersCreate(e *env) (*result, error) {
 	created, err := j.CreateSwapOrder(o)
 	if errors.Is(err, journal.ErrConflict) {
 		return nil, output.Errorf(output.CodeIntentConflict, "swap order %s already exists", id)
+	}
+	if errors.Is(err, journal.ErrSwapOrderAllConflict) {
+		return nil, output.Errorf(output.CodeIntentConflict, "an open swap order already sells all of %s on chain %d (%s); cancel it or combine the exits into one order", token, chain, strings.TrimPrefix(err.Error(), journal.ErrSwapOrderAllConflict.Error()+": "))
 	}
 	if err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "creating swap order")

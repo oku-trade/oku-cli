@@ -86,7 +86,13 @@ func scanSwapOrder(row interface{ Scan(...any) error }) (*SwapOrder, error) {
 	return o, nil
 }
 
-// CreateSwapOrder stores a new active order.
+// ErrSwapOrderAllConflict is returned by CreateSwapOrder when another open
+// order already sells the whole balance of the same agent, chain and token.
+var ErrSwapOrderAllConflict = errors.New("another open order already sells all of this token")
+
+// CreateSwapOrder stores a new active order. An "all" order is refused with
+// ErrSwapOrderAllConflict while another open "all" order exists for the same
+// agent, chain and token, checked in the same transaction as the insert.
 func (j *Journal) CreateSwapOrder(o SwapOrder) (*SwapOrder, error) {
 	if !trading.ValidIntentID(o.ID) || o.Agent == "" || o.ChainID == 0 || o.Token == "" || o.Amount == "" || o.Size == "" {
 		return nil, errors.New("invalid swap order")
@@ -98,12 +104,30 @@ func (j *Journal) CreateSwapOrder(o SwapOrder) (*SwapOrder, error) {
 	o.State, o.CreatedAt, o.UpdatedAt = SwapOrderActive, now, now
 	o.Agent = strings.ToLower(o.Agent)
 	o.Trigger, o.SellIntentID, o.NeedsReconcile, o.LastError, o.Attempts = "", "", false, "", 0
-	_, err := j.db.Exec(`INSERT INTO swap_orders(profile,`+swapOrderColumns+`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+	tx, err := j.begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	if o.Amount == "all" {
+		var other string
+		err = tx.QueryRow(`SELECT order_id FROM swap_orders WHERE profile=? AND agent=? AND chain_id=? AND lower(token)=lower(?) AND amount='all' AND state IN ('active','triggered','executing') LIMIT 1`, j.binding.Profile, o.Agent, o.ChainID, o.Token).Scan(&other)
+		if err == nil {
+			return nil, fmt.Errorf("%w: %s", ErrSwapOrderAllConflict, other)
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+	}
+	_, err = tx.Exec(`INSERT INTO swap_orders(profile,`+swapOrderColumns+`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		j.binding.Profile, o.ID, o.Agent, o.ChainID, o.Token, o.Decimals, o.Amount, o.Size, o.TakeProfitPct, o.StopLossPct, o.TrailingStopPct, o.SlippageBps, o.Basis, o.BasisSource, o.State, o.PeakValue, o.LastPrice, o.LastValue, o.LastQuoteAt, o.Trigger, o.SellIntentID, 0, o.LastError, 0, o.CreatedAt, o.UpdatedAt)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE") {
 			return nil, ErrConflict
 		}
+		return nil, err
+	}
+	if err = tx.Commit(); err != nil {
 		return nil, err
 	}
 	return &o, nil

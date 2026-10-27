@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"strings"
 	"testing"
 
 	"github.com/pressly/goose/v3"
 )
 
 func swapOrder(id string) SwapOrder {
-	return SwapOrder{ID: id, Agent: "0x1111111111111111111111111111111111111111", ChainID: 42161, Token: "0x912CE59144191C1204E64559FE8253a0e49E6548", Decimals: 18, Amount: "all", Size: "100", StopLossPct: "10", SlippageBps: 50, Basis: "0.01", BasisSource: "override"}
+	return SwapOrder{ID: id, Agent: "0x1111111111111111111111111111111111111111", ChainID: 42161, Token: "0x912CE59144191C1204E64559FE8253a0e49E6548", Decimals: 18, Amount: "100", Size: "100", StopLossPct: "10", SlippageBps: 50, Basis: "0.01", BasisSource: "override"}
 }
 
 func TestSwapOrderMigrationFromV7(t *testing.T) {
@@ -207,5 +208,35 @@ func TestSwapOrderExecutingToActiveOnlyWhilePrepared(t *testing.T) {
 	}
 	if r, _ := j.GetOnchain("so-p-sell-1"); r.State != "failed" {
 		t.Fatalf("stale intent: %s", r.State)
+	}
+}
+
+func TestSwapOrderSecondAllOrderConflicts(t *testing.T) {
+	j := open(t)
+	all := func(id string) SwapOrder { o := swapOrder(id); o.Amount = "all"; return o }
+	if _, err := j.CreateSwapOrder(all("so-all-1")); err != nil {
+		t.Fatal(err)
+	}
+	dup := all("so-all-2")
+	dup.Token = strings.ToLower(dup.Token)
+	if _, err := j.CreateSwapOrder(dup); !errors.Is(err, ErrSwapOrderAllConflict) || !strings.Contains(err.Error(), "so-all-1") {
+		t.Fatalf("second all order: %v", err)
+	}
+	if _, err := j.GetSwapOrder("so-all-2"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("refused order stored: %v", err)
+	}
+	part := swapOrder("so-part")
+	otherChain := all("so-base")
+	otherChain.ChainID = 8453
+	for _, o := range []SwapOrder{part, otherChain} {
+		if _, err := j.CreateSwapOrder(o); err != nil {
+			t.Fatalf("%s: %v", o.ID, err)
+		}
+	}
+	if err := j.TransitionSwapOrder("so-all-1", SwapOrderActive, SwapOrderCancelled, SwapOrderPatch{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := j.CreateSwapOrder(dup); err != nil {
+		t.Fatalf("all order after cancel: %v", err)
 	}
 }

@@ -1,10 +1,45 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
+	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
+
+// tokenRPC answers the chain-ID check, ERC-20 decimals() (6) and
+// balanceOf() with balance raw units. Other calls return 6, like decimalsRPC.
+func tokenRPC(t *testing.T, balance *big.Int) string {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Method string `json:"method"`
+			Params []any  `json:"params"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		switch req.Method {
+		case "eth_chainId":
+			fmt.Fprint(w, `{"result":"0xa4b1"}`)
+		case "eth_call":
+			call, _ := req.Params[0].(map[string]any)
+			data, _ := call["data"].(string)
+			switch {
+			case strings.HasPrefix(data, "0x313ce567"):
+				fmt.Fprintf(w, `{"result":"0x%064x"}`, 6)
+			case strings.HasPrefix(data, "0x70a08231"):
+				fmt.Fprintf(w, `{"result":"0x%064x"}`, balance)
+			default:
+				fmt.Fprintf(w, `{"result":"0x%064x"}`, 6)
+			}
+		default:
+			t.Errorf("unexpected RPC %s", req.Method)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
 
 // End to end through the executable: create an order, dry-run watch, then a
 // real watch tick that sells through the real swap prepare (guardrails) and
@@ -42,7 +77,7 @@ func TestSwapOrdersExecutableLifecycle(t *testing.T) {
 		}
 		return nil, false
 	}
-	h.rpcURL = decimalsRPC(t) // decimals 6
+	h.rpcURL = tokenRPC(t, big.NewInt(25_000_000)) // 25 tokens, decimals 6
 
 	if r := h.run("swap", "orders", "create", "--chain", "42161", "--token", token, "--amount", "10", "--stop-loss-pct", "10", "--json"); r.errCode() != "USAGE" || !strings.Contains(r.stdout, "--basis") {
 		t.Fatalf("missing basis must be USAGE: %s", r.stdout)
@@ -55,6 +90,9 @@ func TestSwapOrdersExecutableLifecycle(t *testing.T) {
 	}
 	if r := h.run("swap", "orders", "create", "--chain", "42161", "--token", "native", "--amount", "10", "--trailing-stop-pct", "5", "--json"); r.errCode() != "INVALID_ARGUMENT" {
 		t.Fatalf("native token must be refused: %s", r.stdout)
+	}
+	if r := h.run("swap", "orders", "create", "--chain", "42161", "--token", token, "--amount", "25.000001", "--trailing-stop-pct", "5", "--json"); r.errCode() != "INSUFFICIENT_BALANCE" || !strings.Contains(r.stdout, "balance of 25") {
+		t.Fatalf("amount above balance must be INSUFFICIENT_BALANCE: %s", r.stdout)
 	}
 	c := h.run("swap", "orders", "create", "--chain", "42161", "--token", token, "--amount", "10", "--stop-loss-pct", "10", "--trailing-stop-pct", "20", "--basis", "0.00025", "--id", "so-e2e", "--json")
 	d := c.data()
@@ -119,5 +157,35 @@ func TestSwapOrdersExecutableLifecycle(t *testing.T) {
 	}
 	if s := h.run("swap", "status", "--intent", "so-e2e-sell-1", "--json"); !strings.Contains(s.stdout, "so-e2e-sell-1") {
 		t.Fatalf("sell intent not in swap journal: %s", s.stdout)
+	}
+}
+
+func TestSwapOrdersCreateRefusesSecondAllOrder(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	token := "0x3333333333333333333333333333333333333333"
+	h.fake.routeReply = func(method string, _ map[string]any) (any, bool) {
+		if method == "GetTokenPrice" {
+			return map[string]any{"results": []any{
+				map[string]any{"chain": "eip155:42161", "address": eip7528Address, "priceUsd": 2000},
+				map[string]any{"chain": "eip155:42161", "address": token, "priceUsd": 0.05},
+			}}, true
+		}
+		return nil, false
+	}
+	h.rpcURL = tokenRPC(t, big.NewInt(25_000_000))
+	if r := h.run("swap", "orders", "create", "--chain", "42161", "--token", token, "--all", "--trailing-stop-pct", "5", "--id", "so-all-1", "--json"); r.code != 0 || r.data()["size"] != "25" {
+		t.Fatalf("first --all: %s %s", r.stdout, r.stderr)
+	}
+	r := h.run("swap", "orders", "create", "--chain", "42161", "--token", strings.ToUpper(token[:2])+token[2:], "--all", "--trailing-stop-pct", "10", "--id", "so-all-2", "--json")
+	if r.errCode() != "INTENT_CONFLICT" || !strings.Contains(r.stdout, "so-all-1") {
+		t.Fatalf("second --all must be INTENT_CONFLICT: %s", r.stdout)
+	}
+	if r := h.run("swap", "orders", "create", "--chain", "42161", "--token", token, "--amount", "5", "--trailing-stop-pct", "10", "--id", "so-part", "--json"); r.code != 0 {
+		t.Fatalf("--amount order next to --all: %s", r.stdout)
+	}
+	h.run("swap", "orders", "cancel", "--order", "so-all-1", "--json")
+	if r := h.run("swap", "orders", "create", "--chain", "42161", "--token", token, "--all", "--trailing-stop-pct", "10", "--id", "so-all-3", "--json"); r.code != 0 {
+		t.Fatalf("--all after cancel: %s", r.stdout)
 	}
 }
