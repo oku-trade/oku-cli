@@ -32,6 +32,8 @@ oku swap quote   --chain 42161 --from USDC --to WETH --amount 1
 oku swap prepare --chain 42161 --from USDC --to WETH --amount 1
 oku swap submit  --intent ID --digest SHA     # within ~3 minutes of prepare
 oku swap status  --intent ID
+oku swap orders create --chain 42161 --token TOKEN --all --stop-loss-pct 20   # client-side exit
+oku swap orders watch                          # exits only fire while this runs
 ```
 
 - Transaction swap quotes use the same `GetFlowstreamQuotes` stream as the web app and retain OkuRouter calldata verification.

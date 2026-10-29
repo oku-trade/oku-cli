@@ -23,15 +23,18 @@ func WriteCommandReference(w io.Writer) error {
 		return err
 	}
 	commands := make([]*urfave.Command, 0)
-	for _, command := range root.Commands {
-		if len(command.Commands) == 0 {
-			commands = append(commands, command)
-			continue
-		}
-		for _, child := range command.Commands {
-			commands = append(commands, &urfave.Command{Name: command.Name + " " + child.Name, Usage: child.Usage, Flags: child.Flags})
+	var walk func(prefix string, cmds []*urfave.Command)
+	walk = func(prefix string, cmds []*urfave.Command) {
+		for _, command := range cmds {
+			name := strings.TrimSpace(prefix + " " + command.Name)
+			if len(command.Commands) > 0 {
+				walk(name, command.Commands)
+				continue
+			}
+			commands = append(commands, &urfave.Command{Name: name, Usage: command.Usage, Flags: command.Flags})
 		}
 	}
+	walk("", root.Commands)
 	// urfave generates the completion command during setup. Document the
 	// supported static script generation entrypoints explicitly.
 	commands = append(commands, &urfave.Command{Name: "completion bash|zsh|fish", Usage: "Print a shell completion script; no network or credential access"})

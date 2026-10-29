@@ -45,6 +45,24 @@ Submitting signs and broadcasts with Privy, so get the user's approval first: ei
 
 `INSUFFICIENT_GAS`, `INSUFFICIENT_BALANCE`, or `REJECTED` with **nothing broadcast** closes the intent: correct the problem and prepare a new one. `REJECTED: no eligible route` lists per-route reasons in `error.details.routes`; with `retryable: true` (the CLI already re-quoted once), wait 30-60s and quote and prepare once more before skipping, and include those reasons when reporting. On `OUTCOME_UNKNOWN`, **never retry submit or prepare a replacement**. Run `oku swap status --intent ID --json` (for a batch, this locates it by nonce and confirms its receipt), or `oku swap reconcile --intent ID --tx-hash TX_HASH --json` only with an independently recovered hash; use the corresponding `send` or `deposit` status for those intents. An unresolved intent blocks new onchain intents for the agent on that chain only. Other chains remain available; a confirmed bridge source no longer gates its source chain. MCP exposes submit and reconcile only with `--allow-mutations`. Privy wallet spending permissions are independent of Hyperliquid agent trading limits.
 
+## Swap exit orders (take-profit, stop-loss, trailing stop)
+
+```sh
+oku swap orders create --chain 42161 --token TOKEN_ADDRESS --all --stop-loss-pct 20 --trailing-stop-pct 10 --json
+oku swap orders list --json
+oku swap orders watch --once --dry-run --json
+oku swap orders cancel --order ID --json
+```
+
+Exits are client-side and **only fire while `oku swap orders watch` runs**. Tell the user this, and do not describe an order as protecting the position unless a watcher is running. Each order sells the token for native.
+
+- **Cost basis.** Take-profit and stop-loss are relative to the cost basis: confirmed journal buys (`basis_source: journal`, an upper bound from minimum outputs), or `--basis NATIVE` when the journal has no buy. A trailing stop is relative to the highest value seen since creation.
+- **Selling.** A triggered sell uses the same prepare and submit guardrails as a manual swap. Creating an order and running watch are both fund movements under the user's authorization.
+- **Stop-loss is not a guaranteed price.** Checks run once per interval on oracle prices and the sell is a market swap, so on a fast drop it can fill well below the stop. If the quote then exceeds `--max-loss-bps`, the sell is refused and the order stays `active`, retrying every check without using an attempt. Tell the user this, and never suggest `--allow-high-impact` to make a stop fire.
+- **`--all`.** Triggers are valued on the balance recorded at creation, but the sell uses the full balance held at trigger time.
+- **Dry run.** Use `--dry-run` to show what would trigger without trading.
+- **Failed sells.** A sell that could not be prepared or was never broadcast re-arms the order, up to 3 attempts. A `failed` order with `needs_reconcile: true` had an unknown submit outcome. Run `oku swap status --intent SELL_INTENT_ID`, and never recreate or retry the sell before it resolves.
+
 ## Bridge between EVM chains
 
 Bridges move agent funds from a source chain to a destination chain using transaction routes (Circle CCTP, Across, Relay, Squid, Bungee, Mayan and others) or intent routes such as Aori.
