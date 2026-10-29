@@ -187,8 +187,15 @@ func TestListOnchainSwapsSkipsUnresolvedStates(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	intent := OnchainIntent{ID: "intent-confirmed", Kind: "swap", Intent: true, ChainID: 42161, Sender: agent, Recipient: agent, Token: "native", OutToken: "0x912CE59144191C1204E64559FE8253a0e49E6548", Amount: "1000", MinOut: "5"}
+	if _, err := j.CreateOnchain(intent); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := j.db.Exec(`UPDATE onchain_intents SET state='confirmed' WHERE intent_id='intent-confirmed'`); err != nil {
+		t.Fatal(err)
+	}
 	got, err := j.ListOnchainSwaps(agent, 42161)
-	if err != nil || len(got) != 2 || got[0].ID != "swap-confirmed" || got[1].ID != "swap-submitted" || got[1].State != "submitted" {
+	if err != nil || len(got) != 1 || got[0].ID != "swap-confirmed" {
 		t.Fatalf("swaps: %+v %v", got, err)
 	}
 	chains, err := j.ListOnchainSwapChains(agent)

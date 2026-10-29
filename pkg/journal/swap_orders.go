@@ -284,11 +284,12 @@ func (j *Journal) LockSwapOrderWatch() (func(), error) {
 	return config.TryLockPath(filepath.Join(j.base, "swap-orders-"+j.binding.Profile+".lock"))
 }
 
-// ListOnchainSwaps returns an agent's swaps on one chain that reached the
-// chain or the backend: confirmed onchain swaps and submitted intent swaps.
-// Prepared, in-flight, unknown and failed swaps are excluded.
+// ListOnchainSwaps returns an agent's confirmed transaction swaps on one
+// chain. Intent swaps are excluded: 'submitted' is terminal for them even when
+// the backend order later expires or refunds, and no fill is journaled.
+// Prepared, in-flight, unknown and failed swaps are excluded too.
 func (j *Journal) ListOnchainSwaps(agent string, chain uint64) ([]*OnchainRecord, error) {
-	rows, err := j.db.Query(`SELECT intent_json,state,COALESCE(fill_json,'') FROM onchain_intents WHERE profile=? AND kind='swap' AND state IN ('confirmed','submitted') AND agent=? AND chain_id=? ORDER BY created_at,intent_id`, j.binding.Profile, strings.ToLower(agent), chain)
+	rows, err := j.db.Query(`SELECT intent_json,state,COALESCE(fill_json,'') FROM onchain_intents WHERE profile=? AND kind='swap' AND state='confirmed' AND COALESCE(json_extract(intent_json,'$.intent_based'),0)=0 AND agent=? AND chain_id=? ORDER BY created_at,intent_id`, j.binding.Profile, strings.ToLower(agent), chain)
 	if err != nil {
 		return nil, err
 	}
@@ -317,7 +318,7 @@ func (j *Journal) ListOnchainSwaps(agent string, chain uint64) ([]*OnchainRecord
 // ListOnchainSwapChains returns the chains on which agent has swaps that
 // ListOnchainSwaps would return, in ascending order.
 func (j *Journal) ListOnchainSwapChains(agent string) ([]uint64, error) {
-	rows, err := j.db.Query(`SELECT DISTINCT chain_id FROM onchain_intents WHERE profile=? AND kind='swap' AND state IN ('confirmed','submitted') AND agent=? ORDER BY chain_id`, j.binding.Profile, strings.ToLower(agent))
+	rows, err := j.db.Query(`SELECT DISTINCT chain_id FROM onchain_intents WHERE profile=? AND kind='swap' AND state='confirmed' AND COALESCE(json_extract(intent_json,'$.intent_based'),0)=0 AND agent=? ORDER BY chain_id`, j.binding.Profile, strings.ToLower(agent))
 	if err != nil {
 		return nil, err
 	}

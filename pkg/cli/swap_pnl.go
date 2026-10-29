@@ -167,7 +167,7 @@ type pnlChain struct {
 	Warnings       []string    `json:"warnings,omitempty"`
 }
 
-const pnlMethod = "average cost over the agent's own confirmed (or intent-submitted) swaps in the local journal; realized PnL is net of the swap gas in fees; unrealized uses Oku oracle prices and is omitted when a held token has no price"
+const pnlMethod = "average cost over the agent's own confirmed transaction swaps in the local journal; realized PnL is net of the swap gas in fees; unrealized uses Oku oracle prices and is omitted when a held token has no price"
 
 func (a *App) cmdSwapPnL(e *env) (*result, error) {
 	w, err := agentWalletMetadata(e)

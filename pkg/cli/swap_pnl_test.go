@@ -129,6 +129,51 @@ func journalSwap(t *testing.T, j *journal.Journal, id, agent, in, out, amount, m
 	}
 }
 
+// journalIntentSwap journals an intent swap relayed to the backend, which
+// leaves it 'submitted' whatever the backend order later does.
+func journalIntentSwap(t *testing.T, j *journal.Journal, id, agent, in, out, amount, minOut string) {
+	t.Helper()
+	rec := journal.OnchainIntent{ID: id, Kind: "swap", Intent: true, ChainID: 42161, Sender: agent, Recipient: agent, Token: in, OutToken: out, Amount: amount, MinOut: minOut}
+	if _, err := j.CreateOnchain(rec); err != nil {
+		t.Fatal(err)
+	}
+	if err := j.AdvanceOnchain(id, "prepared", "unknown", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := j.RelayOnchain(id, "unknown", "order-"+id); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A submitted intent swap may still expire, refund or sit pending at the
+// backend, so it must not open a position, realize PnL or shift basis.
+func TestSwapPnLAndBasisIgnoreSubmittedIntentSwaps(t *testing.T) {
+	j := openSwapJournal(t)
+	a, e, _ := pnlEnv(t, pnlRPC(t), map[string]float64{"native": 2000, strings.ToLower(pnlUSDC): 0.5})
+	journalIntentSwap(t, j, "intent-expired", soAgent, "native", soToken, "9000", "10")
+	pc, err := a.chainPnL(e, j, soAgent, 42161, "")
+	if err != nil || len(pc.Tokens) != 0 {
+		t.Fatalf("intent-only pnl: %+v %v", pc, err)
+	}
+	if basis, err := journalBasis(j, soAgent, 42161, soToken, big.NewInt(10)); err != nil || basis != nil {
+		t.Fatalf("intent-only basis: %v %v", basis, err)
+	}
+	if chains, err := j.ListOnchainSwapChains(soAgent); err != nil || len(chains) != 0 {
+		t.Fatalf("intent-only chains: %v %v", chains, err)
+	}
+	journalSwap(t, j, "tx-buy", soAgent, "native", soToken, "1000", "10", "confirmed")
+	journalIntentSwap(t, j, "intent-refunded", soAgent, "native", soToken, "50000", "10")
+	journalIntentSwap(t, j, "intent-sell-pending", soAgent, soToken, "native", "5", "1")
+	basis, err := journalBasis(j, soAgent, 42161, soToken, big.NewInt(10))
+	if err != nil || basis == nil || basis.Cmp(big.NewRat(1000, 1_000_000_000_000_000_000)) != 0 {
+		t.Fatalf("basis with intents: %v %v", basis, err)
+	}
+	pc, err = a.chainPnL(e, j, soAgent, 42161, soToken)
+	if err != nil || len(pc.Tokens) != 1 || pc.Tokens[0].Swaps != 1 || pc.Tokens[0].CostBasis != "0.000000000000001" || pc.Tokens[0].RealizedNative != "0" {
+		t.Fatalf("pnl with intents: %+v %v", pc.Tokens, err)
+	}
+}
+
 // The received amount and gas of a confirmed swap come from its receipt's
 // Transfer logs into the agent, not from the journaled minimum output.
 func TestRecordSwapFillFromReceipt(t *testing.T) {
