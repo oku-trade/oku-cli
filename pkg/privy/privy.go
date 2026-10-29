@@ -64,7 +64,14 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-	return fmt.Sprintf("privy status %d: %s (%s)", e.Status, e.Code, e.RequestID)
+	message := fmt.Sprintf("privy status %d: %s", e.Status, e.Code)
+	if e.Description != "" && e.Description != e.Code {
+		message += ": " + e.Description
+	}
+	if e.RequestID != "" {
+		message += " (" + e.RequestID + ")"
+	}
+	return message
 }
 func (e *Error) Is(target error) bool {
 	switch target {
@@ -144,26 +151,7 @@ func (c *Client) requestURL(ctx context.Context, method, endpoint, token string,
 		return errors.New("privy response too large")
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		var payload struct {
-			Error            string `json:"error"`
-			ErrorDescription string `json:"error_description"`
-			Code             string `json:"code"`
-			Message          string `json:"message"`
-		}
-		_ = json.Unmarshal(raw, &payload)
-		code := payload.Error
-		if code == "" {
-			code = payload.Code
-		}
-		if code == "" {
-			code = http.StatusText(resp.StatusCode)
-		}
-		// Remote strings may echo credentials. Retain only recognized protocol codes.
-		switch code {
-		case "authorization_pending", "slow_down", "expired_token", "access_denied", "invalid_grant", "device_auth_not_enabled", "policy_violation", "zero_correct_authorization_signatures", "user_session_keys_expired", "no_valid_user_session_keys", "request_expired", "Too Many Requests", "Unauthorized", "Forbidden", "Not Found":
-		default:
-			code = "remote_error"
-		}
+		code, description := safeErrorMetadata(raw, resp.StatusCode)
 		// Remote IDs are untrusted and may contain reflected access, refresh,
 		// device or authorization secrets. Never render them.
 		retryAfter := resp.Header.Get("Retry-After")
@@ -172,7 +160,7 @@ func (c *Client) requestURL(ctx context.Context, method, endpoint, token string,
 				retryAfter = ""
 			}
 		}
-		return &Error{Status: resp.StatusCode, Code: code, Description: code, RetryAfter: retryAfter}
+		return &Error{Status: resp.StatusCode, Code: code, Description: description, RetryAfter: retryAfter}
 	}
 	if out != nil && len(raw) > 0 {
 		if err := json.Unmarshal(raw, out); err != nil {

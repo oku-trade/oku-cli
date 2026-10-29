@@ -52,6 +52,7 @@ oku swap orders create --chain 42161 --token TOKEN_ADDRESS --all --stop-loss-pct
 oku swap orders list --json
 oku swap orders watch --once --dry-run --json
 oku swap orders cancel --order ID --json
+oku swap pnl --chain 42161 --json
 ```
 
 Exits are client-side and **only fire while `oku swap orders watch` runs**. Tell the user this, and do not describe an order as protecting the position unless a watcher is running. Each order sells the token for native.
