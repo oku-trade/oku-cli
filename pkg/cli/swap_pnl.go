@@ -221,14 +221,32 @@ func (a *App) chainPnL(e *env, j *journal.Journal, agent string, chain uint64, t
 	}
 	meta := map[string]onchain.TokenMetadata{}
 	if len(addrs) > 0 {
+		rpc := onchain.HTTPRPC{Getenv: a.Getenv}
 		ctx, cancel := e.requestCtx()
-		details, merr := onchain.HTTPRPC{Getenv: a.Getenv}.TokenDetails(ctx, chain, agent, addrs)
+		details, merr := rpc.TokenDetails(ctx, chain, agent, addrs)
 		cancel()
-		if merr != nil {
-			pc.Warnings = append(pc.Warnings, "token metadata unavailable ("+merr.Error()+"); amounts are raw units")
-		}
 		for _, d := range details {
 			meta[strings.ToLower(d.Address)] = d
+		}
+		var unknown []string
+		for _, t := range addrs {
+			if _, ok := meta[t]; ok {
+				continue
+			}
+			ctx, cancel := e.requestCtx()
+			dec, derr := rpc.Call(ctx, chain, t, "0x313ce567")
+			cancel()
+			if derr != nil || !dec.IsInt64() || dec.Int64() < 0 || dec.Int64() > 36 {
+				unknown = append(unknown, t)
+				continue
+			}
+			meta[t] = onchain.TokenMetadata{Address: t, Decimals: int(dec.Int64())}
+		}
+		if merr != nil {
+			pc.Warnings = append(pc.Warnings, "wallet token balances unavailable ("+merr.Error()+")")
+		}
+		if len(unknown) > 0 {
+			pc.Warnings = append(pc.Warnings, "no decimals for "+strings.Join(unknown, ", ")+"; amounts are raw units and value is unknown")
 		}
 	}
 	native, prices, perr := a.oraclePrices(e, chain, addrs)
@@ -256,7 +274,9 @@ func (a *App) chainPnL(e *env, j *journal.Journal, agent string, chain uint64, t
 		if hasMeta {
 			dec = m.Decimals
 			row.Symbol, row.Decimals = m.Symbol, &m.Decimals
-			row.WalletBalance = formatUnits(m.Balance, dec)
+			if m.Balance != nil {
+				row.WalletBalance = formatUnits(m.Balance, dec)
+			}
 		}
 		qty := func(r *big.Rat) string { return pnl.Decimal(pnl.Scale(r, dec), dec) }
 		row.Held = qty(p.Held)
