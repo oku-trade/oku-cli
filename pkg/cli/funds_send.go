@@ -13,6 +13,7 @@ import (
 	"github.com/oku-trade/oku-cli/pkg/journal"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
+	"github.com/oku-trade/oku-cli/pkg/privy"
 	urfave "github.com/urfave/cli/v3"
 )
 
@@ -48,7 +49,17 @@ func executionError(err error, kind string, chain uint64, token string) error {
 	case errors.Is(err, onchain.ErrReverted):
 		return output.Wrap(output.CodeRejected, err, "onchain transaction reverted")
 	}
-	return output.Wrap(output.CodeOutcomeUnknown, err, "never resubmit; run status, or reconcile with the transaction hash")
+	result := output.Wrap(output.CodeOutcomeUnknown, err, "never resubmit; run status, or reconcile with the transaction hash")
+	var upstream *privy.Error
+	if errors.As(err, &upstream) {
+		result.WithDetail("upstream", map[string]any{
+			"provider": "privy",
+			"status":   upstream.Status,
+			"code":     upstream.Code,
+			"cause":    upstream.Description,
+		})
+	}
+	return result
 }
 
 // onchainExecBudget bounds broadcasting plus confirming every step of an

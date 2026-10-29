@@ -366,9 +366,9 @@ func (x Executor) executeFrom(ctx context.Context, in journal.OnchainIntent, sta
 		hash, err := x.Sender.SendTransaction(ctx, x.WalletID, tx)
 		if err != nil {
 			if jerr := x.Journal.AdvanceOnchain(in.ID, "sending", "unknown", ""); jerr != nil {
-				return fmt.Errorf("%w: broadcast ambiguous: %v; journal failure: %v", ErrUnknown, err, jerr)
+				return fmt.Errorf("%w: broadcast ambiguous: %w; journal failure: %v", ErrUnknown, err, jerr)
 			}
-			return fmt.Errorf("%w: %v", ErrUnknown, err)
+			return fmt.Errorf("%w: %w", ErrUnknown, err)
 		}
 		_, hexErr := hex.DecodeString(strings.TrimPrefix(hash, "0x"))
 		if len(hash) != 66 || !strings.HasPrefix(hash, "0x") || hexErr != nil {
@@ -501,9 +501,9 @@ func (x Executor) ExecuteBatch(ctx context.Context, in journal.OnchainIntent, se
 	id, err := sender.SendCalls(ctx, x.WalletID, in.ChainID, calls)
 	if err != nil {
 		if jerr := x.Journal.AdvanceOnchain(in.ID, "sending", "unknown", ""); jerr != nil {
-			return fmt.Errorf("%w: batch ambiguous: %v; journal failure: %v", ErrUnknown, err, jerr)
+			return fmt.Errorf("%w: batch ambiguous: %w; journal failure: %v", ErrUnknown, err, jerr)
 		}
-		return fmt.Errorf("%w: %v", ErrUnknown, err)
+		return fmt.Errorf("%w: %w", ErrUnknown, err)
 	}
 	batch.TransactionID = id
 	_ = x.Journal.SetOnchainBatch(in.ID, "sending", batch) // informational only
