@@ -175,6 +175,62 @@ func TestListOnchainSwapsConfirmedOnly(t *testing.T) {
 	}
 }
 
+func TestListOnchainSwapsSkipsUnresolvedStates(t *testing.T) {
+	j := open(t)
+	agent := "0x1111111111111111111111111111111111111111"
+	for _, s := range []string{"confirmed", "submitted", "unknown", "failed", "sent", "prepared", "sending"} {
+		in := OnchainIntent{ID: "swap-" + s, Kind: "swap", ChainID: 42161, Sender: agent, Recipient: agent, Token: "native", OutToken: "0x912CE59144191C1204E64559FE8253a0e49E6548", Amount: "1000", MinOut: "5", Templates: []OnchainTemplate{{ChainID: 42161, To: "0x2222222222222222222222222222222222222222", Value: "0x0"}}}
+		if _, err := j.CreateOnchain(in); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := j.db.Exec(`UPDATE onchain_intents SET state=? WHERE intent_id=?`, s, in.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := j.ListOnchainSwaps(agent, 42161)
+	if err != nil || len(got) != 2 || got[0].ID != "swap-confirmed" || got[1].ID != "swap-submitted" || got[1].State != "submitted" {
+		t.Fatalf("swaps: %+v %v", got, err)
+	}
+	chains, err := j.ListOnchainSwapChains(agent)
+	if err != nil || len(chains) != 1 || chains[0] != 42161 {
+		t.Fatalf("chains: %v %v", chains, err)
+	}
+}
+
+func TestRecordFillOnceOnConfirmedSwap(t *testing.T) {
+	j := open(t)
+	agent := "0x1111111111111111111111111111111111111111"
+	in := OnchainIntent{ID: "fill-1", Kind: "swap", ChainID: 42161, Sender: agent, Recipient: agent, Token: "native", OutToken: "0x912CE59144191C1204E64559FE8253a0e49E6548", Amount: "1000", MinOut: "5", Templates: []OnchainTemplate{{ChainID: 42161, To: "0x2222222222222222222222222222222222222222", Value: "0x0"}}}
+	if _, err := j.CreateOnchain(in); err != nil {
+		t.Fatal(err)
+	}
+	f := Fill{Received: "7", Gas: "11", Source: "transfer_logs"}
+	if err := j.RecordFill("fill-1", f); !errors.Is(err, ErrConflict) {
+		t.Fatalf("fill before confirmation: %v", err)
+	}
+	if err := j.AdvanceOnchain("fill-1", "prepared", "confirmed", ""); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := j.GetOnchain("fill-1")
+	if err := j.RecordFill("fill-1", Fill{Received: "x", Gas: "1"}); err == nil {
+		t.Fatal("invalid amount accepted")
+	}
+	if err := j.RecordFill("fill-1", f); err != nil {
+		t.Fatal(err)
+	}
+	if err := j.RecordFill("fill-1", Fill{Received: "9", Gas: "1"}); !errors.Is(err, ErrConflict) {
+		t.Fatalf("second fill: %v", err)
+	}
+	r, err := j.GetOnchain("fill-1")
+	if err != nil || r.Fill == nil || r.Fill.Received != "7" || r.Fill.Gas != "11" || r.Fill.RecordedAt == "" || r.Digest != before.Digest {
+		t.Fatalf("fill: %+v %v", r, err)
+	}
+	swaps, err := j.ListOnchainSwaps(agent, 42161)
+	if err != nil || len(swaps) != 1 || swaps[0].Fill == nil || swaps[0].Fill.Received != "7" {
+		t.Fatalf("listed fill: %+v %v", swaps, err)
+	}
+}
+
 func TestSwapOrderExecutingToActiveOnlyWhilePrepared(t *testing.T) {
 	j := open(t)
 	agent := "0x1111111111111111111111111111111111111111"

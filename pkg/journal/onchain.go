@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
@@ -68,7 +69,18 @@ type OnchainRecord struct {
 	StepInFlight    bool     `json:"step_in_flight,omitempty"`
 	ApprovalSkipped bool     `json:"approval_skipped,omitempty"`
 	BackendOrderID  string   `json:"backend_order_id,omitempty"`
+	Fill            *Fill    `json:"fill,omitempty"`
 	UpdatedAt       string   `json:"updated_at"`
+}
+
+// Fill is what a confirmed swap actually delivered, read from its receipts.
+// Received is in raw units of the output token; Gas is the native wei paid
+// by every recorded transaction of the intent.
+type Fill struct {
+	Received   string `json:"received"`
+	Gas        string `json:"gas"`
+	Source     string `json:"source"`
+	RecordedAt string `json:"recorded_at"`
 }
 
 // Batch records an atomic wallet_sendCalls execution. Nonce is the agent's
@@ -105,9 +117,9 @@ func (j *Journal) GetOnchain(id string) (*OnchainRecord, error) {
 	if !trading.ValidIntentID(id) {
 		return nil, ErrNotFound
 	}
-	var raw, hashes, digest, state, order, updated, batch, mode string
+	var raw, hashes, digest, state, order, updated, batch, mode, fill string
 	var step, inflight, skipped int
-	err := j.db.QueryRow(`SELECT intent_json,tx_hashes,digest,state,COALESCE(backend_order_id,''),updated_at,COALESCE(batch_json,''),next_step,execution_mode,step_inflight,approval_skipped FROM onchain_intents WHERE profile=? AND intent_id=?`, j.binding.Profile, id).Scan(&raw, &hashes, &digest, &state, &order, &updated, &batch, &step, &mode, &inflight, &skipped)
+	err := j.db.QueryRow(`SELECT intent_json,tx_hashes,digest,state,COALESCE(backend_order_id,''),updated_at,COALESCE(batch_json,''),next_step,execution_mode,step_inflight,approval_skipped,COALESCE(fill_json,'') FROM onchain_intents WHERE profile=? AND intent_id=?`, j.binding.Profile, id).Scan(&raw, &hashes, &digest, &state, &order, &updated, &batch, &step, &mode, &inflight, &skipped, &fill)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -124,6 +136,12 @@ func (j *Journal) GetOnchain(id string) (*OnchainRecord, error) {
 	if batch != "" {
 		r.Batch = &Batch{}
 		if err = json.Unmarshal([]byte(batch), r.Batch); err != nil {
+			return nil, err
+		}
+	}
+	if fill != "" {
+		r.Fill = &Fill{}
+		if err = json.Unmarshal([]byte(fill), r.Fill); err != nil {
 			return nil, err
 		}
 	}
@@ -393,4 +411,30 @@ func (j *Journal) AdvanceOnchain(id, from, to, hash string) error {
 		return ErrConflict
 	}
 	return tx.Commit()
+}
+
+// RecordFill stores the receipt-derived fill of a confirmed swap once. A
+// second call for the same intent is a no-op that returns ErrConflict.
+func (j *Journal) RecordFill(id string, f Fill) error {
+	if _, ok := new(big.Int).SetString(f.Received, 10); !ok {
+		return errors.New("invalid fill amount")
+	}
+	if _, ok := new(big.Int).SetString(f.Gas, 10); !ok {
+		return errors.New("invalid fill gas")
+	}
+	if f.RecordedAt == "" {
+		f.RecordedAt = j.now().UTC().Format(time.RFC3339Nano)
+	}
+	b, err := json.Marshal(f)
+	if err != nil {
+		return err
+	}
+	res, err := j.db.Exec(`UPDATE onchain_intents SET fill_json=? WHERE profile=? AND intent_id=? AND kind='swap' AND state='confirmed' AND fill_json IS NULL`, string(b), j.binding.Profile, id)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err != nil || n != 1 {
+		return ErrConflict
+	}
+	return nil
 }
