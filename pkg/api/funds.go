@@ -71,6 +71,9 @@ var tokenMethods = map[string]handler{
 	"SearchTokens": fundsRPC[accountv2.SearchTokensRequest, accountv2.SearchTokensResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.SearchTokensRequest]) (*connect.Response[accountv2.SearchTokensResponse], error) {
 		return f.token.SearchTokens
 	}),
+	"GetTokenPrice": fundsRPC[accountv2.GetTokenPriceRequest, accountv2.GetTokenPriceResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.GetTokenPriceRequest]) (*connect.Response[accountv2.GetTokenPriceResponse], error) {
+		return f.token.GetTokenPrice
+	}),
 }
 
 var swapMethods = map[string]handler{

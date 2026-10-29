@@ -12,6 +12,7 @@ var flagEnums = map[string]map[string][]string{
 	"positions leverage": {"mode": {"cross", "isolated"}},
 	"auth login":         {"credential-store": {"file", "keyring"}},
 	"auth migrate":       {"to": {"file", "keyring"}},
+	"swap orders list":   {"state": {"active", "triggered", "executing", "filled", "failed", "cancelled"}},
 }
 
 var requiredFlags = map[string][]string{
@@ -31,6 +32,8 @@ var requiredFlags = map[string][]string{
 	"positions leverage": {"market", "leverage", "mode"},
 	"positions margin":   {"market", "amount"},
 	"drafts repair":      {"stdin"},
+	"swap orders create": {"chain", "token"},
+	"swap orders cancel": {"order"},
 }
 
 type inputField struct {
@@ -117,11 +120,21 @@ func InputSchema(path string) (map[string]any, error) {
 				example[f.Name] = "example-intent"
 			case "account":
 				example[f.Name] = "0x000000000000000000000000000000000000dEaD"
+			case "chain":
+				example[f.Name] = "42161"
+			case "token":
+				example[f.Name] = "0x912CE59144191C1204E64559FE8253a0e49E6548"
+			case "order":
+				example[f.Name] = "so-example"
 			}
 		}
 	}
 	if path == "orders prepare" {
 		example["price"] = "60000"
+	}
+	if path == "swap orders create" {
+		example["all"] = true
+		example["stop-loss-pct"] = "10"
 	}
 	s := map[string]any{"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://oku.trade/schemas/oku.cli/v1/" + strings.ReplaceAll(path, " ", "-") + ".input.json", "title": "oku " + path + " input", "type": "object", "additionalProperties": false, "properties": props, "examples": []any{example}}
 	if len(required) > 0 {

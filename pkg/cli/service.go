@@ -42,6 +42,7 @@ var ServiceReads = map[string]bool{
 	"account summary": true, "positions list": true, "orders list": true,
 	"orders status": true, "orders intents": true, "fills list": true,
 	"docs list": true, "docs show": true, "docs search": true, "docs commands": true,
+	"swap orders list": true,
 }
 
 // ServiceMutations are journal/exchange mutations a Service runs only when
@@ -52,6 +53,7 @@ var ServiceMutations = map[string]bool{
 	"orders submit": true, "orders cancel": true, "orders reconcile": true, "orders abandon": true,
 	"send submit": true, "deposit submit": true, "swap submit": true, "send reconcile": true, "swap reconcile": true,
 	"bridge submit": true, "bridge reconcile": true, "bridge claim": true, "deposit reconcile": true,
+	"swap orders create": true, "swap orders cancel": true, "swap orders watch": true,
 }
 
 // AllowMutations enables the ServiceMutations commands.
@@ -129,7 +131,7 @@ func (s *Service) Call(ctx context.Context, path string, g Globals, flags map[st
 		declared = h.flags()
 	}
 	e := &env{app: s.app, cmd: newCheckedFlags(src, declared), args: args, ctx: ctx,
-		g: globals{profile: g.Profile, network: g.Network, account: g.Account, json: true, timeout: g.Timeout}}
+		g: globals{profile: g.Profile, network: g.Network, account: g.Account, json: true, timeout: g.Timeout, inProcess: true}}
 	res, err := runChecked(h, e)
 	if err != nil {
 		return nil, output.As(err)

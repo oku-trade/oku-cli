@@ -64,6 +64,11 @@ func TestSkillsReferenceOnlySupportedCommands(t *testing.T) {
 				if _, ok := cmds[f[1]]; ok {
 					continue
 				}
+				if len(f) >= 4 {
+					if _, ok := cmds[f[1]+" "+f[2]+" "+f[3]]; ok {
+						continue
+					}
+				}
 				if len(f) >= 3 {
 					if _, ok := cmds[f[1]+" "+f[2]]; ok {
 						continue

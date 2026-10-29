@@ -257,6 +257,9 @@ func acceptablePriceImpact(impact float64) bool {
 // --allow-high-impact explicitly accepts the loss.
 const defaultMaxLossBps = 500
 
+// highImpactReason is error.details.reason of the --max-loss-bps refusal.
+const highImpactReason = "high_impact"
+
 // swapLoss returns the market loss fraction (positive is worse) for a quote,
 // excluding an input-side Oku fee when its USD share is known. ok is false
 // when the quote carries no usable impact at all.
@@ -797,7 +800,7 @@ func (a *App) cmdRoutePrepare(e *env, kind string) (*result, error) {
 	}
 	e.setTelemetryRoute(q.Route)
 	if kind == "swap" && !q.Intent && q.HighImpact && !e.cmd.Bool("allow-high-impact") {
-		return nil, output.Errorf(output.CodeRejected, "high impact: priced loss %.2f%% (in_usd %.4f, out_usd %.4f, oku fee %.4f) exceeds --max-loss-bps %d; rerun with a higher --max-loss-bps or --allow-high-impact only after reviewing the quote", float64(q.LossBps)/100, q.InUSD, q.OutUSD, q.OkuFeeUSD, int(maxLossFraction(e)*10_000))
+		return nil, output.Errorf(output.CodeRejected, "high impact: priced loss %.2f%% (in_usd %.4f, out_usd %.4f, oku fee %.4f) exceeds --max-loss-bps %d; rerun with a higher --max-loss-bps or --allow-high-impact only after reviewing the quote", float64(q.LossBps)/100, q.InUSD, q.OutUSD, q.OkuFeeUSD, int(maxLossFraction(e)*10_000)).WithDetail("reason", highImpactReason)
 	}
 	router := routerFor(q.Chain)
 	if kind == "swap" && !q.Intent && (router == "" || !strings.EqualFold(q.Target, router) || q.InToken != "native" && q.Spender != "" && !strings.EqualFold(q.Spender, router)) {

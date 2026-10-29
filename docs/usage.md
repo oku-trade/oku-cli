@@ -207,6 +207,38 @@ Transaction-based swap submission still verifies the non-permit OkuRouter select
 
 Unknown broadcasts must never be resubmitted. Start with `swap status --intent ID`: for an approval batch it searches by nonce and confirms by receipt even if no hash was returned. If a hash is recovered independently, use `swap reconcile --intent ID --tx-hash TX_HASH` (or `send reconcile` for a send) to match the exact journaled call(s) and wait for confirmations. Batch lookup needs recent historical state, which the default Oku eRPC gateway serves; an `OKU_RPC_URL_<CHAINID>` override must too. Gas reserves include estimated gas plus 30% at the fee cap, but L2 data fees and Privy fee choices remain uncertain. Sends, deposits, single-step swaps and approval+swap batches have been exercised live on Arbitrum with small amounts; other chains have not.
 
+## Swap exit orders (take-profit, stop-loss, trailing stop)
+
+`oku swap orders` adds **client-side** exits for an EVM token position held by the agent wallet. When one fires, the CLI sells the token for the chain's native asset. **Exits only fire while `oku swap orders watch` is running.** Nothing is placed with Oku, a DEX or a solver, so if the watcher is stopped, asleep, offline or out of gas, no exit happens.
+
+```sh
+oku swap orders create --chain 42161 --token 0x912CE59144191C1204E64559FE8253a0e49E6548 --all \
+  --take-profit-pct 50 --stop-loss-pct 20 --trailing-stop-pct 10 [--slippage-bps 50] [--basis NATIVE]
+oku swap orders list [--state active|triggered|executing|filled|failed|cancelled]
+oku swap orders cancel --order ID
+oku swap orders watch [--interval 15s] [--once] [--dry-run]
+```
+
+- **Order setup.** `create` needs `--amount X` or `--all` and at least one of `--take-profit-pct`, `--stop-loss-pct` or `--trailing-stop-pct`. `--all` records the current token balance as the position size. Triggers are always valued on that recorded size, but at trigger time `--all` sells the full balance then held, with the normal gas reserve and max/all handling. If the balance changed after creation, the amount sold differs from the amount valued.
+- **Cost basis.** Take-profit and stop-loss are measured against the native cost of the position:
+  - By default the cost comes from confirmed native-to-token swaps in the local journal whose recipient is the agent wallet, labeled `basis_source: journal`. The journal stores each buy's minimum output, not the amount actually received, so this basis can overstate the entry price.
+  - `--basis NATIVE` sets it explicitly (`basis_source: override`). It is required when the journal has no confirmed buy.
+  - A trailing stop alone needs no basis. It measures from the highest value seen since the order was created (`peak_value`), which only moves up.
+- **Pricing.** Each check reads oracle prices with `TokenService/GetTokenPrice`, which creates no backend state, and values the position in native as token USD price divided by native USD price. This is an oracle valuation, not an executable quote. The sell is prepared only after an exit fires.
+- **Selling.** The sell goes through exactly the same path as `swap prepare` and `swap submit`: OkuRouter calldata verification, the `--max-loss-bps` high-impact refusal (default 500 bps), the 0-300 bps slippage cap, quote expiry and the per-chain lock. Intent-based routes are excluded.
+- **Fast drops.** A stop is checked only once per `--interval`, against an oracle price, and the sell is a market swap. On a fast drop the price can fall well past the stop before the next check, and the sell then fills at the price available, not at the stop level. A crash that also makes the quote exceed `--max-loss-bps` is refused like any manual swap: the order stays `active` and retries every check (these refusals do not count as attempts), so it sells only once liquidity recovers or the order is cancelled. A stop-loss is not a guaranteed exit price.
+- **One sell at a time.** At most one sell is in flight per check, and one watcher runs per profile. A second `watch` is refused.
+- **States.** An order moves `active` -> `triggered` -> `executing` -> `filled` or `failed` (or back to `active` when nothing was signed), and records `trigger`, `last_price`, `last_value`, `peak_value` and `sell_intent_id`. `cancel` works only on `active` orders and is refused once an order has triggered.
+- **Failed sells.**
+  - If the sell cannot be prepared (no route, balance), or was prepared but never broadcast (for example a submit refused for gas), nothing was signed. The order returns to `active`, retries with a new sell intent ID (`ORDER-sell-N`), and fails after 3 attempts. A high-impact refusal returns the order to `active` without using an attempt.
+  - A submit with an unknown outcome moves the order to `failed` with `needs_reconcile: true` and is **never retried**. Run `oku swap status --intent SELL_INTENT_ID`.
+- **Watch options.**
+  - `--once` runs one check and exits.
+  - `--dry-run` reports prices and `would_trigger` without preparing, signing or changing the journal.
+  - Without `--once`, watch logs each check to stderr and exits on Ctrl-C or when no active orders remain.
+  - `--timeout` applies to each request, not the whole loop.
+  - Over MCP, `swap_orders_watch` requires `once: true`. Create, cancel and watch are mutation tools; list is a read.
+
 ## Agent-to-master deposits
 
 `oku deposit prepare --amount N` prepares an Arbitrum USDC transfer **from agent to master EOA**, not a deposit to Hyperliquid. The master then deposits from its own wallet. `oku deposit address --asset ... --source-chain ...` reads a HyperUnit address explicitly bound to the master for external funding. Never send agent-held USDC directly to the HL bridge.

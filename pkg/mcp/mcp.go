@@ -73,6 +73,7 @@ var (
 		"bridge quote": true, "bridge prepare": true, "bridge status": true,
 		"send prepare": true, "send status": true,
 		"deposit prepare": true, "deposit status": true,
+		"swap orders list": true,
 	}
 	// docs are served as resources; tool exposure of docs commands is
 	// intentionally omitted.
@@ -84,6 +85,8 @@ var (
 		"bridge submit": true, "bridge reconcile": true, "bridge claim": true, "bridge cancel": true,
 		"send submit": true, "send reconcile": true,
 		"deposit submit": true,
+		// Client-side swap exits: watch sells through swap prepare and submit.
+		"swap orders create": true, "swap orders cancel": true, "swap orders watch": true,
 	}
 	// positional names commands take as arguments instead of options.
 	positional = map[string][]Option{
