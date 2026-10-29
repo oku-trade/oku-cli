@@ -366,7 +366,7 @@ func (a *App) cmdFundsStatus(e *env, kind string) (*result, error) {
 	if r, err = a.resolveReceipt(e, j, r); err != nil {
 		return nil, err
 	}
-	return fundsResult(r), nil
+	return fundsResult(a.recordSwapFill(e, j, r)), nil
 }
 
 // resolveReceipt advances a sent or unknown intent with a recorded hash from

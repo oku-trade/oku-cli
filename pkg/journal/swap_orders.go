@@ -284,24 +284,52 @@ func (j *Journal) LockSwapOrderWatch() (func(), error) {
 	return config.TryLockPath(filepath.Join(j.base, "swap-orders-"+j.binding.Profile+".lock"))
 }
 
-// ListOnchainSwaps returns confirmed swap records of an agent on one chain.
+// ListOnchainSwaps returns an agent's confirmed transaction swaps on one
+// chain. Intent swaps are excluded: 'submitted' is terminal for them even when
+// the backend order later expires or refunds, and no fill is journaled.
+// Prepared, in-flight, unknown and failed swaps are excluded too.
 func (j *Journal) ListOnchainSwaps(agent string, chain uint64) ([]*OnchainRecord, error) {
-	rows, err := j.db.Query(`SELECT intent_json FROM onchain_intents WHERE profile=? AND kind='swap' AND state='confirmed' AND agent=? AND chain_id=? ORDER BY created_at,intent_id`, j.binding.Profile, strings.ToLower(agent), chain)
+	rows, err := j.db.Query(`SELECT intent_json,state,COALESCE(fill_json,'') FROM onchain_intents WHERE profile=? AND kind='swap' AND state='confirmed' AND COALESCE(json_extract(intent_json,'$.intent_based'),0)=0 AND agent=? AND chain_id=? ORDER BY created_at,intent_id`, j.binding.Profile, strings.ToLower(agent), chain)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := []*OnchainRecord{}
 	for rows.Next() {
-		var raw string
-		if err = rows.Scan(&raw); err != nil {
+		var raw, state, fill string
+		if err = rows.Scan(&raw, &state, &fill); err != nil {
 			return nil, err
 		}
-		r := &OnchainRecord{State: "confirmed"}
+		r := &OnchainRecord{State: state}
 		if err = json.Unmarshal([]byte(raw), &r.OnchainIntent); err != nil {
 			return nil, err
 		}
+		if fill != "" {
+			r.Fill = &Fill{}
+			if err = json.Unmarshal([]byte(fill), r.Fill); err != nil {
+				return nil, err
+			}
+		}
 		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// ListOnchainSwapChains returns the chains on which agent has swaps that
+// ListOnchainSwaps would return, in ascending order.
+func (j *Journal) ListOnchainSwapChains(agent string) ([]uint64, error) {
+	rows, err := j.db.Query(`SELECT DISTINCT chain_id FROM onchain_intents WHERE profile=? AND kind='swap' AND state='confirmed' AND COALESCE(json_extract(intent_json,'$.intent_based'),0)=0 AND agent=? ORDER BY chain_id`, j.binding.Profile, strings.ToLower(agent))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []uint64{}
+	for rows.Next() {
+		var c uint64
+		if err = rows.Scan(&c); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
 	}
 	return out, rows.Err()
 }

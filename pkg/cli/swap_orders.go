@@ -125,41 +125,39 @@ func swapOrderTrigger(o *journal.SwapOrder, value, peak *big.Rat) string {
 	return ""
 }
 
-// journalBasis returns the native cost of size raw token units from confirmed
-// native -> token swaps in the journal, at their average entry price. The
-// journal records the minimum output, not the amount received, so the entry
-// price is an upper bound.
+// journalBasis returns the native cost of size raw token units at the
+// average cost of the agent's journaled swaps (swapBook), or nil when the
+// journal tracks none of token. Swaps without a recorded fill use their
+// minimum output, so that part of the basis can overstate the entry price.
 func journalBasis(j *journal.Journal, agent string, chain uint64, token string, size *big.Int) (*big.Rat, error) {
-	swaps, err := j.ListOnchainSwaps(agent, chain)
+	book, _, err := swapBook(j, agent, chain)
 	if err != nil {
 		return nil, err
 	}
-	spent, got := new(big.Int), new(big.Int)
-	for _, r := range swaps {
-		if r.Token != "native" && !strings.EqualFold(r.Token, nativeTokenAlias(chain)) || !strings.EqualFold(r.OutToken, token) || !strings.EqualFold(r.Recipient, agent) {
-			continue
-		}
-		in, ok1 := new(big.Int).SetString(r.Amount, 10)
-		out, ok2 := new(big.Int).SetString(r.MinOut, 10)
-		if !ok1 || !ok2 || in.Sign() <= 0 || out.Sign() <= 0 {
-			continue
-		}
-		spent.Add(spent, in)
-		got.Add(got, out)
-	}
-	if got.Sign() == 0 {
+	p := book.Position(token)
+	if p == nil {
 		return nil, nil
 	}
-	wei := new(big.Rat).Mul(new(big.Rat).SetFrac(spent, got), new(big.Rat).SetInt(size))
-	return wei.Quo(wei, new(big.Rat).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))), nil
+	wei := p.BasisOf(size)
+	if wei == nil {
+		return nil, nil
+	}
+	return wei.Quo(wei, weiPerNative()), nil
 }
 
 // tokenPrices reads oracle prices in native per token for tokens on chain
 // through TokenService/GetTokenPrice, which creates no backend state.
 func (a *App) tokenPrices(e *env, chain uint64, tokens []string) (map[string]*big.Rat, error) {
+	_, out, err := a.oraclePrices(e, chain, tokens)
+	return out, err
+}
+
+// oraclePrices returns the native USD price and each token's price in native
+// per token. Tokens without a price are absent from the map.
+func (a *App) oraclePrices(e *env, chain uint64, tokens []string) (*big.Rat, map[string]*big.Rat, error) {
 	p, err := e.profile()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	c := e.client(p)
 	usd := map[string]float64{}
@@ -185,7 +183,7 @@ func (a *App) tokenPrices(e *env, chain uint64, tokens []string) (map[string]*bi
 		err := c.TokenRPC(ctx, "GetTokenPrice", req, &res, false)
 		cancel()
 		if err != nil {
-			return nil, apiError(err, "GetTokenPrice")
+			return nil, nil, apiError(err, "GetTokenPrice")
 		}
 		for _, r := range res.Results {
 			if r == nil || r.Error != "" || r.PriceUsd <= 0 {
@@ -201,7 +199,7 @@ func (a *App) tokenPrices(e *env, chain uint64, tokens []string) (map[string]*bi
 	native, ok := usd[nativeKey]
 	nativeRat := new(big.Rat).SetFloat64(native)
 	if !ok || nativeRat == nil {
-		return nil, output.Errorf(output.CodeUpstream, "no native price on chain %d", chain).WithRetry()
+		return nil, nil, output.Errorf(output.CodeUpstream, "no native price on chain %d", chain).WithRetry()
 	}
 	out := map[string]*big.Rat{}
 	for _, t := range tokens {
@@ -211,7 +209,7 @@ func (a *App) tokenPrices(e *env, chain uint64, tokens []string) (map[string]*bi
 			}
 		}
 	}
-	return out, nil
+	return nativeRat, out, nil
 }
 
 func (a *App) cmdSwapOrdersCreate(e *env) (*result, error) {

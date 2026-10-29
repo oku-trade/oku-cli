@@ -603,6 +603,17 @@ Price active swap exit orders and sell when one fires (--once, --dry-run)
 | `--once` | run one check and exit | `false` |
 | `--dry-run` | report what would trigger; never prepares or sells and leaves the journal unchanged | `false` |
 
+## `oku swap pnl`
+
+Realized and unrealized PnL per token from the agent's journaled swaps (average cost, net of swap gas; read-only)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID (default: every chain with agent swaps in the journal) | `` |
+| `--token` | only this ERC-20 token address | `` |
+
 ## `oku swap prepare`
 
 Prepare an agent EVM swap

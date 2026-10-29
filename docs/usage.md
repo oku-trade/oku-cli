@@ -221,7 +221,7 @@ oku swap orders watch [--interval 15s] [--once] [--dry-run]
 
 - **Order setup.** `create` needs `--amount X` or `--all` and at least one of `--take-profit-pct`, `--stop-loss-pct` or `--trailing-stop-pct`. `--all` records the current token balance as the position size. Triggers are always valued on that recorded size, but at trigger time `--all` sells the full balance then held, with the normal gas reserve and max/all handling. If the balance changed after creation, the amount sold differs from the amount valued.
 - **Cost basis.** Take-profit and stop-loss are measured against the native cost of the position:
-  - By default the cost comes from confirmed native-to-token swaps in the local journal whose recipient is the agent wallet, labeled `basis_source: journal`. The journal stores each buy's minimum output, not the amount actually received, so this basis can overstate the entry price.
+  - By default the cost comes from the same average-cost book as `oku swap pnl` (below): the agent's own journaled swaps of the token, net of tracked sells, labeled `basis_source: journal`. Swaps confirmed by this version record the amount actually received; older swaps without a recorded fill use their minimum output, which can overstate the entry price.
   - `--basis NATIVE` sets it explicitly (`basis_source: override`). It is required when the journal has no confirmed buy.
   - A trailing stop alone needs no basis. It measures from the highest value seen since the order was created (`peak_value`), which only moves up.
 - **Pricing.** Each check reads oracle prices with `TokenService/GetTokenPrice`, which creates no backend state, and values the position in native as token USD price divided by native USD price. This is an oracle valuation, not an executable quote. The sell is prepared only after an exit fires.
@@ -238,6 +238,36 @@ oku swap orders watch [--interval 15s] [--once] [--dry-run]
   - Without `--once`, watch logs each check to stderr and exits on Ctrl-C or when no active orders remain.
   - `--timeout` applies to each request, not the whole loop.
   - Over MCP, `swap_orders_watch` requires `once: true`. Create, cancel and watch are mutation tools; list is a read.
+
+## Swap PnL
+
+```sh
+oku swap pnl [--chain 42161] [--token TOKEN_ADDRESS] [--json]
+```
+
+`swap pnl` reports realized and unrealized profit and loss per token for swaps **the agent made**, computed from the local journal. It never signs or writes on chain. It reads token decimals and balances over RPC and prices through `TokenService/GetTokenPrice`. Tokens moved by swaps or transfers outside the agent are ignored. Without `--chain`, it reports every chain that has agent swaps in the journal.
+
+- **Which swaps count.** Confirmed transaction swaps whose sender and recipient are the agent. Intent swaps are not counted: a submitted intent can still expire, refund or stay pending at the backend, and its fill is not journaled. Prepared, in-flight, unknown, failed and abandoned swaps are skipped. Swaps to another recipient are counted under `skipped.other_recipient`.
+- **Actual fill.** When a swap confirms (on `swap submit`, `swap status` or `swap reconcile`), the CLI reads its receipts and records the amount the agent received: ERC-20 `Transfer` logs into the agent, or OkuRouter's swap event for native output. It also records the gas paid, including any L1 data fee the receipt reports. Swaps journaled before this have no receipt fill and use the quoted minimum output. Their rows are marked `approximate` (`~` in the table).
+- **Average cost.** A buy (native -> token) adds quantity and cost. A sell (token -> native) removes quantity at the current average cost: realized += proceeds - average cost x quantity. A token -> token swap is a sell of the input and a buy of the output at the input's oracle native value, recorded when the fill is recorded. Without that price, the input's cost basis carries over to the output and nothing is realized (approximate). Quantities sold beyond what the agent's swaps bought are reported as `untracked_sold` and do not realize.
+- **Gas.** `fees_native` is the swap gas attributed to the token: the bought token of a native -> token swap, the sold token of a token -> native swap, and the output token of a token -> token swap. **Realized PnL is net of that gas** (`realized_includes_gas: true`). `fees_unknown_swaps` counts swaps whose gas was not recorded.
+- **Unrealized.** Held x oracle price - remaining cost basis. With no price, `unrealized_native`, `value_native` and the matching total fields are omitted (`?` in the table), never 0. A token fully sold has value and unrealized 0.
+- **Exact math.** Amounts are big rationals until output. Native values print with up to 18 decimals and USD with 2, rounded half away from zero.
+
+JSON `data` fields:
+
+| Field | Meaning |
+| --- | --- |
+| `profile`, `agent` | active profile and its agent wallet |
+| `method` | text summary of the calculation |
+| `realized_includes_gas` | always `true`: realized PnL is net of swap gas |
+| `chains[].chain_id`, `native_symbol`, `native_price_usd` | chain and its native oracle USD price (omitted without a price) |
+| `chains[].tokens[]` | one row per token held or traded: `token`, `symbol`, `decimals` (null when unknown), `held`, `wallet_balance`, `avg_cost_native` (per whole token, omitted when nothing is held), `cost_basis_native`, `price_native`, `value_native`, `value_usd`, `unrealized_native`, `unrealized_usd`, `realized_native`, `realized_usd`, `fees_native`, `fees_usd`, `fees_unknown_swaps`, `untracked_sold`, `untracked_bought`, `swaps`, `approximate`, `price_known` |
+| `chains[].total` | `cost_basis_native`, `value_native`, `value_usd`, `unrealized_native`, `unrealized_usd`, `realized_native`, `realized_usd`, `fees_native`, `fees_usd`, `approximate`. Value and unrealized are omitted when any row's is unknown |
+| `chains[].skipped` | `other_recipient` and `invalid` journal swaps left out |
+| `chains[].warnings` | RPC or price failures that left fields unknown |
+
+Amounts are decimal strings in token units (`held`) or native units (`*_native`). Over MCP, `swap_pnl` is a read tool.
 
 ## Agent-to-master deposits
 
