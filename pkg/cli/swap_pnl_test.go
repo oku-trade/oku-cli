@@ -223,6 +223,54 @@ func TestSwapPnLFullExitWithoutPrice(t *testing.T) {
 	}
 }
 
+// swap pnl --json through the executable: oku.cli/v1 envelope, one chain and
+// row per traded token, and the shared basis fields.
+func TestSwapPnLExecutableJSON(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	agent := h.fake.agentAddress
+	h.fake.routeReply = func(method string, _ map[string]any) (any, bool) {
+		if method == "GetTokenPrice" {
+			return map[string]any{"results": []any{
+				map[string]any{"chain": "eip155:42161", "address": eip7528Address, "priceUsd": 2000},
+				map[string]any{"chain": "eip155:42161", "address": strings.ToLower(pnlUSDC), "priceUsd": 0.5},
+			}}, true
+		}
+		return nil, false
+	}
+	h.rpcURL = pnlRPC(t)
+	j, err := journal.Open("main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	journalSwap(t, j, "exe-buy", agent, "native", pnlUSDC, "1000000000000000000", "1000000000", "confirmed")
+	journalSwap(t, j, "exe-unknown", agent, "native", pnlUSDC, "5000000000000000000", "1", "unknown")
+	if err = j.Close(); err != nil {
+		t.Fatal(err)
+	}
+	r := h.run("swap", "pnl", "--chain", "42161", "--json")
+	d := r.data()
+	if r.code != 0 || r.env["schema_version"] != "oku.cli/v1" || r.env["command"] != "swap.pnl" || d["realized_includes_gas"] != true {
+		t.Fatalf("pnl: %s %s", r.stdout, r.stderr)
+	}
+	chains, _ := d["chains"].([]any)
+	if len(chains) != 1 {
+		t.Fatalf("chains: %s", r.stdout)
+	}
+	c := chains[0].(map[string]any)
+	rows, _ := c["tokens"].([]any)
+	if len(rows) != 1 {
+		t.Fatalf("rows: %s", r.stdout)
+	}
+	row := rows[0].(map[string]any)
+	if row["held"] != "1000" || row["cost_basis_native"] != "1" || row["value_native"] != "0.25" || row["unrealized_native"] != "-0.75" || row["approximate"] != true {
+		t.Fatalf("row: %v", row)
+	}
+	if bad := h.run("swap", "pnl", "--token", "native", "--json"); bad.errCode() != "INVALID_ARGUMENT" {
+		t.Fatalf("native --token: %s", bad.stdout)
+	}
+}
+
 // swap orders takes its default basis from the shared average-cost book:
 // measured fills, net of tracked sells.
 func TestJournalBasisUsesFillsAndSells(t *testing.T) {
