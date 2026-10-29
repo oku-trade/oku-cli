@@ -75,10 +75,13 @@ type OnchainRecord struct {
 
 // Fill is what a confirmed swap actually delivered, read from its receipts.
 // Received is in raw units of the output token; Gas is the native wei paid
-// by every recorded transaction of the intent.
+// by every recorded transaction of the intent. InValue is the oracle native
+// wei value of a token -> token swap's input when the fill was recorded, empty
+// when unpriced or not a token -> token swap.
 type Fill struct {
 	Received   string `json:"received"`
 	Gas        string `json:"gas"`
+	InValue    string `json:"in_value,omitempty"`
 	Source     string `json:"source"`
 	RecordedAt string `json:"recorded_at"`
 }
@@ -421,6 +424,11 @@ func (j *Journal) RecordFill(id string, f Fill) error {
 	}
 	if _, ok := new(big.Int).SetString(f.Gas, 10); !ok {
 		return errors.New("invalid fill gas")
+	}
+	if f.InValue != "" {
+		if v, ok := new(big.Rat).SetString(f.InValue); !ok || v.Sign() <= 0 {
+			return errors.New("invalid fill input value")
+		}
 	}
 	if f.RecordedAt == "" {
 		f.RecordedAt = j.now().UTC().Format(time.RFC3339Nano)

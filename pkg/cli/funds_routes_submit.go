@@ -252,6 +252,7 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
+	r = a.recordSwapFill(e, j, r)
 	if len(r.Hashes) > 0 {
 		req := &v2.FinishRequest{OrderId: r.OrderID, TxHash: r.Hashes[len(r.Hashes)-1]}
 		var finished v2.FinishResponse
@@ -304,6 +305,7 @@ func (a *App) resumeRouteSequential(e *env, w *resolvedWallet, j *journal.Journa
 	if err != nil {
 		return nil, err
 	}
+	r = a.recordSwapFill(e, j, r)
 	return submittedRecord(r, ""), nil
 }
 
@@ -373,6 +375,7 @@ func (a *App) cmdRouteStatus(e *env, kind string) (*result, error) {
 				if err != nil {
 					return nil, err
 				}
+				r = a.recordSwapFill(e, j, r)
 			}
 			if r.State == "sending" {
 				return fundsResult(r), nil

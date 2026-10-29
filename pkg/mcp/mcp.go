@@ -73,7 +73,7 @@ var (
 		"bridge quote": true, "bridge prepare": true, "bridge status": true,
 		"send prepare": true, "send status": true,
 		"deposit prepare": true, "deposit status": true,
-		"swap orders list": true,
+		"swap orders list": true, "swap pnl": true,
 	}
 	// docs are served as resources; tool exposure of docs commands is
 	// intentionally omitted.
