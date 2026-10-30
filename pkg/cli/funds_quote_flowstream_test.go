@@ -171,7 +171,10 @@ func TestSwapQuoteUsesPerChainRouter(t *testing.T) {
 		return nil, false
 	}
 	missing := h.run("swap", "quote", "--chain", "1101", "--from", input, "--to", output, "--amount", "10", "--json")
-	if missing.errCode() != "CONFIG_ERROR" || !strings.Contains(missing.stdout, "OKU_RPC_URL_1101") || backend != 0 {
+	problem, ok := missing.env["error"].(map[string]any)
+	if !ok || missing.errCode() != "CONFIG_ERROR" ||
+		!strings.Contains(problem["message"].(string), "OKU_RPC_URL_1101") ||
+		problem["retryable"] != false || backend != 0 {
 		t.Fatalf("chain without RPC must fail before the backend: %s (backend calls %d)", missing.stdout, backend)
 	}
 	rpc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

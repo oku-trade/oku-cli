@@ -29,12 +29,12 @@ var ErrReverted = errors.New("transaction reverted")
 var ErrBatchUnavailable = errors.New("BATCH_UNAVAILABLE: EIP-7702 or deployed delegate unavailable")
 
 // Privy's wallet_sendCalls delegates an EOA to this Kernel implementation.
-// Address verified from the live Privy authorization on Arbitrum (2026-10-19).
+// Kernel implementation used for Privy's EIP-7702 wallet delegation.
 const PrivyKernelImplementation = "0xd6CEDDe84be40893d153Be9d467CD6aD37875b28"
 
-// chain-config v1.19.2 has no EIP-7702/Prague capability field. These chains
-// failed the read-only EIP-7702 probe on 2026-10-22. A deployed Kernel alone
-// does not imply that type-4 authorization works on a chain.
+// chain-config v1.19.2 has no EIP-7702/Prague capability field. Exclude these
+// chains conservatively until the authorization path can be verified. A
+// deployed Kernel alone does not imply that type-4 authorization works.
 var no7702 = map[uint64]bool{43114: true, 288: true, 60808: true, 314: true, 30: true, 151: true, 6900: true, 50: true, 999: true}
 
 type codeReader interface {
