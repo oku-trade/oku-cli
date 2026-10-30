@@ -33,7 +33,7 @@ const (
 	selfUpdateMaxTimeout  = 10 * time.Minute
 	selfUpdateMaxArchive  = 100 << 20
 	selfUpdateMaxBinary   = 200 << 20
-	selfUpdateManualInstr = "gh api -H 'Accept: application/vnd.github.raw' repos/oku-trade/oku-cli/contents/scripts/install.sh | sh"
+	selfUpdateManualInstr = "download the archive and SHA256SUMS from https://github.com/oku-trade/oku-cli/releases"
 )
 
 // selfExecutable resolves the running binary; tests replace it.
@@ -123,27 +123,19 @@ func (a *App) githubAPIBase() (string, error) {
 	return "", output.Errorf(output.CodeConfigError, "OKU_GITHUB_API_URL must be https (or http on loopback, for tests)")
 }
 
-// githubToken finds a token the same way scripts/install.sh does. It is never printed.
-func (a *App) githubToken(ctx context.Context) (string, error) {
+// githubToken reads an optional token. Public releases need no authentication.
+func (a *App) githubToken() string {
 	for _, k := range []string{"GITHUB_TOKEN", "GH_TOKEN"} {
 		if t := strings.TrimSpace(a.Getenv(k)); t != "" {
-			return t, nil
+			return t
 		}
 	}
-	if gh, err := exec.LookPath("gh"); err == nil {
-		out, err := exec.CommandContext(ctx, gh, "auth", "token").Output()
-		if t := strings.TrimSpace(string(out)); err == nil && t != "" {
-			return t, nil
-		}
-	}
-	return "", output.Errorf(output.CodeAuthRequired, "%s is private and no GitHub token was found", selfUpdateRepo).
-		WithDetail("hint", "run 'gh auth login' or set GITHUB_TOKEN")
+	return ""
 }
 
 type ghAsset struct {
-	Name string `json:"name"`
-	URL  string `json:"url"`
-	Size int64  `json:"size"`
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
 type ghRelease struct {
@@ -163,7 +155,9 @@ func (c *ghClient) get(ctx context.Context, u, accept string, limit int64) ([]by
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 	req.Header.Set("Accept", accept)
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	resp, err := c.http.Do(req)
@@ -176,9 +170,9 @@ func (c *ghClient) get(ctx context.Context, u, accept string, limit int64) ([]by
 	defer resp.Body.Close()
 	switch {
 	case resp.StatusCode == http.StatusNotFound:
-		return nil, output.Errorf(output.CodeNotFound, "GitHub returned 404 (no such release, or your token lacks access to %s)", selfUpdateRepo)
+		return nil, output.Errorf(output.CodeNotFound, "GitHub returned 404 (no such public release for %s)", selfUpdateRepo)
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
-		return nil, output.Errorf(output.CodeAuthRequired, "GitHub returned %d; check 'gh auth status' or GITHUB_TOKEN", resp.StatusCode)
+		return nil, output.Errorf(output.CodeUpstream, "GitHub returned %d; check API rate limits or set GITHUB_TOKEN", resp.StatusCode)
 	case resp.StatusCode != http.StatusOK:
 		return nil, output.Errorf(output.CodeUpstream, "GitHub returned %d", resp.StatusCode)
 	}
@@ -316,11 +310,7 @@ func (a *App) cmdSelfUpdate(e *env) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	token, err := a.githubToken(ctx)
-	if err != nil {
-		return nil, err
-	}
-	gh := &ghClient{base: base, token: token, http: &http.Client{}}
+	gh := &ghClient{base: base, token: a.githubToken(), http: &http.Client{}}
 	rel, err := gh.release(ctx, want)
 	if err != nil {
 		return nil, err
@@ -375,7 +365,7 @@ func (a *App) cmdSelfUpdate(e *env) (*result, error) {
 		return nil, output.Errorf(output.CodeNotFound, "release %s has no SHA256SUMS", target)
 	}
 	e.diag("downloading %s", assetName)
-	sums, err := gh.get(ctx, sumsAsset.URL, "application/octet-stream", 1<<20)
+	sums, err := gh.get(ctx, sumsAsset.BrowserDownloadURL, "application/octet-stream", 1<<20)
 	if err != nil {
 		return nil, err
 	}
@@ -383,7 +373,7 @@ func (a *App) cmdSelfUpdate(e *env) (*result, error) {
 	if wantSum == "" {
 		return nil, output.Errorf(output.CodeRejected, "%s is not listed in SHA256SUMS; refusing to install", assetName)
 	}
-	archive, err := gh.get(ctx, asset.URL, "application/octet-stream", selfUpdateMaxArchive)
+	archive, err := gh.get(ctx, asset.BrowserDownloadURL, "application/octet-stream", selfUpdateMaxArchive)
 	if err != nil {
 		return nil, err
 	}

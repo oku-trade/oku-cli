@@ -97,6 +97,7 @@ func TestAutoUpdateRunUpdatesAndRecords(t *testing.T) {
 	exe := installedExe(t)
 	f := &fakeRelease{tag: "v0.0.2", archive: makeTarGz(t, []tarEntry{{stem("v0.0.2") + "/oku", fakeBinary("v0.0.2"), 0o755}})}
 	f.sums = goodSums(f.tag)
+	f.token = true
 	srv := f.server(t)
 	t.Setenv("OKU_CONFIG_DIR", filepath.Join(t.TempDir(), "cfg"))
 	t.Setenv("OKU_STATE_DIR", filepath.Join(t.TempDir(), "state"))
