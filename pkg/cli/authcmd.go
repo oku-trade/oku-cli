@@ -379,7 +379,9 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 			fmt.Fprintln(w, "Local credential deleted; binding changed, remote grants were not revoked. "+boundaries["not_revoked"])
 		}}, nil
 	}
-	md, sec, err := e.loadCredential(p.Name)
+	// Preserve the raw legacy-format sentinel so logout can delete an old
+	// credential without requiring its passphrase.
+	md, sec, err := auth.LoadPrivyWithInteraction(p.Name, e.mayPromptForKeychain(), e.guiSession())
 	if errors.Is(err, auth.ErrLegacyCredential) {
 		// Logout must work without the old passphrase: delete the local copy
 		// and report that remote sessions were not revoked.
@@ -391,7 +393,7 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 		}}, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, credentialLoadError(err)
 	}
 	if err = e.checkBinding(md, p); err != nil {
 		return nil, err
