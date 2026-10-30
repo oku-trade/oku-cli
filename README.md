@@ -156,7 +156,7 @@ inputs.oku-cli.url = "github:oku-trade/oku-cli/master";
 
 The release tooling packs a thin launcher `@oku-trade/cli` plus four exact-version platform packages `@oku-trade/cli-{linux,darwin}-{x64,arm64}`. There are no postinstall scripts or downloads.
 
-- Names, scope ownership, visibility and license (`UNLICENSED`) are pending owner decisions.
+- Publishing requires confirmation of package scope ownership and trusted-publisher configuration. The packages are configured for public access under Apache-2.0.
 - Publishing is manual and gated. See [docs/releasing.md](docs/releasing.md).
 - Check the publishing workflow and registry metadata for provenance before making a provenance claim.
 
@@ -179,3 +179,7 @@ The following user docs are available offline via `oku docs show <name>`:
 - [docs/architecture.md](docs/architecture.md): code layout and how the CLI talks to Oku
 - Maintainers: [docs/releasing.md](docs/releasing.md) is in the repository, not embedded in the binary.
 - Agent skills: [skills/](skills/)
+
+## License
+
+Oku CLI is licensed under Apache-2.0. See [LICENSE](LICENSE). Dependency licenses and notices are included in release archives as `THIRD_PARTY_NOTICES`; some dependencies contain components under other licenses, including LGPL-3.0 portions of go-ethereum.

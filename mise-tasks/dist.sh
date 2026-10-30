@@ -58,6 +58,7 @@ for p in $PLATFORMS; do
     fi
   fi
   cp README.md "$OUT/$name/" 2>/dev/null || true
+  cp LICENSE "$OUT/$name/LICENSE"
   # Required: license notices for bundled deps of this exact target (fails if incomplete).
   CGO_ENABLED=$cgo GOOS="$os" GOARCH="$arch" "$(dirname "$0")/third-party-notices.sh" "$OUT/$name/THIRD_PARTY_NOTICES"
   # GNU tar flags for determinism; bsdtar on macOS lacks --sort, so fall back.

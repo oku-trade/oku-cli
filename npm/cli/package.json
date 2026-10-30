@@ -2,9 +2,9 @@
   "name": "@oku-trade/cli",
   "version": "0.0.0-dev",
   "description": "Oku Agent: swap and bridge across 30+ chains and trade perps on Oku from the command line (launcher for the native binary)",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "bin": { "oku": "bin/oku.js" },
-  "files": ["bin/oku.js", "README.md"],
+  "files": ["bin/oku.js", "README.md", "LICENSE"],
   "engines": { "node": ">=18" },
   "os": ["linux", "darwin"],
   "cpu": ["x64", "arm64"],
@@ -14,5 +14,5 @@
     "@oku-trade/cli-darwin-x64": "0.0.0-dev",
     "@oku-trade/cli-darwin-arm64": "0.0.0-dev"
   },
-  "publishConfig": { "access": "restricted" }
+  "publishConfig": { "access": "public" }
 }

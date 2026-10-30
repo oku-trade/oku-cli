@@ -2,8 +2,7 @@ name: release
 # Manual only. Disabled unless repository variable NPM_PUBLISH_ENABLED == 'true'.
 # Even then, publish defaults to --dry-run and requires the `npm-release` environment
 # (configure required reviewers there). Uses npm trusted publishing (OIDC).
-# The source repository is private: npm does NOT generate provenance for private
-# repositories, so no --provenance flag is passed and none is claimed.
+# Provenance is not asserted by this workflow. Verify registry metadata after publishing.
 on:
   workflow_dispatch:
     inputs:
@@ -102,6 +101,6 @@ jobs:
           set -euo pipefail
           cd artifacts
           for p in linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
-            npm publish $DRY --access restricted "release-$p/oku-trade-cli-$p-$VERSION.tgz"
+            npm publish $DRY --access public "release-$p/oku-trade-cli-$p-$VERSION.tgz"
           done
-          npm publish $DRY --access restricted "release-linux-x64/oku-trade-cli-$VERSION.tgz"
+          npm publish $DRY --access public "release-linux-x64/oku-trade-cli-$VERSION.tgz"
