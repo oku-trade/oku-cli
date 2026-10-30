@@ -442,4 +442,4 @@ jobs:
           git add PKGBUILD .SRCINFO
           if git diff --cached --quiet; then echo 'AUR metadata unchanged'; exit 0; fi
           git -c user.name="$AUR_GIT_NAME" -c user.email="$AUR_GIT_EMAIL" commit -m "oku-bin ${TAG#v}"
-          git push
+          git push origin HEAD:master   # AUR accepts only master; a first clone of an empty repo may default to another branch
