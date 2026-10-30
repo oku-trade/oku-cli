@@ -87,3 +87,18 @@ func isUpstreamTimeout(err error) bool {
 	var oe *output.Error
 	return errors.As(err, &oe) && oe.Code == output.CodeUpstreamTimeout
 }
+
+// isProvablyNoop reports whether err is returned only before anything is
+// signed, broadcast or relayed, so the action can safely be started again.
+func isProvablyNoop(err error) bool {
+	var oe *output.Error
+	if !errors.As(err, &oe) {
+		return false
+	}
+	switch oe.Code {
+	case output.CodeInsufficientGas, output.CodeInsufficientBalance, output.CodeRejected,
+		output.CodeIntentState, output.CodePayloadMismatch, output.CodeUsage:
+		return true
+	}
+	return false
+}
