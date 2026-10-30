@@ -1,0 +1,24 @@
+name: oku
+arch: ${OKU_ARCH}
+platform: linux
+version: ${OKU_VERSION}
+version_schema: semver
+release: "1"
+section: utils
+priority: optional
+maintainer: GFX Labs
+vendor: GFX Labs
+homepage: https://github.com/oku-trade/oku-cli
+license: AGPL-3.0-only
+description: Swap and bridge across 30+ chains and trade perps on Oku, from your terminal or your AI agent.
+contents:
+  - src: packaging/binary/oku
+    dst: /usr/bin/oku
+    file_info:
+      mode: 0755
+  - src: LICENSE
+    dst: /usr/share/licenses/oku/LICENSE
+    packager: rpm
+  - src: LICENSE
+    dst: /usr/share/doc/oku/copyright
+    packager: deb

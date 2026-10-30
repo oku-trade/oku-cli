@@ -8,5 +8,7 @@
 .envrc
 # generated npm tarballs / release staging (canonical sources in npm/ stay tracked)
 /npm-dist/
+/.npm-temp/
 /out/
+/packaging/binary/
 *.tgz
