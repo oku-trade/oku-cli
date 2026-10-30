@@ -202,7 +202,7 @@ func TestPnLNetWorthAndLaunchpad(t *testing.T) {
 	}
 	var human bytes.Buffer
 	writePnLSummary(&human, "all", 0, sources, total)
-	for _, s := range []string{"perps", "1234.57", "agent swaps", "498.00", "launchpad", "unavailable: backend endpoint not available yet", "TOTAL", "1732.57", "net worth change (includes deposits/withdrawals): 200.20", "not in total", "omitted from total: launchpad"} {
+	for _, s := range []string{"perps", "1234.57", "agent swaps", "498.00", "launchpad", "unavailable: backend endpoint not available yet", "TOTAL", "1732.57", "net worth change (includes deposits/withdrawals) [wallet " + soAgent + "]: 200.20", "not in total", "omitted from total: launchpad"} {
 		if !strings.Contains(human.String(), s) {
 			t.Errorf("human output missing %q:\n%s", s, human.String())
 		}
@@ -311,3 +311,96 @@ var errNoWallet = &noWalletError{}
 type noWalletError struct{}
 
 func (*noWalletError) Error() string { return "no agent wallet" }
+
+// Net worth flags a partial chart from the excludes_* fields instead of a
+// silent partial number, in both JSON fields and the human line.
+func TestPnLNetWorthExcludesWarn(t *testing.T) {
+	cases := []struct {
+		field, name, reason string
+	}{
+		{"excludesDefi", "defi", "DeFi positions could not be charted"},
+		{"excludesEvm", "evm", "EVM chain data could not be loaded"},
+		{"excludesPerps", "perps", "perps data could not be loaded"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := &pnlFake{perps: perpsSummary, usd: map[string]float64{"native": 2000, strings.ToLower(pnlUSDC): 2.5}}
+			f.netWorth = func(b map[string]any) any {
+				res := netWorthChart(b).(map[string]any)
+				res[c.field] = true
+				return res
+			}
+			a, e, w := pnlSetup(t, f)
+			sources, total := a.pnlReport(e, w.profile, w, nil, "all", pnlRanges["all"], 0)
+			nw := sourceByName(t, sources, "net_worth")
+			if nw.Status != pnlStatusOK || strings.Join(nw.Excludes, ",") != c.name || len(nw.Warnings) != 1 || !strings.Contains(nw.Warnings[0], c.reason) || !strings.HasPrefix(nw.Warnings[0], "partial: ") {
+				t.Fatalf("net worth: %+v", nw)
+			}
+			raw, err := json.Marshal(nw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(raw), `"excludes":["`+c.name+`"]`) || !strings.Contains(string(raw), `"warnings":["partial: `) {
+				t.Fatalf("json: %s", raw)
+			}
+			var human bytes.Buffer
+			writePnLSummary(&human, "all", 0, sources, total)
+			for _, s := range []string{"PARTIAL, excludes " + c.name, "warning: partial: " + c.reason} {
+				if !strings.Contains(human.String(), s) {
+					t.Errorf("human output missing %q:\n%s", s, human.String())
+				}
+			}
+		})
+	}
+
+	f := &pnlFake{netWorth: netWorthChart, perps: perpsSummary, usd: map[string]float64{"native": 2000, strings.ToLower(pnlUSDC): 2.5}}
+	a, e, w := pnlSetup(t, f)
+	sources, total := a.pnlReport(e, w.profile, w, nil, "all", pnlRanges["all"], 0)
+	nw := sourceByName(t, sources, "net_worth")
+	if len(nw.Excludes) != 0 || len(nw.Warnings) != 0 {
+		t.Fatalf("complete chart warned: %+v", nw)
+	}
+	var human bytes.Buffer
+	writePnLSummary(&human, "all", 0, sources, total)
+	if strings.Contains(human.String(), "PARTIAL") || strings.Contains(human.String(), "warning:") {
+		t.Fatalf("complete chart warned:\n%s", human.String())
+	}
+}
+
+// Net worth names the charted agent wallet and warns when perps are read for
+// a different (master) account whose perps the chart does not cover.
+func TestPnLNetWorthWalletScope(t *testing.T) {
+	const master = "0x2222222222222222222222222222222222222222"
+	f := &pnlFake{netWorth: netWorthChart, perps: perpsSummary, usd: map[string]float64{"native": 2000, strings.ToLower(pnlUSDC): 2.5}}
+	a, e, w := pnlSetup(t, f)
+	e.g.account = master
+	sources, total := a.pnlReport(e, w.profile, w, nil, "all", pnlRanges["all"], 0)
+	nw := sourceByName(t, sources, "net_worth")
+	if nw.Address != soAgent || f.bodies["GetNetWorthChart"]["walletAddress"] != soAgent {
+		t.Fatalf("net worth address: %+v", nw)
+	}
+	if p := sourceByName(t, sources, "perps"); p.Address != master {
+		t.Fatalf("perps address: %+v", p)
+	}
+	want := "charted for agent wallet " + soAgent + " only; perps of master account " + master + " are excluded"
+	if len(nw.Warnings) != 1 || nw.Warnings[0] != want {
+		t.Fatalf("warnings: %q", nw.Warnings)
+	}
+	var human bytes.Buffer
+	writePnLSummary(&human, "all", 0, sources, total)
+	for _, s := range []string{"[wallet " + soAgent + "]: 200.20", "warning: " + want} {
+		if !strings.Contains(human.String(), s) {
+			t.Errorf("human output missing %q:\n%s", s, human.String())
+		}
+	}
+
+	// Perps account unknown: the chart still says master perps may be missing.
+	f2 := &pnlFake{netWorth: netWorthChart, perps: perpsSummary, usd: map[string]float64{"native": 2000, strings.ToLower(pnlUSDC): 2.5}}
+	a, e, w = pnlSetup(t, f2)
+	e.g.account = "bad"
+	sources, _ = a.pnlReport(e, w.profile, w, nil, "all", pnlRanges["all"], 0)
+	nw = sourceByName(t, sources, "net_worth")
+	if len(nw.Warnings) != 1 || !strings.Contains(nw.Warnings[0], "master-account perps may be excluded") {
+		t.Fatalf("warnings without perps account: %q", nw.Warnings)
+	}
+}

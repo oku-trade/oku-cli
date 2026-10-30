@@ -70,6 +70,10 @@ type pnlSource struct {
 	EndValueUSD   string `json:"end_value_usd,omitempty"`
 	ValueUSD      string `json:"value_usd,omitempty"`
 	Points        *int   `json:"points,omitempty"`
+	// Excludes lists the parts of the wallet the net worth chart could not
+	// cover (defi, evm, perps); its values are partial when set.
+	Excludes []string `json:"excludes,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
 
 	AsOfMs int64 `json:"as_of_ms,omitempty"`
 
@@ -208,6 +212,11 @@ func (a *App) pnlReport(e *env, p *resolved, w *resolvedWallet, walletErr error,
 		a.pnlNetWorth(e, p, rg, &netWorth)
 	}
 	a.pnlPerps(e, p, rg, &perps)
+	if netWorth.Status == pnlStatusOK {
+		if warn := netWorthScopeWarning(agent, perps.Address); warn != "" {
+			netWorth.Warnings = append(netWorth.Warnings, warn)
+		}
+	}
 	launchpad.fail(launchpadUnavailable)
 	if walletErr != nil {
 		swaps.fail(errReason(walletErr))
@@ -231,6 +240,28 @@ func (a *App) pnlReport(e *env, p *resolved, w *resolvedWallet, walletErr error,
 		total.Status, total.PnLUSD = pnlStatusOK, sum.String()
 	}
 	return sources, total
+}
+
+// netWorthScopeWarning flags that net worth is charted for the agent wallet,
+// while perps is read for the master account, so master perps are missing.
+func netWorthScopeWarning(agent, perpsAccount string) string {
+	switch {
+	case perpsAccount == "":
+		return "charted for agent wallet " + agent + " only; master-account perps may be excluded"
+	case !strings.EqualFold(perpsAccount, agent):
+		return "charted for agent wallet " + agent + " only; perps of master account " + perpsAccount + " are excluded"
+	}
+	return ""
+}
+
+var netWorthExcludes = []struct {
+	name   string
+	get    func(*v2.GetNetWorthChartResponse) bool
+	reason string
+}{
+	{"defi", (*v2.GetNetWorthChartResponse).GetExcludesDefi, "partial: DeFi positions could not be charted; values cover wallet token balances only"},
+	{"evm", (*v2.GetNetWorthChartResponse).GetExcludesEvm, "partial: EVM chain data could not be loaded; values cover perps only"},
+	{"perps", (*v2.GetNetWorthChartResponse).GetExcludesPerps, "partial: perps data could not be loaded; values cover EVM chains only"},
 }
 
 func (a *App) pnlNetWorth(e *env, p *resolved, rg pnlRange, s *pnlSource) {
@@ -263,6 +294,12 @@ func (a *App) pnlNetWorth(e *env, p *resolved, rg pnlRange, s *pnlSource) {
 	s.EndValueUSD = pnl.Decimal(last, lp)
 	s.ValueUSD = pnl.Decimal(current, cp)
 	s.ChangeUSD = change.String()
+	for _, x := range netWorthExcludes {
+		if x.get(&res) {
+			s.Excludes = append(s.Excludes, x.name)
+			s.Warnings = append(s.Warnings, x.reason)
+		}
+	}
 }
 
 func (a *App) pnlPerps(e *env, p *resolved, rg pnlRange, s *pnlSource) {
@@ -376,10 +413,18 @@ func writePnLSummary(w io.Writer, rangeName string, chain uint64, sources []pnlS
 		fmt.Fprintln(tw, "TOTAL\tunavailable: no source available\t")
 	}
 	tw.Flush()
-	if nw := sources[0]; nw.Status == pnlStatusOK {
-		fmt.Fprintf(w, "\n%s: %s (now %s; not in total)\n", nw.Label, usd2(nw.ChangeUSD), usd2(nw.ValueUSD))
+	nw := sources[0]
+	if nw.Status == pnlStatusOK {
+		partial := ""
+		if len(nw.Excludes) > 0 {
+			partial = "PARTIAL, excludes " + strings.Join(nw.Excludes, ", ") + "; "
+		}
+		fmt.Fprintf(w, "\n%s [wallet %s]: %s (now %s; %snot in total)\n", nw.Label, nw.Address, usd2(nw.ChangeUSD), usd2(nw.ValueUSD), partial)
 	} else {
 		fmt.Fprintf(w, "\n%s: unavailable: %s\n", nw.Label, nw.Error)
+	}
+	for _, warn := range nw.Warnings {
+		fmt.Fprintf(w, "  warning: %s\n", warn)
 	}
 	if len(total.Omitted) > 0 {
 		names := make([]string, 0, len(total.Omitted))
