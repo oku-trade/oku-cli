@@ -45,6 +45,18 @@ func TestManagedByDistribution(t *testing.T) {
 	}
 }
 
+func TestReleaseChecksumSelectsArchive(t *testing.T) {
+	name := "oku_v1.2.3_linux_amd64.tar.gz"
+	sums := []byte("aaa  oku_1.2.3_linux_amd64.deb\nbbb  oku-1.2.3-1.x86_64.rpm\nccc  " + name + "\n")
+	if got := sumFor(sums, name); got != "ccc" {
+		t.Fatalf("sumFor archive = %q, want ccc", got)
+	}
+	assets := ghRelease{Assets: []ghAsset{{Name: "oku_1.2.3_linux_amd64.deb"}, {Name: name}}}
+	if asset := assets.asset(name); asset == nil || asset.Name != name {
+		t.Fatalf("release asset selection did not choose %s", name)
+	}
+}
+
 func makeTarGz(t *testing.T, entries []tarEntry) []byte {
 	t.Helper()
 	var buf bytes.Buffer
