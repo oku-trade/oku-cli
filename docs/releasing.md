@@ -92,6 +92,13 @@ git tag v0.1.0 && git push origin v0.1.0
    with notes generated from commits since the previous tag. Tags with a `-` suffix
    (`v0.2.0-rc.1`, `v0.2.0-beta.1`) are marked pre-release.
 
+5. for stable tags only, the `homebrew-tap` job renders `Formula/oku.rb` with
+   `mise-tasks/brew-formula.sh` from the release's `SHA256SUMS` and pushes it to
+   `oku-trade/homebrew-tap`. It authenticates with the org GitHub App (`APP_ID` /
+   `APP_PRIVATE_KEY` secrets, token scoped to the tap repo) and skips if those secrets are
+   missing. Users install with `brew install oku-trade/tap/oku`, which works only while
+   the release assets are publicly downloadable.
+
 Only the publish job gets `contents: write`. Assets:
 
 - `oku_<tag>_linux_amd64.tar.gz`, `oku_<tag>_linux_arm64.tar.gz`
