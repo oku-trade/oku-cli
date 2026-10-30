@@ -34,6 +34,12 @@ func (e *env) loadCredential(profile string) (*auth.Metadata, *auth.Secrets, err
 	if errors.Is(err, auth.ErrLegacyCredential) {
 		return nil, nil, legacyCredentialError(profile)
 	}
+	// Translate native store failures once so every caller (signing included)
+	// reports KEYCHAIN_* codes. A missing credential stays raw for callers
+	// that handle it.
+	if err != nil && !errors.Is(err, auth.ErrNoCredentials) {
+		return nil, nil, credentialLoadError(err)
+	}
 	return md, sec, err
 }
 
@@ -306,6 +312,10 @@ func missingCredential(profile string) error {
 // credentialLoadError maps an unreachable native store to a clear error.
 // It never falls back to another store.
 func credentialLoadError(err error) error {
+	var oe *output.Error
+	if errors.As(err, &oe) {
+		return err
+	}
 	if runtime.GOOS == "darwin" {
 		switch {
 		case errors.Is(err, auth.ErrKeychainLocked):

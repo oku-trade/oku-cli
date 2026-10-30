@@ -57,10 +57,11 @@ func (a *App) cmdAuthUnlock(e *env) (*result, error) {
 		return nil, missingCredential(p.Name)
 	}
 	if err != nil {
-		if _, mdErr := e.loadMetadata(p.Name); mdErr == nil {
+		_, mdErr := e.loadMetadata(p.Name)
+		if mdErr == nil {
 			return noop("Nothing to unlock: the credential is already in the current format."), nil
 		}
-		return nil, credentialLoadError(err)
+		return nil, credentialLoadError(fmt.Errorf("%w (reading metadata: %v)", err, mdErr))
 	}
 	var md *auth.Metadata
 	for attempt := 1; ; attempt++ {
@@ -289,8 +290,8 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	}
 	md := auth.Metadata{Kind: auth.KindPrivy, Profile: p.Name, Network: p.Network, APIURL: p.APIURL, PrivyAppID: pc.AppID, AccountAddress: strings.ToLower(p.Account), AgentAddress: strings.ToLower(wallet.Address), PrivyWalletID: wallet.ID, AccessExpiresAt: tok.AccessExpiresAt.UTC().Format(time.RFC3339), SessionID: exchange.Session.SessionID, SessionExpiresAt: exchange.Session.ExpiresAt, CreatedAt: e.app.Now().UTC().Format(time.RFC3339), Status: "active", Generation: 1}
 	sec := auth.Secrets{AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken, SessionToken: exchange.Session.Token}
-	if err = auth.SavePrivyIn(st, p.Name, md, sec); err != nil {
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "saving credential")
+	if err = auth.SavePrivyInWithInteraction(st, p.Name, md, sec, e.mayPromptForKeychain(), e.guiSession()); err != nil {
+		return nil, credentialLoadError(err)
 	}
 	if !create && st != prevStore {
 		if err = setProfileStore(p.Name, st); err != nil {
@@ -419,8 +420,8 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 			grant = "revoked"
 		}
 	}
-	if err = auth.DeletePrivy(p.Name); err != nil {
-		return nil, err
+	if err = auth.DeletePrivyWithInteraction(p.Name, e.mayPromptForKeychain(), e.guiSession()); err != nil {
+		return nil, credentialLoadError(err)
 	}
 	return &result{data: map[string]any{"local_credentials": "deleted", "oku_session": remote, "privy_grant": grant, "boundaries": boundaries}, human: func(w io.Writer) {
 		fmt.Fprintf(w, "Local credential deleted; %s; Privy grant %s.\n%s\n", remote, grant, boundaries["not_revoked"])

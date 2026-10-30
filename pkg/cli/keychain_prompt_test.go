@@ -44,3 +44,10 @@ func TestKeychainPromptPolicy(t *testing.T) {
 		})
 	}
 }
+
+func TestCredentialLoadErrorPreservesStructured(t *testing.T) {
+	want := output.Errorf(output.CodeKeychainLocked, "locked")
+	if got := credentialLoadError(want); got != error(want) {
+		t.Fatalf("structured error rewrapped: %v", got)
+	}
+}

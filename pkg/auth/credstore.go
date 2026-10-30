@@ -230,3 +230,48 @@ func CheckStore(st Store) error {
 	}
 	return nil
 }
+
+// promptingStore returns the interactive macOS Keychain when the caller may
+// prompt, and nil otherwise so the caller uses the non-prompting store.
+func promptingStore(st Store, interactive, gui bool) credentialItemStore {
+	if interactive && st == StoreKeychain {
+		return interactiveKeychain(gui)
+	}
+	return nil
+}
+
+// SavePrivyInWithInteraction is SavePrivyIn with one user-authorized macOS retry.
+func SavePrivyInWithInteraction(st Store, profile string, md Metadata, s Secrets, interactive, gui bool) error {
+	ns := promptingStore(st, interactive, gui)
+	if ns == nil {
+		return SavePrivyIn(st, profile, md, s)
+	}
+	md.Kind = KindPrivy
+	return nativeSave(ns, privyKey(profile), md, s)
+}
+
+// DeletePrivyWithInteraction is DeletePrivy with one user-authorized macOS retry.
+func DeletePrivyWithInteraction(profile string, interactive, gui bool) error {
+	st, err := StoreFor(profile)
+	if err != nil {
+		return err
+	}
+	ns := promptingStore(st, interactive, gui)
+	if ns == nil {
+		return DeletePrivyIn(st, profile)
+	}
+	return ns.Remove(privyKey(profile))
+}
+
+// CheckStoreWithInteraction is CheckStore that may unlock a locked macOS
+// Keychain in the terminal before anything is authorized remotely.
+func CheckStoreWithInteraction(st Store, interactive, gui bool) error {
+	ns := promptingStore(st, interactive, gui)
+	if ns == nil {
+		return CheckStore(st)
+	}
+	if p, ok := ns.(interface{ probe() error }); ok {
+		return p.probe()
+	}
+	return nil
+}
