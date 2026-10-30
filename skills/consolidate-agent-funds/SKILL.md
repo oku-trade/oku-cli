@@ -1,6 +1,6 @@
 ---
 name: consolidate-agent-funds
-description: Fee sweep. Read the sweep CSV (chain_id,token_address,amount), check live balances, and end with native USDC on Coinbase-depositable chains. On a Coinbase chain, swap every token into that chain's native USDC and stop. Elsewhere, swap into the best intermediate and bridge to native USDC on Base or Arbitrum (circleStandard when possible), claim, and report the USDC ready for Coinbase deposit per chain. Runs chains concurrently, submits automatically under the user's instruction and pauses only on guardrails.
+description: Fee sweep. Read the sweep CSV (chain_id,token_address,amount), check live balances, and end with native USDC on Coinbase-depositable chains. On a Coinbase chain, swap every token into that chain's native USDC and stop. Elsewhere, swap into the best intermediate and bridge to native USDC on Base or Arbitrum (circleStandard when possible), claim, and report the USDC ready for Coinbase deposit per chain. Runs each chain as its own pipeline (plan, sell, bridge) that starts as soon as its own plan is done, submits automatically under the user's instruction and pauses only on guardrails.
 ---
 
 # Consolidate Oku Agent Funds
@@ -9,7 +9,7 @@ Use this for a fee sweep: protocol fees land in the agent wallet on several chai
 
 ## Approval model
 
-The user's instruction to run the consolidation (with the CSV) **is the approval** for every swap, bridge and claim in this procedure. Do not ask per swap or per bridge. Restate the plan once before starting (per source chain: stay or bridge, the intermediate asset, the Coinbase destination chain, and thresholds), then run it.
+The user's instruction to run the consolidation (with the CSV) **is the approval** for every swap, bridge and claim in this procedure. Do not ask per swap or per bridge. Restate the run-wide settings once before starting (the Coinbase table, the Base and Arbitrum destinations, thresholds and the pre-approved mispricing chains). Each chain's worker then posts its own one-line plan (stay or bridge, the intermediate asset C, the destination D and the score reason) when it starts executing. That is a status line, not an approval wait.
 
 **Pause and ask the user only when a guardrail trips:**
 
@@ -72,7 +72,9 @@ The CSV is `chain_id,token_address,amount` (optional header). Its `amount` is in
 
 For a successful query covering the requested chains, a requested ERC-20 omitted from `tokens` has zero balance. Read requested native-token rows from the `native` map, not `tokens`. Errors and unread chains are not zero balances: a chain listed under `errors` in the balances output was not read, so report it as unread (set `OKU_RPC_URL_<CHAINID>` for `NO_RPC`) instead of treating its assets as zero. Ignore incidental gas balances unless `native` is itself a CSV asset. If all CSV assets are zero or were established as dust by quote costs (the dust rule above), report the skipped rows and stop without preparing swaps or entering the execution phases: nothing was consolidated.
 
-## 2. Plan each source chain
+## 2. Plan each source chain (inside that chain's worker)
+
+After step 1, start one worker per source chain right away. Each worker plans only its own chain with the rules below, then goes straight into its Phase A sells and Phase B bridge. **Never wait for all chains to finish planning before executing**: a slow or paused chain must not delay any other chain. Planning uses only that chain's data, the step 1 balances and read-only quotes, so no chain's plan depends on another chain's plan.
 
 **A. The source chain is in the Coinbase table:** swap every CSV token on it into that chain's native USDC with `--amount max`, then stop. Don't bridge. A token that already is that native USDC needs nothing. Bridged USDC on the chain (USDC.e) is just another token to swap into native USDC.
 
@@ -97,25 +99,24 @@ oku bridge quote --chain CHAIN --destination-chain D --from C --to USDC_D --amou
 
 Quote `in_amount`, `out_amount` and `min_out` are **raw base units**, while `--amount` takes a decimal. Convert SUM with C's decimals (from `wallet balances`, or 18 for native). The anonymous flat fee per swap is the same for every candidate, so quote-based ranking is still fair.
 
-**Score(C, D) = native USDC received on D** (bridge `out_amount`, minus the claim gas on D for Circle routes). Pick the highest score. If Base and Arbitrum are within 0.3%, prefer the one that already holds more of the sweep (fewer chains for the user to deposit from), else Base. If native USDC on the source scores within 0.3% of the best, choose it (CCTP burn and mint has no slippage). If no direct bridge to D quotes, try two hops: C to native USDC on Ethereum, then Ethereum to D via circleStandard. Score the full path. Record each chain's scores and the reason.
+**Score(C, D) = native USDC received on D** (bridge `out_amount`, minus the claim gas on D for Circle routes). Pick the highest score. If Base and Arbitrum are within 0.3%, prefer the one that already holds more native USDC in the step 1 balances (fewer chains for the user to deposit from), else Base. Use only those step 1 holdings, never other chains' plans or results. If native USDC on the source scores within 0.3% of the best, choose it (CCTP burn and mint has no slippage). If no direct bridge to D quotes, try two hops: C to native USDC on Ethereum, then Ethereum to D via circleStandard. Score the full path. Record the chain's scores and the reason for the one-line plan and the final report.
 
 **0G (16661) plan.** No provider bridges 0G USDC.e (`0x1f3AA82227281cA364bFb3d253B0f1af1Da6473E`) directly to Base or Arbitrum USDC today. Recheck, and use a direct route if one appears. Otherwise:
 1. USDC.e to Ethereum USDC via `lifi`, then Ethereum USDC to Base or Arbitrum USDC via `--route circleStandard`. This needs ETH on Ethereum for the burn and gas on the destination for the claim. If Ethereum gas makes the second hop uneconomic, stop on Ethereum USDC: it is Coinbase-depositable.
 2. Or USDC.e to native ETH on Base or Arbitrum via `lifi`, then swap ETH to native USDC there (a Coinbase chain, so case A applies).
 
-**Gas check (covers every chain the plan touches):**
-- Each source chain needs enough native gas for its swaps (about `gas_usd` each), the bridge and a reserve. Never choose `native` as C if that would sell gas below the reserve.
-- Circle routes are claimed on the destination, so **every destination chain the plan bridges to** (Base, Arbitrum, and Ethereum for a 0G two-hop) needs native gas for one claim per incoming bridge.
-- An Ethereum first hop also needs ETH on Ethereum for the burn.
-- Check all of these with `oku wallet balances --chains 8453,42161[,1] --json` before Phase B. Pause and ask the user to fund any that are short (`oku wallet fund --chain D --token native`).
+**Gas check:**
+- Per worker: its source chain needs enough native gas for its swaps (about `gas_usd` each), the bridge and a reserve. Never choose `native` as C if that would sell gas below the reserve. A short source chain pauses only that chain.
+- An Ethereum first hop also needs ETH on Ethereum for the burn (part of that chain's own check).
+- Shared, destination claim gas: Circle routes are claimed on the destination, so **every destination chain a plan bridges to** (Base, Arbitrum, and Ethereum for a 0G two-hop) needs native gas for one claim per incoming bridge. Check it once right after step 1 for the likely destinations (`oku wallet balances --chains 8453,42161[,1] --json`), and again before Phase C claims. Pause and ask the user to fund any that are short (`oku wallet fund --chain D --token native`). A short destination gates only claims and bridges to that chain, never another chain's sells.
 
-## 3. Run the chains concurrently
+## 3. Run each chain's pipeline concurrently
 
-Steps 1 and 2 give a plan per source chain: its tokens, its asset C, and either "stay" (case A) or a Coinbase destination D (case B). Then run these phases. **A guardrail pause on one chain pauses only that chain.** Report it and keep the others going.
+Each worker (started right after step 1, in separate shells or sub-agents; the journal is safe for concurrent processes) turns its own step 2 plan (its tokens, its asset C, and either "stay" (case A) or a Coinbase destination D (case B)) into these phases as soon as that plan is done, without waiting for any other chain. **A guardrail pause on one chain pauses only that chain.** Report it and keep the others going.
 
-### Phase A: sell, one worker per chain (parallel across chains)
+### Phase A: sell, per chain (each worker starts when its own plan is done)
 
-Start one worker per source chain at the same time (separate shells or sub-agents; the journal is safe for concurrent processes). Inside a chain, sell **one token per intent, sequentially**. Never combine several tokens into one batch.
+Post the chain's one-line plan, then sell **one token per intent, sequentially**. Never combine several tokens into one batch.
 
 ```sh
 oku swap prepare --chain CHAIN --from T --to C --amount max --json
@@ -141,7 +142,7 @@ Once the source transaction confirms, the bridge no longer holds any gate, so th
 
 ### Phase C: one loop for all bridges in flight
 
-Before the first claim, make sure the agent holds native gas on **every** destination chain in the plan (the step 2 gas check). If any is short, pause only the bridges to that chain and ask the user to fund it (`oku wallet fund --chain D --token native`). Then, about every 60 seconds:
+Before the first claim, make sure the agent holds native gas on **every** destination chain in use (the shared destination claim gas check from step 2). If any is short, pause only the bridges to that chain and ask the user to fund it (`oku wallet fund --chain D --token native`). Then, about every 60 seconds:
 
 ```sh
 oku bridge status --all --json     # every unsettled bridge: chains, amount, age, destination status, claim_required
