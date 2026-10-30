@@ -17,9 +17,6 @@ service OnchainService {
   // Get native token balance (ETH, etc.) for an address
   rpc GetNativeBalance(GetNativeBalanceRequest) returns (GetNativeBalanceResponse);
 
-  // Get real-time ERC20 token info (balances and allowances) via RPC
-  rpc GetTokenInfo(GetTokenInfoRequest) returns (GetTokenInfoResponse);
-
   // Get current gas pricing for a chain (legacy + EIP-1559)
   rpc GetGasPrice(GetGasPriceRequest) returns (GetGasPriceResponse);
 
@@ -125,57 +122,6 @@ message GetNativeBalanceRequest {
 message GetNativeBalanceResponse {
   // Balance as decimal string (wei)
   string balance = 1;
-}
-
-// === GetTokenInfo ===
-
-message GetTokenInfoRequest {
-  // Chain identifier (e.g., "1", "ethereum", "eip155:1")
-  string chain = 1 [(buf.validate.field).required = true];
-
-  // Wallet address to check balances/allowances for
-  string address = 2 [
-    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
-    (buf.validate.field).required = true
-  ];
-
-  // Token queries (max 50)
-  repeated TokenInfoQuery tokens = 3 [(buf.validate.field).repeated.max_items = 50];
-}
-
-message TokenInfoQuery {
-  // ERC20 token contract address
-  string token = 1 [
-    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
-    (buf.validate.field).required = true
-  ];
-
-  // Spender address to check allowance for (optional)
-  optional string spender = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-}
-
-message GetTokenInfoResponse {
-  repeated TokenInfoResult tokens = 1;
-}
-
-message TokenInfoResult {
-  // ERC20 token contract address
-  string token = 1;
-
-  // Balance as decimal string (wei)
-  string balance = 2;
-
-  // Balance error message, only present if fetch failed
-  optional string balance_error = 3;
-
-  // Spender address (if requested)
-  optional string spender = 4;
-
-  // Allowance as decimal string (wei), only present if spender was requested
-  optional string allowance = 5;
-
-  // Allowance error message, only present if fetch failed
-  optional string allowance_error = 6;
 }
 
 // === GetGasPrice ===

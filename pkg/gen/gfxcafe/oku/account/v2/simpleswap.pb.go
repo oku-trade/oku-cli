@@ -23,71 +23,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// JitQuoteVerdict indicates how the new JIT quote compares to the reference.
-type JitQuoteVerdict int32
-
-const (
-	JitQuoteVerdict_JIT_QUOTE_VERDICT_UNSPECIFIED JitQuoteVerdict = 0
-	// New quote is strictly better (higher output) than the reference.
-	JitQuoteVerdict_JIT_QUOTE_VERDICT_BETTER JitQuoteVerdict = 1
-	// New quote is identical to the reference.
-	JitQuoteVerdict_JIT_QUOTE_VERDICT_EQUAL JitQuoteVerdict = 2
-	// New quote is worse (lower output) than the reference.
-	JitQuoteVerdict_JIT_QUOTE_VERDICT_WORSE JitQuoteVerdict = 3
-	// Failed to obtain a JIT quote. Reference is unchanged.
-	JitQuoteVerdict_JIT_QUOTE_VERDICT_FAILED JitQuoteVerdict = 4
-	// New quote is slightly worse but within the JIT buffer tolerance.
-	// Treat as acceptable — proceed with execution.
-	JitQuoteVerdict_JIT_QUOTE_VERDICT_ACCEPTABLE JitQuoteVerdict = 5
-)
-
-// Enum value maps for JitQuoteVerdict.
-var (
-	JitQuoteVerdict_name = map[int32]string{
-		0: "JIT_QUOTE_VERDICT_UNSPECIFIED",
-		1: "JIT_QUOTE_VERDICT_BETTER",
-		2: "JIT_QUOTE_VERDICT_EQUAL",
-		3: "JIT_QUOTE_VERDICT_WORSE",
-		4: "JIT_QUOTE_VERDICT_FAILED",
-		5: "JIT_QUOTE_VERDICT_ACCEPTABLE",
-	}
-	JitQuoteVerdict_value = map[string]int32{
-		"JIT_QUOTE_VERDICT_UNSPECIFIED": 0,
-		"JIT_QUOTE_VERDICT_BETTER":      1,
-		"JIT_QUOTE_VERDICT_EQUAL":       2,
-		"JIT_QUOTE_VERDICT_WORSE":       3,
-		"JIT_QUOTE_VERDICT_FAILED":      4,
-		"JIT_QUOTE_VERDICT_ACCEPTABLE":  5,
-	}
-)
-
-func (x JitQuoteVerdict) Enum() *JitQuoteVerdict {
-	p := new(JitQuoteVerdict)
-	*p = x
-	return p
-}
-
-func (x JitQuoteVerdict) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (JitQuoteVerdict) Descriptor() protoreflect.EnumDescriptor {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_enumTypes[0].Descriptor()
-}
-
-func (JitQuoteVerdict) Type() protoreflect.EnumType {
-	return &file_gfxcafe_oku_account_v2_simpleswap_proto_enumTypes[0]
-}
-
-func (x JitQuoteVerdict) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use JitQuoteVerdict.Descriptor instead.
-func (JitQuoteVerdict) EnumDescriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{0}
-}
-
 // SwapFeatureFlags contains opt-in feature flags for swap orders.
 // New experimental or progressive features are added here to keep
 // SwapQuoteParams stable and maintain backwards compatibility.
@@ -617,12 +552,12 @@ type SimpleSwapQuote struct {
 	IsExactIn bool           `protobuf:"varint,5,opt,name=is_exact_in,json=isExactIn,proto3" json:"is_exact_in,omitempty"`
 	InToken   *TokenMetadata `protobuf:"bytes,6,opt,name=in_token,json=inToken,proto3" json:"in_token,omitempty"`
 	OutToken  *TokenMetadata `protobuf:"bytes,7,opt,name=out_token,json=outToken,proto3" json:"out_token,omitempty"`
-	// DEPRECATED: Use approvals_v2 instead, will be removed in Phase 2
+	// Deprecated: use approvals_v2 instead.
 	//
 	// Deprecated: Marked as deprecated in gfxcafe/oku/account/v2/simpleswap.proto.
 	Approvals      []*ApprovalPayload `protobuf:"bytes,8,rep,name=approvals,proto3" json:"approvals,omitempty"`
 	SigningRequest *SigningRequest    `protobuf:"bytes,9,opt,name=signing_request,json=signingRequest,proto3" json:"signing_request,omitempty"`
-	// DEPRECATED: Workflow handles coupon internally, will be removed in Phase 2
+	// Deprecated: coupon forwarding is handled by the workflow.
 	//
 	// Deprecated: Marked as deprecated in gfxcafe/oku/account/v2/simpleswap.proto.
 	Coupon *Coupon `protobuf:"bytes,10,opt,name=coupon,proto3" json:"coupon,omitempty"`
@@ -1111,8 +1046,6 @@ type SwapCreateRequest struct {
 	Integration string                 `protobuf:"bytes,2,opt,name=integration,proto3" json:"integration,omitempty"`
 	// Set by the client when the order is placed from the launchpad. Stored as
 	// order metadata and copied to analytics.
-	// TODO: derive this server side instead of trusting the client, e.g. by
-	// checking the traded tokens against the launchpad factory.
 	Launchpad     bool `protobuf:"varint,3,opt,name=launchpad,proto3" json:"launchpad,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1221,170 +1154,6 @@ func (x *SwapCreateResponse) GetTimeline() int32 {
 	return 0
 }
 
-type SwapUpdateQuoteParamsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	OrderId       string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
-	Params        *SwapQuoteParams       `protobuf:"bytes,2,opt,name=params,proto3" json:"params,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SwapUpdateQuoteParamsRequest) Reset() {
-	*x = SwapUpdateQuoteParamsRequest{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SwapUpdateQuoteParamsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SwapUpdateQuoteParamsRequest) ProtoMessage() {}
-
-func (x *SwapUpdateQuoteParamsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SwapUpdateQuoteParamsRequest.ProtoReflect.Descriptor instead.
-func (*SwapUpdateQuoteParamsRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *SwapUpdateQuoteParamsRequest) GetOrderId() string {
-	if x != nil {
-		return x.OrderId
-	}
-	return ""
-}
-
-func (x *SwapUpdateQuoteParamsRequest) GetParams() *SwapQuoteParams {
-	if x != nil {
-		return x.Params
-	}
-	return nil
-}
-
-type SwapUpdateQuoteParamsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Timeline      int32                  `protobuf:"varint,1,opt,name=timeline,proto3" json:"timeline,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SwapUpdateQuoteParamsResponse) Reset() {
-	*x = SwapUpdateQuoteParamsResponse{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SwapUpdateQuoteParamsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SwapUpdateQuoteParamsResponse) ProtoMessage() {}
-
-func (x *SwapUpdateQuoteParamsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SwapUpdateQuoteParamsResponse.ProtoReflect.Descriptor instead.
-func (*SwapUpdateQuoteParamsResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *SwapUpdateQuoteParamsResponse) GetTimeline() int32 {
-	if x != nil {
-		return x.Timeline
-	}
-	return 0
-}
-
-type SwapGetNewQuotesRequest struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	OrderId        string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
-	FetchedRouters []string               `protobuf:"bytes,2,rep,name=fetched_routers,json=fetchedRouters,proto3" json:"fetched_routers,omitempty"`
-	WaitTime       int64                  `protobuf:"varint,3,opt,name=wait_time,json=waitTime,proto3" json:"wait_time,omitempty"`
-	Generation     int32                  `protobuf:"varint,4,opt,name=generation,proto3" json:"generation,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
-}
-
-func (x *SwapGetNewQuotesRequest) Reset() {
-	*x = SwapGetNewQuotesRequest{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SwapGetNewQuotesRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SwapGetNewQuotesRequest) ProtoMessage() {}
-
-func (x *SwapGetNewQuotesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[12]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SwapGetNewQuotesRequest.ProtoReflect.Descriptor instead.
-func (*SwapGetNewQuotesRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{12}
-}
-
-func (x *SwapGetNewQuotesRequest) GetOrderId() string {
-	if x != nil {
-		return x.OrderId
-	}
-	return ""
-}
-
-func (x *SwapGetNewQuotesRequest) GetFetchedRouters() []string {
-	if x != nil {
-		return x.FetchedRouters
-	}
-	return nil
-}
-
-func (x *SwapGetNewQuotesRequest) GetWaitTime() int64 {
-	if x != nil {
-		return x.WaitTime
-	}
-	return 0
-}
-
-func (x *SwapGetNewQuotesRequest) GetGeneration() int32 {
-	if x != nil {
-		return x.Generation
-	}
-	return 0
-}
-
 type SwapGetQuotesResponse struct {
 	state         protoimpl.MessageState                 `protogen:"open.v1"`
 	Quotes        map[string]*SimpleSwapQuoteInformation `protobuf:"bytes,1,rep,name=quotes,proto3" json:"quotes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -1394,7 +1163,7 @@ type SwapGetQuotesResponse struct {
 
 func (x *SwapGetQuotesResponse) Reset() {
 	*x = SwapGetQuotesResponse{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[13]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1406,7 +1175,7 @@ func (x *SwapGetQuotesResponse) String() string {
 func (*SwapGetQuotesResponse) ProtoMessage() {}
 
 func (x *SwapGetQuotesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[13]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1419,7 +1188,7 @@ func (x *SwapGetQuotesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SwapGetQuotesResponse.ProtoReflect.Descriptor instead.
 func (*SwapGetQuotesResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{13}
+	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SwapGetQuotesResponse) GetQuotes() map[string]*SimpleSwapQuoteInformation {
@@ -1439,7 +1208,7 @@ type SwapGetQuotesRequest struct {
 
 func (x *SwapGetQuotesRequest) Reset() {
 	*x = SwapGetQuotesRequest{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[14]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1451,7 +1220,7 @@ func (x *SwapGetQuotesRequest) String() string {
 func (*SwapGetQuotesRequest) ProtoMessage() {}
 
 func (x *SwapGetQuotesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[14]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1464,7 +1233,7 @@ func (x *SwapGetQuotesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SwapGetQuotesRequest.ProtoReflect.Descriptor instead.
 func (*SwapGetQuotesRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{14}
+	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *SwapGetQuotesRequest) GetOrderId() string {
@@ -1496,7 +1265,7 @@ type SwapGetFlowstreamQuotesRequest struct {
 
 func (x *SwapGetFlowstreamQuotesRequest) Reset() {
 	*x = SwapGetFlowstreamQuotesRequest{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[15]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1508,7 +1277,7 @@ func (x *SwapGetFlowstreamQuotesRequest) String() string {
 func (*SwapGetFlowstreamQuotesRequest) ProtoMessage() {}
 
 func (x *SwapGetFlowstreamQuotesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[15]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1521,7 +1290,7 @@ func (x *SwapGetFlowstreamQuotesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SwapGetFlowstreamQuotesRequest.ProtoReflect.Descriptor instead.
 func (*SwapGetFlowstreamQuotesRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{15}
+	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SwapGetFlowstreamQuotesRequest) GetOrderId() string {
@@ -1562,7 +1331,7 @@ type SwapGetFlowstreamQuotesResponse struct {
 
 func (x *SwapGetFlowstreamQuotesResponse) Reset() {
 	*x = SwapGetFlowstreamQuotesResponse{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[16]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1574,7 +1343,7 @@ func (x *SwapGetFlowstreamQuotesResponse) String() string {
 func (*SwapGetFlowstreamQuotesResponse) ProtoMessage() {}
 
 func (x *SwapGetFlowstreamQuotesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[16]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1587,7 +1356,7 @@ func (x *SwapGetFlowstreamQuotesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SwapGetFlowstreamQuotesResponse.ProtoReflect.Descriptor instead.
 func (*SwapGetFlowstreamQuotesResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{16}
+	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *SwapGetFlowstreamQuotesResponse) GetQuotes() map[string]*SimpleSwapQuoteInformation {
@@ -1614,7 +1383,7 @@ type SwapGetQuoteRequest struct {
 
 func (x *SwapGetQuoteRequest) Reset() {
 	*x = SwapGetQuoteRequest{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[17]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1626,7 +1395,7 @@ func (x *SwapGetQuoteRequest) String() string {
 func (*SwapGetQuoteRequest) ProtoMessage() {}
 
 func (x *SwapGetQuoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[17]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1639,7 +1408,7 @@ func (x *SwapGetQuoteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SwapGetQuoteRequest.ProtoReflect.Descriptor instead.
 func (*SwapGetQuoteRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{17}
+	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *SwapGetQuoteRequest) GetOrderId() string {
@@ -1665,7 +1434,7 @@ type SwapGetQuoteResponse struct {
 
 func (x *SwapGetQuoteResponse) Reset() {
 	*x = SwapGetQuoteResponse{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[18]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1677,7 +1446,7 @@ func (x *SwapGetQuoteResponse) String() string {
 func (*SwapGetQuoteResponse) ProtoMessage() {}
 
 func (x *SwapGetQuoteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[18]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1690,7 +1459,7 @@ func (x *SwapGetQuoteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SwapGetQuoteResponse.ProtoReflect.Descriptor instead.
 func (*SwapGetQuoteResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{18}
+	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *SwapGetQuoteResponse) GetQuotes() map[string]*SimpleSwapQuoteInformation {
@@ -1711,7 +1480,7 @@ type SwapUpdateQuoteSelectRequest struct {
 
 func (x *SwapUpdateQuoteSelectRequest) Reset() {
 	*x = SwapUpdateQuoteSelectRequest{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[19]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1723,7 +1492,7 @@ func (x *SwapUpdateQuoteSelectRequest) String() string {
 func (*SwapUpdateQuoteSelectRequest) ProtoMessage() {}
 
 func (x *SwapUpdateQuoteSelectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[19]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1736,7 +1505,7 @@ func (x *SwapUpdateQuoteSelectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SwapUpdateQuoteSelectRequest.ProtoReflect.Descriptor instead.
 func (*SwapUpdateQuoteSelectRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{19}
+	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *SwapUpdateQuoteSelectRequest) GetOrderId() string {
@@ -1770,7 +1539,7 @@ type SwapUpdateQuoteSelectResponse struct {
 
 func (x *SwapUpdateQuoteSelectResponse) Reset() {
 	*x = SwapUpdateQuoteSelectResponse{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[20]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1782,7 +1551,7 @@ func (x *SwapUpdateQuoteSelectResponse) String() string {
 func (*SwapUpdateQuoteSelectResponse) ProtoMessage() {}
 
 func (x *SwapUpdateQuoteSelectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[20]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1795,7 +1564,7 @@ func (x *SwapUpdateQuoteSelectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SwapUpdateQuoteSelectResponse.ProtoReflect.Descriptor instead.
 func (*SwapUpdateQuoteSelectResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{20}
+	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *SwapUpdateQuoteSelectResponse) GetQuoteId() string {
@@ -1823,7 +1592,7 @@ type SwapConfirmQuoteSelectRequest struct {
 
 func (x *SwapConfirmQuoteSelectRequest) Reset() {
 	*x = SwapConfirmQuoteSelectRequest{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[21]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1835,7 +1604,7 @@ func (x *SwapConfirmQuoteSelectRequest) String() string {
 func (*SwapConfirmQuoteSelectRequest) ProtoMessage() {}
 
 func (x *SwapConfirmQuoteSelectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[21]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1848,7 +1617,7 @@ func (x *SwapConfirmQuoteSelectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SwapConfirmQuoteSelectRequest.ProtoReflect.Descriptor instead.
 func (*SwapConfirmQuoteSelectRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{21}
+	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *SwapConfirmQuoteSelectRequest) GetOrderId() string {
@@ -1880,7 +1649,7 @@ type SwapConfirmQuoteSelectResponse struct {
 
 func (x *SwapConfirmQuoteSelectResponse) Reset() {
 	*x = SwapConfirmQuoteSelectResponse{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[22]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1892,7 +1661,7 @@ func (x *SwapConfirmQuoteSelectResponse) String() string {
 func (*SwapConfirmQuoteSelectResponse) ProtoMessage() {}
 
 func (x *SwapConfirmQuoteSelectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[22]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1905,271 +1674,7 @@ func (x *SwapConfirmQuoteSelectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SwapConfirmQuoteSelectResponse.ProtoReflect.Descriptor instead.
 func (*SwapConfirmQuoteSelectResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{22}
-}
-
-type GetCowswapOrderStatusRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	OrderId       string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetCowswapOrderStatusRequest) Reset() {
-	*x = GetCowswapOrderStatusRequest{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[23]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetCowswapOrderStatusRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetCowswapOrderStatusRequest) ProtoMessage() {}
-
-func (x *GetCowswapOrderStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[23]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetCowswapOrderStatusRequest.ProtoReflect.Descriptor instead.
-func (*GetCowswapOrderStatusRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{23}
-}
-
-func (x *GetCowswapOrderStatusRequest) GetOrderId() string {
-	if x != nil {
-		return x.OrderId
-	}
-	return ""
-}
-
-type GetCowswapOrderStatusResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetCowswapOrderStatusResponse) Reset() {
-	*x = GetCowswapOrderStatusResponse{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[24]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetCowswapOrderStatusResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetCowswapOrderStatusResponse) ProtoMessage() {}
-
-func (x *GetCowswapOrderStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[24]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetCowswapOrderStatusResponse.ProtoReflect.Descriptor instead.
-func (*GetCowswapOrderStatusResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{24}
-}
-
-func (x *GetCowswapOrderStatusResponse) GetStatus() string {
-	if x != nil {
-		return x.Status
-	}
-	return ""
-}
-
-type CancelCowswapOrderRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	OrderId       string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
-	Signature     string                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CancelCowswapOrderRequest) Reset() {
-	*x = CancelCowswapOrderRequest{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[25]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CancelCowswapOrderRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CancelCowswapOrderRequest) ProtoMessage() {}
-
-func (x *CancelCowswapOrderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[25]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CancelCowswapOrderRequest.ProtoReflect.Descriptor instead.
-func (*CancelCowswapOrderRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{25}
-}
-
-func (x *CancelCowswapOrderRequest) GetOrderId() string {
-	if x != nil {
-		return x.OrderId
-	}
-	return ""
-}
-
-func (x *CancelCowswapOrderRequest) GetSignature() string {
-	if x != nil {
-		return x.Signature
-	}
-	return ""
-}
-
-type CancelCowswapOrderResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CancelCowswapOrderResponse) Reset() {
-	*x = CancelCowswapOrderResponse{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[26]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CancelCowswapOrderResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CancelCowswapOrderResponse) ProtoMessage() {}
-
-func (x *CancelCowswapOrderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[26]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CancelCowswapOrderResponse.ProtoReflect.Descriptor instead.
-func (*CancelCowswapOrderResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{26}
-}
-
-type CancelIntentOrderRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	OrderId       string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
-	Signature     string                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CancelIntentOrderRequest) Reset() {
-	*x = CancelIntentOrderRequest{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[27]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CancelIntentOrderRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CancelIntentOrderRequest) ProtoMessage() {}
-
-func (x *CancelIntentOrderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[27]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CancelIntentOrderRequest.ProtoReflect.Descriptor instead.
-func (*CancelIntentOrderRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{27}
-}
-
-func (x *CancelIntentOrderRequest) GetOrderId() string {
-	if x != nil {
-		return x.OrderId
-	}
-	return ""
-}
-
-func (x *CancelIntentOrderRequest) GetSignature() string {
-	if x != nil {
-		return x.Signature
-	}
-	return ""
-}
-
-type CancelIntentOrderResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CancelIntentOrderResponse) Reset() {
-	*x = CancelIntentOrderResponse{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[28]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CancelIntentOrderResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CancelIntentOrderResponse) ProtoMessage() {}
-
-func (x *CancelIntentOrderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[28]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CancelIntentOrderResponse.ProtoReflect.Descriptor instead.
-func (*CancelIntentOrderResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{28}
+	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{19}
 }
 
 type GetSupportedMarketsRequest struct {
@@ -2180,7 +1685,7 @@ type GetSupportedMarketsRequest struct {
 
 func (x *GetSupportedMarketsRequest) Reset() {
 	*x = GetSupportedMarketsRequest{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[29]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2192,7 +1697,7 @@ func (x *GetSupportedMarketsRequest) String() string {
 func (*GetSupportedMarketsRequest) ProtoMessage() {}
 
 func (x *GetSupportedMarketsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[29]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2205,7 +1710,7 @@ func (x *GetSupportedMarketsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSupportedMarketsRequest.ProtoReflect.Descriptor instead.
 func (*GetSupportedMarketsRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{29}
+	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{20}
 }
 
 type MarketStatus struct {
@@ -2224,7 +1729,7 @@ type MarketStatus struct {
 
 func (x *MarketStatus) Reset() {
 	*x = MarketStatus{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[30]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2236,7 +1741,7 @@ func (x *MarketStatus) String() string {
 func (*MarketStatus) ProtoMessage() {}
 
 func (x *MarketStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[30]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2249,7 +1754,7 @@ func (x *MarketStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarketStatus.ProtoReflect.Descriptor instead.
 func (*MarketStatus) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{30}
+	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *MarketStatus) GetName() string {
@@ -2290,7 +1795,7 @@ type GetSupportedMarketsResponse struct {
 
 func (x *GetSupportedMarketsResponse) Reset() {
 	*x = GetSupportedMarketsResponse{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[31]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2302,7 +1807,7 @@ func (x *GetSupportedMarketsResponse) String() string {
 func (*GetSupportedMarketsResponse) ProtoMessage() {}
 
 func (x *GetSupportedMarketsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[31]
+	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2315,7 +1820,7 @@ func (x *GetSupportedMarketsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSupportedMarketsResponse.ProtoReflect.Descriptor instead.
 func (*GetSupportedMarketsResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{31}
+	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GetSupportedMarketsResponse) GetMarkets() []*MarketStatus {
@@ -2323,411 +1828,6 @@ func (x *GetSupportedMarketsResponse) GetMarkets() []*MarketStatus {
 		return x.Markets
 	}
 	return nil
-}
-
-type JitQuoteRequest struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	OrderId string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
-	QuoteId string                 `protobuf:"bytes,2,opt,name=quote_id,json=quoteId,proto3" json:"quote_id,omitempty"`
-	// Reuse ExecutionRequest — carries the signing_request from the initial flow.
-	Request *ExecutionRequest `protobuf:"bytes,3,opt,name=request,proto3" json:"request,omitempty"`
-	// When true, restore the comparison reference to what it was before the
-	// last WORSE ratchet, then re-quote against that restored benchmark.
-	// Use this after receiving a WORSE verdict to retry with the previous
-	// (better) reference instead of the ratcheted-down one.
-	// Defaults to false (current rolling-ratchet behavior).
-	UsePreviousBenchmark bool `protobuf:"varint,4,opt,name=use_previous_benchmark,json=usePreviousBenchmark,proto3" json:"use_previous_benchmark,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
-}
-
-func (x *JitQuoteRequest) Reset() {
-	*x = JitQuoteRequest{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[32]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *JitQuoteRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*JitQuoteRequest) ProtoMessage() {}
-
-func (x *JitQuoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[32]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use JitQuoteRequest.ProtoReflect.Descriptor instead.
-func (*JitQuoteRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{32}
-}
-
-func (x *JitQuoteRequest) GetOrderId() string {
-	if x != nil {
-		return x.OrderId
-	}
-	return ""
-}
-
-func (x *JitQuoteRequest) GetQuoteId() string {
-	if x != nil {
-		return x.QuoteId
-	}
-	return ""
-}
-
-func (x *JitQuoteRequest) GetRequest() *ExecutionRequest {
-	if x != nil {
-		return x.Request
-	}
-	return nil
-}
-
-func (x *JitQuoteRequest) GetUsePreviousBenchmark() bool {
-	if x != nil {
-		return x.UsePreviousBenchmark
-	}
-	return false
-}
-
-type JitQuoteResponse struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Verdict JitQuoteVerdict        `protobuf:"varint,1,opt,name=verdict,proto3,enum=gfxcafe.oku.account.v2.JitQuoteVerdict" json:"verdict,omitempty"`
-	// The fresh execution info from the JIT quote (nil on FAILED).
-	NewExecutionInfo *GetExecutionInfoResponse `protobuf:"bytes,2,opt,name=new_execution_info,json=newExecutionInfo,proto3" json:"new_execution_info,omitempty"`
-	// The fresh quote details for comparison / state replacement (nil on FAILED).
-	NewQuote *SimpleSwapQuoteInformation `protobuf:"bytes,3,opt,name=new_quote,json=newQuote,proto3" json:"new_quote,omitempty"`
-	// The reference quote that was compared against (always present).
-	ReferenceQuote *SimpleSwapQuoteInformation `protobuf:"bytes,4,opt,name=reference_quote,json=referenceQuote,proto3" json:"reference_quote,omitempty"`
-	// Error message when verdict is FAILED.
-	Error         string `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *JitQuoteResponse) Reset() {
-	*x = JitQuoteResponse{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[33]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *JitQuoteResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*JitQuoteResponse) ProtoMessage() {}
-
-func (x *JitQuoteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[33]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use JitQuoteResponse.ProtoReflect.Descriptor instead.
-func (*JitQuoteResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{33}
-}
-
-func (x *JitQuoteResponse) GetVerdict() JitQuoteVerdict {
-	if x != nil {
-		return x.Verdict
-	}
-	return JitQuoteVerdict_JIT_QUOTE_VERDICT_UNSPECIFIED
-}
-
-func (x *JitQuoteResponse) GetNewExecutionInfo() *GetExecutionInfoResponse {
-	if x != nil {
-		return x.NewExecutionInfo
-	}
-	return nil
-}
-
-func (x *JitQuoteResponse) GetNewQuote() *SimpleSwapQuoteInformation {
-	if x != nil {
-		return x.NewQuote
-	}
-	return nil
-}
-
-func (x *JitQuoteResponse) GetReferenceQuote() *SimpleSwapQuoteInformation {
-	if x != nil {
-		return x.ReferenceQuote
-	}
-	return nil
-}
-
-func (x *JitQuoteResponse) GetError() string {
-	if x != nil {
-		return x.Error
-	}
-	return ""
-}
-
-// Identity comes exclusively from authentication. The optional wallet broadens
-// the free-trade count, but never selects another user.
-type GetAccountFeeTierRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Must be a wallet linked to the authenticated user.
-	Account       *string `protobuf:"bytes,1,opt,name=account,proto3,oneof" json:"account,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetAccountFeeTierRequest) Reset() {
-	*x = GetAccountFeeTierRequest{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[34]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetAccountFeeTierRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetAccountFeeTierRequest) ProtoMessage() {}
-
-func (x *GetAccountFeeTierRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[34]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetAccountFeeTierRequest.ProtoReflect.Descriptor instead.
-func (*GetAccountFeeTierRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{34}
-}
-
-func (x *GetAccountFeeTierRequest) GetAccount() string {
-	if x != nil && x.Account != nil {
-		return *x.Account
-	}
-	return ""
-}
-
-type AccountFeeVolumeTier struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Ascending lower bounds. The next row defines this row's upper bound.
-	MinimumVolumeUsd float64 `protobuf:"fixed64,1,opt,name=minimum_volume_usd,json=minimumVolumeUsd,proto3" json:"minimum_volume_usd,omitempty"`
-	MinimumExclusive bool    `protobuf:"varint,2,opt,name=minimum_exclusive,json=minimumExclusive,proto3" json:"minimum_exclusive,omitempty"`
-	FeePpm           uint32  `protobuf:"varint,3,opt,name=fee_ppm,json=feePpm,proto3" json:"fee_ppm,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
-}
-
-func (x *AccountFeeVolumeTier) Reset() {
-	*x = AccountFeeVolumeTier{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[35]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AccountFeeVolumeTier) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AccountFeeVolumeTier) ProtoMessage() {}
-
-func (x *AccountFeeVolumeTier) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[35]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AccountFeeVolumeTier.ProtoReflect.Descriptor instead.
-func (*AccountFeeVolumeTier) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{35}
-}
-
-func (x *AccountFeeVolumeTier) GetMinimumVolumeUsd() float64 {
-	if x != nil {
-		return x.MinimumVolumeUsd
-	}
-	return 0
-}
-
-func (x *AccountFeeVolumeTier) GetMinimumExclusive() bool {
-	if x != nil {
-		return x.MinimumExclusive
-	}
-	return false
-}
-
-func (x *AccountFeeVolumeTier) GetFeePpm() uint32 {
-	if x != nil {
-		return x.FeePpm
-	}
-	return 0
-}
-
-type GetAccountFeeTierResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Historical default-policy rate before current-size benefits or exemptions.
-	HistoricalFeePpm uint32 `protobuf:"varint,1,opt,name=historical_fee_ppm,json=historicalFeePpm,proto3" json:"historical_fee_ppm,omitempty"`
-	// Account-wide completed trade volume from the 30 days before calculated_at.
-	// Uses the same double-precision volume and up-to-24-hour cache as fee resolution.
-	VolumeUsd float64 `protobuf:"fixed64,2,opt,name=volume_usd,json=volumeUsd,proto3" json:"volume_usd,omitempty"`
-	// UTC RFC3339 snapshot time, not request time. Trades do not invalidate the cache.
-	CalculatedAt       string                  `protobuf:"bytes,3,opt,name=calculated_at,json=calculatedAt,proto3" json:"calculated_at,omitempty"`
-	VolumeWindowDays   uint32                  `protobuf:"varint,4,opt,name=volume_window_days,json=volumeWindowDays,proto3" json:"volume_window_days,omitempty"`
-	CacheMaxAgeSeconds uint32                  `protobuf:"varint,5,opt,name=cache_max_age_seconds,json=cacheMaxAgeSeconds,proto3" json:"cache_max_age_seconds,omitempty"`
-	DefaultSchedule    []*AccountFeeVolumeTier `protobuf:"bytes,6,rep,name=default_schedule,json=defaultSchedule,proto3" json:"default_schedule,omitempty"`
-	// Configuration state, NOT a claim that this account or any quote pays fees.
-	DefaultFeeEnabled bool `protobuf:"varint,7,opt,name=default_fee_enabled,json=defaultFeeEnabled,proto3" json:"default_fee_enabled,omitempty"`
-	// Always true: exemptions, discounts, routing, wrapping, like-kind, flat fees
-	// and current-size benefits require quote context. Retail and miniapp have
-	// separate policies. Use the quote's fee fields for actual fees, including zero.
-	QuoteContextRequired bool   `protobuf:"varint,8,opt,name=quote_context_required,json=quoteContextRequired,proto3" json:"quote_context_required,omitempty"`
-	FreeTradesEnabled    bool   `protobuf:"varint,9,opt,name=free_trades_enabled,json=freeTradesEnabled,proto3" json:"free_trades_enabled,omitempty"`
-	FreeTradesLimit      uint32 `protobuf:"varint,10,opt,name=free_trades_limit,json=freeTradesLimit,proto3" json:"free_trades_limit,omitempty"`
-	// Pre-claim remaining trades, counting the user and (if given) the wallet.
-	// Zero when the account or wallet made a non-free trade within the window.
-	// The quote's free_trade flag is authoritative for a particular quote.
-	FreeTradesRemaining  uint32 `protobuf:"varint,11,opt,name=free_trades_remaining,json=freeTradesRemaining,proto3" json:"free_trades_remaining,omitempty"`
-	FreeTradesWindowDays uint32 `protobuf:"varint,12,opt,name=free_trades_window_days,json=freeTradesWindowDays,proto3" json:"free_trades_window_days,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
-}
-
-func (x *GetAccountFeeTierResponse) Reset() {
-	*x = GetAccountFeeTierResponse{}
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[36]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetAccountFeeTierResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetAccountFeeTierResponse) ProtoMessage() {}
-
-func (x *GetAccountFeeTierResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[36]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetAccountFeeTierResponse.ProtoReflect.Descriptor instead.
-func (*GetAccountFeeTierResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP(), []int{36}
-}
-
-func (x *GetAccountFeeTierResponse) GetHistoricalFeePpm() uint32 {
-	if x != nil {
-		return x.HistoricalFeePpm
-	}
-	return 0
-}
-
-func (x *GetAccountFeeTierResponse) GetVolumeUsd() float64 {
-	if x != nil {
-		return x.VolumeUsd
-	}
-	return 0
-}
-
-func (x *GetAccountFeeTierResponse) GetCalculatedAt() string {
-	if x != nil {
-		return x.CalculatedAt
-	}
-	return ""
-}
-
-func (x *GetAccountFeeTierResponse) GetVolumeWindowDays() uint32 {
-	if x != nil {
-		return x.VolumeWindowDays
-	}
-	return 0
-}
-
-func (x *GetAccountFeeTierResponse) GetCacheMaxAgeSeconds() uint32 {
-	if x != nil {
-		return x.CacheMaxAgeSeconds
-	}
-	return 0
-}
-
-func (x *GetAccountFeeTierResponse) GetDefaultSchedule() []*AccountFeeVolumeTier {
-	if x != nil {
-		return x.DefaultSchedule
-	}
-	return nil
-}
-
-func (x *GetAccountFeeTierResponse) GetDefaultFeeEnabled() bool {
-	if x != nil {
-		return x.DefaultFeeEnabled
-	}
-	return false
-}
-
-func (x *GetAccountFeeTierResponse) GetQuoteContextRequired() bool {
-	if x != nil {
-		return x.QuoteContextRequired
-	}
-	return false
-}
-
-func (x *GetAccountFeeTierResponse) GetFreeTradesEnabled() bool {
-	if x != nil {
-		return x.FreeTradesEnabled
-	}
-	return false
-}
-
-func (x *GetAccountFeeTierResponse) GetFreeTradesLimit() uint32 {
-	if x != nil {
-		return x.FreeTradesLimit
-	}
-	return 0
-}
-
-func (x *GetAccountFeeTierResponse) GetFreeTradesRemaining() uint32 {
-	if x != nil {
-		return x.FreeTradesRemaining
-	}
-	return 0
-}
-
-func (x *GetAccountFeeTierResponse) GetFreeTradesWindowDays() uint32 {
-	if x != nil {
-		return x.FreeTradesWindowDays
-	}
-	return 0
 }
 
 var File_gfxcafe_oku_account_v2_simpleswap_proto protoreflect.FileDescriptor
@@ -2846,20 +1946,7 @@ const file_gfxcafe_oku_account_v2_simpleswap_proto_rawDesc = "" +
 	"\tlaunchpad\x18\x03 \x01(\bR\tlaunchpad\"X\n" +
 	"\x12SwapCreateResponse\x12&\n" +
 	"\border_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\aorderId\x12\x1a\n" +
-	"\btimeline\x18\x02 \x01(\x05R\btimeline\"\x87\x01\n" +
-	"\x1cSwapUpdateQuoteParamsRequest\x12&\n" +
-	"\border_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\aorderId\x12?\n" +
-	"\x06params\x18\x02 \x01(\v2'.gfxcafe.oku.account.v2.SwapQuoteParamsR\x06params\";\n" +
-	"\x1dSwapUpdateQuoteParamsResponse\x12\x1a\n" +
-	"\btimeline\x18\x01 \x01(\x05R\btimeline\"\xb6\x01\n" +
-	"\x17SwapGetNewQuotesRequest\x12&\n" +
-	"\border_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\aorderId\x126\n" +
-	"\x0ffetched_routers\x18\x02 \x03(\tB\r\xbaH\n" +
-	"\x92\x01\a\"\x05r\x03\x90}\x01R\x0efetchedRouters\x12\x1b\n" +
-	"\twait_time\x18\x03 \x01(\x03R\bwaitTime\x12\x1e\n" +
-	"\n" +
-	"generation\x18\x04 \x01(\x05R\n" +
-	"generation\"\xd9\x01\n" +
+	"\btimeline\x18\x02 \x01(\x05R\btimeline\"\xd9\x01\n" +
 	"\x15SwapGetQuotesResponse\x12Q\n" +
 	"\x06quotes\x18\x01 \x03(\v29.gfxcafe.oku.account.v2.SwapGetQuotesResponse.QuotesEntryR\x06quotes\x1am\n" +
 	"\vQuotesEntry\x12\x10\n" +
@@ -2901,19 +1988,7 @@ const file_gfxcafe_oku_account_v2_simpleswap_proto_rawDesc = "" +
 	"\border_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\aorderId\x12 \n" +
 	"\x06router\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x90}\x01R\x06router\x12#\n" +
 	"\bquote_id\x18\x03 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\aquoteId\" \n" +
-	"\x1eSwapConfirmQuoteSelectResponse\"F\n" +
-	"\x1cGetCowswapOrderStatusRequest\x12&\n" +
-	"\border_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\aorderId\"7\n" +
-	"\x1dGetCowswapOrderStatusResponse\x12\x16\n" +
-	"\x06status\x18\x01 \x01(\tR\x06status\"j\n" +
-	"\x19CancelCowswapOrderRequest\x12&\n" +
-	"\border_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\aorderId\x12%\n" +
-	"\tsignature\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tsignature\"\x1c\n" +
-	"\x1aCancelCowswapOrderResponse\"`\n" +
-	"\x18CancelIntentOrderRequest\x12&\n" +
-	"\border_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\aorderId\x12\x1c\n" +
-	"\tsignature\x18\x02 \x01(\tR\tsignature\"\x1b\n" +
-	"\x19CancelIntentOrderResponse\"\x1c\n" +
+	"\x1eSwapConfirmQuoteSelectResponse\"\x1c\n" +
 	"\x1aGetSupportedMarketsRequest\"\x98\x01\n" +
 	"\fMarketStatus\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
@@ -2921,68 +1996,19 @@ const file_gfxcafe_oku_account_v2_simpleswap_proto_rawDesc = "" +
 	"\x13supported_chain_ids\x18\x03 \x03(\x05R\x11supportedChainIds\x12,\n" +
 	"\x12supports_exact_out\x18\x04 \x01(\bR\x10supportsExactOut\"]\n" +
 	"\x1bGetSupportedMarketsResponse\x12>\n" +
-	"\amarkets\x18\x01 \x03(\v2$.gfxcafe.oku.account.v2.MarketStatusR\amarkets\"\xd8\x01\n" +
-	"\x0fJitQuoteRequest\x12&\n" +
-	"\border_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\aorderId\x12#\n" +
-	"\bquote_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\aquoteId\x12B\n" +
-	"\arequest\x18\x03 \x01(\v2(.gfxcafe.oku.account.v2.ExecutionRequestR\arequest\x124\n" +
-	"\x16use_previous_benchmark\x18\x04 \x01(\bR\x14usePreviousBenchmark\"\xf9\x02\n" +
-	"\x10JitQuoteResponse\x12A\n" +
-	"\averdict\x18\x01 \x01(\x0e2'.gfxcafe.oku.account.v2.JitQuoteVerdictR\averdict\x12^\n" +
-	"\x12new_execution_info\x18\x02 \x01(\v20.gfxcafe.oku.account.v2.GetExecutionInfoResponseR\x10newExecutionInfo\x12O\n" +
-	"\tnew_quote\x18\x03 \x01(\v22.gfxcafe.oku.account.v2.SimpleSwapQuoteInformationR\bnewQuote\x12[\n" +
-	"\x0freference_quote\x18\x04 \x01(\v22.gfxcafe.oku.account.v2.SimpleSwapQuoteInformationR\x0ereferenceQuote\x12\x14\n" +
-	"\x05error\x18\x05 \x01(\tR\x05error\"O\n" +
-	"\x18GetAccountFeeTierRequest\x12'\n" +
-	"\aaccount\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xd0H\x01H\x00R\aaccount\x88\x01\x01B\n" +
-	"\n" +
-	"\b_account\"\x8a\x01\n" +
-	"\x14AccountFeeVolumeTier\x12,\n" +
-	"\x12minimum_volume_usd\x18\x01 \x01(\x01R\x10minimumVolumeUsd\x12+\n" +
-	"\x11minimum_exclusive\x18\x02 \x01(\bR\x10minimumExclusive\x12\x17\n" +
-	"\afee_ppm\x18\x03 \x01(\rR\x06feePpm\"\xf4\x04\n" +
-	"\x19GetAccountFeeTierResponse\x12,\n" +
-	"\x12historical_fee_ppm\x18\x01 \x01(\rR\x10historicalFeePpm\x12\x1d\n" +
-	"\n" +
-	"volume_usd\x18\x02 \x01(\x01R\tvolumeUsd\x12#\n" +
-	"\rcalculated_at\x18\x03 \x01(\tR\fcalculatedAt\x12,\n" +
-	"\x12volume_window_days\x18\x04 \x01(\rR\x10volumeWindowDays\x121\n" +
-	"\x15cache_max_age_seconds\x18\x05 \x01(\rR\x12cacheMaxAgeSeconds\x12W\n" +
-	"\x10default_schedule\x18\x06 \x03(\v2,.gfxcafe.oku.account.v2.AccountFeeVolumeTierR\x0fdefaultSchedule\x12.\n" +
-	"\x13default_fee_enabled\x18\a \x01(\bR\x11defaultFeeEnabled\x124\n" +
-	"\x16quote_context_required\x18\b \x01(\bR\x14quoteContextRequired\x12.\n" +
-	"\x13free_trades_enabled\x18\t \x01(\bR\x11freeTradesEnabled\x12*\n" +
-	"\x11free_trades_limit\x18\n" +
-	" \x01(\rR\x0ffreeTradesLimit\x122\n" +
-	"\x15free_trades_remaining\x18\v \x01(\rR\x13freeTradesRemaining\x125\n" +
-	"\x17free_trades_window_days\x18\f \x01(\rR\x14freeTradesWindowDays*\xcc\x01\n" +
-	"\x0fJitQuoteVerdict\x12!\n" +
-	"\x1dJIT_QUOTE_VERDICT_UNSPECIFIED\x10\x00\x12\x1c\n" +
-	"\x18JIT_QUOTE_VERDICT_BETTER\x10\x01\x12\x1b\n" +
-	"\x17JIT_QUOTE_VERDICT_EQUAL\x10\x02\x12\x1b\n" +
-	"\x17JIT_QUOTE_VERDICT_WORSE\x10\x03\x12\x1c\n" +
-	"\x18JIT_QUOTE_VERDICT_FAILED\x10\x04\x12 \n" +
-	"\x1cJIT_QUOTE_VERDICT_ACCEPTABLE\x10\x052\x9f\x11\n" +
-	"\x13SimpleSwapServiceV2\x12x\n" +
-	"\x11GetAccountFeeTier\x120.gfxcafe.oku.account.v2.GetAccountFeeTierRequest\x1a1.gfxcafe.oku.account.v2.GetAccountFeeTierResponse\x12_\n" +
+	"\amarkets\x18\x01 \x03(\v2$.gfxcafe.oku.account.v2.MarketStatusR\amarkets2\xd5\t\n" +
+	"\x13SimpleSwapServiceV2\x12_\n" +
 	"\x06Create\x12).gfxcafe.oku.account.v2.SwapCreateRequest\x1a*.gfxcafe.oku.account.v2.SwapCreateResponse\x12Q\n" +
 	"\x04Ping\x12#.gfxcafe.oku.account.v2.PingRequest\x1a$.gfxcafe.oku.account.v2.PingResponse\x12W\n" +
-	"\x06Cancel\x12%.gfxcafe.oku.account.v2.CancelRequest\x1a&.gfxcafe.oku.account.v2.CancelResponse\x12\x80\x01\n" +
-	"\x11UpdateQuoteParams\x124.gfxcafe.oku.account.v2.SwapUpdateQuoteParamsRequest\x1a5.gfxcafe.oku.account.v2.SwapUpdateQuoteParamsResponse\x12l\n" +
-	"\rRefreshQuotes\x12,.gfxcafe.oku.account.v2.RefreshQuotesRequest\x1a-.gfxcafe.oku.account.v2.RefreshQuotesResponse\x12n\n" +
-	"\fGetNewQuotes\x12/.gfxcafe.oku.account.v2.SwapGetNewQuotesRequest\x1a-.gfxcafe.oku.account.v2.SwapGetQuotesResponse\x12h\n" +
+	"\x06Cancel\x12%.gfxcafe.oku.account.v2.CancelRequest\x1a&.gfxcafe.oku.account.v2.CancelResponse\x12h\n" +
 	"\tGetQuotes\x12,.gfxcafe.oku.account.v2.SwapGetQuotesRequest\x1a-.gfxcafe.oku.account.v2.SwapGetQuotesResponse\x12\x86\x01\n" +
 	"\x13GetFlowstreamQuotes\x126.gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesRequest\x1a7.gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesResponse\x12e\n" +
 	"\bGetQuote\x12+.gfxcafe.oku.account.v2.SwapGetQuoteRequest\x1a,.gfxcafe.oku.account.v2.SwapGetQuoteResponse\x12\x80\x01\n" +
 	"\x11UpdateQuoteSelect\x124.gfxcafe.oku.account.v2.SwapUpdateQuoteSelectRequest\x1a5.gfxcafe.oku.account.v2.SwapUpdateQuoteSelectResponse\x12\x83\x01\n" +
 	"\x12ConfirmQuoteSelect\x125.gfxcafe.oku.account.v2.SwapConfirmQuoteSelectRequest\x1a6.gfxcafe.oku.account.v2.SwapConfirmQuoteSelectResponse\x12u\n" +
 	"\x10GetExecutionInfo\x12/.gfxcafe.oku.account.v2.GetExecutionInfoRequest\x1a0.gfxcafe.oku.account.v2.GetExecutionInfoResponse\x12W\n" +
-	"\x06Finish\x12%.gfxcafe.oku.account.v2.FinishRequest\x1a&.gfxcafe.oku.account.v2.FinishResponse\x12\x89\x01\n" +
-	"\x15GetCowswapOrderStatus\x124.gfxcafe.oku.account.v2.GetCowswapOrderStatusRequest\x1a5.gfxcafe.oku.account.v2.GetCowswapOrderStatusResponse\"\x03\x88\x02\x01\x12\x80\x01\n" +
-	"\x12CancelCowswapOrder\x121.gfxcafe.oku.account.v2.CancelCowswapOrderRequest\x1a2.gfxcafe.oku.account.v2.CancelCowswapOrderResponse\"\x03\x88\x02\x01\x12x\n" +
-	"\x11CancelIntentOrder\x120.gfxcafe.oku.account.v2.CancelIntentOrderRequest\x1a1.gfxcafe.oku.account.v2.CancelIntentOrderResponse\x12~\n" +
-	"\x13GetSupportedMarkets\x122.gfxcafe.oku.account.v2.GetSupportedMarketsRequest\x1a3.gfxcafe.oku.account.v2.GetSupportedMarketsResponse\x12d\n" +
-	"\x0fRequestJitQuote\x12'.gfxcafe.oku.account.v2.JitQuoteRequest\x1a(.gfxcafe.oku.account.v2.JitQuoteResponseB\xef\x01\n" +
+	"\x06Finish\x12%.gfxcafe.oku.account.v2.FinishRequest\x1a&.gfxcafe.oku.account.v2.FinishResponse\x12~\n" +
+	"\x13GetSupportedMarkets\x122.gfxcafe.oku.account.v2.GetSupportedMarketsRequest\x1a3.gfxcafe.oku.account.v2.GetSupportedMarketsResponseB\xef\x01\n" +
 	"\x1acom.gfxcafe.oku.account.v2B\x0fSimpleswapProtoP\x01ZEgithub.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2;accountv2\xa2\x02\x03GOA\xaa\x02\x16Gfxcafe.Oku.Account.V2\xca\x02\x16Gfxcafe\\Oku\\Account\\V2\xe2\x02\"Gfxcafe\\Oku\\Account\\V2\\GPBMetadata\xea\x02\x19Gfxcafe::Oku::Account::V2b\x06proto3"
 
 var (
@@ -2997,145 +2023,103 @@ func file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescGZIP() []byte {
 	return file_gfxcafe_oku_account_v2_simpleswap_proto_rawDescData
 }
 
-var file_gfxcafe_oku_account_v2_simpleswap_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
+var file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_gfxcafe_oku_account_v2_simpleswap_proto_goTypes = []any{
-	(JitQuoteVerdict)(0),                    // 0: gfxcafe.oku.account.v2.JitQuoteVerdict
-	(*SwapFeatureFlags)(nil),                // 1: gfxcafe.oku.account.v2.SwapFeatureFlags
-	(*SwapQuoteParams)(nil),                 // 2: gfxcafe.oku.account.v2.SwapQuoteParams
-	(*AutoSlippageInfo)(nil),                // 3: gfxcafe.oku.account.v2.AutoSlippageInfo
-	(*SimpleSwapQuoteInformation)(nil),      // 4: gfxcafe.oku.account.v2.SimpleSwapQuoteInformation
-	(*SimpleSwapQuote)(nil),                 // 5: gfxcafe.oku.account.v2.SimpleSwapQuote
-	(*SimpleSwapFees)(nil),                  // 6: gfxcafe.oku.account.v2.SimpleSwapFees
-	(*FeeInfo)(nil),                         // 7: gfxcafe.oku.account.v2.FeeInfo
-	(*TokenFeeInfo)(nil),                    // 8: gfxcafe.oku.account.v2.TokenFeeInfo
-	(*SwapCreateRequest)(nil),               // 9: gfxcafe.oku.account.v2.SwapCreateRequest
-	(*SwapCreateResponse)(nil),              // 10: gfxcafe.oku.account.v2.SwapCreateResponse
-	(*SwapUpdateQuoteParamsRequest)(nil),    // 11: gfxcafe.oku.account.v2.SwapUpdateQuoteParamsRequest
-	(*SwapUpdateQuoteParamsResponse)(nil),   // 12: gfxcafe.oku.account.v2.SwapUpdateQuoteParamsResponse
-	(*SwapGetNewQuotesRequest)(nil),         // 13: gfxcafe.oku.account.v2.SwapGetNewQuotesRequest
-	(*SwapGetQuotesResponse)(nil),           // 14: gfxcafe.oku.account.v2.SwapGetQuotesResponse
-	(*SwapGetQuotesRequest)(nil),            // 15: gfxcafe.oku.account.v2.SwapGetQuotesRequest
-	(*SwapGetFlowstreamQuotesRequest)(nil),  // 16: gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesRequest
-	(*SwapGetFlowstreamQuotesResponse)(nil), // 17: gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesResponse
-	(*SwapGetQuoteRequest)(nil),             // 18: gfxcafe.oku.account.v2.SwapGetQuoteRequest
-	(*SwapGetQuoteResponse)(nil),            // 19: gfxcafe.oku.account.v2.SwapGetQuoteResponse
-	(*SwapUpdateQuoteSelectRequest)(nil),    // 20: gfxcafe.oku.account.v2.SwapUpdateQuoteSelectRequest
-	(*SwapUpdateQuoteSelectResponse)(nil),   // 21: gfxcafe.oku.account.v2.SwapUpdateQuoteSelectResponse
-	(*SwapConfirmQuoteSelectRequest)(nil),   // 22: gfxcafe.oku.account.v2.SwapConfirmQuoteSelectRequest
-	(*SwapConfirmQuoteSelectResponse)(nil),  // 23: gfxcafe.oku.account.v2.SwapConfirmQuoteSelectResponse
-	(*GetCowswapOrderStatusRequest)(nil),    // 24: gfxcafe.oku.account.v2.GetCowswapOrderStatusRequest
-	(*GetCowswapOrderStatusResponse)(nil),   // 25: gfxcafe.oku.account.v2.GetCowswapOrderStatusResponse
-	(*CancelCowswapOrderRequest)(nil),       // 26: gfxcafe.oku.account.v2.CancelCowswapOrderRequest
-	(*CancelCowswapOrderResponse)(nil),      // 27: gfxcafe.oku.account.v2.CancelCowswapOrderResponse
-	(*CancelIntentOrderRequest)(nil),        // 28: gfxcafe.oku.account.v2.CancelIntentOrderRequest
-	(*CancelIntentOrderResponse)(nil),       // 29: gfxcafe.oku.account.v2.CancelIntentOrderResponse
-	(*GetSupportedMarketsRequest)(nil),      // 30: gfxcafe.oku.account.v2.GetSupportedMarketsRequest
-	(*MarketStatus)(nil),                    // 31: gfxcafe.oku.account.v2.MarketStatus
-	(*GetSupportedMarketsResponse)(nil),     // 32: gfxcafe.oku.account.v2.GetSupportedMarketsResponse
-	(*JitQuoteRequest)(nil),                 // 33: gfxcafe.oku.account.v2.JitQuoteRequest
-	(*JitQuoteResponse)(nil),                // 34: gfxcafe.oku.account.v2.JitQuoteResponse
-	(*GetAccountFeeTierRequest)(nil),        // 35: gfxcafe.oku.account.v2.GetAccountFeeTierRequest
-	(*AccountFeeVolumeTier)(nil),            // 36: gfxcafe.oku.account.v2.AccountFeeVolumeTier
-	(*GetAccountFeeTierResponse)(nil),       // 37: gfxcafe.oku.account.v2.GetAccountFeeTierResponse
-	nil,                                     // 38: gfxcafe.oku.account.v2.SwapGetQuotesResponse.QuotesEntry
-	nil,                                     // 39: gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesResponse.QuotesEntry
-	nil,                                     // 40: gfxcafe.oku.account.v2.SwapGetQuoteResponse.QuotesEntry
-	(*OrderError)(nil),                      // 41: gfxcafe.oku.account.v2.OrderError
-	(*TokenMetadata)(nil),                   // 42: gfxcafe.oku.account.v2.TokenMetadata
-	(*ApprovalPayload)(nil),                 // 43: gfxcafe.oku.account.v2.ApprovalPayload
-	(*SigningRequest)(nil),                  // 44: gfxcafe.oku.account.v2.SigningRequest
-	(*Coupon)(nil),                          // 45: gfxcafe.oku.account.v2.Coupon
-	(*SimulationResult)(nil),                // 46: gfxcafe.oku.account.v2.SimulationResult
-	(*ApprovalPayloadV2)(nil),               // 47: gfxcafe.oku.account.v2.ApprovalPayloadV2
-	(*ExecutionInformation)(nil),            // 48: gfxcafe.oku.account.v2.ExecutionInformation
-	(*ExecutionRequest)(nil),                // 49: gfxcafe.oku.account.v2.ExecutionRequest
-	(*GetExecutionInfoResponse)(nil),        // 50: gfxcafe.oku.account.v2.GetExecutionInfoResponse
-	(*PingRequest)(nil),                     // 51: gfxcafe.oku.account.v2.PingRequest
-	(*CancelRequest)(nil),                   // 52: gfxcafe.oku.account.v2.CancelRequest
-	(*RefreshQuotesRequest)(nil),            // 53: gfxcafe.oku.account.v2.RefreshQuotesRequest
-	(*GetExecutionInfoRequest)(nil),         // 54: gfxcafe.oku.account.v2.GetExecutionInfoRequest
-	(*FinishRequest)(nil),                   // 55: gfxcafe.oku.account.v2.FinishRequest
-	(*PingResponse)(nil),                    // 56: gfxcafe.oku.account.v2.PingResponse
-	(*CancelResponse)(nil),                  // 57: gfxcafe.oku.account.v2.CancelResponse
-	(*RefreshQuotesResponse)(nil),           // 58: gfxcafe.oku.account.v2.RefreshQuotesResponse
-	(*FinishResponse)(nil),                  // 59: gfxcafe.oku.account.v2.FinishResponse
+	(*SwapFeatureFlags)(nil),                // 0: gfxcafe.oku.account.v2.SwapFeatureFlags
+	(*SwapQuoteParams)(nil),                 // 1: gfxcafe.oku.account.v2.SwapQuoteParams
+	(*AutoSlippageInfo)(nil),                // 2: gfxcafe.oku.account.v2.AutoSlippageInfo
+	(*SimpleSwapQuoteInformation)(nil),      // 3: gfxcafe.oku.account.v2.SimpleSwapQuoteInformation
+	(*SimpleSwapQuote)(nil),                 // 4: gfxcafe.oku.account.v2.SimpleSwapQuote
+	(*SimpleSwapFees)(nil),                  // 5: gfxcafe.oku.account.v2.SimpleSwapFees
+	(*FeeInfo)(nil),                         // 6: gfxcafe.oku.account.v2.FeeInfo
+	(*TokenFeeInfo)(nil),                    // 7: gfxcafe.oku.account.v2.TokenFeeInfo
+	(*SwapCreateRequest)(nil),               // 8: gfxcafe.oku.account.v2.SwapCreateRequest
+	(*SwapCreateResponse)(nil),              // 9: gfxcafe.oku.account.v2.SwapCreateResponse
+	(*SwapGetQuotesResponse)(nil),           // 10: gfxcafe.oku.account.v2.SwapGetQuotesResponse
+	(*SwapGetQuotesRequest)(nil),            // 11: gfxcafe.oku.account.v2.SwapGetQuotesRequest
+	(*SwapGetFlowstreamQuotesRequest)(nil),  // 12: gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesRequest
+	(*SwapGetFlowstreamQuotesResponse)(nil), // 13: gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesResponse
+	(*SwapGetQuoteRequest)(nil),             // 14: gfxcafe.oku.account.v2.SwapGetQuoteRequest
+	(*SwapGetQuoteResponse)(nil),            // 15: gfxcafe.oku.account.v2.SwapGetQuoteResponse
+	(*SwapUpdateQuoteSelectRequest)(nil),    // 16: gfxcafe.oku.account.v2.SwapUpdateQuoteSelectRequest
+	(*SwapUpdateQuoteSelectResponse)(nil),   // 17: gfxcafe.oku.account.v2.SwapUpdateQuoteSelectResponse
+	(*SwapConfirmQuoteSelectRequest)(nil),   // 18: gfxcafe.oku.account.v2.SwapConfirmQuoteSelectRequest
+	(*SwapConfirmQuoteSelectResponse)(nil),  // 19: gfxcafe.oku.account.v2.SwapConfirmQuoteSelectResponse
+	(*GetSupportedMarketsRequest)(nil),      // 20: gfxcafe.oku.account.v2.GetSupportedMarketsRequest
+	(*MarketStatus)(nil),                    // 21: gfxcafe.oku.account.v2.MarketStatus
+	(*GetSupportedMarketsResponse)(nil),     // 22: gfxcafe.oku.account.v2.GetSupportedMarketsResponse
+	nil,                                     // 23: gfxcafe.oku.account.v2.SwapGetQuotesResponse.QuotesEntry
+	nil,                                     // 24: gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesResponse.QuotesEntry
+	nil,                                     // 25: gfxcafe.oku.account.v2.SwapGetQuoteResponse.QuotesEntry
+	(*OrderError)(nil),                      // 26: gfxcafe.oku.account.v2.OrderError
+	(*TokenMetadata)(nil),                   // 27: gfxcafe.oku.account.v2.TokenMetadata
+	(*ApprovalPayload)(nil),                 // 28: gfxcafe.oku.account.v2.ApprovalPayload
+	(*SigningRequest)(nil),                  // 29: gfxcafe.oku.account.v2.SigningRequest
+	(*Coupon)(nil),                          // 30: gfxcafe.oku.account.v2.Coupon
+	(*SimulationResult)(nil),                // 31: gfxcafe.oku.account.v2.SimulationResult
+	(*ApprovalPayloadV2)(nil),               // 32: gfxcafe.oku.account.v2.ApprovalPayloadV2
+	(*ExecutionInformation)(nil),            // 33: gfxcafe.oku.account.v2.ExecutionInformation
+	(*PingRequest)(nil),                     // 34: gfxcafe.oku.account.v2.PingRequest
+	(*CancelRequest)(nil),                   // 35: gfxcafe.oku.account.v2.CancelRequest
+	(*GetExecutionInfoRequest)(nil),         // 36: gfxcafe.oku.account.v2.GetExecutionInfoRequest
+	(*FinishRequest)(nil),                   // 37: gfxcafe.oku.account.v2.FinishRequest
+	(*PingResponse)(nil),                    // 38: gfxcafe.oku.account.v2.PingResponse
+	(*CancelResponse)(nil),                  // 39: gfxcafe.oku.account.v2.CancelResponse
+	(*GetExecutionInfoResponse)(nil),        // 40: gfxcafe.oku.account.v2.GetExecutionInfoResponse
+	(*FinishResponse)(nil),                  // 41: gfxcafe.oku.account.v2.FinishResponse
 }
 var file_gfxcafe_oku_account_v2_simpleswap_proto_depIdxs = []int32{
-	1,  // 0: gfxcafe.oku.account.v2.SwapQuoteParams.feature_flags:type_name -> gfxcafe.oku.account.v2.SwapFeatureFlags
-	41, // 1: gfxcafe.oku.account.v2.SimpleSwapQuoteInformation.error:type_name -> gfxcafe.oku.account.v2.OrderError
-	5,  // 2: gfxcafe.oku.account.v2.SimpleSwapQuoteInformation.quote:type_name -> gfxcafe.oku.account.v2.SimpleSwapQuote
-	3,  // 3: gfxcafe.oku.account.v2.SimpleSwapQuoteInformation.auto_slippage:type_name -> gfxcafe.oku.account.v2.AutoSlippageInfo
-	42, // 4: gfxcafe.oku.account.v2.SimpleSwapQuote.in_token:type_name -> gfxcafe.oku.account.v2.TokenMetadata
-	42, // 5: gfxcafe.oku.account.v2.SimpleSwapQuote.out_token:type_name -> gfxcafe.oku.account.v2.TokenMetadata
-	43, // 6: gfxcafe.oku.account.v2.SimpleSwapQuote.approvals:type_name -> gfxcafe.oku.account.v2.ApprovalPayload
-	44, // 7: gfxcafe.oku.account.v2.SimpleSwapQuote.signing_request:type_name -> gfxcafe.oku.account.v2.SigningRequest
-	45, // 8: gfxcafe.oku.account.v2.SimpleSwapQuote.coupon:type_name -> gfxcafe.oku.account.v2.Coupon
-	6,  // 9: gfxcafe.oku.account.v2.SimpleSwapQuote.fees:type_name -> gfxcafe.oku.account.v2.SimpleSwapFees
-	46, // 10: gfxcafe.oku.account.v2.SimpleSwapQuote.simulation:type_name -> gfxcafe.oku.account.v2.SimulationResult
-	47, // 11: gfxcafe.oku.account.v2.SimpleSwapQuote.approvals_v2:type_name -> gfxcafe.oku.account.v2.ApprovalPayloadV2
-	48, // 12: gfxcafe.oku.account.v2.SimpleSwapQuote.execution_info:type_name -> gfxcafe.oku.account.v2.ExecutionInformation
-	7,  // 13: gfxcafe.oku.account.v2.SimpleSwapQuote.fee_info:type_name -> gfxcafe.oku.account.v2.FeeInfo
-	8,  // 14: gfxcafe.oku.account.v2.FeeInfo.output_token_fee_info:type_name -> gfxcafe.oku.account.v2.TokenFeeInfo
-	8,  // 15: gfxcafe.oku.account.v2.FeeInfo.input_token_fee_info:type_name -> gfxcafe.oku.account.v2.TokenFeeInfo
-	2,  // 16: gfxcafe.oku.account.v2.SwapCreateRequest.params:type_name -> gfxcafe.oku.account.v2.SwapQuoteParams
-	2,  // 17: gfxcafe.oku.account.v2.SwapUpdateQuoteParamsRequest.params:type_name -> gfxcafe.oku.account.v2.SwapQuoteParams
-	38, // 18: gfxcafe.oku.account.v2.SwapGetQuotesResponse.quotes:type_name -> gfxcafe.oku.account.v2.SwapGetQuotesResponse.QuotesEntry
-	39, // 19: gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesResponse.quotes:type_name -> gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesResponse.QuotesEntry
-	40, // 20: gfxcafe.oku.account.v2.SwapGetQuoteResponse.quotes:type_name -> gfxcafe.oku.account.v2.SwapGetQuoteResponse.QuotesEntry
-	31, // 21: gfxcafe.oku.account.v2.GetSupportedMarketsResponse.markets:type_name -> gfxcafe.oku.account.v2.MarketStatus
-	49, // 22: gfxcafe.oku.account.v2.JitQuoteRequest.request:type_name -> gfxcafe.oku.account.v2.ExecutionRequest
-	0,  // 23: gfxcafe.oku.account.v2.JitQuoteResponse.verdict:type_name -> gfxcafe.oku.account.v2.JitQuoteVerdict
-	50, // 24: gfxcafe.oku.account.v2.JitQuoteResponse.new_execution_info:type_name -> gfxcafe.oku.account.v2.GetExecutionInfoResponse
-	4,  // 25: gfxcafe.oku.account.v2.JitQuoteResponse.new_quote:type_name -> gfxcafe.oku.account.v2.SimpleSwapQuoteInformation
-	4,  // 26: gfxcafe.oku.account.v2.JitQuoteResponse.reference_quote:type_name -> gfxcafe.oku.account.v2.SimpleSwapQuoteInformation
-	36, // 27: gfxcafe.oku.account.v2.GetAccountFeeTierResponse.default_schedule:type_name -> gfxcafe.oku.account.v2.AccountFeeVolumeTier
-	4,  // 28: gfxcafe.oku.account.v2.SwapGetQuotesResponse.QuotesEntry.value:type_name -> gfxcafe.oku.account.v2.SimpleSwapQuoteInformation
-	4,  // 29: gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesResponse.QuotesEntry.value:type_name -> gfxcafe.oku.account.v2.SimpleSwapQuoteInformation
-	4,  // 30: gfxcafe.oku.account.v2.SwapGetQuoteResponse.QuotesEntry.value:type_name -> gfxcafe.oku.account.v2.SimpleSwapQuoteInformation
-	35, // 31: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetAccountFeeTier:input_type -> gfxcafe.oku.account.v2.GetAccountFeeTierRequest
-	9,  // 32: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Create:input_type -> gfxcafe.oku.account.v2.SwapCreateRequest
-	51, // 33: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Ping:input_type -> gfxcafe.oku.account.v2.PingRequest
-	52, // 34: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Cancel:input_type -> gfxcafe.oku.account.v2.CancelRequest
-	11, // 35: gfxcafe.oku.account.v2.SimpleSwapServiceV2.UpdateQuoteParams:input_type -> gfxcafe.oku.account.v2.SwapUpdateQuoteParamsRequest
-	53, // 36: gfxcafe.oku.account.v2.SimpleSwapServiceV2.RefreshQuotes:input_type -> gfxcafe.oku.account.v2.RefreshQuotesRequest
-	13, // 37: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetNewQuotes:input_type -> gfxcafe.oku.account.v2.SwapGetNewQuotesRequest
-	15, // 38: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetQuotes:input_type -> gfxcafe.oku.account.v2.SwapGetQuotesRequest
-	16, // 39: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetFlowstreamQuotes:input_type -> gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesRequest
-	18, // 40: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetQuote:input_type -> gfxcafe.oku.account.v2.SwapGetQuoteRequest
-	20, // 41: gfxcafe.oku.account.v2.SimpleSwapServiceV2.UpdateQuoteSelect:input_type -> gfxcafe.oku.account.v2.SwapUpdateQuoteSelectRequest
-	22, // 42: gfxcafe.oku.account.v2.SimpleSwapServiceV2.ConfirmQuoteSelect:input_type -> gfxcafe.oku.account.v2.SwapConfirmQuoteSelectRequest
-	54, // 43: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetExecutionInfo:input_type -> gfxcafe.oku.account.v2.GetExecutionInfoRequest
-	55, // 44: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Finish:input_type -> gfxcafe.oku.account.v2.FinishRequest
-	24, // 45: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetCowswapOrderStatus:input_type -> gfxcafe.oku.account.v2.GetCowswapOrderStatusRequest
-	26, // 46: gfxcafe.oku.account.v2.SimpleSwapServiceV2.CancelCowswapOrder:input_type -> gfxcafe.oku.account.v2.CancelCowswapOrderRequest
-	28, // 47: gfxcafe.oku.account.v2.SimpleSwapServiceV2.CancelIntentOrder:input_type -> gfxcafe.oku.account.v2.CancelIntentOrderRequest
-	30, // 48: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetSupportedMarkets:input_type -> gfxcafe.oku.account.v2.GetSupportedMarketsRequest
-	33, // 49: gfxcafe.oku.account.v2.SimpleSwapServiceV2.RequestJitQuote:input_type -> gfxcafe.oku.account.v2.JitQuoteRequest
-	37, // 50: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetAccountFeeTier:output_type -> gfxcafe.oku.account.v2.GetAccountFeeTierResponse
-	10, // 51: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Create:output_type -> gfxcafe.oku.account.v2.SwapCreateResponse
-	56, // 52: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Ping:output_type -> gfxcafe.oku.account.v2.PingResponse
-	57, // 53: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Cancel:output_type -> gfxcafe.oku.account.v2.CancelResponse
-	12, // 54: gfxcafe.oku.account.v2.SimpleSwapServiceV2.UpdateQuoteParams:output_type -> gfxcafe.oku.account.v2.SwapUpdateQuoteParamsResponse
-	58, // 55: gfxcafe.oku.account.v2.SimpleSwapServiceV2.RefreshQuotes:output_type -> gfxcafe.oku.account.v2.RefreshQuotesResponse
-	14, // 56: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetNewQuotes:output_type -> gfxcafe.oku.account.v2.SwapGetQuotesResponse
-	14, // 57: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetQuotes:output_type -> gfxcafe.oku.account.v2.SwapGetQuotesResponse
-	17, // 58: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetFlowstreamQuotes:output_type -> gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesResponse
-	19, // 59: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetQuote:output_type -> gfxcafe.oku.account.v2.SwapGetQuoteResponse
-	21, // 60: gfxcafe.oku.account.v2.SimpleSwapServiceV2.UpdateQuoteSelect:output_type -> gfxcafe.oku.account.v2.SwapUpdateQuoteSelectResponse
-	23, // 61: gfxcafe.oku.account.v2.SimpleSwapServiceV2.ConfirmQuoteSelect:output_type -> gfxcafe.oku.account.v2.SwapConfirmQuoteSelectResponse
-	50, // 62: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetExecutionInfo:output_type -> gfxcafe.oku.account.v2.GetExecutionInfoResponse
-	59, // 63: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Finish:output_type -> gfxcafe.oku.account.v2.FinishResponse
-	25, // 64: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetCowswapOrderStatus:output_type -> gfxcafe.oku.account.v2.GetCowswapOrderStatusResponse
-	27, // 65: gfxcafe.oku.account.v2.SimpleSwapServiceV2.CancelCowswapOrder:output_type -> gfxcafe.oku.account.v2.CancelCowswapOrderResponse
-	29, // 66: gfxcafe.oku.account.v2.SimpleSwapServiceV2.CancelIntentOrder:output_type -> gfxcafe.oku.account.v2.CancelIntentOrderResponse
-	32, // 67: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetSupportedMarkets:output_type -> gfxcafe.oku.account.v2.GetSupportedMarketsResponse
-	34, // 68: gfxcafe.oku.account.v2.SimpleSwapServiceV2.RequestJitQuote:output_type -> gfxcafe.oku.account.v2.JitQuoteResponse
-	50, // [50:69] is the sub-list for method output_type
-	31, // [31:50] is the sub-list for method input_type
-	31, // [31:31] is the sub-list for extension type_name
-	31, // [31:31] is the sub-list for extension extendee
-	0,  // [0:31] is the sub-list for field type_name
+	0,  // 0: gfxcafe.oku.account.v2.SwapQuoteParams.feature_flags:type_name -> gfxcafe.oku.account.v2.SwapFeatureFlags
+	26, // 1: gfxcafe.oku.account.v2.SimpleSwapQuoteInformation.error:type_name -> gfxcafe.oku.account.v2.OrderError
+	4,  // 2: gfxcafe.oku.account.v2.SimpleSwapQuoteInformation.quote:type_name -> gfxcafe.oku.account.v2.SimpleSwapQuote
+	2,  // 3: gfxcafe.oku.account.v2.SimpleSwapQuoteInformation.auto_slippage:type_name -> gfxcafe.oku.account.v2.AutoSlippageInfo
+	27, // 4: gfxcafe.oku.account.v2.SimpleSwapQuote.in_token:type_name -> gfxcafe.oku.account.v2.TokenMetadata
+	27, // 5: gfxcafe.oku.account.v2.SimpleSwapQuote.out_token:type_name -> gfxcafe.oku.account.v2.TokenMetadata
+	28, // 6: gfxcafe.oku.account.v2.SimpleSwapQuote.approvals:type_name -> gfxcafe.oku.account.v2.ApprovalPayload
+	29, // 7: gfxcafe.oku.account.v2.SimpleSwapQuote.signing_request:type_name -> gfxcafe.oku.account.v2.SigningRequest
+	30, // 8: gfxcafe.oku.account.v2.SimpleSwapQuote.coupon:type_name -> gfxcafe.oku.account.v2.Coupon
+	5,  // 9: gfxcafe.oku.account.v2.SimpleSwapQuote.fees:type_name -> gfxcafe.oku.account.v2.SimpleSwapFees
+	31, // 10: gfxcafe.oku.account.v2.SimpleSwapQuote.simulation:type_name -> gfxcafe.oku.account.v2.SimulationResult
+	32, // 11: gfxcafe.oku.account.v2.SimpleSwapQuote.approvals_v2:type_name -> gfxcafe.oku.account.v2.ApprovalPayloadV2
+	33, // 12: gfxcafe.oku.account.v2.SimpleSwapQuote.execution_info:type_name -> gfxcafe.oku.account.v2.ExecutionInformation
+	6,  // 13: gfxcafe.oku.account.v2.SimpleSwapQuote.fee_info:type_name -> gfxcafe.oku.account.v2.FeeInfo
+	7,  // 14: gfxcafe.oku.account.v2.FeeInfo.output_token_fee_info:type_name -> gfxcafe.oku.account.v2.TokenFeeInfo
+	7,  // 15: gfxcafe.oku.account.v2.FeeInfo.input_token_fee_info:type_name -> gfxcafe.oku.account.v2.TokenFeeInfo
+	1,  // 16: gfxcafe.oku.account.v2.SwapCreateRequest.params:type_name -> gfxcafe.oku.account.v2.SwapQuoteParams
+	23, // 17: gfxcafe.oku.account.v2.SwapGetQuotesResponse.quotes:type_name -> gfxcafe.oku.account.v2.SwapGetQuotesResponse.QuotesEntry
+	24, // 18: gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesResponse.quotes:type_name -> gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesResponse.QuotesEntry
+	25, // 19: gfxcafe.oku.account.v2.SwapGetQuoteResponse.quotes:type_name -> gfxcafe.oku.account.v2.SwapGetQuoteResponse.QuotesEntry
+	21, // 20: gfxcafe.oku.account.v2.GetSupportedMarketsResponse.markets:type_name -> gfxcafe.oku.account.v2.MarketStatus
+	3,  // 21: gfxcafe.oku.account.v2.SwapGetQuotesResponse.QuotesEntry.value:type_name -> gfxcafe.oku.account.v2.SimpleSwapQuoteInformation
+	3,  // 22: gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesResponse.QuotesEntry.value:type_name -> gfxcafe.oku.account.v2.SimpleSwapQuoteInformation
+	3,  // 23: gfxcafe.oku.account.v2.SwapGetQuoteResponse.QuotesEntry.value:type_name -> gfxcafe.oku.account.v2.SimpleSwapQuoteInformation
+	8,  // 24: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Create:input_type -> gfxcafe.oku.account.v2.SwapCreateRequest
+	34, // 25: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Ping:input_type -> gfxcafe.oku.account.v2.PingRequest
+	35, // 26: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Cancel:input_type -> gfxcafe.oku.account.v2.CancelRequest
+	11, // 27: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetQuotes:input_type -> gfxcafe.oku.account.v2.SwapGetQuotesRequest
+	12, // 28: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetFlowstreamQuotes:input_type -> gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesRequest
+	14, // 29: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetQuote:input_type -> gfxcafe.oku.account.v2.SwapGetQuoteRequest
+	16, // 30: gfxcafe.oku.account.v2.SimpleSwapServiceV2.UpdateQuoteSelect:input_type -> gfxcafe.oku.account.v2.SwapUpdateQuoteSelectRequest
+	18, // 31: gfxcafe.oku.account.v2.SimpleSwapServiceV2.ConfirmQuoteSelect:input_type -> gfxcafe.oku.account.v2.SwapConfirmQuoteSelectRequest
+	36, // 32: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetExecutionInfo:input_type -> gfxcafe.oku.account.v2.GetExecutionInfoRequest
+	37, // 33: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Finish:input_type -> gfxcafe.oku.account.v2.FinishRequest
+	20, // 34: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetSupportedMarkets:input_type -> gfxcafe.oku.account.v2.GetSupportedMarketsRequest
+	9,  // 35: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Create:output_type -> gfxcafe.oku.account.v2.SwapCreateResponse
+	38, // 36: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Ping:output_type -> gfxcafe.oku.account.v2.PingResponse
+	39, // 37: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Cancel:output_type -> gfxcafe.oku.account.v2.CancelResponse
+	10, // 38: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetQuotes:output_type -> gfxcafe.oku.account.v2.SwapGetQuotesResponse
+	13, // 39: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetFlowstreamQuotes:output_type -> gfxcafe.oku.account.v2.SwapGetFlowstreamQuotesResponse
+	15, // 40: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetQuote:output_type -> gfxcafe.oku.account.v2.SwapGetQuoteResponse
+	17, // 41: gfxcafe.oku.account.v2.SimpleSwapServiceV2.UpdateQuoteSelect:output_type -> gfxcafe.oku.account.v2.SwapUpdateQuoteSelectResponse
+	19, // 42: gfxcafe.oku.account.v2.SimpleSwapServiceV2.ConfirmQuoteSelect:output_type -> gfxcafe.oku.account.v2.SwapConfirmQuoteSelectResponse
+	40, // 43: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetExecutionInfo:output_type -> gfxcafe.oku.account.v2.GetExecutionInfoResponse
+	41, // 44: gfxcafe.oku.account.v2.SimpleSwapServiceV2.Finish:output_type -> gfxcafe.oku.account.v2.FinishResponse
+	22, // 45: gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetSupportedMarkets:output_type -> gfxcafe.oku.account.v2.GetSupportedMarketsResponse
+	35, // [35:46] is the sub-list for method output_type
+	24, // [24:35] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_gfxcafe_oku_account_v2_simpleswap_proto_init() }
@@ -3145,20 +2129,18 @@ func file_gfxcafe_oku_account_v2_simpleswap_proto_init() {
 	}
 	file_gfxcafe_oku_account_v2_orders_proto_init()
 	file_gfxcafe_oku_account_v2_validate_proto_init()
-	file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes[34].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gfxcafe_oku_account_v2_simpleswap_proto_rawDesc), len(file_gfxcafe_oku_account_v2_simpleswap_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   40,
+			NumEnums:      0,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_gfxcafe_oku_account_v2_simpleswap_proto_goTypes,
 		DependencyIndexes: file_gfxcafe_oku_account_v2_simpleswap_proto_depIdxs,
-		EnumInfos:         file_gfxcafe_oku_account_v2_simpleswap_proto_enumTypes,
 		MessageInfos:      file_gfxcafe_oku_account_v2_simpleswap_proto_msgTypes,
 	}.Build()
 	File_gfxcafe_oku_account_v2_simpleswap_proto = out.File

@@ -149,113 +149,6 @@ func (OrderType) EnumDescriptor() ([]byte, []int) {
 	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{1}
 }
 
-type GetOrderRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Internal orders.id, not a provider's intent_order_id.
-	OrderId       string `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
-	WalletAddr    string `protobuf:"bytes,2,opt,name=wallet_addr,json=walletAddr,proto3" json:"wallet_addr,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetOrderRequest) Reset() {
-	*x = GetOrderRequest{}
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetOrderRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetOrderRequest) ProtoMessage() {}
-
-func (x *GetOrderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetOrderRequest.ProtoReflect.Descriptor instead.
-func (*GetOrderRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *GetOrderRequest) GetOrderId() string {
-	if x != nil {
-		return x.OrderId
-	}
-	return ""
-}
-
-func (x *GetOrderRequest) GetWalletAddr() string {
-	if x != nil {
-		return x.WalletAddr
-	}
-	return ""
-}
-
-type GetOrderResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Status is refreshed by a direct Canoe market order_status read on every call,
-	// including persisted terminal orders. Running/completed/missing workflows do
-	// not affect freshness. No cached DB/workflow status is returned on failure.
-	// Upstream failure/invalid response returns UNAVAILABLE; deadline expiry returns
-	// DEADLINE_EXCEEDED. No cancellation, signals, provider writes or DB repair runs.
-	// Cancellation metadata, explorer URL and transaction hash come only from this
-	// live read. Amounts use live values when supplied; other descriptive/price data
-	// remains a stored snapshot. Status follows Canoe's normalized provider contract.
-	// Missing market intent identity or unsupported source chain/order type returns
-	// FAILED_PRECONDITION. A successful response always contains one order.
-	Order         *OrderTrade `protobuf:"bytes,1,opt,name=order,proto3" json:"order,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetOrderResponse) Reset() {
-	*x = GetOrderResponse{}
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetOrderResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetOrderResponse) ProtoMessage() {}
-
-func (x *GetOrderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetOrderResponse.ProtoReflect.Descriptor instead.
-func (*GetOrderResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *GetOrderResponse) GetOrder() *OrderTrade {
-	if x != nil {
-		return x.Order
-	}
-	return nil
-}
-
 // OrderHistoryServiceHistoryRequest queries order history.
 type OrderHistoryRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -289,7 +182,7 @@ type OrderHistoryRequest struct {
 
 func (x *OrderHistoryRequest) Reset() {
 	*x = OrderHistoryRequest{}
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[2]
+	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -301,7 +194,7 @@ func (x *OrderHistoryRequest) String() string {
 func (*OrderHistoryRequest) ProtoMessage() {}
 
 func (x *OrderHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[2]
+	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -314,7 +207,7 @@ func (x *OrderHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderHistoryRequest.ProtoReflect.Descriptor instead.
 func (*OrderHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{2}
+	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *OrderHistoryRequest) GetWalletAddr() string {
@@ -407,7 +300,7 @@ type OrderHistoryResponse struct {
 
 func (x *OrderHistoryResponse) Reset() {
 	*x = OrderHistoryResponse{}
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[3]
+	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -419,7 +312,7 @@ func (x *OrderHistoryResponse) String() string {
 func (*OrderHistoryResponse) ProtoMessage() {}
 
 func (x *OrderHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[3]
+	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -432,7 +325,7 @@ func (x *OrderHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderHistoryResponse.ProtoReflect.Descriptor instead.
 func (*OrderHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{3}
+	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *OrderHistoryResponse) GetHistory() []*OrderTrade {
@@ -503,7 +396,7 @@ type OrderTrade struct {
 
 func (x *OrderTrade) Reset() {
 	*x = OrderTrade{}
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[4]
+	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -515,7 +408,7 @@ func (x *OrderTrade) String() string {
 func (*OrderTrade) ProtoMessage() {}
 
 func (x *OrderTrade) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[4]
+	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -528,7 +421,7 @@ func (x *OrderTrade) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderTrade.ProtoReflect.Descriptor instead.
 func (*OrderTrade) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{4}
+	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *OrderTrade) GetOrderId() string {
@@ -689,7 +582,7 @@ type OrderTradeFeeInfo struct {
 
 func (x *OrderTradeFeeInfo) Reset() {
 	*x = OrderTradeFeeInfo{}
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[5]
+	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -701,7 +594,7 @@ func (x *OrderTradeFeeInfo) String() string {
 func (*OrderTradeFeeInfo) ProtoMessage() {}
 
 func (x *OrderTradeFeeInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[5]
+	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -714,7 +607,7 @@ func (x *OrderTradeFeeInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderTradeFeeInfo.ProtoReflect.Descriptor instead.
 func (*OrderTradeFeeInfo) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{5}
+	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *OrderTradeFeeInfo) GetInputTokenFeeInfo() *OrderTradeTokenFee {
@@ -751,7 +644,7 @@ type OrderTradeTokenFee struct {
 
 func (x *OrderTradeTokenFee) Reset() {
 	*x = OrderTradeTokenFee{}
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[6]
+	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -763,7 +656,7 @@ func (x *OrderTradeTokenFee) String() string {
 func (*OrderTradeTokenFee) ProtoMessage() {}
 
 func (x *OrderTradeTokenFee) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[6]
+	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -776,7 +669,7 @@ func (x *OrderTradeTokenFee) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderTradeTokenFee.ProtoReflect.Descriptor instead.
 func (*OrderTradeTokenFee) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{6}
+	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *OrderTradeTokenFee) GetAmountRaw() string {
@@ -822,7 +715,7 @@ type OrderTradeToken struct {
 
 func (x *OrderTradeToken) Reset() {
 	*x = OrderTradeToken{}
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[7]
+	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -834,7 +727,7 @@ func (x *OrderTradeToken) String() string {
 func (*OrderTradeToken) ProtoMessage() {}
 
 func (x *OrderTradeToken) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[7]
+	mi := &file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -847,7 +740,7 @@ func (x *OrderTradeToken) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderTradeToken.ProtoReflect.Descriptor instead.
 func (*OrderTradeToken) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{7}
+	return file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *OrderTradeToken) GetAddress() string {
@@ -875,13 +768,7 @@ var File_gfxcafe_oku_account_v1_orderhistory_proto protoreflect.FileDescriptor
 
 const file_gfxcafe_oku_account_v1_orderhistory_proto_rawDesc = "" +
 	"\n" +
-	")gfxcafe/oku/account/v1/orderhistory.proto\x12\x16gfxcafe.oku.account.v1\x1a\x1bbuf/validate/validate.proto\x1a%gfxcafe/oku/account/v1/validate.proto\"d\n" +
-	"\x0fGetOrderRequest\x12#\n" +
-	"\border_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\aorderId\x12,\n" +
-	"\vwallet_addr\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xd0H\x01R\n" +
-	"walletAddr\"L\n" +
-	"\x10GetOrderResponse\x128\n" +
-	"\x05order\x18\x01 \x01(\v2\".gfxcafe.oku.account.v1.OrderTradeR\x05order\"\xa4\x04\n" +
+	")gfxcafe/oku/account/v1/orderhistory.proto\x12\x16gfxcafe.oku.account.v1\x1a\x1bbuf/validate/validate.proto\x1a%gfxcafe/oku/account/v1/validate.proto\"\xa4\x04\n" +
 	"\x13OrderHistoryRequest\x12,\n" +
 	"\vwallet_addr\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xd0H\x01R\n" +
 	"walletAddr\x12\x19\n" +
@@ -966,10 +853,9 @@ const file_gfxcafe_oku_account_v1_orderhistory_proto_rawDesc = "" +
 	"\x16ORDER_TYPE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11ORDER_TYPE_MARKET\x10\x01\x12\x14\n" +
 	"\x10ORDER_TYPE_LIMIT\x10\x02\x12\x15\n" +
-	"\x11ORDER_TYPE_BRIDGE\x10\x032\xda\x01\n" +
+	"\x11ORDER_TYPE_BRIDGE\x10\x032{\n" +
 	"\x13OrderHistoryService\x12d\n" +
-	"\aHistory\x12+.gfxcafe.oku.account.v1.OrderHistoryRequest\x1a,.gfxcafe.oku.account.v1.OrderHistoryResponse\x12]\n" +
-	"\bGetOrder\x12'.gfxcafe.oku.account.v1.GetOrderRequest\x1a(.gfxcafe.oku.account.v1.GetOrderResponseB\xf1\x01\n" +
+	"\aHistory\x12+.gfxcafe.oku.account.v1.OrderHistoryRequest\x1a,.gfxcafe.oku.account.v1.OrderHistoryResponseB\xf1\x01\n" +
 	"\x1acom.gfxcafe.oku.account.v1B\x11OrderhistoryProtoP\x01ZEgithub.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v1;accountv1\xa2\x02\x03GOA\xaa\x02\x16Gfxcafe.Oku.Account.V1\xca\x02\x16Gfxcafe\\Oku\\Account\\V1\xe2\x02\"Gfxcafe\\Oku\\Account\\V1\\GPBMetadata\xea\x02\x19Gfxcafe::Oku::Account::V1b\x06proto3"
 
 var (
@@ -985,40 +871,35 @@ func file_gfxcafe_oku_account_v1_orderhistory_proto_rawDescGZIP() []byte {
 }
 
 var file_gfxcafe_oku_account_v1_orderhistory_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_gfxcafe_oku_account_v1_orderhistory_proto_goTypes = []any{
 	(OrderStatus)(0),             // 0: gfxcafe.oku.account.v1.OrderStatus
 	(OrderType)(0),               // 1: gfxcafe.oku.account.v1.OrderType
-	(*GetOrderRequest)(nil),      // 2: gfxcafe.oku.account.v1.GetOrderRequest
-	(*GetOrderResponse)(nil),     // 3: gfxcafe.oku.account.v1.GetOrderResponse
-	(*OrderHistoryRequest)(nil),  // 4: gfxcafe.oku.account.v1.OrderHistoryRequest
-	(*OrderHistoryResponse)(nil), // 5: gfxcafe.oku.account.v1.OrderHistoryResponse
-	(*OrderTrade)(nil),           // 6: gfxcafe.oku.account.v1.OrderTrade
-	(*OrderTradeFeeInfo)(nil),    // 7: gfxcafe.oku.account.v1.OrderTradeFeeInfo
-	(*OrderTradeTokenFee)(nil),   // 8: gfxcafe.oku.account.v1.OrderTradeTokenFee
-	(*OrderTradeToken)(nil),      // 9: gfxcafe.oku.account.v1.OrderTradeToken
-	nil,                          // 10: gfxcafe.oku.account.v1.OrderTrade.MetadataEntry
+	(*OrderHistoryRequest)(nil),  // 2: gfxcafe.oku.account.v1.OrderHistoryRequest
+	(*OrderHistoryResponse)(nil), // 3: gfxcafe.oku.account.v1.OrderHistoryResponse
+	(*OrderTrade)(nil),           // 4: gfxcafe.oku.account.v1.OrderTrade
+	(*OrderTradeFeeInfo)(nil),    // 5: gfxcafe.oku.account.v1.OrderTradeFeeInfo
+	(*OrderTradeTokenFee)(nil),   // 6: gfxcafe.oku.account.v1.OrderTradeTokenFee
+	(*OrderTradeToken)(nil),      // 7: gfxcafe.oku.account.v1.OrderTradeToken
+	nil,                          // 8: gfxcafe.oku.account.v1.OrderTrade.MetadataEntry
 }
 var file_gfxcafe_oku_account_v1_orderhistory_proto_depIdxs = []int32{
-	6,  // 0: gfxcafe.oku.account.v1.GetOrderResponse.order:type_name -> gfxcafe.oku.account.v1.OrderTrade
-	6,  // 1: gfxcafe.oku.account.v1.OrderHistoryResponse.history:type_name -> gfxcafe.oku.account.v1.OrderTrade
-	9,  // 2: gfxcafe.oku.account.v1.OrderTrade.sell_token:type_name -> gfxcafe.oku.account.v1.OrderTradeToken
-	9,  // 3: gfxcafe.oku.account.v1.OrderTrade.buy_token:type_name -> gfxcafe.oku.account.v1.OrderTradeToken
-	0,  // 4: gfxcafe.oku.account.v1.OrderTrade.status:type_name -> gfxcafe.oku.account.v1.OrderStatus
-	1,  // 5: gfxcafe.oku.account.v1.OrderTrade.type:type_name -> gfxcafe.oku.account.v1.OrderType
-	10, // 6: gfxcafe.oku.account.v1.OrderTrade.metadata:type_name -> gfxcafe.oku.account.v1.OrderTrade.MetadataEntry
-	7,  // 7: gfxcafe.oku.account.v1.OrderTrade.fee_info:type_name -> gfxcafe.oku.account.v1.OrderTradeFeeInfo
-	8,  // 8: gfxcafe.oku.account.v1.OrderTradeFeeInfo.input_token_fee_info:type_name -> gfxcafe.oku.account.v1.OrderTradeTokenFee
-	8,  // 9: gfxcafe.oku.account.v1.OrderTradeFeeInfo.output_token_fee_info:type_name -> gfxcafe.oku.account.v1.OrderTradeTokenFee
-	4,  // 10: gfxcafe.oku.account.v1.OrderHistoryService.History:input_type -> gfxcafe.oku.account.v1.OrderHistoryRequest
-	2,  // 11: gfxcafe.oku.account.v1.OrderHistoryService.GetOrder:input_type -> gfxcafe.oku.account.v1.GetOrderRequest
-	5,  // 12: gfxcafe.oku.account.v1.OrderHistoryService.History:output_type -> gfxcafe.oku.account.v1.OrderHistoryResponse
-	3,  // 13: gfxcafe.oku.account.v1.OrderHistoryService.GetOrder:output_type -> gfxcafe.oku.account.v1.GetOrderResponse
-	12, // [12:14] is the sub-list for method output_type
-	10, // [10:12] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	4,  // 0: gfxcafe.oku.account.v1.OrderHistoryResponse.history:type_name -> gfxcafe.oku.account.v1.OrderTrade
+	7,  // 1: gfxcafe.oku.account.v1.OrderTrade.sell_token:type_name -> gfxcafe.oku.account.v1.OrderTradeToken
+	7,  // 2: gfxcafe.oku.account.v1.OrderTrade.buy_token:type_name -> gfxcafe.oku.account.v1.OrderTradeToken
+	0,  // 3: gfxcafe.oku.account.v1.OrderTrade.status:type_name -> gfxcafe.oku.account.v1.OrderStatus
+	1,  // 4: gfxcafe.oku.account.v1.OrderTrade.type:type_name -> gfxcafe.oku.account.v1.OrderType
+	8,  // 5: gfxcafe.oku.account.v1.OrderTrade.metadata:type_name -> gfxcafe.oku.account.v1.OrderTrade.MetadataEntry
+	5,  // 6: gfxcafe.oku.account.v1.OrderTrade.fee_info:type_name -> gfxcafe.oku.account.v1.OrderTradeFeeInfo
+	6,  // 7: gfxcafe.oku.account.v1.OrderTradeFeeInfo.input_token_fee_info:type_name -> gfxcafe.oku.account.v1.OrderTradeTokenFee
+	6,  // 8: gfxcafe.oku.account.v1.OrderTradeFeeInfo.output_token_fee_info:type_name -> gfxcafe.oku.account.v1.OrderTradeTokenFee
+	2,  // 9: gfxcafe.oku.account.v1.OrderHistoryService.History:input_type -> gfxcafe.oku.account.v1.OrderHistoryRequest
+	3,  // 10: gfxcafe.oku.account.v1.OrderHistoryService.History:output_type -> gfxcafe.oku.account.v1.OrderHistoryResponse
+	10, // [10:11] is the sub-list for method output_type
+	9,  // [9:10] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_gfxcafe_oku_account_v1_orderhistory_proto_init() }
@@ -1027,14 +908,14 @@ func file_gfxcafe_oku_account_v1_orderhistory_proto_init() {
 		return
 	}
 	file_gfxcafe_oku_account_v1_validate_proto_init()
-	file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[2].OneofWrappers = []any{}
+	file_gfxcafe_oku_account_v1_orderhistory_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gfxcafe_oku_account_v1_orderhistory_proto_rawDesc), len(file_gfxcafe_oku_account_v1_orderhistory_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   9,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

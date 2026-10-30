@@ -1227,11 +1227,10 @@ func (x *RawCoupon) GetQuoteParams() *structpb.Struct {
 }
 
 // ExecutionRequest represents an execution request
-// Consumer only needs to send signing_request and blockaid_sim
-// The workflow handles forwarding coupon/executionInfo/approvals internally
+// Callers provide signing_request; coupon is a legacy field.
 type ExecutionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// DEPRECATED: Workflow handles forwarding internally, consumer doesn't need to send this
+	// Deprecated: retained for wire compatibility.
 	//
 	// Deprecated: Marked as deprecated in gfxcafe/oku/account/v2/orders.proto.
 	Coupon         *Coupon         `protobuf:"bytes,1,opt,name=coupon,proto3" json:"coupon,omitempty"`

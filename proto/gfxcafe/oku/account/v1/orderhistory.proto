@@ -11,35 +11,6 @@ option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v1;v1";
 service OrderHistoryService {
   // Get order history for addresses (/orders/history)
   rpc History(OrderHistoryRequest) returns (OrderHistoryResponse);
-
-  // Read live status for one market intent order by internal UUID and wallet address.
-  // Non-intent and bridge orders return FAILED_PRECONDITION. No history scan.
-  // Like History, this is a public address-scoped read, not proof of wallet ownership.
-  // Missing orders and wallet mismatches both return NOT_FOUND.
-  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
-}
-
-message GetOrderRequest {
-  // Internal orders.id, not a provider's intent_order_id.
-  string order_id = 1 [(buf.validate.field).string.uuid = true];
-  string wallet_addr = 2 [
-    (buf.validate.field).required = true,
-    (buf.validate.field).string.(eth_address) = true
-  ];
-}
-
-message GetOrderResponse {
-  // Status is refreshed by a direct Canoe market order_status read on every call,
-  // including persisted terminal orders. Running/completed/missing workflows do
-  // not affect freshness. No cached DB/workflow status is returned on failure.
-  // Upstream failure/invalid response returns UNAVAILABLE; deadline expiry returns
-  // DEADLINE_EXCEEDED. No cancellation, signals, provider writes or DB repair runs.
-  // Cancellation metadata, explorer URL and transaction hash come only from this
-  // live read. Amounts use live values when supplied; other descriptive/price data
-  // remains a stored snapshot. Status follows Canoe's normalized provider contract.
-  // Missing market intent identity or unsupported source chain/order type returns
-  // FAILED_PRECONDITION. A successful response always contains one order.
-  OrderTrade order = 1;
 }
 
 // OrderHistoryServiceHistoryRequest queries order history.

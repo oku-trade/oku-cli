@@ -1,9 +1,9 @@
 upstream: github.com/oku-trade/account
 commit: 69e63d224dfde4dcc022c43322cc9f2055e69ead
 protovalidate_version: https://github.com/bufbuild/protovalidate.git v1.0.0
-# Vendored dependency closure for CLI services. Device enrollment is omitted.
-# Kept services still contain unused RPCs; further trimming needs a focused
-# schema edit and regeneration while preserving field numbers and service names.
+# Trimmed subset of upstream at the commit above: only CLI-used service RPCs
+# and their transitive message dependencies are retained. Wire field numbers,
+# package names and service names are unchanged.
 files:
   - gfxcafe/oku/account/v1/validate.proto
   - gfxcafe/oku/account/v1/auth.proto

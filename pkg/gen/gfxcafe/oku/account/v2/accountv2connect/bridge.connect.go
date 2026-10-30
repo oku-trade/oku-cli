@@ -42,9 +42,6 @@ const (
 	// BridgeServiceUpdateQuoteParamsProcedure is the fully-qualified name of the BridgeService's
 	// UpdateQuoteParams RPC.
 	BridgeServiceUpdateQuoteParamsProcedure = "/gfxcafe.oku.account.v2.BridgeService/UpdateQuoteParams"
-	// BridgeServiceRefreshQuotesProcedure is the fully-qualified name of the BridgeService's
-	// RefreshQuotes RPC.
-	BridgeServiceRefreshQuotesProcedure = "/gfxcafe.oku.account.v2.BridgeService/RefreshQuotes"
 	// BridgeServiceGetNewQuotesProcedure is the fully-qualified name of the BridgeService's
 	// GetNewQuotes RPC.
 	BridgeServiceGetNewQuotesProcedure = "/gfxcafe.oku.account.v2.BridgeService/GetNewQuotes"
@@ -69,18 +66,6 @@ const (
 	// BridgeServiceGetSupportedBridgesProcedure is the fully-qualified name of the BridgeService's
 	// GetSupportedBridges RPC.
 	BridgeServiceGetSupportedBridgesProcedure = "/gfxcafe.oku.account.v2.BridgeService/GetSupportedBridges"
-	// BridgeServiceLookupSourceTransactionProcedure is the fully-qualified name of the BridgeService's
-	// LookupSourceTransaction RPC.
-	BridgeServiceLookupSourceTransactionProcedure = "/gfxcafe.oku.account.v2.BridgeService/LookupSourceTransaction"
-	// BridgeServiceGetSupportedTokensProcedure is the fully-qualified name of the BridgeService's
-	// GetSupportedTokens RPC.
-	BridgeServiceGetSupportedTokensProcedure = "/gfxcafe.oku.account.v2.BridgeService/GetSupportedTokens"
-	// BridgeServiceCheckOutChainSupportProcedure is the fully-qualified name of the BridgeService's
-	// CheckOutChainSupport RPC.
-	BridgeServiceCheckOutChainSupportProcedure = "/gfxcafe.oku.account.v2.BridgeService/CheckOutChainSupport"
-	// BridgeServiceGetBitcoinMaxSpendableProcedure is the fully-qualified name of the BridgeService's
-	// GetBitcoinMaxSpendable RPC.
-	BridgeServiceGetBitcoinMaxSpendableProcedure = "/gfxcafe.oku.account.v2.BridgeService/GetBitcoinMaxSpendable"
 )
 
 // BridgeServiceClient is a client for the gfxcafe.oku.account.v2.BridgeService service.
@@ -93,8 +78,6 @@ type BridgeServiceClient interface {
 	Cancel(context.Context, *connect.Request[v2.CancelRequest]) (*connect.Response[v2.CancelResponse], error)
 	// UpdateQuoteParams updates quote parameters
 	UpdateQuoteParams(context.Context, *connect.Request[v2.BridgeUpdateQuoteParamsRequest]) (*connect.Response[v2.BridgeUpdateQuoteParamsResponse], error)
-	// RefreshQuotes refreshes quotes for a bridge order
-	RefreshQuotes(context.Context, *connect.Request[v2.RefreshQuotesRequest]) (*connect.Response[v2.RefreshQuotesResponse], error)
 	// GetNewQuotes gets new quotes that have become available since last fetch
 	GetNewQuotes(context.Context, *connect.Request[v2.BridgeGetNewQuotesRequest]) (*connect.Response[v2.BridgeGetQuotesResponse], error)
 	// GetQuotes gets all quotes for a bridge order
@@ -113,22 +96,6 @@ type BridgeServiceClient interface {
 	FinishClaim(context.Context, *connect.Request[v2.FinishClaimRequest]) (*connect.Response[v2.FinishClaimResponse], error)
 	// GetSupportedBridges returns active bridges and their supported chains.
 	GetSupportedBridges(context.Context, *connect.Request[v2.GetSupportedBridgesRequest]) (*connect.Response[v2.GetSupportedBridgesResponse], error)
-	// LookupSourceTransaction looks up a bridge by its source transaction hash.
-	// When source_chain is empty it is discovered from Oku's indexed records
-	// first, then canoe is queried for per-bridge results. Public, no auth required.
-	LookupSourceTransaction(context.Context, *connect.Request[v2.LookupSourceTransactionRequest]) (*connect.Response[v2.LookupSourceTransactionResponse], error)
-	// GetSupportedTokens returns supported bridge tokens. The behavior depends on
-	// which parameters are set:
-	//   - in_chain only: all in-tokens bridgeable from the source to any destination.
-	//   - in_chain + out_chain: in-tokens bridgeable for the chain pair.
-	//   - in_chain + out_chain + in_token_address: out-tokens reachable for the input token.
-	GetSupportedTokens(context.Context, *connect.Request[v2.GetSupportedTokensRequest]) (*connect.Response[v2.GetSupportedTokensResponse], error)
-	// CheckOutChainSupport returns which out chains are reachable for an input token.
-	CheckOutChainSupport(context.Context, *connect.Request[v2.CheckOutChainSupportRequest]) (*connect.Response[v2.CheckOutChainSupportResponse], error)
-	// GetBitcoinMaxSpendable returns the maximum spendable BTC (in sats) for a
-	// Bitcoin address, as reported by BOB Gateway (fee-adjusted, confirmed
-	// UTXOs only).
-	GetBitcoinMaxSpendable(context.Context, *connect.Request[v2.GetBitcoinMaxSpendableRequest]) (*connect.Response[v2.GetBitcoinMaxSpendableResponse], error)
 }
 
 // NewBridgeServiceClient constructs a client for the gfxcafe.oku.account.v2.BridgeService service.
@@ -164,12 +131,6 @@ func NewBridgeServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			httpClient,
 			baseURL+BridgeServiceUpdateQuoteParamsProcedure,
 			connect.WithSchema(bridgeServiceMethods.ByName("UpdateQuoteParams")),
-			connect.WithClientOptions(opts...),
-		),
-		refreshQuotes: connect.NewClient[v2.RefreshQuotesRequest, v2.RefreshQuotesResponse](
-			httpClient,
-			baseURL+BridgeServiceRefreshQuotesProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("RefreshQuotes")),
 			connect.WithClientOptions(opts...),
 		),
 		getNewQuotes: connect.NewClient[v2.BridgeGetNewQuotesRequest, v2.BridgeGetQuotesResponse](
@@ -226,53 +187,24 @@ func NewBridgeServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(bridgeServiceMethods.ByName("GetSupportedBridges")),
 			connect.WithClientOptions(opts...),
 		),
-		lookupSourceTransaction: connect.NewClient[v2.LookupSourceTransactionRequest, v2.LookupSourceTransactionResponse](
-			httpClient,
-			baseURL+BridgeServiceLookupSourceTransactionProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("LookupSourceTransaction")),
-			connect.WithClientOptions(opts...),
-		),
-		getSupportedTokens: connect.NewClient[v2.GetSupportedTokensRequest, v2.GetSupportedTokensResponse](
-			httpClient,
-			baseURL+BridgeServiceGetSupportedTokensProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("GetSupportedTokens")),
-			connect.WithClientOptions(opts...),
-		),
-		checkOutChainSupport: connect.NewClient[v2.CheckOutChainSupportRequest, v2.CheckOutChainSupportResponse](
-			httpClient,
-			baseURL+BridgeServiceCheckOutChainSupportProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("CheckOutChainSupport")),
-			connect.WithClientOptions(opts...),
-		),
-		getBitcoinMaxSpendable: connect.NewClient[v2.GetBitcoinMaxSpendableRequest, v2.GetBitcoinMaxSpendableResponse](
-			httpClient,
-			baseURL+BridgeServiceGetBitcoinMaxSpendableProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("GetBitcoinMaxSpendable")),
-			connect.WithClientOptions(opts...),
-		),
 	}
 }
 
 // bridgeServiceClient implements BridgeServiceClient.
 type bridgeServiceClient struct {
-	create                  *connect.Client[v2.BridgeCreateRequest, v2.BridgeCreateResponse]
-	ping                    *connect.Client[v2.PingRequest, v2.PingResponse]
-	cancel                  *connect.Client[v2.CancelRequest, v2.CancelResponse]
-	updateQuoteParams       *connect.Client[v2.BridgeUpdateQuoteParamsRequest, v2.BridgeUpdateQuoteParamsResponse]
-	refreshQuotes           *connect.Client[v2.RefreshQuotesRequest, v2.RefreshQuotesResponse]
-	getNewQuotes            *connect.Client[v2.BridgeGetNewQuotesRequest, v2.BridgeGetQuotesResponse]
-	getQuotes               *connect.Client[v2.BridgeGetQuotesRequest, v2.BridgeGetQuotesResponse]
-	getQuote                *connect.Client[v2.BridgeGetQuoteRequest, v2.BridgeGetQuoteResponse]
-	updateQuoteSelect       *connect.Client[v2.BridgeUpdateQuoteSelectRequest, v2.BridgeUpdateQuoteSelectResponse]
-	confirmQuoteSelect      *connect.Client[v2.BridgeConfirmQuoteSelectRequest, v2.BridgeConfirmQuoteSelectResponse]
-	getExecutionInfo        *connect.Client[v2.GetExecutionInfoRequest, v2.GetExecutionInfoResponse]
-	finish                  *connect.Client[v2.FinishRequest, v2.FinishResponse]
-	finishClaim             *connect.Client[v2.FinishClaimRequest, v2.FinishClaimResponse]
-	getSupportedBridges     *connect.Client[v2.GetSupportedBridgesRequest, v2.GetSupportedBridgesResponse]
-	lookupSourceTransaction *connect.Client[v2.LookupSourceTransactionRequest, v2.LookupSourceTransactionResponse]
-	getSupportedTokens      *connect.Client[v2.GetSupportedTokensRequest, v2.GetSupportedTokensResponse]
-	checkOutChainSupport    *connect.Client[v2.CheckOutChainSupportRequest, v2.CheckOutChainSupportResponse]
-	getBitcoinMaxSpendable  *connect.Client[v2.GetBitcoinMaxSpendableRequest, v2.GetBitcoinMaxSpendableResponse]
+	create              *connect.Client[v2.BridgeCreateRequest, v2.BridgeCreateResponse]
+	ping                *connect.Client[v2.PingRequest, v2.PingResponse]
+	cancel              *connect.Client[v2.CancelRequest, v2.CancelResponse]
+	updateQuoteParams   *connect.Client[v2.BridgeUpdateQuoteParamsRequest, v2.BridgeUpdateQuoteParamsResponse]
+	getNewQuotes        *connect.Client[v2.BridgeGetNewQuotesRequest, v2.BridgeGetQuotesResponse]
+	getQuotes           *connect.Client[v2.BridgeGetQuotesRequest, v2.BridgeGetQuotesResponse]
+	getQuote            *connect.Client[v2.BridgeGetQuoteRequest, v2.BridgeGetQuoteResponse]
+	updateQuoteSelect   *connect.Client[v2.BridgeUpdateQuoteSelectRequest, v2.BridgeUpdateQuoteSelectResponse]
+	confirmQuoteSelect  *connect.Client[v2.BridgeConfirmQuoteSelectRequest, v2.BridgeConfirmQuoteSelectResponse]
+	getExecutionInfo    *connect.Client[v2.GetExecutionInfoRequest, v2.GetExecutionInfoResponse]
+	finish              *connect.Client[v2.FinishRequest, v2.FinishResponse]
+	finishClaim         *connect.Client[v2.FinishClaimRequest, v2.FinishClaimResponse]
+	getSupportedBridges *connect.Client[v2.GetSupportedBridgesRequest, v2.GetSupportedBridgesResponse]
 }
 
 // Create calls gfxcafe.oku.account.v2.BridgeService.Create.
@@ -293,11 +225,6 @@ func (c *bridgeServiceClient) Cancel(ctx context.Context, req *connect.Request[v
 // UpdateQuoteParams calls gfxcafe.oku.account.v2.BridgeService.UpdateQuoteParams.
 func (c *bridgeServiceClient) UpdateQuoteParams(ctx context.Context, req *connect.Request[v2.BridgeUpdateQuoteParamsRequest]) (*connect.Response[v2.BridgeUpdateQuoteParamsResponse], error) {
 	return c.updateQuoteParams.CallUnary(ctx, req)
-}
-
-// RefreshQuotes calls gfxcafe.oku.account.v2.BridgeService.RefreshQuotes.
-func (c *bridgeServiceClient) RefreshQuotes(ctx context.Context, req *connect.Request[v2.RefreshQuotesRequest]) (*connect.Response[v2.RefreshQuotesResponse], error) {
-	return c.refreshQuotes.CallUnary(ctx, req)
 }
 
 // GetNewQuotes calls gfxcafe.oku.account.v2.BridgeService.GetNewQuotes.
@@ -345,26 +272,6 @@ func (c *bridgeServiceClient) GetSupportedBridges(ctx context.Context, req *conn
 	return c.getSupportedBridges.CallUnary(ctx, req)
 }
 
-// LookupSourceTransaction calls gfxcafe.oku.account.v2.BridgeService.LookupSourceTransaction.
-func (c *bridgeServiceClient) LookupSourceTransaction(ctx context.Context, req *connect.Request[v2.LookupSourceTransactionRequest]) (*connect.Response[v2.LookupSourceTransactionResponse], error) {
-	return c.lookupSourceTransaction.CallUnary(ctx, req)
-}
-
-// GetSupportedTokens calls gfxcafe.oku.account.v2.BridgeService.GetSupportedTokens.
-func (c *bridgeServiceClient) GetSupportedTokens(ctx context.Context, req *connect.Request[v2.GetSupportedTokensRequest]) (*connect.Response[v2.GetSupportedTokensResponse], error) {
-	return c.getSupportedTokens.CallUnary(ctx, req)
-}
-
-// CheckOutChainSupport calls gfxcafe.oku.account.v2.BridgeService.CheckOutChainSupport.
-func (c *bridgeServiceClient) CheckOutChainSupport(ctx context.Context, req *connect.Request[v2.CheckOutChainSupportRequest]) (*connect.Response[v2.CheckOutChainSupportResponse], error) {
-	return c.checkOutChainSupport.CallUnary(ctx, req)
-}
-
-// GetBitcoinMaxSpendable calls gfxcafe.oku.account.v2.BridgeService.GetBitcoinMaxSpendable.
-func (c *bridgeServiceClient) GetBitcoinMaxSpendable(ctx context.Context, req *connect.Request[v2.GetBitcoinMaxSpendableRequest]) (*connect.Response[v2.GetBitcoinMaxSpendableResponse], error) {
-	return c.getBitcoinMaxSpendable.CallUnary(ctx, req)
-}
-
 // BridgeServiceHandler is an implementation of the gfxcafe.oku.account.v2.BridgeService service.
 type BridgeServiceHandler interface {
 	// Create creates a new bridge order
@@ -375,8 +282,6 @@ type BridgeServiceHandler interface {
 	Cancel(context.Context, *connect.Request[v2.CancelRequest]) (*connect.Response[v2.CancelResponse], error)
 	// UpdateQuoteParams updates quote parameters
 	UpdateQuoteParams(context.Context, *connect.Request[v2.BridgeUpdateQuoteParamsRequest]) (*connect.Response[v2.BridgeUpdateQuoteParamsResponse], error)
-	// RefreshQuotes refreshes quotes for a bridge order
-	RefreshQuotes(context.Context, *connect.Request[v2.RefreshQuotesRequest]) (*connect.Response[v2.RefreshQuotesResponse], error)
 	// GetNewQuotes gets new quotes that have become available since last fetch
 	GetNewQuotes(context.Context, *connect.Request[v2.BridgeGetNewQuotesRequest]) (*connect.Response[v2.BridgeGetQuotesResponse], error)
 	// GetQuotes gets all quotes for a bridge order
@@ -395,22 +300,6 @@ type BridgeServiceHandler interface {
 	FinishClaim(context.Context, *connect.Request[v2.FinishClaimRequest]) (*connect.Response[v2.FinishClaimResponse], error)
 	// GetSupportedBridges returns active bridges and their supported chains.
 	GetSupportedBridges(context.Context, *connect.Request[v2.GetSupportedBridgesRequest]) (*connect.Response[v2.GetSupportedBridgesResponse], error)
-	// LookupSourceTransaction looks up a bridge by its source transaction hash.
-	// When source_chain is empty it is discovered from Oku's indexed records
-	// first, then canoe is queried for per-bridge results. Public, no auth required.
-	LookupSourceTransaction(context.Context, *connect.Request[v2.LookupSourceTransactionRequest]) (*connect.Response[v2.LookupSourceTransactionResponse], error)
-	// GetSupportedTokens returns supported bridge tokens. The behavior depends on
-	// which parameters are set:
-	//   - in_chain only: all in-tokens bridgeable from the source to any destination.
-	//   - in_chain + out_chain: in-tokens bridgeable for the chain pair.
-	//   - in_chain + out_chain + in_token_address: out-tokens reachable for the input token.
-	GetSupportedTokens(context.Context, *connect.Request[v2.GetSupportedTokensRequest]) (*connect.Response[v2.GetSupportedTokensResponse], error)
-	// CheckOutChainSupport returns which out chains are reachable for an input token.
-	CheckOutChainSupport(context.Context, *connect.Request[v2.CheckOutChainSupportRequest]) (*connect.Response[v2.CheckOutChainSupportResponse], error)
-	// GetBitcoinMaxSpendable returns the maximum spendable BTC (in sats) for a
-	// Bitcoin address, as reported by BOB Gateway (fee-adjusted, confirmed
-	// UTXOs only).
-	GetBitcoinMaxSpendable(context.Context, *connect.Request[v2.GetBitcoinMaxSpendableRequest]) (*connect.Response[v2.GetBitcoinMaxSpendableResponse], error)
 }
 
 // NewBridgeServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -442,12 +331,6 @@ func NewBridgeServiceHandler(svc BridgeServiceHandler, opts ...connect.HandlerOp
 		BridgeServiceUpdateQuoteParamsProcedure,
 		svc.UpdateQuoteParams,
 		connect.WithSchema(bridgeServiceMethods.ByName("UpdateQuoteParams")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceRefreshQuotesHandler := connect.NewUnaryHandler(
-		BridgeServiceRefreshQuotesProcedure,
-		svc.RefreshQuotes,
-		connect.WithSchema(bridgeServiceMethods.ByName("RefreshQuotes")),
 		connect.WithHandlerOptions(opts...),
 	)
 	bridgeServiceGetNewQuotesHandler := connect.NewUnaryHandler(
@@ -504,30 +387,6 @@ func NewBridgeServiceHandler(svc BridgeServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(bridgeServiceMethods.ByName("GetSupportedBridges")),
 		connect.WithHandlerOptions(opts...),
 	)
-	bridgeServiceLookupSourceTransactionHandler := connect.NewUnaryHandler(
-		BridgeServiceLookupSourceTransactionProcedure,
-		svc.LookupSourceTransaction,
-		connect.WithSchema(bridgeServiceMethods.ByName("LookupSourceTransaction")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceGetSupportedTokensHandler := connect.NewUnaryHandler(
-		BridgeServiceGetSupportedTokensProcedure,
-		svc.GetSupportedTokens,
-		connect.WithSchema(bridgeServiceMethods.ByName("GetSupportedTokens")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceCheckOutChainSupportHandler := connect.NewUnaryHandler(
-		BridgeServiceCheckOutChainSupportProcedure,
-		svc.CheckOutChainSupport,
-		connect.WithSchema(bridgeServiceMethods.ByName("CheckOutChainSupport")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceGetBitcoinMaxSpendableHandler := connect.NewUnaryHandler(
-		BridgeServiceGetBitcoinMaxSpendableProcedure,
-		svc.GetBitcoinMaxSpendable,
-		connect.WithSchema(bridgeServiceMethods.ByName("GetBitcoinMaxSpendable")),
-		connect.WithHandlerOptions(opts...),
-	)
 	return "/gfxcafe.oku.account.v2.BridgeService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case BridgeServiceCreateProcedure:
@@ -538,8 +397,6 @@ func NewBridgeServiceHandler(svc BridgeServiceHandler, opts ...connect.HandlerOp
 			bridgeServiceCancelHandler.ServeHTTP(w, r)
 		case BridgeServiceUpdateQuoteParamsProcedure:
 			bridgeServiceUpdateQuoteParamsHandler.ServeHTTP(w, r)
-		case BridgeServiceRefreshQuotesProcedure:
-			bridgeServiceRefreshQuotesHandler.ServeHTTP(w, r)
 		case BridgeServiceGetNewQuotesProcedure:
 			bridgeServiceGetNewQuotesHandler.ServeHTTP(w, r)
 		case BridgeServiceGetQuotesProcedure:
@@ -558,14 +415,6 @@ func NewBridgeServiceHandler(svc BridgeServiceHandler, opts ...connect.HandlerOp
 			bridgeServiceFinishClaimHandler.ServeHTTP(w, r)
 		case BridgeServiceGetSupportedBridgesProcedure:
 			bridgeServiceGetSupportedBridgesHandler.ServeHTTP(w, r)
-		case BridgeServiceLookupSourceTransactionProcedure:
-			bridgeServiceLookupSourceTransactionHandler.ServeHTTP(w, r)
-		case BridgeServiceGetSupportedTokensProcedure:
-			bridgeServiceGetSupportedTokensHandler.ServeHTTP(w, r)
-		case BridgeServiceCheckOutChainSupportProcedure:
-			bridgeServiceCheckOutChainSupportHandler.ServeHTTP(w, r)
-		case BridgeServiceGetBitcoinMaxSpendableProcedure:
-			bridgeServiceGetBitcoinMaxSpendableHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -589,10 +438,6 @@ func (UnimplementedBridgeServiceHandler) Cancel(context.Context, *connect.Reques
 
 func (UnimplementedBridgeServiceHandler) UpdateQuoteParams(context.Context, *connect.Request[v2.BridgeUpdateQuoteParamsRequest]) (*connect.Response[v2.BridgeUpdateQuoteParamsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.UpdateQuoteParams is not implemented"))
-}
-
-func (UnimplementedBridgeServiceHandler) RefreshQuotes(context.Context, *connect.Request[v2.RefreshQuotesRequest]) (*connect.Response[v2.RefreshQuotesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.RefreshQuotes is not implemented"))
 }
 
 func (UnimplementedBridgeServiceHandler) GetNewQuotes(context.Context, *connect.Request[v2.BridgeGetNewQuotesRequest]) (*connect.Response[v2.BridgeGetQuotesResponse], error) {
@@ -629,20 +474,4 @@ func (UnimplementedBridgeServiceHandler) FinishClaim(context.Context, *connect.R
 
 func (UnimplementedBridgeServiceHandler) GetSupportedBridges(context.Context, *connect.Request[v2.GetSupportedBridgesRequest]) (*connect.Response[v2.GetSupportedBridgesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.GetSupportedBridges is not implemented"))
-}
-
-func (UnimplementedBridgeServiceHandler) LookupSourceTransaction(context.Context, *connect.Request[v2.LookupSourceTransactionRequest]) (*connect.Response[v2.LookupSourceTransactionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.LookupSourceTransaction is not implemented"))
-}
-
-func (UnimplementedBridgeServiceHandler) GetSupportedTokens(context.Context, *connect.Request[v2.GetSupportedTokensRequest]) (*connect.Response[v2.GetSupportedTokensResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.GetSupportedTokens is not implemented"))
-}
-
-func (UnimplementedBridgeServiceHandler) CheckOutChainSupport(context.Context, *connect.Request[v2.CheckOutChainSupportRequest]) (*connect.Response[v2.CheckOutChainSupportResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.CheckOutChainSupport is not implemented"))
-}
-
-func (UnimplementedBridgeServiceHandler) GetBitcoinMaxSpendable(context.Context, *connect.Request[v2.GetBitcoinMaxSpendableRequest]) (*connect.Response[v2.GetBitcoinMaxSpendableResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.GetBitcoinMaxSpendable is not implemented"))
 }
