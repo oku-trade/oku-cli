@@ -123,12 +123,15 @@ func (b *bot) confirm(ctx context.Context, user, chat, msg int64, id string) {
 	var lines []string
 	for _, c := range p.calls {
 		timeout := submitTimeout
-		if c.path == "swap orders create" || c.path == "swap orders cancel" {
+		exitOrder := c.path == "swap orders create" || c.path == "swap orders cancel"
+		if exitOrder {
 			timeout = readTimeout
 		}
 		res, err := b.call(ctx, timeout, c.path, c.flags)
 		if err != nil {
-			if isOutcomeUnknown(err) {
+			// An exit order call that timed out may still have been
+			// stored by the backend, so it must not be retried blindly.
+			if isOutcomeUnknown(err) || (exitOrder && isUpstreamTimeout(err)) {
 				b.edit(ctx, chat, msg, view{text: outcomeUnknownText(p, c), kb: mainOnly()})
 				return
 			}

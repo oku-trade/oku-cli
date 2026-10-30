@@ -729,6 +729,30 @@ func TestExitCreateIsReviewedAndIdempotent(t *testing.T) {
 	}
 }
 
+func TestExitOrderTimeoutIsOutcomeUnknown(t *testing.T) {
+	h := newHarness(t)
+	h.be.handlers["swap orders create"] = func(map[string]any) (any, error) {
+		return nil, output.Errorf(output.CodeUpstreamTimeout, "deadline exceeded")
+	}
+	ctx := context.Background()
+	h.bot.onCallback(ctx, tap(alice, 3, "m:exit_new"))
+	h.bot.onMessage(ctx, privateMsg(alice, "42161 0x0000000000000000000000000000000000000001 5 tp=10"))
+	var id string
+	for _, b := range buttons(h.tg.last("editMessageText").body) {
+		if strings.HasPrefix(b, "c:") {
+			id = b[2:]
+		}
+	}
+	h.bot.onCallback(ctx, tap(alice, h.lastSentID(), "c:"+id))
+	e := h.tg.last("editMessageText")
+	if !strings.Contains(text(e), "Outcome unknown") || !strings.Contains(text(e), "oku swap orders list") || strings.Contains(text(e), "Try again") {
+		t.Fatalf("text: %q", text(e))
+	}
+	if b := buttons(e.body); len(b) != 1 || b[0] != "m:main" {
+		t.Fatalf("buttons: %v", b)
+	}
+}
+
 func TestPerpsCancelBindsMarketAndOID(t *testing.T) {
 	h := newHarness(t)
 	h.be.handlers["orders list"] = func(map[string]any) (any, error) {

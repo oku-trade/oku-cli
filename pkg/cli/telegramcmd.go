@@ -36,6 +36,9 @@ var (
 		"swap submit", "send submit", "bridge submit", "bridge claim",
 		"swap orders create", "swap orders cancel", "orders cancel",
 	}
+	// TelegramOptionalReads are reads the bot offers only when this build
+	// has the command and Service allows it as a read.
+	TelegramOptionalReads = []string{"pnl"}
 )
 
 var telegramPaths = func() map[string]bool {
@@ -48,6 +51,14 @@ var telegramPaths = func() map[string]bool {
 	return m
 }()
 
+var telegramOptionalReads = func() map[string]bool {
+	m := map[string]bool{}
+	for _, p := range TelegramOptionalReads {
+		m[p] = true
+	}
+	return m
+}()
+
 // TelegramBackend adapts Service to telegram.Backend. Every call runs on the
 // profile pinned at startup.
 type TelegramBackend struct {
@@ -55,12 +66,19 @@ type TelegramBackend struct {
 	Launch Globals
 }
 
+func (b TelegramBackend) reachable(path string) bool {
+	if telegramPaths[path] {
+		return true
+	}
+	return telegramOptionalReads[path] && ServiceReads[path] && b.Has(path)
+}
+
 // Call implements telegram.Backend.
 func (b TelegramBackend) Call(ctx context.Context, path string, opts map[string]any, args []string) (any, error) {
-	if !telegramPaths[path] {
+	if !b.reachable(path) {
 		return nil, output.Errorf(output.CodeUsage, "%q is not available from the Telegram bot", path)
 	}
-	g := Globals{Profile: b.Launch.Profile, Network: b.Launch.Network, Timeout: b.Launch.Timeout}
+	g := Globals{Profile: b.Launch.Profile, Network: b.Launch.Network, Account: b.Launch.Account, Timeout: b.Launch.Timeout}
 	if g.Timeout == 0 {
 		g.Timeout = defaultTimeout
 	}
@@ -153,7 +171,7 @@ func (a *App) telegramSettings(e *env) (token string, users []int64, launch Glob
 	if !config.ValidAddress(p.Account) {
 		return "", nil, Globals{}, output.Errorf(output.CodeAccountRequired, "profile %q has no account", p.Name)
 	}
-	return token, users, Globals{Profile: p.Name, Network: e.g.network, Timeout: e.g.timeout}, nil
+	return token, users, Globals{Profile: p.Name, Network: e.g.network, Account: e.g.account, Timeout: e.g.timeout}, nil
 }
 
 // cmdTelegramServe runs the Telegram bot until interrupted.
