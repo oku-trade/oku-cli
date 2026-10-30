@@ -6,6 +6,7 @@ Swap and bridge across 30+ chains and trade perps on Oku, from your terminal or 
 - **Bridge** across 30+ EVM chains with Oku's bridge meta-aggregator. The agent picks the route with the best net value, or the one you name.
 - **Trade perps** on Hyperliquid with Oku: market and limit orders, leverage, margin, positions and fills.
 - **Built for agents.** Every command has a versioned JSON contract (`oku.cli/v1`), and the binary ships offline docs (`oku docs`), task skills (`oku skills`) and an MCP server (`oku mcp serve`). Every trade is prepared and shown for review before it is signed.
+- **Telegram bot.** `oku telegram serve` runs a private bot for allowlisted Telegram user IDs, with menus for wallet, perps, swap, send, bridge and exit orders, and a Confirm step before every action (see [usage](docs/usage.md#telegram-bot)).
 
 `oku` is a non-custodial Go CLI. It trades from an embedded agent wallet that you approve on oku.trade, and talks to the Oku account service (`gfxcafe.oku.account.v2.PerpsService`) for perps. It prints human-readable tables by default and JSON with `--json`.
 

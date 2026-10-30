@@ -42,7 +42,7 @@ var ServiceReads = map[string]bool{
 	"account summary": true, "positions list": true, "orders list": true,
 	"orders status": true, "orders intents": true, "fills list": true,
 	"docs list": true, "docs show": true, "docs search": true, "docs commands": true,
-	"swap orders list": true,
+	"swap orders list": true, "swap pnl": true,
 }
 
 // ServiceMutations are journal/exchange mutations a Service runs only when

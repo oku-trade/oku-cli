@@ -334,3 +334,20 @@ func TestJournalBasisUsesFillsAndSells(t *testing.T) {
 		t.Fatalf("basis after exit: %v %v", basis, err)
 	}
 }
+
+// swap pnl is a read: Service (MCP, Telegram) runs it in-process.
+func TestServiceAllowsSwapPnL(t *testing.T) {
+	t.Setenv("OKU_CONFIG_DIR", filepath.Join(t.TempDir(), "cfg"))
+	t.Setenv("OKU_STATE_DIR", filepath.Join(t.TempDir(), "state"))
+	s := NewService("test", &bytes.Buffer{}, func(string) string { return "" })
+	if _, ok := s.Commands()["swap pnl"]; !ok {
+		t.Fatal("swap pnl is not a Service command")
+	}
+	_, err := s.Call(context.Background(), "swap pnl", Globals{}, map[string]any{}, nil)
+	if err == nil {
+		t.Fatal("want an error without a profile")
+	}
+	if strings.Contains(err.Error(), "not available in-process") || strings.Contains(err.Error(), "mutation") {
+		t.Fatalf("swap pnl refused in-process: %v", err)
+	}
+}

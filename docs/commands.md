@@ -687,6 +687,16 @@ Submit a verified EVM swap
 | `--intent` | intent id from 'swap prepare' (required) | `` |
 | `--digest` | intent digest from 'swap prepare' (required) | `` |
 
+## `oku telegram serve`
+
+Run a Telegram bot for wallet, perps, swap, send, bridge and exit orders, with Confirm before every action (allowlisted user IDs only)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--allow-users` | comma-separated numeric Telegram user IDs allowed to use the bot (merged with telegram.allowed_user_ids in config) | `` |
+
 ## `oku telemetry disable`
 
 Opt out of usage telemetry and delete the install ID

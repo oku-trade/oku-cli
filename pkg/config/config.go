@@ -52,6 +52,30 @@ type File struct {
 	Telemetry *Telemetry `json:"telemetry,omitempty"`
 	// AutoUpdate is global and off unless explicitly enabled.
 	AutoUpdate *AutoUpdate `json:"auto_update,omitempty"`
+	// Telegram configures 'oku telegram serve'. Token is a secret: config
+	// show redacts it.
+	Telegram *Telegram `json:"telegram,omitempty"`
+}
+
+// Telegram holds the bot token and the user IDs allowed to use the bot.
+type Telegram struct {
+	Token          string  `json:"token,omitempty"`
+	AllowedUserIDs []int64 `json:"allowed_user_ids,omitempty"`
+}
+
+// Validate requires positive, unique user IDs.
+func (t *Telegram) Validate() error {
+	seen := map[int64]bool{}
+	for _, id := range t.AllowedUserIDs {
+		if id <= 0 {
+			return fmt.Errorf("allowed_user_ids: %d is not a positive Telegram user ID", id)
+		}
+		if seen[id] {
+			return fmt.Errorf("allowed_user_ids: %d is listed twice", id)
+		}
+		seen[id] = true
+	}
+	return nil
 }
 
 // AutoUpdate holds the opt-in background update preference.
@@ -135,6 +159,11 @@ func Load() (*File, error) {
 	for name, pr := range f.Profiles {
 		if err := pr.Validate(); err != nil {
 			return nil, fmt.Errorf("profile %q: %w", name, err)
+		}
+	}
+	if f.Telegram != nil {
+		if err := f.Telegram.Validate(); err != nil {
+			return nil, fmt.Errorf("telegram: %w", err)
 		}
 	}
 	return &f, nil

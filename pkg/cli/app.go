@@ -193,6 +193,7 @@ func (a *App) commandTable() map[string]*handler {
 		"auth migrate":       {summary: "Move the credential between the file and desktop keyring stores (Linux): auth migrate --to file|keyring", flags: authMigrateFlags, run: a.cmdAuthMigrate},
 		"drafts repair":      {summary: "Repair malformed order-draft JSON from --stdin into a reviewable candidate (local only; never prepares or submits)", flags: draftFlags, run: a.cmdDraftsRepair},
 		"mcp serve":          {summary: "Run the MCP server on stdio (reads only unless --allow-mutations)", flags: mcpFlags, run: a.cmdMCPServe},
+		"telegram serve":     {summary: "Run a Telegram bot for wallet, perps, swap, send, bridge and exit orders, with Confirm before every action (allowlisted user IDs only)", flags: telegramFlags, run: a.cmdTelegramServe},
 		"auth logout":        {summary: "Log out and delete the local Privy agent credential", run: a.cmdAuthLogout},
 		"markets list":       {summary: "List perp markets", flags: marketFilterFlags, run: a.cmdMarketsList},
 		"markets quote":      {summary: "Mark, mid and oracle price: markets quote COIN", run: a.cmdMarketsQuote},

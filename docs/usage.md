@@ -311,6 +311,33 @@ The server runs over stdio. Stdout carries only MCP protocol frames, and logs go
 - **Login:** the server never prompts. Run `oku auth login` in a terminal first; the server can use the credential from then on. A credential from an older passphrase-protected release returns an auth error until the user runs `oku auth unlock` once.
 - **Authorization:** a digest proves payload integrity, not user authorization. A clear user instruction to trade, close, cancel or change risk, or a standing instruction for a defined batch, authorizes the corresponding submits within that scope. Clients must prepare and validate each payload against the authorized account, market, side, size, price/slippage and risk bounds, but need not ask for another confirmation of every preview. Ask when required inputs are missing or an action would exceed the authorized scope. Re-preparing an expired or definitively rejected action does not require another confirmation if all original bounds still hold. Agent EVM fund movements under the `consolidate-agent-funds` skill follow its standing authorization and guardrails. Unknown outcomes follow the same reconcile-never-resend rules as the CLI.
 
+## Telegram bot
+
+```sh
+export OKU_TELEGRAM_TOKEN=...            # from @BotFather; or telegram.token in config.json
+oku --profile main telegram serve --allow-users 123456789
+```
+
+`oku telegram serve` runs a Telegram bot in front of the same in-process service as MCP. It long-polls Telegram until interrupted. It has no `--token` flag, so the token never appears in shell history or the process list.
+
+- **Configuration:** the token comes from `OKU_TELEGRAM_TOKEN`, else `telegram.token` in the config file (`oku config path`). Allowed users are the union of `--allow-users ID[,ID]` and `telegram.allowed_user_ids`. Edit the file by hand:
+  ```json
+  "telegram": { "token": "123:ABC...", "allowed_user_ids": [123456789] }
+  ```
+  With no token or no allowed user, the command exits with `CONFIG_ERROR` before contacting Telegram. `oku config show` prints the token as `<set>`.
+- **Who can use it:** only allowlisted user IDs, and only in their private chat with the bot. Everything else gets no reply. Find your ID with a bot such as @userinfobot.
+- **Profile:** resolved once at startup (`--profile`, then `$OKU_PROFILE`, then the config default) and used for every call. A later `oku profiles use` does not change it. The profile needs an account and a logged-in agent (`oku auth login` in a terminal first). If the session expires, the bot answers `AUTH_REQUIRED`; log in again on the host.
+- **Menus:** Wallet (address, Arbitrum balances, all chains, fund link), PnL (`swap pnl`), Perps (account, positions, open orders with Cancel, fills), Swap, Send, Bridge (plus unsettled bridges and Claim ready), Exit orders (list, create, cancel) and Status. Screens edit one message in place and have Refresh and Back.
+- **Input:** after tapping Swap, Send, Bridge or Create exit, send one line within 2 minutes:
+  - Swap: `chain from to amount [slippage_bps]`, e.g. `42161 native usdc 0.01 50`
+  - Send: `chain token amount [recipient]` (recipient defaults to the master)
+  - Bridge: `chain destination_chain from to amount [slippage_bps]`
+  - Exit: `chain token amount|all tp=PCT sl=PCT trail=PCT` (at least one)
+- **Confirm:** every action shows a summary from the prepare response with Confirm and Cancel. Confirm submits exactly the prepared intent and digest, works once, only for the same user and message, and only within 2 minutes (or the quote expiry, if sooner). Cancel sends nothing; a prepared swap, send or bridge intent stays `prepared` in the journal and expires. A swap the guardrail marks high impact is shown but never offered for Confirm, and the bot never passes `--allow-high-impact`. Perps cancel and exit order create/cancel have no prepare step in the core, so the bot's summary is the only review. Exit orders fire only while `oku swap orders watch` runs.
+- **Unknown outcomes:** the bot shows "Outcome unknown. Do not retry" with the status command to run on the host, and never offers a retry.
+- **Not reachable from the bot:** auth, profiles, `orders prepare`/`submit`, leverage and margin, reconcile, deposits and `swap orders watch`.
+- **Throughput:** the service runs one command at a time. An onchain submit can take minutes, and other taps wait for it.
+
 ## Local journal
 
 Every intent's state is kept in `journal.sqlite` under the state directory (`oku config path`). Unknown outcomes survive restarts and block new exposure for the same account across all profiles and API origins until reconciled.

@@ -216,6 +216,8 @@ func (a *App) finishTelemetry(r *telemetryRun, exit int) {
 	switch {
 	case r.command == "mcp serve":
 		props["invoked_by"] = "mcp"
+	case r.command == "telegram serve":
+		props["invoked_by"] = "telegram"
 	case a.StdinIsTTY:
 		props["invoked_by"] = "tty"
 	default:

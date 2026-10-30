@@ -39,7 +39,7 @@ Properties (an exhaustive allowlist enforced in code; anything else is dropped b
 | `cli_version`, `cli_commit` | build info |
 | `os`, `arch` | e.g. `linux`, `amd64` |
 | `json` | whether `--json` was used |
-| `invoked_by` | `mcp`, `tty` or `non_tty` |
+| `invoked_by` | `mcp`, `telegram`, `tty` or `non_tty` |
 | `api_env` | `prod`, `staging`, `local` or `custom` (the URL itself is never sent) |
 | `chain_id`, `destination_chain` | funds commands: numeric chain IDs |
 | `route` | funds commands: the route or bridge the CLI selected on a successful quote, prepare, submit or status, otherwise the `--route` value |
