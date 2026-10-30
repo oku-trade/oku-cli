@@ -30,7 +30,7 @@ func fundsRPC[Req, Resp any, PReq interface {
 	*Req
 	proto.Message
 }](pick func(fundsClients) func(context.Context, *connect.Request[Req]) (*connect.Response[Resp], error)) handler {
-	return func(ctx context.Context, _ accountv2connect.PerpsServiceClient, _ accountv2connect.CliDeviceServiceClient, _ accountv1connect.AuthServiceClient, f fundsClients, in []byte, h http.Header) (proto.Message, error) {
+	return func(ctx context.Context, _ accountv2connect.PerpsServiceClient, _ accountv1connect.AuthServiceClient, f fundsClients, in []byte, h http.Header) (proto.Message, error) {
 		return unary[Req, Resp, PReq](pick(f), ctx, in, h)
 	}
 }

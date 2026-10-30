@@ -11,7 +11,7 @@ import (
 )
 
 // The runtime path is the generated Connect client: correct procedure path,
-// protocol headers, device token and user agent, exactly one attempt, and
+// protocol headers, session token and user agent, exactly one attempt, and
 // actionJson forwarded byte-for-byte.
 func TestGeneratedClientWire(t *testing.T) {
 	var hits int
@@ -23,7 +23,7 @@ func TestGeneratedClientWire(t *testing.T) {
 		if r.URL.Path != "/connect/gfxcafe.oku.account.v2.PerpsService/ConfirmAction" {
 			t.Errorf("path %s", r.URL.Path)
 		}
-		if r.Header.Get(DeviceTokenHeader) != "okud_x" || r.Header.Get("User-Agent") != "oku-cli/test" ||
+		if r.Header.Get(SessionHeader) != "session" || r.Header.Get(SessionTokenHeader) != "test-session-token" || r.Header.Get("User-Agent") != "oku-cli/test" ||
 			r.Header.Get("Connect-Protocol-Version") != "1" || r.Header.Get("Connect-Timeout-Ms") == "" ||
 			r.Header.Get("Content-Type") != "application/json" {
 			t.Errorf("headers %v", r.Header)
@@ -31,7 +31,7 @@ func TestGeneratedClientWire(t *testing.T) {
 		w.WriteHeader(503)
 	}))
 	defer srv.Close()
-	cl := &Client{BaseURL: srv.URL + "/", HTTP: NewHTTPClient(5 * time.Second), Token: "okud_x", UserAgent: "oku-cli/test"}
+	cl := &Client{BaseURL: srv.URL + "/", HTTP: NewHTTPClient(5 * time.Second), SessionID: "session", SessionToken: "test-session-token", UserAgent: "oku-cli/test"}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	const aj = `{"type":"updateLeverage","asset":3,"isCross":false,"leverage":5}`
@@ -58,7 +58,7 @@ func jsonString(s string) (string, error) {
 }
 
 // Requests that do not match the proto schema, and unknown methods, fail
-// locally before anything is sent, are not ambiguous, and on device calls
+// locally before anything is sent, are not ambiguous, and on sensitive calls
 // do not echo request values.
 func TestLocalRejectionSendsNothing(t *testing.T) {
 	hits := 0
@@ -70,7 +70,7 @@ func TestLocalRejectionSendsNothing(t *testing.T) {
 	for _, err := range []error{
 		cl.Perps(ctx, "GetMarkets", map[string]string{"bogus": "1"}, nil, false),
 		cl.Perps(ctx, "Withdraw", struct{}{}, nil, false),
-		cl.Device(ctx, "PollEnrollment", map[string]string{"pollSecret": "Zm9vYmFyYmF6cXV4cXV1eHF1dXhxdXV4", "nope": "SECRETVALUE"}, nil, false),
+		cl.Auth(ctx, "ExtendSession", map[string]string{"nope": "SECRETVALUE"}, nil, false),
 	} {
 		e, _ := AsError(err)
 		if e == nil || e.Ambiguous {

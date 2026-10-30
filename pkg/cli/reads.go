@@ -33,8 +33,7 @@ func (e *env) meta(p *resolved, account, method string) meta {
 	}
 }
 
-// perpsRead performs an unauthenticated or device-authenticated read. Reads
-// use the device token only when the target account is the enrolled one.
+// perpsRead performs an unauthenticated read for the selected profile.
 func (e *env) perpsRead(p *resolved, method string, req, resp any) error {
 	ctx, cancel := e.requestCtx()
 	defer cancel()

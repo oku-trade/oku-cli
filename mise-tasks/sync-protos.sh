@@ -17,7 +17,6 @@ if [[ $CHECK -eq 0 ]]; then
     gfxcafe/oku/account/v1/orderhistory.proto
     gfxcafe/oku/account/v2/validate.proto
     gfxcafe/oku/account/v2/perps.proto
-    gfxcafe/oku/account/v2/cli_device.proto
     gfxcafe/oku/account/v2/orders.proto
     gfxcafe/oku/account/v2/simpleswap.proto
     gfxcafe/oku/account/v2/bridge.proto
@@ -29,7 +28,7 @@ if [[ $CHECK -eq 0 ]]; then
     mkdir -p "proto/$(dirname "$f")"
     if [[ -f "$ACCOUNT_REPO/proto/$f" ]]; then
       cp "$ACCOUNT_REPO/proto/$f" "proto/$f"
-    elif [[ "$f" == gfxcafe/oku/account/v2/cli_device.proto || "$f" == gfxcafe/oku/account/v1/auth.proto || "$f" == gfxcafe/oku/account/v1/common.proto ]]; then
+    elif [[ "$f" == gfxcafe/oku/account/v1/auth.proto || "$f" == gfxcafe/oku/account/v1/common.proto ]]; then
       git show "HEAD:proto/$f" > "proto/$f"
     else
       echo "missing upstream proto: $f" >&2; exit 1

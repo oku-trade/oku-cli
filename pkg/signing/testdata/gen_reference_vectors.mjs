@@ -20,12 +20,3 @@ for(const [j,nonce,vault] of cases){const {mp,h}=hashAction(JSON.parse(j),vault,
 const sig=await account.signTypedData({domain:{name:'Exchange',version:'1',chainId:1337,verifyingContract:'0x0000000000000000000000000000000000000000'},types:{Agent:[{name:'source',type:'string'},{name:'connectionId',type:'bytes32'}]},primaryType:'Agent',message:{source:'a',connectionId:h}});
 out.push({action_json:j,nonce:nonce.toString(),vault,msgpack:mp,connection_id:h,signature:sig});}
 console.log(JSON.stringify({key,address:account.address,cases:out},null,1));
-// EIP-191 personal_sign vector for the device enrollment message
-// (oku-cli-device-contract.md). viem signMessage is the reference.
-{
-  const code = 'ABCD-EFGH-JKMN-PQRS'.replace(/[-\s]/g, '').toUpperCase();
-  const codeHash = (await import('node:crypto')).createHash('sha256').update(code).digest('hex');
-  const msg = `Oku CLI device enrollment v1\ncode: ${codeHash}\nagent: ${account.address.toLowerCase()}\ndevice: laptop`;
-  const sig = await account.signMessage({ message: msg });
-  console.error(JSON.stringify({ raw_code: 'abcd-efgh jkmn-pqrs', message: msg, signature: sig }));
-}

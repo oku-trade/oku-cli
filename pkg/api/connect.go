@@ -22,7 +22,7 @@ import (
 // encoded as JSON; it is decoded strictly (unknown fields rejected) into the
 // generated request message so handwritten request shapes cannot drift from
 // the vendored proto silently.
-type handler func(ctx context.Context, perps accountv2connect.PerpsServiceClient, dev accountv2connect.CliDeviceServiceClient, auth accountv1connect.AuthServiceClient, _ fundsClients, in []byte, h http.Header) (proto.Message, error)
+type handler func(ctx context.Context, perps accountv2connect.PerpsServiceClient, auth accountv1connect.AuthServiceClient, _ fundsClients, in []byte, h http.Header) (proto.Message, error)
 
 var strictJSON = protojson.UnmarshalOptions{DiscardUnknown: false}
 
@@ -60,28 +60,18 @@ func perps[Req, Resp any, PReq interface {
 	*Req
 	proto.Message
 }](pick func(accountv2connect.PerpsServiceClient) func(context.Context, *connect.Request[Req]) (*connect.Response[Resp], error)) handler {
-	return func(ctx context.Context, p accountv2connect.PerpsServiceClient, _ accountv2connect.CliDeviceServiceClient, _ accountv1connect.AuthServiceClient, _ fundsClients, in []byte, h http.Header) (proto.Message, error) {
+	return func(ctx context.Context, p accountv2connect.PerpsServiceClient, _ accountv1connect.AuthServiceClient, _ fundsClients, in []byte, h http.Header) (proto.Message, error) {
 		return unary[Req, Resp, PReq](pick(p), ctx, in, h)
 	}
 }
 
-func device[Req, Resp any, PReq interface {
-	*Req
-	proto.Message
-}](pick func(accountv2connect.CliDeviceServiceClient) func(context.Context, *connect.Request[Req]) (*connect.Response[Resp], error)) handler {
-	return func(ctx context.Context, _ accountv2connect.PerpsServiceClient, d accountv2connect.CliDeviceServiceClient, _ accountv1connect.AuthServiceClient, _ fundsClients, in []byte, h http.Header) (proto.Message, error) {
-		return unary[Req, Resp, PReq](pick(d), ctx, in, h)
-	}
-}
-
 type P = accountv2connect.PerpsServiceClient
-type D = accountv2connect.CliDeviceServiceClient
 
 func authRPC[Req, Resp any, PReq interface {
 	*Req
 	proto.Message
 }](pick func(accountv1connect.AuthServiceClient) func(context.Context, *connect.Request[Req]) (*connect.Response[Resp], error)) handler {
-	return func(ctx context.Context, _ accountv2connect.PerpsServiceClient, _ accountv2connect.CliDeviceServiceClient, a accountv1connect.AuthServiceClient, _ fundsClients, in []byte, h http.Header) (proto.Message, error) {
+	return func(ctx context.Context, _ accountv2connect.PerpsServiceClient, a accountv1connect.AuthServiceClient, _ fundsClients, in []byte, h http.Header) (proto.Message, error) {
 		return unary[Req, Resp, PReq](pick(a), ctx, in, h)
 	}
 }
@@ -147,21 +137,6 @@ var perpsMethods = map[string]handler{
 	}),
 	"ReconcileActions": perps[accountv2.ReconcileActionsRequest, accountv2.ReconcileActionsResponse](func(c P) func(context.Context, *connect.Request[accountv2.ReconcileActionsRequest]) (*connect.Response[accountv2.ReconcileActionsResponse], error) {
 		return c.ReconcileActions
-	}),
-}
-
-var deviceMethods = map[string]handler{
-	"RedeemEnrollment": device[accountv2.RedeemCliEnrollmentRequest, accountv2.RedeemCliEnrollmentResponse](func(c D) func(context.Context, *connect.Request[accountv2.RedeemCliEnrollmentRequest]) (*connect.Response[accountv2.RedeemCliEnrollmentResponse], error) {
-		return c.RedeemEnrollment
-	}),
-	"PollEnrollment": device[accountv2.PollCliEnrollmentRequest, accountv2.PollCliEnrollmentResponse](func(c D) func(context.Context, *connect.Request[accountv2.PollCliEnrollmentRequest]) (*connect.Response[accountv2.PollCliEnrollmentResponse], error) {
-		return c.PollEnrollment
-	}),
-	"GetCurrentDevice": device[accountv2.GetCurrentCliDeviceRequest, accountv2.GetCurrentCliDeviceResponse](func(c D) func(context.Context, *connect.Request[accountv2.GetCurrentCliDeviceRequest]) (*connect.Response[accountv2.GetCurrentCliDeviceResponse], error) {
-		return c.GetCurrentDevice
-	}),
-	"RevokeCurrentDevice": device[accountv2.RevokeCurrentCliDeviceRequest, accountv2.RevokeCurrentCliDeviceResponse](func(c D) func(context.Context, *connect.Request[accountv2.RevokeCurrentCliDeviceRequest]) (*connect.Response[accountv2.RevokeCurrentCliDeviceResponse], error) {
-		return c.RevokeCurrentDevice
 	}),
 }
 
