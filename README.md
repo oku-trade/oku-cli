@@ -104,6 +104,8 @@ sudo dnf install "./oku-${V#v}-1.x86_64.rpm"
 
 Arm64 packages use `linux_arm64.deb` and `aarch64.rpm`. There is no apt/dnf repository yet. Install the newer package to upgrade. `oku self-update` and auto-update refuse system package binaries.
 
+Homebrew, AUR, deb and rpm installs include Bash, Zsh and Fish completions automatically.
+
 ## Install (Go)
 
 Go 1.27.1 or newer is required by `go.mod`. macOS builds need CGO, enabled by default on a native macOS host.

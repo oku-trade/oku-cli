@@ -46,6 +46,7 @@ class Oku < Formula
 
   def install
     bin.install "oku"
+    generate_completions_from_executable(bin/"oku", "completion")
     prefix.install "THIRD_PARTY_NOTICES" if File.exist?("THIRD_PARTY_NOTICES")
   end
 

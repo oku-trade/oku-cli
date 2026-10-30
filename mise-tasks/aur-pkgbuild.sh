@@ -41,6 +41,11 @@ package() {
   local dir="\$srcdir/oku_${tag}_linux_\$cpu"
   install -Dm755 "\$dir/oku" "\$pkgdir/usr/bin/oku"
   install -Dm644 "\$dir/LICENSE" "\$pkgdir/usr/share/licenses/oku-bin/LICENSE"
+  install -d "\$pkgdir/usr/share/bash-completion/completions" "\$pkgdir/usr/share/zsh/site-functions" "\$pkgdir/usr/share/fish/vendor_completions.d"
+  "\$dir/oku" completion bash > "\$pkgdir/usr/share/bash-completion/completions/oku"
+  "\$dir/oku" completion zsh > "\$pkgdir/usr/share/zsh/site-functions/_oku"
+  "\$dir/oku" completion fish > "\$pkgdir/usr/share/fish/vendor_completions.d/oku.fish"
+  chmod 644 "\$pkgdir/usr/share/bash-completion/completions/oku" "\$pkgdir/usr/share/zsh/site-functions/_oku" "\$pkgdir/usr/share/fish/vendor_completions.d/oku.fish"
 }
 EOF
 cat > "$out/.SRCINFO" <<EOF

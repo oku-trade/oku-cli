@@ -208,9 +208,16 @@ jobs:
         run: |
           set -euo pipefail
           version="${TAG#v}"
+          amd64_archive="oku_${TAG}_linux_amd64"
+          tar -xzf "release/$amd64_archive.tar.gz" -C release
+          mkdir -p packaging/completions
+          "release/$amd64_archive/oku" completion bash > packaging/completions/oku
+          "release/$amd64_archive/oku" completion zsh > packaging/completions/_oku
+          "release/$amd64_archive/oku" completion fish > packaging/completions/oku.fish
+          grep -q '^#compdef oku' packaging/completions/_oku
           for arch in amd64 arm64; do
             archive="oku_${TAG}_linux_${arch}"
-            tar -xzf "release/$archive.tar.gz" -C release
+            if [ "$arch" != amd64 ]; then tar -xzf "release/$archive.tar.gz" -C release; fi
             mkdir -p packaging/binary
             install -m755 "release/$archive/oku" packaging/binary/oku
             export OKU_ARCH="$arch" OKU_VERSION="$version"
@@ -218,10 +225,11 @@ jobs:
             rpmarch=x86_64; [ "$arch" = arm64 ] && rpmarch=aarch64
             nfpm pkg -f packaging/nfpm.yaml -p rpm -t "release/oku-${version}-1.${rpmarch}.rpm"
           done
+          test_completions='test -s /usr/share/bash-completion/completions/oku && test -s /usr/share/zsh/site-functions/_oku && test -s /usr/share/fish/vendor_completions.d/oku.fish'
           docker run --rm -v "$PWD/release:/release:ro" debian:stable-slim sh -ec \
-            "apt install -y /release/oku_${version}_linux_amd64.deb && oku version | grep -F '$TAG'"
+            "apt install -y /release/oku_${version}_linux_amd64.deb && oku version | grep -F '$TAG' && $test_completions"
           docker run --rm -v "$PWD/release:/release:ro" fedora:latest sh -ec \
-            "dnf install -y /release/oku-${version}-1.x86_64.rpm && oku version | grep -F '$TAG'"
+            "dnf install -y /release/oku-${version}-1.x86_64.rpm && oku version | grep -F '$TAG' && $test_completions"
       - uses: actions/upload-artifact@v4
         with:
           name: gh-release-packages
