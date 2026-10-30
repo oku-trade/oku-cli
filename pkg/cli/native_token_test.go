@@ -131,6 +131,7 @@ func TestSwapQuoteAcceptsNativeAddressAliases(t *testing.T) {
 func TestBridgeQuoteAcceptsNativeAddressInputs(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
+	h.rpcChain, h.rpcURL = "8453", "https://rpc.example"
 	var params map[string]any
 	h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
 		switch method {

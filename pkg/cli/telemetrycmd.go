@@ -95,8 +95,6 @@ func apiEnvName(raw string) string {
 	switch config.NormalizeAPIURL(raw) {
 	case config.DefaultAPIURL:
 		return "prod"
-	case config.StagingAPIURL:
-		return "staging"
 	}
 	if u, err := url.Parse(raw); err == nil {
 		switch u.Hostname() {

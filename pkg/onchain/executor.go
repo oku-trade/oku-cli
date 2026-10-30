@@ -80,21 +80,6 @@ func BatchAllowed(ctx context.Context, rpc codeReader, chain uint64, agent strin
 // preceding step is mined.
 const dependentStepGas = 3_000_000
 
-// defaultRPCBase is Oku's eRPC gateway; a chain's endpoint is this prefix plus
-// its chain-config internal name (e.g. .../main/arbitrum). It serves
-// receipts and the recent historical state used for batch lookup.
-const defaultRPCBase = "https://erpc.lat.gfx.town/main/"
-
-// defaultRPCURL returns the gateway endpoint for a chain known to the shared
-// chain-config package, or "" for unknown, deprecated or non-EVM chains.
-func defaultRPCURL(chain uint64) string {
-	n, err := networks.NetworkByNumber(chain)
-	if err != nil || n == nil || !n.IsEVM() || n.Deprecated || n.InternalName == "" || uint64(n.ChainId) != chain {
-		return ""
-	}
-	return defaultRPCBase + n.InternalName
-}
-
 // confirmationDepth is the default number of blocks a receipt must be buried
 // under. Chains with historically deeper reorgs wait longer.
 func confirmationDepth(chain uint64) uint64 {
@@ -136,7 +121,7 @@ func ReceiptWait(chain uint64, getenv func(string) string) time.Duration {
 	return wait
 }
 
-// ErrNoRPC reports a chain with no built-in endpoint and no override.
+// ErrNoRPC reports a chain with no configured endpoint.
 var ErrNoRPC = errors.New("no RPC endpoint for chain")
 
 // Allowed reports whether id is a plausible EVM chain ID. Real support is
@@ -144,17 +129,14 @@ var ErrNoRPC = errors.New("no RPC endpoint for chain")
 // response is also checked against eth_chainId.
 func Allowed(id uint64) bool { return id > 0 && id < 1<<53 }
 
-// RPCURL returns the endpoint for chain: OKU_RPC_URL_<CHAINID> if set,
-// otherwise the built-in default, otherwise ErrNoRPC.
+// RPCURL requires OKU_RPC_URL_<CHAINID>. The chain-config networks package
+// does not publish RPC endpoints.
 func RPCURL(getenv func(string) string, chain uint64) (string, error) {
 	if getenv == nil {
 		getenv = os.Getenv
 	}
 	if custom := getenv("OKU_RPC_URL_" + strconv.FormatUint(chain, 10)); custom != "" {
 		return custom, nil
-	}
-	if url := defaultRPCURL(chain); url != "" {
-		return url, nil
 	}
 	return "", fmt.Errorf("%w %d: set OKU_RPC_URL_%d", ErrNoRPC, chain, chain)
 }
