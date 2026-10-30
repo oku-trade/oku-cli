@@ -79,30 +79,30 @@ npm update -g @gfxlabs/oku-cli  # upgrade
 
 ## Install (AUR)
 
-On Arch Linux, use `yay -S oku-bin` or `paru -S oku-bin`. Without a helper:
+On Arch Linux, install `oku-bin` with an AUR helper such as `yay`:
 
 ```sh
-git clone https://aur.archlinux.org/oku-bin.git && cd oku-bin && makepkg -si
+yay -S oku-bin
 ```
 
-Upgrade with the AUR helper or rebuild the updated PKGBUILD. `oku self-update` and auto-update refuse system package binaries.
+Upgrade with `yay -Syu`. `oku self-update` and auto-update refuse system package binaries.
 
 ## Install (Debian/Ubuntu and Fedora/RHEL)
 
-Download the package matching your architecture and `SHA256SUMS` from the [latest release](https://github.com/oku-trade/oku-cli/releases/latest). Example for amd64 Debian and x86_64 Fedora, with `V` set to the release tag such as `v0.1.0`:
+Each release ships `.deb` and `.rpm` packages for amd64 and arm64:
 
 ```sh
-V=v0.1.0
-curl -fsSLO "https://github.com/oku-trade/oku-cli/releases/download/$V/SHA256SUMS"
-curl -fsSLO "https://github.com/oku-trade/oku-cli/releases/download/$V/oku_${V#v}_linux_amd64.deb"
-curl -fsSLO "https://github.com/oku-trade/oku-cli/releases/download/$V/oku-${V#v}-1.x86_64.rpm"
-sha256sum -c --ignore-missing SHA256SUMS
-sudo apt install "./oku_${V#v}_linux_amd64.deb"
-# Fedora/RHEL instead:
-sudo dnf install "./oku-${V#v}-1.x86_64.rpm"
+V=$(curl -fsSLo /dev/null -w '%{url_effective}' https://github.com/oku-trade/oku-cli/releases/latest); V=${V##*/v}
+
+# Debian/Ubuntu (amd64; use linux_arm64 on arm64)
+curl -fsSLO "https://github.com/oku-trade/oku-cli/releases/download/v$V/oku_${V}_linux_amd64.deb"
+sudo apt install "./oku_${V}_linux_amd64.deb"
+
+# Fedora/RHEL (x86_64; use aarch64 on arm64)
+sudo dnf install "https://github.com/oku-trade/oku-cli/releases/download/v$V/oku-$V-1.x86_64.rpm"
 ```
 
-Arm64 packages use `linux_arm64.deb` and `aarch64.rpm`. There is no apt/dnf repository yet. Install the newer package to upgrade. `oku self-update` and auto-update refuse system package binaries.
+Run the same commands again to upgrade. There is no apt/dnf repository yet. Checksums are in each release's `SHA256SUMS`. `oku self-update` and auto-update refuse system package binaries.
 
 Homebrew, AUR, deb and rpm installs include Bash, Zsh and Fish completions automatically.
 
