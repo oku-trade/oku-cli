@@ -110,6 +110,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "$CERT_P12" ]; then echo "no signing secrets: ad-hoc signing only"; exit 0; fi
+          test -n "$CERT_PASSWORD" || { echo "MACOS_DEVELOPER_ID_P12_PASSWORD is empty in the release environment" >&2; exit 1; }
           kc="$RUNNER_TEMP/oku-signing.keychain-db"; kcpw="$(openssl rand -hex 24)"
           security create-keychain -p "$kcpw" "$kc"
           security set-keychain-settings -lut 3600 "$kc"
