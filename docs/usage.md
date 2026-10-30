@@ -276,7 +276,7 @@ Amounts are decimal strings in token units (`held`) or native units (`*_native`)
 
 ## Agent skills
 
-Ten task skills are bundled:
+Twelve skills are bundled:
 
 - `learn-oku`
 - `ensure-hyperliquid-authentication`
@@ -286,8 +286,10 @@ Ten task skills are bundled:
 - `close-hyperliquid-position`
 - `manage-hyperliquid-risk`
 - `move-agent-funds`
-- `consolidate-agent-funds`: consolidate agent-wallet assets into a user-chosen token on one chain
+- `consolidate-agent-funds`: consolidate agent-wallet balances from optional CSV, supplied list or live discovery into user-chosen chain/token targets
+- `coinbase-deposit-targets`: native USDC targets when the user wants to end on or send to a Coinbase deposit
 - `reconcile-hyperliquid-actions`
+- `troubleshoot-macos-keychain`
 
 Their source is the repository's `skills/` directory.
 
