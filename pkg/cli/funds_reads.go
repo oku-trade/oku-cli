@@ -5,7 +5,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/oku-trade/oku-cli/pkg/auth"
 	"github.com/oku-trade/oku-cli/pkg/config"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
@@ -26,9 +25,9 @@ func agentWalletMetadata(e *env) (*resolvedWallet, error) {
 	if p.Name == "" || !config.ValidAddress(p.Account) || e.g.account != "" && !strings.EqualFold(e.g.account, p.Account) {
 		return nil, output.Errorf(output.CodeAccountRequired, "select the enrolled master profile; --account cannot override the signer")
 	}
-	md, err := auth.LoadPrivyMetadata(p.Name)
+	md, err := e.loadMetadata(p.Name)
 	if err != nil {
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "loading agent wallet metadata")
+		return nil, credentialLoadError(err)
 	}
 	if !strings.EqualFold(md.AccountAddress, p.Account) || !config.ValidAddress(md.AgentAddress) || strings.EqualFold(md.AgentAddress, p.Account) || md.PrivyWalletID == "" {
 		return nil, output.Errorf(output.CodeSignerUnavailable, "agent wallet is not bound to the selected master profile")

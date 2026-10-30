@@ -57,7 +57,7 @@ func (a *App) cmdAuthUnlock(e *env) (*result, error) {
 		return nil, missingCredential(p.Name)
 	}
 	if err != nil {
-		if _, mdErr := auth.LoadPrivyMetadata(p.Name); mdErr == nil {
+		if _, mdErr := e.loadMetadata(p.Name); mdErr == nil {
 			return noop("Nothing to unlock: the credential is already in the current format."), nil
 		}
 		return nil, credentialLoadError(err)
@@ -319,7 +319,13 @@ func (a *App) cmdAuthStatus(e *env) (*result, error) {
 	if p.Name == "" {
 		return nil, output.Errorf(output.CodeProfileNotFound, "no profile selected")
 	}
-	md, err := auth.LoadPrivyMetadata(p.Name)
+	// Plain status is a diagnostic. Only --verify may request authorization.
+	var md *auth.Metadata
+	if e.cmd.Bool("verify") {
+		md, err = e.loadMetadata(p.Name)
+	} else {
+		md, err = auth.LoadPrivyMetadata(p.Name)
+	}
 	if errors.Is(err, auth.ErrNoCredentials) {
 		return nil, missingCredential(p.Name)
 	}
@@ -358,12 +364,12 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 		return nil, err
 	}
 	defer release()
-	md, err := auth.LoadPrivyMetadata(p.Name)
+	md, err := e.loadMetadata(p.Name)
 	if errors.Is(err, auth.ErrNoCredentials) {
 		return nil, output.Errorf(output.CodeNotFound, "no credential for profile")
 	}
 	if err != nil {
-		return nil, err
+		return nil, credentialLoadError(err)
 	}
 	if err = e.checkBinding(md, p); err != nil {
 		if deleteErr := auth.DeletePrivy(p.Name); deleteErr != nil {
@@ -373,7 +379,7 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 			fmt.Fprintln(w, "Local credential deleted; binding changed, remote grants were not revoked. "+boundaries["not_revoked"])
 		}}, nil
 	}
-	md, sec, err := auth.LoadPrivy(p.Name)
+	md, sec, err := e.loadCredential(p.Name)
 	if errors.Is(err, auth.ErrLegacyCredential) {
 		// Logout must work without the old passphrase: delete the local copy
 		// and report that remote sessions were not revoked.

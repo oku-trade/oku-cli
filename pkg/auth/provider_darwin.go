@@ -3,19 +3,55 @@
 package auth
 
 /*
-#cgo LDFLAGS: -framework Security
+#cgo LDFLAGS: -framework Security -framework ApplicationServices
 #include <Security/Security.h>
+#include <ApplicationServices/ApplicationServices.h>
 */
 import "C"
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
+	"sync"
+	"time"
 
 	keychain "github.com/keybase/go-keychain"
 )
 
-type systemKeychain struct{}
+type systemKeychain struct{ interactive, gui bool }
+
+var keychainInteractionMu sync.Mutex
+
+func interactiveKeychain(gui bool) credentialItemStore {
+	return systemKeychain{interactive: true, gui: gui}
+}
+
+func graphicalKeychainSession() bool {
+	session := C.CGSessionCopyCurrentDictionary()
+	if session == nil {
+		return false
+	}
+	C.CFRelease(C.CFTypeRef(session))
+	return true
+}
+
+// keychainLocked examines the default keychain, without requesting any item
+// data or displaying UI. Status failures retain their original OSStatus.
+func keychainLocked() (bool, error) {
+	var kc C.SecKeychainRef
+	if status := C.SecKeychainCopyDefault(&kc); status != 0 {
+		return false, fmt.Errorf("default Keychain status %d", int(status))
+	}
+	defer C.CFRelease(C.CFTypeRef(kc))
+	var state C.SecKeychainStatus
+	if status := C.SecKeychainGetStatus(kc, &state); status != 0 {
+		return false, fmt.Errorf("Keychain lock status %d", int(status))
+	}
+	return state&C.kSecUnlockStateStatus == 0, nil
+}
 
 // keybase/go-keychain does not expose kSecUseAuthenticationUIFail. The
 // legacy macOS Keychain API provides process-wide interaction suppression.
@@ -45,17 +81,26 @@ func keychainError(err error) error {
 	if err == nil {
 		return nil
 	}
-	switch {
-	case errors.Is(err, keychain.ErrorItemNotFound):
-		return ErrNoCredentials
-	case errors.Is(err, keychain.ErrorInteractionNotAllowed), errors.Is(err, keychain.ErrorAuthFailed), errors.Is(err, keychain.ErrorUserCanceled), errors.Is(err, keychain.ErrorNoAccessForItem), errors.Is(err, keychain.ErrorNotAvailable), errors.Is(err, keychain.ErrorNoSuchKeychain):
-		return fmt.Errorf("%w: %v", ErrKeychainUnavailable, err)
-	default:
-		return fmt.Errorf("keychain operation failed: %w", err)
+	var status keychain.Error
+	if errors.As(err, &status) {
+		locked := false
+		if status == keychain.ErrorInteractionNotAllowed || status == keychain.ErrorAuthFailed || status == keychain.ErrorNoAccessForItem {
+			var statusErr error
+			locked, statusErr = keychainLocked()
+			if statusErr != nil {
+				return fmt.Errorf("%w: %v; %v", ErrKeychainUnavailable, err, statusErr)
+			}
+		}
+		if kind := KeychainStatus(int(status), locked); kind != nil {
+			return fmt.Errorf("%w: %v", kind, err)
+		}
 	}
+	return fmt.Errorf("keychain operation failed: %w", err)
 }
 
-func (systemKeychain) Get(k key) ([]byte, error) {
+func (s systemKeychain) Get(k key) ([]byte, error) {
+	keychainInteractionMu.Lock()
+	defer keychainInteractionMu.Unlock()
 	profile := k.profile
 	if err := disallowKeychainInteraction(); err != nil {
 		return nil, err
@@ -70,9 +115,43 @@ func (systemKeychain) Get(k key) ([]byte, error) {
 	item.SetMatchLimit(keychain.MatchLimitOne)
 	item.SetReturnData(true)
 	result, err := keychain.QueryItem(item)
+	if err != nil && s.interactive {
+		classified := keychainError(err)
+		if errors.Is(classified, ErrKeychainLocked) {
+			// security owns the terminal prompt. The CLI never reads the password.
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, "/usr/bin/security", "unlock-keychain")
+			cmd.Stdin, cmd.Stderr = os.Stdin, os.Stderr
+			if unlockErr := cmd.Run(); unlockErr != nil {
+				return nil, fmt.Errorf("%w: unlock-keychain: %v", ErrKeychainLocked, unlockErr)
+			}
+		} else if !errors.Is(classified, ErrKeychainAccessDenied) {
+			return nil, classified
+		}
+		if s.gui && graphicalKeychainSession() {
+			if status := C.SecKeychainSetUserInteractionAllowed(C.Boolean(1)); status != 0 {
+				return nil, fmt.Errorf("%w: enabling Keychain authorization (status %d)", ErrKeychainUnavailable, int(status))
+			}
+			// The same retry also authorizes an updated binary after unlock.
+			// Always Allow adds this binary to the item's trusted applications.
+			result, err = keychain.QueryItem(item)
+			if status := C.SecKeychainSetUserInteractionAllowed(C.Boolean(0)); status != 0 {
+				return nil, fmt.Errorf("%w: disabling Keychain UI (status %d)", ErrKeychainUnavailable, int(status))
+			}
+		} else if errors.Is(classified, ErrKeychainAccessDenied) {
+			return nil, classified
+		} else {
+			result, err = keychain.QueryItem(item)
+		}
+	}
 	if err != nil {
 		return nil, keychainError(err)
 	}
+	return singleKeychainResult(result)
+}
+
+func singleKeychainResult(result []keychain.QueryResult) ([]byte, error) {
 	if len(result) == 0 {
 		return nil, ErrNoCredentials
 	}
@@ -82,6 +161,8 @@ func (systemKeychain) Get(k key) ([]byte, error) {
 	return result[0].Data, nil
 }
 func (systemKeychain) Put(k key, value []byte) error {
+	keychainInteractionMu.Lock()
+	defer keychainInteractionMu.Unlock()
 	profile := k.profile
 	if err := disallowKeychainInteraction(); err != nil {
 		return err
@@ -111,6 +192,8 @@ func (systemKeychain) Put(k key, value []byte) error {
 	return keychainError(err)
 }
 func (systemKeychain) Remove(k key) error {
+	keychainInteractionMu.Lock()
+	defer keychainInteractionMu.Unlock()
 	profile := k.profile
 	if err := disallowKeychainInteraction(); err != nil {
 		return err

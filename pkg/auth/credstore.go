@@ -124,6 +124,22 @@ func LoadPrivy(profile string) (*Metadata, *Secrets, error) {
 	return LoadPrivyIn(st, profile)
 }
 
+// LoadPrivyWithInteraction permits one user-authorized macOS retry.
+func LoadPrivyWithInteraction(profile string, interactive, gui bool) (*Metadata, *Secrets, error) {
+	if !interactive || DefaultStore() != StoreKeychain {
+		return LoadPrivy(profile)
+	}
+	return nativeLoad(interactiveKeychain(gui), privyKey(profile))
+}
+
+func LoadPrivyMetadataWithInteraction(profile string, interactive, gui bool) (*Metadata, error) {
+	if DefaultStore() != StoreKeychain {
+		return LoadPrivyMetadata(profile)
+	}
+	md, _, err := LoadPrivyWithInteraction(profile, interactive, gui)
+	return md, err
+}
+
 // DeletePrivy removes the credential from the profile's recorded store.
 func DeletePrivy(profile string) error {
 	st, err := StoreFor(profile)

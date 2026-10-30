@@ -34,6 +34,8 @@ oku auth login --profile <name>
 
 The default API is production, `https://accounts.icarus.tools`. Staging is opt-in: on a fresh configuration use `oku auth login --api-url https://accounts.lat.gfx.town`, or add a staging profile with `--api-url https://accounts.lat.gfx.town`. Existing profiles keep the API URL they were created with (check `oku profiles list`). The Privy app is built in; `--privy-app-id` or `OKU_PRIVY_APP_ID` can override it.
 
+On macOS, when Keychain authentication fails, follow `troubleshoot-macos-keychain` before suggesting another login. In particular, an updated binary may only need the user's **Always Allow** authorization.
+
 ## Credential storage (Linux)
 
 On Linux the default `file` store is a plain 0600 file with no passphrase, so agents and MCP can use it right after login. A profile can instead use the desktop `keyring` store; check `credential_store` in `oku auth status --json`. With the keyring store, a "credential store unavailable" error means the user must unlock their desktop keyring (or run `oku auth migrate --to file` on a headless machine).

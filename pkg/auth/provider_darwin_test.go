@@ -47,7 +47,7 @@ func TestDedicatedNativeKeychain(t *testing.T) {
 	if err := exec.Command("security", "lock-keychain", dedicated).Run(); err != nil {
 		t.Fatalf("lock disposable Keychain: %v", err)
 	}
-	if _, err := LoadPrivyMetadata(profile); err == nil || errors.Is(err, ErrNoCredentials) {
-		t.Fatalf("locked Keychain did not fail closed: %v", err)
+	if _, err := LoadPrivyMetadata(profile); !errors.Is(err, ErrKeychainLocked) {
+		t.Fatalf("locked Keychain should report locked without prompting: %v", err)
 	}
 }
