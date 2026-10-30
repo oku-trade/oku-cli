@@ -20,32 +20,35 @@ const SchemaVersion = "oku.cli/v1"
 type Code string
 
 const (
-	CodeUsage               Code = "USAGE"
-	CodeInvalidArgument     Code = "INVALID_ARGUMENT"
-	CodeInvalidDecimal      Code = "INVALID_DECIMAL"
-	CodeNetworkMismatch     Code = "NETWORK_MISMATCH"
-	CodeNetworkUnsupported  Code = "NETWORK_UNSUPPORTED"
-	CodeAccountRequired     Code = "ACCOUNT_REQUIRED"
-	CodeProfileNotFound     Code = "PROFILE_NOT_FOUND"
-	CodeConfigError         Code = "CONFIG_ERROR"
-	CodeAuthRequired        Code = "AUTH_REQUIRED"
-	CodeAuthUnavailable     Code = "AUTH_UNAVAILABLE"
-	CodeSignerUnavailable   Code = "SIGNER_UNAVAILABLE"
-	CodeSignerRejected      Code = "SIGNER_REJECTED"
-	CodeApprovalRequired    Code = "APPROVAL_REQUIRED"
-	CodePayloadMismatch     Code = "PAYLOAD_MISMATCH"
-	CodeUpstream            Code = "UPSTREAM_ERROR"
-	CodeUpstreamTimeout     Code = "UPSTREAM_TIMEOUT"
-	CodeRateLimited         Code = "RATE_LIMITED"
-	CodeNotFound            Code = "NOT_FOUND"
-	CodeOutcomeUnknown      Code = "OUTCOME_UNKNOWN"
-	CodeInsufficientGas     Code = "INSUFFICIENT_GAS"
-	CodeInsufficientBalance Code = "INSUFFICIENT_BALANCE"
-	CodeIntentConflict      Code = "INTENT_CONFLICT"
-	CodeIntentState         Code = "INTENT_STATE"
-	CodeRejected            Code = "REJECTED"
-	CodeConflict            Code = "FILE_EXISTS"
-	CodeInternal            Code = "INTERNAL"
+	CodeUsage                Code = "USAGE"
+	CodeInvalidArgument      Code = "INVALID_ARGUMENT"
+	CodeInvalidDecimal       Code = "INVALID_DECIMAL"
+	CodeNetworkMismatch      Code = "NETWORK_MISMATCH"
+	CodeNetworkUnsupported   Code = "NETWORK_UNSUPPORTED"
+	CodeAccountRequired      Code = "ACCOUNT_REQUIRED"
+	CodeProfileNotFound      Code = "PROFILE_NOT_FOUND"
+	CodeConfigError          Code = "CONFIG_ERROR"
+	CodeAuthRequired         Code = "AUTH_REQUIRED"
+	CodeAuthUnavailable      Code = "AUTH_UNAVAILABLE"
+	CodeSignerUnavailable    Code = "SIGNER_UNAVAILABLE"
+	CodeKeychainLocked       Code = "KEYCHAIN_LOCKED"
+	CodeKeychainAccessDenied Code = "KEYCHAIN_ACCESS_DENIED"
+	CodeKeychainCanceled     Code = "KEYCHAIN_CANCELED"
+	CodeSignerRejected       Code = "SIGNER_REJECTED"
+	CodeApprovalRequired     Code = "APPROVAL_REQUIRED"
+	CodePayloadMismatch      Code = "PAYLOAD_MISMATCH"
+	CodeUpstream             Code = "UPSTREAM_ERROR"
+	CodeUpstreamTimeout      Code = "UPSTREAM_TIMEOUT"
+	CodeRateLimited          Code = "RATE_LIMITED"
+	CodeNotFound             Code = "NOT_FOUND"
+	CodeOutcomeUnknown       Code = "OUTCOME_UNKNOWN"
+	CodeInsufficientGas      Code = "INSUFFICIENT_GAS"
+	CodeInsufficientBalance  Code = "INSUFFICIENT_BALANCE"
+	CodeIntentConflict       Code = "INTENT_CONFLICT"
+	CodeIntentState          Code = "INTENT_STATE"
+	CodeRejected             Code = "REJECTED"
+	CodeConflict             Code = "FILE_EXISTS"
+	CodeInternal             Code = "INTERNAL"
 )
 
 // ExitCode maps an error code to the process exit status.
@@ -54,7 +57,7 @@ func (c Code) ExitCode() int {
 	case CodeUsage, CodeInvalidArgument, CodeInvalidDecimal, CodeAccountRequired,
 		CodeProfileNotFound, CodeNetworkMismatch, CodeNetworkUnsupported, CodeConfigError:
 		return 2
-	case CodeAuthRequired, CodeAuthUnavailable, CodeSignerUnavailable, CodeSignerRejected, CodeApprovalRequired:
+	case CodeAuthRequired, CodeAuthUnavailable, CodeSignerUnavailable, CodeSignerRejected, CodeApprovalRequired, CodeKeychainLocked, CodeKeychainAccessDenied, CodeKeychainCanceled:
 		return 3
 	case CodeNotFound:
 		return 4

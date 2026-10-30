@@ -57,10 +57,11 @@ func (a *App) cmdAuthUnlock(e *env) (*result, error) {
 		return nil, missingCredential(p.Name)
 	}
 	if err != nil {
-		if _, mdErr := auth.LoadPrivyMetadata(p.Name); mdErr == nil {
+		_, mdErr := e.loadMetadata(p.Name)
+		if mdErr == nil {
 			return noop("Nothing to unlock: the credential is already in the current format."), nil
 		}
-		return nil, credentialLoadError(err)
+		return nil, credentialLoadError(fmt.Errorf("%w (reading metadata: %v)", err, mdErr))
 	}
 	var md *auth.Metadata
 	for attempt := 1; ; attempt++ {
@@ -289,8 +290,8 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	}
 	md := auth.Metadata{Kind: auth.KindPrivy, Profile: p.Name, Network: p.Network, APIURL: p.APIURL, PrivyAppID: pc.AppID, AccountAddress: strings.ToLower(p.Account), AgentAddress: strings.ToLower(wallet.Address), PrivyWalletID: wallet.ID, AccessExpiresAt: tok.AccessExpiresAt.UTC().Format(time.RFC3339), SessionID: exchange.Session.SessionID, SessionExpiresAt: exchange.Session.ExpiresAt, CreatedAt: e.app.Now().UTC().Format(time.RFC3339), Status: "active", Generation: 1}
 	sec := auth.Secrets{AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken, SessionToken: exchange.Session.Token}
-	if err = auth.SavePrivyIn(st, p.Name, md, sec); err != nil {
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "saving credential")
+	if err = auth.SavePrivyInWithInteraction(st, p.Name, md, sec, e.mayPromptForKeychain(), e.guiSession()); err != nil {
+		return nil, credentialLoadError(err)
 	}
 	if !create && st != prevStore {
 		if err = setProfileStore(p.Name, st); err != nil {
@@ -319,7 +320,13 @@ func (a *App) cmdAuthStatus(e *env) (*result, error) {
 	if p.Name == "" {
 		return nil, output.Errorf(output.CodeProfileNotFound, "no profile selected")
 	}
-	md, err := auth.LoadPrivyMetadata(p.Name)
+	// Plain status is a diagnostic. Only --verify may request authorization.
+	var md *auth.Metadata
+	if e.cmd.Bool("verify") {
+		md, err = e.loadMetadata(p.Name)
+	} else {
+		md, err = auth.LoadPrivyMetadata(p.Name)
+	}
 	if errors.Is(err, auth.ErrNoCredentials) {
 		return nil, missingCredential(p.Name)
 	}
@@ -358,12 +365,12 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 		return nil, err
 	}
 	defer release()
-	md, err := auth.LoadPrivyMetadata(p.Name)
+	md, err := e.loadMetadata(p.Name)
 	if errors.Is(err, auth.ErrNoCredentials) {
 		return nil, output.Errorf(output.CodeNotFound, "no credential for profile")
 	}
 	if err != nil {
-		return nil, err
+		return nil, credentialLoadError(err)
 	}
 	if err = e.checkBinding(md, p); err != nil {
 		if deleteErr := auth.DeletePrivy(p.Name); deleteErr != nil {
@@ -373,7 +380,9 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 			fmt.Fprintln(w, "Local credential deleted; binding changed, remote grants were not revoked. "+boundaries["not_revoked"])
 		}}, nil
 	}
-	md, sec, err := auth.LoadPrivy(p.Name)
+	// Preserve the raw legacy-format sentinel so logout can delete an old
+	// credential without requiring its passphrase.
+	md, sec, err := auth.LoadPrivyWithInteraction(p.Name, e.mayPromptForKeychain(), e.guiSession())
 	if errors.Is(err, auth.ErrLegacyCredential) {
 		// Logout must work without the old passphrase: delete the local copy
 		// and report that remote sessions were not revoked.
@@ -385,7 +394,7 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 		}}, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, credentialLoadError(err)
 	}
 	if err = e.checkBinding(md, p); err != nil {
 		return nil, err
@@ -411,8 +420,8 @@ func (a *App) cmdAuthLogout(e *env) (*result, error) {
 			grant = "revoked"
 		}
 	}
-	if err = auth.DeletePrivy(p.Name); err != nil {
-		return nil, err
+	if err = auth.DeletePrivyWithInteraction(p.Name, e.mayPromptForKeychain(), e.guiSession()); err != nil {
+		return nil, credentialLoadError(err)
 	}
 	return &result{data: map[string]any{"local_credentials": "deleted", "oku_session": remote, "privy_grant": grant, "boundaries": boundaries}, human: func(w io.Writer) {
 		fmt.Fprintf(w, "Local credential deleted; %s; Privy grant %s.\n%s\n", remote, grant, boundaries["not_revoked"])

@@ -40,9 +40,22 @@ for p in $PLATFORMS; do
     -ldflags "-s -w -buildid= -X main.version=${VERSION} -X github.com/oku-trade/oku-cli/pkg/buildinfo.Commit=${COMMIT}" \
     -o "$OUT/$name/oku" ./cmd/oku
   if [[ "$os" == darwin ]]; then
-    # Ad-hoc signature only (integrity/arm64 launch requirement). NOT Developer ID, NOT notarized.
-    codesign --force --sign - "$OUT/$name/oku"
+    if [[ -n "${OKU_CODESIGN_IDENTITY:-}" ]]; then
+      # Developer ID with hardened runtime and secure timestamp, both required for notarization.
+      codesign --force --sign "$OKU_CODESIGN_IDENTITY" --options runtime --timestamp \
+        --identifier com.oku-trade.oku "$OUT/$name/oku"
+    else
+      # Ad-hoc signature only (integrity/arm64 launch requirement). NOT Developer ID, NOT notarized.
+      codesign --force --sign - "$OUT/$name/oku"
+    fi
     codesign --verify --strict --verbose=2 "$OUT/$name/oku"
+    if [[ -n "${OKU_NOTARY_KEY_PATH:-}" ]]; then
+      # Bare Mach-O binaries cannot be stapled; Gatekeeper fetches the ticket online.
+      ditto -c -k "$OUT/$name/oku" "$OUT/$name.notarize.zip"
+      xcrun notarytool submit "$OUT/$name.notarize.zip" --wait --timeout 20m \
+        --key "$OKU_NOTARY_KEY_PATH" --key-id "${OKU_NOTARY_KEY_ID:?}" --issuer "${OKU_NOTARY_ISSUER:?}"
+      rm -f "$OUT/$name.notarize.zip"
+    fi
   fi
   cp README.md "$OUT/$name/" 2>/dev/null || true
   # Required: license notices for bundled deps of this exact target (fails if incomplete).

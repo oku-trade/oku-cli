@@ -48,7 +48,7 @@ jobs:
           ref: refs/tags/${{ env.TAG }}
           fetch-depth: 0
       - uses: actions/setup-go@v5
-        with: { go-version-file: go.mod, cache: true }
+        with: { go-version: "1.27.x", check-latest: true, cache: true }
       - name: assert native host
         run: test "$(go env GOOS)/$(go env GOARCH)" = "linux/${{ matrix.goarch }}"
       - run: make test
@@ -78,6 +78,8 @@ jobs:
     # the OKU_MACOS_RUNNER repo variable. darwin/amd64 is cross-compiled here with CGO
     # (clang -arch x86_64, OKU_DARWIN_CROSS=1 in dist.sh); no Intel runner.
     runs-on: ${{ vars.OKU_MACOS_RUNNER || 'namespace-profile-ios' }}
+    # Signing secrets live in the `release` environment, which only v* tags may deploy to.
+    environment: release
     env:
       CGO_ENABLED: "1"
     steps:
@@ -86,7 +88,7 @@ jobs:
           ref: refs/tags/${{ env.TAG }}
           fetch-depth: 0
       - uses: actions/setup-go@v5
-        with: { go-version-file: go.mod, cache: true }
+        with: { go-version: "1.27.x", check-latest: true, cache: true }
       - name: preflight (macOS arm64, Xcode CLT, clang, go)
         run: |
           set -euo pipefail
@@ -99,9 +101,46 @@ jobs:
       - name: test (darwin/arm64, disposable keychain; never the login keychain)
         env: { OKU_KEYCHAIN_TEST_ACK: disposable-runner }
         run: ./mise-tasks/macos-keychain-test.sh make test
+      - name: import Developer ID certificate (skipped without secrets; builds stay ad-hoc signed)
+        id: signing
+        env:
+          CERT_P12: ${{ secrets.MACOS_DEVELOPER_ID_P12 }}
+          CERT_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_P12_PASSWORD }}
+          NOTARY_KEY: ${{ secrets.APPLE_NOTARY_API_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CERT_P12" ]; then echo "no signing secrets: ad-hoc signing only"; exit 0; fi
+          test -n "$CERT_PASSWORD" || { echo "MACOS_DEVELOPER_ID_P12_PASSWORD is empty in the release environment" >&2; exit 1; }
+          kc="$RUNNER_TEMP/oku-signing.keychain-db"; kcpw="$(openssl rand -hex 24)"
+          security create-keychain -p "$kcpw" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$kcpw" "$kc"
+          printf '%s' "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$kcpw" "$kc" >/dev/null
+          security list-keychains -d user -s "$kc" "$HOME/Library/Keychains/login.keychain-db"
+          id="$(security find-identity -v -p codesigning "$kc" | awk -F'"' '/Developer ID Application/ {print $2; exit}')"
+          test -n "$id" || { echo "no Developer ID Application identity in the p12" >&2; exit 1; }
+          echo "identity=$id" >> "$GITHUB_OUTPUT"
+          echo "keychain=$kc" >> "$GITHUB_OUTPUT"
+          if [ -n "$NOTARY_KEY" ]; then
+            printf '%s' "$NOTARY_KEY" > "$RUNNER_TEMP/notary.p8"
+            echo "notary_key=$RUNNER_TEMP/notary.p8" >> "$GITHUB_OUTPUT"
+          fi
       - name: build archives (version stamped from tag)
-        env: { OKU_DARWIN_CROSS: "1" }
+        env:
+          OKU_DARWIN_CROSS: "1"
+          OKU_CODESIGN_IDENTITY: ${{ steps.signing.outputs.identity }}
+          OKU_NOTARY_KEY_PATH: ${{ steps.signing.outputs.notary_key }}
+          OKU_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          OKU_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
         run: VERSION="$TAG" PLATFORMS="darwin/arm64 darwin/amd64" ./mise-tasks/dist.sh
+      - name: remove signing keychain
+        if: always() && steps.signing.outputs.keychain != ''
+        run: |
+          security delete-keychain "${{ steps.signing.outputs.keychain }}" || true
+          rm -f "$RUNNER_TEMP/notary.p8"
       - name: smoke packaged binaries
         run: |
           set -euo pipefail
@@ -179,3 +218,50 @@ jobs:
             gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes "${pre[@]}" \
               -- *.tar.gz SHA256SUMS
           fi
+      - uses: actions/upload-artifact@v4
+        with: { name: sha256sums, path: release/SHA256SUMS, if-no-files-found: error }
+  homebrew-tap:
+    # Updates Formula/oku.rb in oku-trade/homebrew-tap. Stable tags only. Authenticates as the org
+    # GitHub App (APP_ID / APP_PRIVATE_KEY, as in account/retail CI) with a token scoped to the tap
+    # repo; the app needs Contents read/write and access to homebrew-tap. Skipped if the secrets are absent.
+    needs: publish
+    environment: release
+    if: ${{ !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') }}
+    runs-on: ubicloud-standard-2
+    env:
+      HAS_APP: ${{ secrets.APP_ID != '' && secrets.APP_PRIVATE_KEY != '' }}
+    steps:
+      - name: require app credentials
+        id: gate
+        run: |
+          if [ "$HAS_APP" != true ]; then echo "APP_ID/APP_PRIVATE_KEY not available; skipping tap update"; echo "run=false" >> "$GITHUB_OUTPUT"
+          else echo "run=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/create-github-app-token@v2
+        id: app
+        if: steps.gate.outputs.run == 'true'
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: oku-trade
+          repositories: homebrew-tap
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+        with: { ref: "refs/tags/${{ env.TAG }}", path: src }
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+        with: { repository: oku-trade/homebrew-tap, token: "${{ steps.app.outputs.token }}", path: tap }
+      - uses: actions/download-artifact@v4
+        if: steps.gate.outputs.run == 'true'
+        with: { name: sha256sums, path: sums }
+      - name: render and push formula
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p tap/Formula
+          src/mise-tasks/brew-formula.sh "$TAG" sums/SHA256SUMS > tap/Formula/oku.rb
+          cd tap
+          git add Formula/oku.rb
+          if git diff --cached --quiet; then echo "formula unchanged"; exit 0; fi
+          git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
+            commit -m "oku ${TAG#v}"
+          git push

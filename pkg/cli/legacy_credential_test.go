@@ -59,3 +59,31 @@ func TestLegacyCredentialNeedsUnlockThenWorks(t *testing.T) {
 		t.Fatalf("second unlock: %s", r.stdout)
 	}
 }
+
+func TestLegacyCredentialLogoutWithoutPassphrase(t *testing.T) {
+	h := newHarness(t)
+	if r := h.run("profiles", "add", "main", "--account", acct, "--api-url", "http://127.0.0.1:9", "--json"); r.code != 0 {
+		t.Fatal(r.stdout)
+	}
+	raw, err := os.ReadFile("../auth/testdata/legacy-passphrase.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, err := auth.PrivyPath("main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r := h.run("auth", "logout", "--json")
+	if r.code != 0 || r.data()["local_credentials"] != "deleted" || r.data()["privy_grant"] != "not_attempted" {
+		t.Fatalf("legacy logout: %s %s", r.stdout, r.stderr)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("legacy file still present: %v", err)
+	}
+}

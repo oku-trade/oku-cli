@@ -16,6 +16,10 @@ The account is the user's **external** Hyperliquid master wallet. It holds funds
 | Linux, opt-in `keyring` store | Freedesktop Secret Service item in the default collection (GNOME Keyring, KWallet, KeePassXC) | Encrypted at rest with your login password; unlocked with the desktop login session. |
 | macOS | Keychain | Native Keychain authorization. |
 
+On macOS, Oku first queries the Keychain without UI. In a human terminal with terminal stderr, and only without `--json`, it can retry once: a locked default Keychain invokes Apple's `security unlock-keychain` terminal prompt, while an unlocked item denied to a newly installed binary invokes the native Keychain authorization dialog. The CLI does not read the Keychain password. Choosing **Always Allow** adds the current binary to the item's trusted applications. This does not make future ad-hoc-signed binaries automatically trusted. JSON, MCP and Service paths stay non-interactive. `oku doctor` checks credential accessibility without prompting.
+
+The item access list is not broadened to other applications. Stable Developer ID signing is a separate release follow-up. Do not use `security find-generic-password -w` for troubleshooting because it prints the secret.
+
 ### Choosing a Linux store
 
 The Linux store is chosen per profile at `oku auth login --credential-store file|keyring` (or `OKU_CREDENTIAL_STORE`), recorded as `credential_store` in the profile config, and changed later with `oku auth migrate --to file|keyring`. `oku auth status` and `oku doctor` show the store in use. There is never a fallback between stores: if a profile says `keyring` and the Secret Service is unreachable (no D-Bus session bus, no provider, a locked collection that was not unlocked, SSH or headless sessions), commands fail with an error instead of reading or writing the file, and a missing keyring item is reported as missing.
