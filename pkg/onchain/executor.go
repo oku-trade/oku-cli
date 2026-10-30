@@ -29,12 +29,12 @@ var ErrReverted = errors.New("transaction reverted")
 var ErrBatchUnavailable = errors.New("BATCH_UNAVAILABLE: EIP-7702 or deployed delegate unavailable")
 
 // Privy's wallet_sendCalls delegates an EOA to this Kernel implementation.
-// Address verified from the live Privy authorization on Arbitrum (2026-10-19).
+// Kernel implementation used for Privy's EIP-7702 wallet delegation.
 const PrivyKernelImplementation = "0xd6CEDDe84be40893d153Be9d467CD6aD37875b28"
 
-// chain-config v1.19.2 has no EIP-7702/Prague capability field. These chains
-// failed the read-only EIP-7702 probe on 2026-10-22. A deployed Kernel alone
-// does not imply that type-4 authorization works on a chain.
+// chain-config v1.19.2 has no EIP-7702/Prague capability field. Exclude these
+// chains conservatively until the authorization path can be verified. A
+// deployed Kernel alone does not imply that type-4 authorization works.
 var no7702 = map[uint64]bool{43114: true, 288: true, 60808: true, 314: true, 30: true, 151: true, 6900: true, 50: true, 999: true}
 
 type codeReader interface {
@@ -80,21 +80,6 @@ func BatchAllowed(ctx context.Context, rpc codeReader, chain uint64, agent strin
 // preceding step is mined.
 const dependentStepGas = 3_000_000
 
-// defaultRPCBase is Oku's eRPC gateway; a chain's endpoint is this prefix plus
-// its chain-config internal name (e.g. .../main/arbitrum). It serves
-// receipts and the recent historical state used for batch lookup.
-const defaultRPCBase = "https://rpc.invalid/"
-
-// defaultRPCURL returns the gateway endpoint for a chain known to the shared
-// chain-config package, or "" for unknown, deprecated or non-EVM chains.
-func defaultRPCURL(chain uint64) string {
-	n, err := networks.NetworkByNumber(chain)
-	if err != nil || n == nil || !n.IsEVM() || n.Deprecated || n.InternalName == "" || uint64(n.ChainId) != chain {
-		return ""
-	}
-	return defaultRPCBase + n.InternalName
-}
-
 // confirmationDepth is the default number of blocks a receipt must be buried
 // under. Chains with historically deeper reorgs wait longer.
 func confirmationDepth(chain uint64) uint64 {
@@ -136,7 +121,7 @@ func ReceiptWait(chain uint64, getenv func(string) string) time.Duration {
 	return wait
 }
 
-// ErrNoRPC reports a chain with no built-in endpoint and no override.
+// ErrNoRPC reports a chain with no configured endpoint.
 var ErrNoRPC = errors.New("no RPC endpoint for chain")
 
 // Allowed reports whether id is a plausible EVM chain ID. Real support is
@@ -144,17 +129,14 @@ var ErrNoRPC = errors.New("no RPC endpoint for chain")
 // response is also checked against eth_chainId.
 func Allowed(id uint64) bool { return id > 0 && id < 1<<53 }
 
-// RPCURL returns the endpoint for chain: OKU_RPC_URL_<CHAINID> if set,
-// otherwise the built-in default, otherwise ErrNoRPC.
+// RPCURL requires OKU_RPC_URL_<CHAINID>. The chain-config networks package
+// does not publish RPC endpoints.
 func RPCURL(getenv func(string) string, chain uint64) (string, error) {
 	if getenv == nil {
 		getenv = os.Getenv
 	}
 	if custom := getenv("OKU_RPC_URL_" + strconv.FormatUint(chain, 10)); custom != "" {
 		return custom, nil
-	}
-	if url := defaultRPCURL(chain); url != "" {
-		return url, nil
 	}
 	return "", fmt.Errorf("%w %d: set OKU_RPC_URL_%d", ErrNoRPC, chain, chain)
 }

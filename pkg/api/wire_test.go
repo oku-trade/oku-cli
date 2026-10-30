@@ -93,10 +93,6 @@ func TestResponsesDecodeIntoCompatTypes(t *testing.T) {
 		{&accountv2.ConfirmActionResponse{}, &ConfirmActionResponse{}},
 		{&accountv2.GetActionResponse{}, &GetActionResponse{}},
 		{&accountv2.ReconcileActionsResponse{}, &ReconcileActionsResponse{}},
-		{&accountv2.RedeemCliEnrollmentResponse{}, &RedeemEnrollmentResponse{}},
-		{&accountv2.PollCliEnrollmentResponse{}, &PollEnrollmentResponse{}},
-		{&accountv2.GetCurrentCliDeviceResponse{}, &DeviceResponse{}},
-		{&accountv2.RevokeCurrentCliDeviceResponse{}, &DeviceResponse{}},
 	}
 	for _, c := range cases {
 		fill(c.msg.ProtoReflect(), 0)

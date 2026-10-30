@@ -296,463 +296,6 @@ func (x *SearchTokensResponse) GetTotalDocuments() int32 {
 	return 0
 }
 
-// GetTokenRequest for retrieving a specific token
-type GetTokenRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Token address
-	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-	// Chain ID
-	ChainId       int32 `protobuf:"varint,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTokenRequest) Reset() {
-	*x = GetTokenRequest{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTokenRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTokenRequest) ProtoMessage() {}
-
-func (x *GetTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTokenRequest.ProtoReflect.Descriptor instead.
-func (*GetTokenRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *GetTokenRequest) GetAddress() string {
-	if x != nil {
-		return x.Address
-	}
-	return ""
-}
-
-func (x *GetTokenRequest) GetChainId() int32 {
-	if x != nil {
-		return x.ChainId
-	}
-	return 0
-}
-
-// GetTokenResponse containing the requested token
-type GetTokenResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The requested token (null if not found)
-	Token         *TokenInfo `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTokenResponse) Reset() {
-	*x = GetTokenResponse{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTokenResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTokenResponse) ProtoMessage() {}
-
-func (x *GetTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTokenResponse.ProtoReflect.Descriptor instead.
-func (*GetTokenResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *GetTokenResponse) GetToken() *TokenInfo {
-	if x != nil {
-		return x.Token
-	}
-	return nil
-}
-
-// GetTokensByChainRequest for retrieving all tokens on a chain
-type GetTokensByChainRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Chain ID
-	ChainId int32 `protobuf:"varint,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	// Maximum number of results (default 100, max 1000)
-	Limit int32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
-	// Pagination offset
-	Offset int32 `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
-	// Sort by field ("name", "symbol", "market_cap", "volume")
-	SortBy string `protobuf:"bytes,4,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
-	// Sort order ("asc", "desc")
-	SortOrder string `protobuf:"bytes,5,opt,name=sort_order,json=sortOrder,proto3" json:"sort_order,omitempty"`
-	// Include price and market data
-	IncludeMarketData bool `protobuf:"varint,6,opt,name=include_market_data,json=includeMarketData,proto3" json:"include_market_data,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *GetTokensByChainRequest) Reset() {
-	*x = GetTokensByChainRequest{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTokensByChainRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTokensByChainRequest) ProtoMessage() {}
-
-func (x *GetTokensByChainRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTokensByChainRequest.ProtoReflect.Descriptor instead.
-func (*GetTokensByChainRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *GetTokensByChainRequest) GetChainId() int32 {
-	if x != nil {
-		return x.ChainId
-	}
-	return 0
-}
-
-func (x *GetTokensByChainRequest) GetLimit() int32 {
-	if x != nil {
-		return x.Limit
-	}
-	return 0
-}
-
-func (x *GetTokensByChainRequest) GetOffset() int32 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
-func (x *GetTokensByChainRequest) GetSortBy() string {
-	if x != nil {
-		return x.SortBy
-	}
-	return ""
-}
-
-func (x *GetTokensByChainRequest) GetSortOrder() string {
-	if x != nil {
-		return x.SortOrder
-	}
-	return ""
-}
-
-func (x *GetTokensByChainRequest) GetIncludeMarketData() bool {
-	if x != nil {
-		return x.IncludeMarketData
-	}
-	return false
-}
-
-// GetTokensByChainResponse containing tokens for the requested chain
-type GetTokensByChainResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// List of tokens on the chain
-	Tokens []*TokenInfo `protobuf:"bytes,1,rep,name=tokens,proto3" json:"tokens,omitempty"`
-	// Total number of tokens on chain
-	TotalCount int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	// Current offset
-	Offset int32 `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
-	// Limit used
-	Limit         int32 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTokensByChainResponse) Reset() {
-	*x = GetTokensByChainResponse{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTokensByChainResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTokensByChainResponse) ProtoMessage() {}
-
-func (x *GetTokensByChainResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTokensByChainResponse.ProtoReflect.Descriptor instead.
-func (*GetTokensByChainResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *GetTokensByChainResponse) GetTokens() []*TokenInfo {
-	if x != nil {
-		return x.Tokens
-	}
-	return nil
-}
-
-func (x *GetTokensByChainResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
-}
-
-func (x *GetTokensByChainResponse) GetOffset() int32 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
-func (x *GetTokensByChainResponse) GetLimit() int32 {
-	if x != nil {
-		return x.Limit
-	}
-	return 0
-}
-
-// GetTopTokensByChainRequest for retrieving top tokens on a chain
-type GetTopTokensByChainRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Chain ID
-	ChainId int32 `protobuf:"varint,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	// Number of top tokens to return (default 25, max 250)
-	Limit int32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
-	// Rank by ("market_cap", "volume_24h", "price_change_24h")
-	RankBy string `protobuf:"bytes,3,opt,name=rank_by,json=rankBy,proto3" json:"rank_by,omitempty"`
-	// Include price and market data
-	IncludeMarketData bool `protobuf:"varint,4,opt,name=include_market_data,json=includeMarketData,proto3" json:"include_market_data,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *GetTopTokensByChainRequest) Reset() {
-	*x = GetTopTokensByChainRequest{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTopTokensByChainRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTopTokensByChainRequest) ProtoMessage() {}
-
-func (x *GetTopTokensByChainRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTopTokensByChainRequest.ProtoReflect.Descriptor instead.
-func (*GetTopTokensByChainRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *GetTopTokensByChainRequest) GetChainId() int32 {
-	if x != nil {
-		return x.ChainId
-	}
-	return 0
-}
-
-func (x *GetTopTokensByChainRequest) GetLimit() int32 {
-	if x != nil {
-		return x.Limit
-	}
-	return 0
-}
-
-func (x *GetTopTokensByChainRequest) GetRankBy() string {
-	if x != nil {
-		return x.RankBy
-	}
-	return ""
-}
-
-func (x *GetTopTokensByChainRequest) GetIncludeMarketData() bool {
-	if x != nil {
-		return x.IncludeMarketData
-	}
-	return false
-}
-
-// GetTopTokensByChainResponse containing the top tokens
-type GetTopTokensByChainResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// List of top tokens with ranking scores
-	Tokens []*TokenSearchResult `protobuf:"bytes,1,rep,name=tokens,proto3" json:"tokens,omitempty"`
-	// Ranking criteria used
-	RankedBy string `protobuf:"bytes,2,opt,name=ranked_by,json=rankedBy,proto3" json:"ranked_by,omitempty"`
-	// Number of tokens returned
-	Count         int32 `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTopTokensByChainResponse) Reset() {
-	*x = GetTopTokensByChainResponse{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTopTokensByChainResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTopTokensByChainResponse) ProtoMessage() {}
-
-func (x *GetTopTokensByChainResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTopTokensByChainResponse.ProtoReflect.Descriptor instead.
-func (*GetTopTokensByChainResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *GetTopTokensByChainResponse) GetTokens() []*TokenSearchResult {
-	if x != nil {
-		return x.Tokens
-	}
-	return nil
-}
-
-func (x *GetTopTokensByChainResponse) GetRankedBy() string {
-	if x != nil {
-		return x.RankedBy
-	}
-	return ""
-}
-
-func (x *GetTopTokensByChainResponse) GetCount() int32 {
-	if x != nil {
-		return x.Count
-	}
-	return 0
-}
-
-// GetTokensByAddressesRequest for batch token retrieval
-type GetTokensByAddressesRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// List of token addresses and chain IDs
-	TokenIdentifiers []*TokenIdentifier `protobuf:"bytes,1,rep,name=token_identifiers,json=tokenIdentifiers,proto3" json:"token_identifiers,omitempty"`
-	// Include price and market data
-	IncludeMarketData bool `protobuf:"varint,2,opt,name=include_market_data,json=includeMarketData,proto3" json:"include_market_data,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *GetTokensByAddressesRequest) Reset() {
-	*x = GetTokensByAddressesRequest{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTokensByAddressesRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTokensByAddressesRequest) ProtoMessage() {}
-
-func (x *GetTokensByAddressesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTokensByAddressesRequest.ProtoReflect.Descriptor instead.
-func (*GetTokensByAddressesRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *GetTokensByAddressesRequest) GetTokenIdentifiers() []*TokenIdentifier {
-	if x != nil {
-		return x.TokenIdentifiers
-	}
-	return nil
-}
-
-func (x *GetTokensByAddressesRequest) GetIncludeMarketData() bool {
-	if x != nil {
-		return x.IncludeMarketData
-	}
-	return false
-}
-
 // TokenIdentifier represents a token address and chain combination
 type TokenIdentifier struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -766,7 +309,7 @@ type TokenIdentifier struct {
 
 func (x *TokenIdentifier) Reset() {
 	*x = TokenIdentifier{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[9]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -778,7 +321,7 @@ func (x *TokenIdentifier) String() string {
 func (*TokenIdentifier) ProtoMessage() {}
 
 func (x *TokenIdentifier) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[9]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -791,7 +334,7 @@ func (x *TokenIdentifier) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TokenIdentifier.ProtoReflect.Descriptor instead.
 func (*TokenIdentifier) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{9}
+	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *TokenIdentifier) GetAddress() string {
@@ -804,70 +347,6 @@ func (x *TokenIdentifier) GetAddress() string {
 func (x *TokenIdentifier) GetChainId() int32 {
 	if x != nil {
 		return x.ChainId
-	}
-	return 0
-}
-
-// GetTokensByAddressesResponse containing the requested tokens
-type GetTokensByAddressesResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// List of found tokens (order matches request)
-	Tokens []*TokenInfo `protobuf:"bytes,1,rep,name=tokens,proto3" json:"tokens,omitempty"`
-	// Number of tokens found
-	FoundCount int32 `protobuf:"varint,2,opt,name=found_count,json=foundCount,proto3" json:"found_count,omitempty"`
-	// Number of tokens requested
-	RequestedCount int32 `protobuf:"varint,3,opt,name=requested_count,json=requestedCount,proto3" json:"requested_count,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
-}
-
-func (x *GetTokensByAddressesResponse) Reset() {
-	*x = GetTokensByAddressesResponse{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTokensByAddressesResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTokensByAddressesResponse) ProtoMessage() {}
-
-func (x *GetTokensByAddressesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTokensByAddressesResponse.ProtoReflect.Descriptor instead.
-func (*GetTokensByAddressesResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *GetTokensByAddressesResponse) GetTokens() []*TokenInfo {
-	if x != nil {
-		return x.Tokens
-	}
-	return nil
-}
-
-func (x *GetTokensByAddressesResponse) GetFoundCount() int32 {
-	if x != nil {
-		return x.FoundCount
-	}
-	return 0
-}
-
-func (x *GetTokensByAddressesResponse) GetRequestedCount() int32 {
-	if x != nil {
-		return x.RequestedCount
 	}
 	return 0
 }
@@ -897,7 +376,7 @@ type TokenInfo struct {
 
 func (x *TokenInfo) Reset() {
 	*x = TokenInfo{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[11]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -909,7 +388,7 @@ func (x *TokenInfo) String() string {
 func (*TokenInfo) ProtoMessage() {}
 
 func (x *TokenInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[11]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -922,7 +401,7 @@ func (x *TokenInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TokenInfo.ProtoReflect.Descriptor instead.
 func (*TokenInfo) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{11}
+	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *TokenInfo) GetAddress() string {
@@ -1010,7 +489,7 @@ type TokenSearchResult struct {
 
 func (x *TokenSearchResult) Reset() {
 	*x = TokenSearchResult{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[12]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1022,7 +501,7 @@ func (x *TokenSearchResult) String() string {
 func (*TokenSearchResult) ProtoMessage() {}
 
 func (x *TokenSearchResult) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[12]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1035,7 +514,7 @@ func (x *TokenSearchResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TokenSearchResult.ProtoReflect.Descriptor instead.
 func (*TokenSearchResult) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{12}
+	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *TokenSearchResult) GetToken() *TokenInfo {
@@ -1129,7 +608,7 @@ type TokenMarketData struct {
 
 func (x *TokenMarketData) Reset() {
 	*x = TokenMarketData{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[13]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1141,7 +620,7 @@ func (x *TokenMarketData) String() string {
 func (*TokenMarketData) ProtoMessage() {}
 
 func (x *TokenMarketData) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[13]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1154,7 +633,7 @@ func (x *TokenMarketData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TokenMarketData.ProtoReflect.Descriptor instead.
 func (*TokenMarketData) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{13}
+	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *TokenMarketData) GetMarketCapUsd() float64 {
@@ -1214,7 +693,7 @@ type TokenHighlight struct {
 
 func (x *TokenHighlight) Reset() {
 	*x = TokenHighlight{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[14]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1226,7 +705,7 @@ func (x *TokenHighlight) String() string {
 func (*TokenHighlight) ProtoMessage() {}
 
 func (x *TokenHighlight) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[14]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1239,7 +718,7 @@ func (x *TokenHighlight) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TokenHighlight.ProtoReflect.Descriptor instead.
 func (*TokenHighlight) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{14}
+	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *TokenHighlight) GetName() []string {
@@ -1263,446 +742,6 @@ func (x *TokenHighlight) GetDescription() []string {
 	return nil
 }
 
-// GetFullTokenListRequest for retrieving the complete tokenlist
-type GetFullTokenListRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Chain IDs to exclude from the response (e.g., exclude Base chain ID 8453)
-	ExcludeChainIds []int32 `protobuf:"varint,1,rep,packed,name=exclude_chain_ids,json=excludeChainIds,proto3" json:"exclude_chain_ids,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
-}
-
-func (x *GetFullTokenListRequest) Reset() {
-	*x = GetFullTokenListRequest{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[15]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetFullTokenListRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetFullTokenListRequest) ProtoMessage() {}
-
-func (x *GetFullTokenListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[15]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetFullTokenListRequest.ProtoReflect.Descriptor instead.
-func (*GetFullTokenListRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{15}
-}
-
-func (x *GetFullTokenListRequest) GetExcludeChainIds() []int32 {
-	if x != nil {
-		return x.ExcludeChainIds
-	}
-	return nil
-}
-
-// GetFullTokenListResponse containing the full tokenlist
-type GetFullTokenListResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// List of all tokens from all chains
-	Tokens []*TokenInfo `protobuf:"bytes,1,rep,name=tokens,proto3" json:"tokens,omitempty"`
-	// Total number of tokens returned
-	TotalCount int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	// Timestamp when the tokenlist was generated
-	GeneratedAtUnix int64 `protobuf:"varint,3,opt,name=generated_at_unix,json=generatedAtUnix,proto3" json:"generated_at_unix,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
-}
-
-func (x *GetFullTokenListResponse) Reset() {
-	*x = GetFullTokenListResponse{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[16]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetFullTokenListResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetFullTokenListResponse) ProtoMessage() {}
-
-func (x *GetFullTokenListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[16]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetFullTokenListResponse.ProtoReflect.Descriptor instead.
-func (*GetFullTokenListResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{16}
-}
-
-func (x *GetFullTokenListResponse) GetTokens() []*TokenInfo {
-	if x != nil {
-		return x.Tokens
-	}
-	return nil
-}
-
-func (x *GetFullTokenListResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
-}
-
-func (x *GetFullTokenListResponse) GetGeneratedAtUnix() int64 {
-	if x != nil {
-		return x.GeneratedAtUnix
-	}
-	return 0
-}
-
-// GetStandardTokensRequest retrieves the curated standard token list.
-type GetStandardTokensRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Optional chain identifiers to include (e.g., "1", "ethereum", "eip155:1"). Empty returns all configured chains.
-	Chains        []string `protobuf:"bytes,1,rep,name=chains,proto3" json:"chains,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetStandardTokensRequest) Reset() {
-	*x = GetStandardTokensRequest{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[17]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetStandardTokensRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetStandardTokensRequest) ProtoMessage() {}
-
-func (x *GetStandardTokensRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[17]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetStandardTokensRequest.ProtoReflect.Descriptor instead.
-func (*GetStandardTokensRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{17}
-}
-
-func (x *GetStandardTokensRequest) GetChains() []string {
-	if x != nil {
-		return x.Chains
-	}
-	return nil
-}
-
-// StandardTokenChain groups curated tokens by chain.
-type StandardTokenChain struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// CAIP-2 chain identifier, e.g. "eip155:1".
-	Chain string `protobuf:"bytes,1,opt,name=chain,proto3" json:"chain,omitempty"`
-	// Curated standard tokens on this chain.
-	Tokens        []*TokenInfo `protobuf:"bytes,2,rep,name=tokens,proto3" json:"tokens,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *StandardTokenChain) Reset() {
-	*x = StandardTokenChain{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[18]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *StandardTokenChain) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*StandardTokenChain) ProtoMessage() {}
-
-func (x *StandardTokenChain) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[18]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use StandardTokenChain.ProtoReflect.Descriptor instead.
-func (*StandardTokenChain) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{18}
-}
-
-func (x *StandardTokenChain) GetChain() string {
-	if x != nil {
-		return x.Chain
-	}
-	return ""
-}
-
-func (x *StandardTokenChain) GetTokens() []*TokenInfo {
-	if x != nil {
-		return x.Tokens
-	}
-	return nil
-}
-
-// GetStandardTokensResponse contains curated tokens grouped by chain name.
-type GetStandardTokensResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Chains        []*StandardTokenChain  `protobuf:"bytes,1,rep,name=chains,proto3" json:"chains,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetStandardTokensResponse) Reset() {
-	*x = GetStandardTokensResponse{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[19]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetStandardTokensResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetStandardTokensResponse) ProtoMessage() {}
-
-func (x *GetStandardTokensResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[19]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetStandardTokensResponse.ProtoReflect.Descriptor instead.
-func (*GetStandardTokensResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{19}
-}
-
-func (x *GetStandardTokensResponse) GetChains() []*StandardTokenChain {
-	if x != nil {
-		return x.Chains
-	}
-	return nil
-}
-
-// GetTokenBlacklistRequest retrieves all blacklisted token entries.
-type GetTokenBlacklistRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTokenBlacklistRequest) Reset() {
-	*x = GetTokenBlacklistRequest{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[20]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTokenBlacklistRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTokenBlacklistRequest) ProtoMessage() {}
-
-func (x *GetTokenBlacklistRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[20]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTokenBlacklistRequest.ProtoReflect.Descriptor instead.
-func (*GetTokenBlacklistRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{20}
-}
-
-// TokenBlacklistEntry is a single blacklisted token.
-type TokenBlacklistEntry struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Token address as 0x-prefixed hex.
-	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-	// Reason the token was blacklisted.
-	Reason        *string `protobuf:"bytes,2,opt,name=reason,proto3,oneof" json:"reason,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TokenBlacklistEntry) Reset() {
-	*x = TokenBlacklistEntry{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[21]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TokenBlacklistEntry) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TokenBlacklistEntry) ProtoMessage() {}
-
-func (x *TokenBlacklistEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[21]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TokenBlacklistEntry.ProtoReflect.Descriptor instead.
-func (*TokenBlacklistEntry) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{21}
-}
-
-func (x *TokenBlacklistEntry) GetAddress() string {
-	if x != nil {
-		return x.Address
-	}
-	return ""
-}
-
-func (x *TokenBlacklistEntry) GetReason() string {
-	if x != nil && x.Reason != nil {
-		return *x.Reason
-	}
-	return ""
-}
-
-// TokenBlacklistEntries is a list of blacklisted tokens.
-type TokenBlacklistEntries struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Entries       []*TokenBlacklistEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TokenBlacklistEntries) Reset() {
-	*x = TokenBlacklistEntries{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[22]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TokenBlacklistEntries) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TokenBlacklistEntries) ProtoMessage() {}
-
-func (x *TokenBlacklistEntries) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[22]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TokenBlacklistEntries.ProtoReflect.Descriptor instead.
-func (*TokenBlacklistEntries) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{22}
-}
-
-func (x *TokenBlacklistEntries) GetEntries() []*TokenBlacklistEntry {
-	if x != nil {
-		return x.Entries
-	}
-	return nil
-}
-
-// GetTokenBlacklistResponse contains all blacklisted token entries keyed by
-// chain internal name (e.g. "ethereum"), with "global" for tokens
-// blacklisted on all chains.
-type GetTokenBlacklistResponse struct {
-	state         protoimpl.MessageState            `protogen:"open.v1"`
-	Blacklist     map[string]*TokenBlacklistEntries `protobuf:"bytes,1,rep,name=blacklist,proto3" json:"blacklist,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTokenBlacklistResponse) Reset() {
-	*x = GetTokenBlacklistResponse{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[23]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTokenBlacklistResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTokenBlacklistResponse) ProtoMessage() {}
-
-func (x *GetTokenBlacklistResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[23]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTokenBlacklistResponse.ProtoReflect.Descriptor instead.
-func (*GetTokenBlacklistResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{23}
-}
-
-func (x *GetTokenBlacklistResponse) GetBlacklist() map[string]*TokenBlacklistEntries {
-	if x != nil {
-		return x.Blacklist
-	}
-	return nil
-}
-
 // GetTokenPriceRequest for fetching token prices from the oracle
 type GetTokenPriceRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1720,7 +759,7 @@ type GetTokenPriceRequest struct {
 
 func (x *GetTokenPriceRequest) Reset() {
 	*x = GetTokenPriceRequest{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[24]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1732,7 +771,7 @@ func (x *GetTokenPriceRequest) String() string {
 func (*GetTokenPriceRequest) ProtoMessage() {}
 
 func (x *GetTokenPriceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[24]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1745,7 +784,7 @@ func (x *GetTokenPriceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTokenPriceRequest.ProtoReflect.Descriptor instead.
 func (*GetTokenPriceRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{24}
+	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetTokenPriceRequest) GetTokens() []*ChainAddress {
@@ -1783,7 +822,7 @@ type ChainAddress struct {
 
 func (x *ChainAddress) Reset() {
 	*x = ChainAddress{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[25]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1795,7 +834,7 @@ func (x *ChainAddress) String() string {
 func (*ChainAddress) ProtoMessage() {}
 
 func (x *ChainAddress) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[25]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1808,7 +847,7 @@ func (x *ChainAddress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChainAddress.ProtoReflect.Descriptor instead.
 func (*ChainAddress) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{25}
+	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ChainAddress) GetChain() string {
@@ -1836,7 +875,7 @@ type GetTokenPriceResponse struct {
 
 func (x *GetTokenPriceResponse) Reset() {
 	*x = GetTokenPriceResponse{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[26]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1848,7 +887,7 @@ func (x *GetTokenPriceResponse) String() string {
 func (*GetTokenPriceResponse) ProtoMessage() {}
 
 func (x *GetTokenPriceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[26]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1861,7 +900,7 @@ func (x *GetTokenPriceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTokenPriceResponse.ProtoReflect.Descriptor instead.
 func (*GetTokenPriceResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{26}
+	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetTokenPriceResponse) GetResults() []*TokenPriceResult {
@@ -1899,7 +938,7 @@ type TokenPriceResult struct {
 
 func (x *TokenPriceResult) Reset() {
 	*x = TokenPriceResult{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[27]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1911,7 +950,7 @@ func (x *TokenPriceResult) String() string {
 func (*TokenPriceResult) ProtoMessage() {}
 
 func (x *TokenPriceResult) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[27]
+	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1924,7 +963,7 @@ func (x *TokenPriceResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TokenPriceResult.ProtoReflect.Descriptor instead.
 func (*TokenPriceResult) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{27}
+	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *TokenPriceResult) GetChain() string {
@@ -1983,561 +1022,6 @@ func (x *TokenPriceResult) GetTokenDecimals() int32 {
 	return 0
 }
 
-// GetOHLCVRequest for retrieving OHLCV candle data
-type GetOHLCVRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// CAIP-2 chain identifier, e.g. "eip155:1" for Ethereum mainnet.
-	Chain string `protobuf:"bytes,1,opt,name=chain,proto3" json:"chain,omitempty"`
-	// Token address
-	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-	// Start of the time range
-	From *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=from,proto3" json:"from,omitempty"`
-	// End of the time range
-	To *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`
-	// Candle interval: "5m", "1h", or "1d"
-	Interval string `protobuf:"bytes,5,opt,name=interval,proto3" json:"interval,omitempty"`
-	// Quote currency (default "usd")
-	VsCurrency    string `protobuf:"bytes,6,opt,name=vs_currency,json=vsCurrency,proto3" json:"vs_currency,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetOHLCVRequest) Reset() {
-	*x = GetOHLCVRequest{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[28]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetOHLCVRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetOHLCVRequest) ProtoMessage() {}
-
-func (x *GetOHLCVRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[28]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetOHLCVRequest.ProtoReflect.Descriptor instead.
-func (*GetOHLCVRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{28}
-}
-
-func (x *GetOHLCVRequest) GetChain() string {
-	if x != nil {
-		return x.Chain
-	}
-	return ""
-}
-
-func (x *GetOHLCVRequest) GetAddress() string {
-	if x != nil {
-		return x.Address
-	}
-	return ""
-}
-
-func (x *GetOHLCVRequest) GetFrom() *timestamppb.Timestamp {
-	if x != nil {
-		return x.From
-	}
-	return nil
-}
-
-func (x *GetOHLCVRequest) GetTo() *timestamppb.Timestamp {
-	if x != nil {
-		return x.To
-	}
-	return nil
-}
-
-func (x *GetOHLCVRequest) GetInterval() string {
-	if x != nil {
-		return x.Interval
-	}
-	return ""
-}
-
-func (x *GetOHLCVRequest) GetVsCurrency() string {
-	if x != nil {
-		return x.VsCurrency
-	}
-	return ""
-}
-
-// GetOHLCVResponse containing candle data and any pending gaps
-type GetOHLCVResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Available candles in the requested range
-	Candles []*OHLCVCandle `protobuf:"bytes,1,rep,name=candles,proto3" json:"candles,omitempty"`
-	// Time ranges where data is still being fetched in the background
-	Gaps []*OHLCVTimeRange `protobuf:"bytes,2,rep,name=gaps,proto3" json:"gaps,omitempty"`
-	// Live price from the oracle (populated when the requested range includes the current time)
-	CurrentPrice float64 `protobuf:"fixed64,3,opt,name=current_price,json=currentPrice,proto3" json:"current_price,omitempty"`
-	// Timestamp of the live price
-	CurrentPriceTime *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=current_price_time,json=currentPriceTime,proto3" json:"current_price_time,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
-}
-
-func (x *GetOHLCVResponse) Reset() {
-	*x = GetOHLCVResponse{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[29]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetOHLCVResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetOHLCVResponse) ProtoMessage() {}
-
-func (x *GetOHLCVResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[29]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetOHLCVResponse.ProtoReflect.Descriptor instead.
-func (*GetOHLCVResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{29}
-}
-
-func (x *GetOHLCVResponse) GetCandles() []*OHLCVCandle {
-	if x != nil {
-		return x.Candles
-	}
-	return nil
-}
-
-func (x *GetOHLCVResponse) GetGaps() []*OHLCVTimeRange {
-	if x != nil {
-		return x.Gaps
-	}
-	return nil
-}
-
-func (x *GetOHLCVResponse) GetCurrentPrice() float64 {
-	if x != nil {
-		return x.CurrentPrice
-	}
-	return 0
-}
-
-func (x *GetOHLCVResponse) GetCurrentPriceTime() *timestamppb.Timestamp {
-	if x != nil {
-		return x.CurrentPriceTime
-	}
-	return nil
-}
-
-// OHLCVCandle represents a single OHLCV candle
-type OHLCVCandle struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Candle timestamp
-	Time *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
-	// Opening price
-	Open float64 `protobuf:"fixed64,2,opt,name=open,proto3" json:"open,omitempty"`
-	// Highest price
-	High float64 `protobuf:"fixed64,3,opt,name=high,proto3" json:"high,omitempty"`
-	// Lowest price
-	Low float64 `protobuf:"fixed64,4,opt,name=low,proto3" json:"low,omitempty"`
-	// Closing price
-	Close float64 `protobuf:"fixed64,5,opt,name=close,proto3" json:"close,omitempty"`
-	// Trading volume (0 if not available from data source)
-	Volume float64 `protobuf:"fixed64,6,opt,name=volume,proto3" json:"volume,omitempty"`
-	// Adjusted close, if available from the backing data source
-	AdjustedClose float64 `protobuf:"fixed64,7,opt,name=adjusted_close,json=adjustedClose,proto3" json:"adjusted_close,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *OHLCVCandle) Reset() {
-	*x = OHLCVCandle{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[30]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *OHLCVCandle) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*OHLCVCandle) ProtoMessage() {}
-
-func (x *OHLCVCandle) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[30]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use OHLCVCandle.ProtoReflect.Descriptor instead.
-func (*OHLCVCandle) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{30}
-}
-
-func (x *OHLCVCandle) GetTime() *timestamppb.Timestamp {
-	if x != nil {
-		return x.Time
-	}
-	return nil
-}
-
-func (x *OHLCVCandle) GetOpen() float64 {
-	if x != nil {
-		return x.Open
-	}
-	return 0
-}
-
-func (x *OHLCVCandle) GetHigh() float64 {
-	if x != nil {
-		return x.High
-	}
-	return 0
-}
-
-func (x *OHLCVCandle) GetLow() float64 {
-	if x != nil {
-		return x.Low
-	}
-	return 0
-}
-
-func (x *OHLCVCandle) GetClose() float64 {
-	if x != nil {
-		return x.Close
-	}
-	return 0
-}
-
-func (x *OHLCVCandle) GetVolume() float64 {
-	if x != nil {
-		return x.Volume
-	}
-	return 0
-}
-
-func (x *OHLCVCandle) GetAdjustedClose() float64 {
-	if x != nil {
-		return x.AdjustedClose
-	}
-	return 0
-}
-
-// OHLCVTimeRange represents a time range where data is pending
-type OHLCVTimeRange struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Start of the range
-	From *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
-	// End of the range
-	To            *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *OHLCVTimeRange) Reset() {
-	*x = OHLCVTimeRange{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[31]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *OHLCVTimeRange) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*OHLCVTimeRange) ProtoMessage() {}
-
-func (x *OHLCVTimeRange) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[31]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use OHLCVTimeRange.ProtoReflect.Descriptor instead.
-func (*OHLCVTimeRange) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{31}
-}
-
-func (x *OHLCVTimeRange) GetFrom() *timestamppb.Timestamp {
-	if x != nil {
-		return x.From
-	}
-	return nil
-}
-
-func (x *OHLCVTimeRange) GetTo() *timestamppb.Timestamp {
-	if x != nil {
-		return x.To
-	}
-	return nil
-}
-
-type GetTokenLiquidityScoreRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ChainId       int32                  `protobuf:"varint,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	Address       string                 `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTokenLiquidityScoreRequest) Reset() {
-	*x = GetTokenLiquidityScoreRequest{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[32]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTokenLiquidityScoreRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTokenLiquidityScoreRequest) ProtoMessage() {}
-
-func (x *GetTokenLiquidityScoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[32]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTokenLiquidityScoreRequest.ProtoReflect.Descriptor instead.
-func (*GetTokenLiquidityScoreRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{32}
-}
-
-func (x *GetTokenLiquidityScoreRequest) GetChainId() int32 {
-	if x != nil {
-		return x.ChainId
-	}
-	return 0
-}
-
-func (x *GetTokenLiquidityScoreRequest) GetAddress() string {
-	if x != nil {
-		return x.Address
-	}
-	return ""
-}
-
-type TokenLiquidityScore struct {
-	state               protoimpl.MessageState `protogen:"open.v1"`
-	ChainId             int32                  `protobuf:"varint,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	Address             string                 `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-	LiquidityScore      int32                  `protobuf:"varint,3,opt,name=liquidity_score,json=liquidityScore,proto3" json:"liquidity_score,omitempty"`
-	MaxSupportedUsd     float64                `protobuf:"fixed64,4,opt,name=max_supported_usd,json=maxSupportedUsd,proto3" json:"max_supported_usd,omitempty"`
-	SlippageBpsLimit    int32                  `protobuf:"varint,5,opt,name=slippage_bps_limit,json=slippageBpsLimit,proto3" json:"slippage_bps_limit,omitempty"`
-	Status              string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
-	StatusReason        string                 `protobuf:"bytes,7,opt,name=status_reason,json=statusReason,proto3" json:"status_reason,omitempty"`
-	QuoteSource         string                 `protobuf:"bytes,8,opt,name=quote_source,json=quoteSource,proto3" json:"quote_source,omitempty"`
-	LastLiveQuoteAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=last_live_quote_at,json=lastLiveQuoteAt,proto3" json:"last_live_quote_at,omitempty"`
-	LastProbeStartedAt  *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=last_probe_started_at,json=lastProbeStartedAt,proto3" json:"last_probe_started_at,omitempty"`
-	LastProbeFinishedAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=last_probe_finished_at,json=lastProbeFinishedAt,proto3" json:"last_probe_finished_at,omitempty"`
-	NextProbeAfter      *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=next_probe_after,json=nextProbeAfter,proto3" json:"next_probe_after,omitempty"`
-	UpdatedAt           *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
-}
-
-func (x *TokenLiquidityScore) Reset() {
-	*x = TokenLiquidityScore{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[33]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TokenLiquidityScore) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TokenLiquidityScore) ProtoMessage() {}
-
-func (x *TokenLiquidityScore) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[33]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TokenLiquidityScore.ProtoReflect.Descriptor instead.
-func (*TokenLiquidityScore) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{33}
-}
-
-func (x *TokenLiquidityScore) GetChainId() int32 {
-	if x != nil {
-		return x.ChainId
-	}
-	return 0
-}
-
-func (x *TokenLiquidityScore) GetAddress() string {
-	if x != nil {
-		return x.Address
-	}
-	return ""
-}
-
-func (x *TokenLiquidityScore) GetLiquidityScore() int32 {
-	if x != nil {
-		return x.LiquidityScore
-	}
-	return 0
-}
-
-func (x *TokenLiquidityScore) GetMaxSupportedUsd() float64 {
-	if x != nil {
-		return x.MaxSupportedUsd
-	}
-	return 0
-}
-
-func (x *TokenLiquidityScore) GetSlippageBpsLimit() int32 {
-	if x != nil {
-		return x.SlippageBpsLimit
-	}
-	return 0
-}
-
-func (x *TokenLiquidityScore) GetStatus() string {
-	if x != nil {
-		return x.Status
-	}
-	return ""
-}
-
-func (x *TokenLiquidityScore) GetStatusReason() string {
-	if x != nil {
-		return x.StatusReason
-	}
-	return ""
-}
-
-func (x *TokenLiquidityScore) GetQuoteSource() string {
-	if x != nil {
-		return x.QuoteSource
-	}
-	return ""
-}
-
-func (x *TokenLiquidityScore) GetLastLiveQuoteAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.LastLiveQuoteAt
-	}
-	return nil
-}
-
-func (x *TokenLiquidityScore) GetLastProbeStartedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.LastProbeStartedAt
-	}
-	return nil
-}
-
-func (x *TokenLiquidityScore) GetLastProbeFinishedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.LastProbeFinishedAt
-	}
-	return nil
-}
-
-func (x *TokenLiquidityScore) GetNextProbeAfter() *timestamppb.Timestamp {
-	if x != nil {
-		return x.NextProbeAfter
-	}
-	return nil
-}
-
-func (x *TokenLiquidityScore) GetUpdatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.UpdatedAt
-	}
-	return nil
-}
-
-type GetTokenLiquidityScoreResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Liquidity     *TokenLiquidityScore   `protobuf:"bytes,1,opt,name=liquidity,proto3" json:"liquidity,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTokenLiquidityScoreResponse) Reset() {
-	*x = GetTokenLiquidityScoreResponse{}
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[34]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTokenLiquidityScoreResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTokenLiquidityScoreResponse) ProtoMessage() {}
-
-func (x *GetTokenLiquidityScoreResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_token_proto_msgTypes[34]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTokenLiquidityScoreResponse.ProtoReflect.Descriptor instead.
-func (*GetTokenLiquidityScoreResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP(), []int{34}
-}
-
-func (x *GetTokenLiquidityScoreResponse) GetLiquidity() *TokenLiquidityScore {
-	if x != nil {
-		return x.Liquidity
-	}
-	return nil
-}
-
 var File_gfxcafe_oku_account_v2_token_proto protoreflect.FileDescriptor
 
 const file_gfxcafe_oku_account_v2_token_proto_rawDesc = "" +
@@ -2572,47 +1056,9 @@ const file_gfxcafe_oku_account_v2_token_proto_rawDesc = "" +
 	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12$\n" +
 	"\x0esearch_time_ms\x18\x05 \x01(\x03R\fsearchTimeMs\x12'\n" +
 	"\x0ftotal_documents\x18\x06 \x01(\x05R\x0etotalDocuments\"Y\n" +
-	"\x0fGetTokenRequest\x12\"\n" +
-	"\aaddress\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xd0H\x01R\aaddress\x12\"\n" +
-	"\bchain_id\x18\x02 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00R\achainId\"K\n" +
-	"\x10GetTokenResponse\x127\n" +
-	"\x05token\x18\x01 \x01(\v2!.gfxcafe.oku.account.v2.TokenInfoR\x05token\"\xe8\x01\n" +
-	"\x17GetTokensByChainRequest\x12\"\n" +
-	"\bchain_id\x18\x01 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00R\achainId\x12 \n" +
-	"\x05limit\x18\x02 \x01(\x05B\n" +
-	"\xbaH\a\x1a\x05\x18\xe8\a(\x01R\x05limit\x12\x1f\n" +
-	"\x06offset\x18\x03 \x01(\x05B\a\xbaH\x04\x1a\x02(\x00R\x06offset\x12\x17\n" +
-	"\asort_by\x18\x04 \x01(\tR\x06sortBy\x12\x1d\n" +
-	"\n" +
-	"sort_order\x18\x05 \x01(\tR\tsortOrder\x12.\n" +
-	"\x13include_market_data\x18\x06 \x01(\bR\x11includeMarketData\"\xa4\x01\n" +
-	"\x18GetTokensByChainResponse\x129\n" +
-	"\x06tokens\x18\x01 \x03(\v2!.gfxcafe.oku.account.v2.TokenInfoR\x06tokens\x12\x1f\n" +
-	"\vtotal_count\x18\x02 \x01(\x05R\n" +
-	"totalCount\x12\x16\n" +
-	"\x06offset\x18\x03 \x01(\x05R\x06offset\x12\x14\n" +
-	"\x05limit\x18\x04 \x01(\x05R\x05limit\"\xab\x01\n" +
-	"\x1aGetTopTokensByChainRequest\x12\"\n" +
-	"\bchain_id\x18\x01 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00R\achainId\x12 \n" +
-	"\x05limit\x18\x02 \x01(\x05B\n" +
-	"\xbaH\a\x1a\x05\x18\xfa\x01(\x01R\x05limit\x12\x17\n" +
-	"\arank_by\x18\x03 \x01(\tR\x06rankBy\x12.\n" +
-	"\x13include_market_data\x18\x04 \x01(\bR\x11includeMarketData\"\x93\x01\n" +
-	"\x1bGetTopTokensByChainResponse\x12A\n" +
-	"\x06tokens\x18\x01 \x03(\v2).gfxcafe.oku.account.v2.TokenSearchResultR\x06tokens\x12\x1b\n" +
-	"\tranked_by\x18\x02 \x01(\tR\brankedBy\x12\x14\n" +
-	"\x05count\x18\x03 \x01(\x05R\x05count\"\xad\x01\n" +
-	"\x1bGetTokensByAddressesRequest\x12^\n" +
-	"\x11token_identifiers\x18\x01 \x03(\v2'.gfxcafe.oku.account.v2.TokenIdentifierB\b\xbaH\x05\x92\x01\x02\b\x01R\x10tokenIdentifiers\x12.\n" +
-	"\x13include_market_data\x18\x02 \x01(\bR\x11includeMarketData\"Y\n" +
 	"\x0fTokenIdentifier\x12\"\n" +
 	"\aaddress\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xd0H\x01R\aaddress\x12\"\n" +
-	"\bchain_id\x18\x02 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00R\achainId\"\xa3\x01\n" +
-	"\x1cGetTokensByAddressesResponse\x129\n" +
-	"\x06tokens\x18\x01 \x03(\v2!.gfxcafe.oku.account.v2.TokenInfoR\x06tokens\x12\x1f\n" +
-	"\vfound_count\x18\x02 \x01(\x05R\n" +
-	"foundCount\x12'\n" +
-	"\x0frequested_count\x18\x03 \x01(\x05R\x0erequestedCount\"\xd8\x01\n" +
+	"\bchain_id\x18\x02 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00R\achainId\"\xd8\x01\n" +
 	"\tTokenInfo\x12\x18\n" +
 	"\aaddress\x18\x01 \x01(\tR\aaddress\x12\x16\n" +
 	"\x06symbol\x18\x02 \x01(\tR\x06symbol\x12\x12\n" +
@@ -2652,33 +1098,7 @@ const file_gfxcafe_oku_account_v2_token_proto_rawDesc = "" +
 	"\x0eTokenHighlight\x12\x12\n" +
 	"\x04name\x18\x01 \x03(\tR\x04name\x12\x16\n" +
 	"\x06symbol\x18\x02 \x03(\tR\x06symbol\x12 \n" +
-	"\vdescription\x18\x03 \x03(\tR\vdescription\"E\n" +
-	"\x17GetFullTokenListRequest\x12*\n" +
-	"\x11exclude_chain_ids\x18\x01 \x03(\x05R\x0fexcludeChainIds\"\xa2\x01\n" +
-	"\x18GetFullTokenListResponse\x129\n" +
-	"\x06tokens\x18\x01 \x03(\v2!.gfxcafe.oku.account.v2.TokenInfoR\x06tokens\x12\x1f\n" +
-	"\vtotal_count\x18\x02 \x01(\x05R\n" +
-	"totalCount\x12*\n" +
-	"\x11generated_at_unix\x18\x03 \x01(\x03R\x0fgeneratedAtUnix\"2\n" +
-	"\x18GetStandardTokensRequest\x12\x16\n" +
-	"\x06chains\x18\x01 \x03(\tR\x06chains\"e\n" +
-	"\x12StandardTokenChain\x12\x14\n" +
-	"\x05chain\x18\x01 \x01(\tR\x05chain\x129\n" +
-	"\x06tokens\x18\x02 \x03(\v2!.gfxcafe.oku.account.v2.TokenInfoR\x06tokens\"_\n" +
-	"\x19GetStandardTokensResponse\x12B\n" +
-	"\x06chains\x18\x01 \x03(\v2*.gfxcafe.oku.account.v2.StandardTokenChainR\x06chains\"\x1a\n" +
-	"\x18GetTokenBlacklistRequest\"W\n" +
-	"\x13TokenBlacklistEntry\x12\x18\n" +
-	"\aaddress\x18\x01 \x01(\tR\aaddress\x12\x1b\n" +
-	"\x06reason\x18\x02 \x01(\tH\x00R\x06reason\x88\x01\x01B\t\n" +
-	"\a_reason\"^\n" +
-	"\x15TokenBlacklistEntries\x12E\n" +
-	"\aentries\x18\x01 \x03(\v2+.gfxcafe.oku.account.v2.TokenBlacklistEntryR\aentries\"\xe8\x01\n" +
-	"\x19GetTokenBlacklistResponse\x12^\n" +
-	"\tblacklist\x18\x01 \x03(\v2@.gfxcafe.oku.account.v2.GetTokenBlacklistResponse.BlacklistEntryR\tblacklist\x1ak\n" +
-	"\x0eBlacklistEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12C\n" +
-	"\x05value\x18\x02 \x01(\v2-.gfxcafe.oku.account.v2.TokenBlacklistEntriesR\x05value:\x028\x01\"\xcc\x01\n" +
+	"\vdescription\x18\x03 \x03(\tR\vdescription\"\xcc\x01\n" +
 	"\x14GetTokenPriceRequest\x12H\n" +
 	"\x06tokens\x18\x01 \x03(\v2$.gfxcafe.oku.account.v2.ChainAddressB\n" +
 	"\xbaH\a\x92\x01\x04\b\x01\x10\x19R\x06tokens\x12=\n" +
@@ -2700,65 +1120,10 @@ const file_gfxcafe_oku_account_v2_token_proto_rawDesc = "" +
 	"\x05error\x18\x05 \x01(\tR\x05error\x12\x16\n" +
 	"\x06source\x18\x06 \x01(\tR\x06source\x12\x1b\n" +
 	"\tcache_hit\x18\a \x01(\bR\bcacheHit\x12%\n" +
-	"\x0etoken_decimals\x18\b \x01(\x05R\rtokenDecimals\"\x94\x02\n" +
-	"\x0fGetOHLCVRequest\x12!\n" +
-	"\x05chain\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0}\x01R\x05chain\x12\"\n" +
-	"\aaddress\x18\x02 \x01(\tB\b\xbaH\x05r\x03\xd0H\x01R\aaddress\x126\n" +
-	"\x04from\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\x04from\x122\n" +
-	"\x02to\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\x02to\x12-\n" +
-	"\binterval\x18\x05 \x01(\tB\x11\xbaH\x0er\fR\x025mR\x021hR\x021dR\binterval\x12\x1f\n" +
-	"\vvs_currency\x18\x06 \x01(\tR\n" +
-	"vsCurrency\"\xfc\x01\n" +
-	"\x10GetOHLCVResponse\x12=\n" +
-	"\acandles\x18\x01 \x03(\v2#.gfxcafe.oku.account.v2.OHLCVCandleR\acandles\x12:\n" +
-	"\x04gaps\x18\x02 \x03(\v2&.gfxcafe.oku.account.v2.OHLCVTimeRangeR\x04gaps\x12#\n" +
-	"\rcurrent_price\x18\x03 \x01(\x01R\fcurrentPrice\x12H\n" +
-	"\x12current_price_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x10currentPriceTime\"\xcc\x01\n" +
-	"\vOHLCVCandle\x12.\n" +
-	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x12\n" +
-	"\x04open\x18\x02 \x01(\x01R\x04open\x12\x12\n" +
-	"\x04high\x18\x03 \x01(\x01R\x04high\x12\x10\n" +
-	"\x03low\x18\x04 \x01(\x01R\x03low\x12\x14\n" +
-	"\x05close\x18\x05 \x01(\x01R\x05close\x12\x16\n" +
-	"\x06volume\x18\x06 \x01(\x01R\x06volume\x12%\n" +
-	"\x0eadjusted_close\x18\a \x01(\x01R\radjustedClose\"l\n" +
-	"\x0eOHLCVTimeRange\x12.\n" +
-	"\x04from\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
-	"\x02to\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\"g\n" +
-	"\x1dGetTokenLiquidityScoreRequest\x12\"\n" +
-	"\bchain_id\x18\x01 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00R\achainId\x12\"\n" +
-	"\aaddress\x18\x02 \x01(\tB\b\xbaH\x05r\x03\xd0H\x01R\aaddress\"\x97\x05\n" +
-	"\x13TokenLiquidityScore\x12\x19\n" +
-	"\bchain_id\x18\x01 \x01(\x05R\achainId\x12\x18\n" +
-	"\aaddress\x18\x02 \x01(\tR\aaddress\x12'\n" +
-	"\x0fliquidity_score\x18\x03 \x01(\x05R\x0eliquidityScore\x12*\n" +
-	"\x11max_supported_usd\x18\x04 \x01(\x01R\x0fmaxSupportedUsd\x12,\n" +
-	"\x12slippage_bps_limit\x18\x05 \x01(\x05R\x10slippageBpsLimit\x12\x16\n" +
-	"\x06status\x18\x06 \x01(\tR\x06status\x12#\n" +
-	"\rstatus_reason\x18\a \x01(\tR\fstatusReason\x12!\n" +
-	"\fquote_source\x18\b \x01(\tR\vquoteSource\x12G\n" +
-	"\x12last_live_quote_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\x0flastLiveQuoteAt\x12M\n" +
-	"\x15last_probe_started_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\x12lastProbeStartedAt\x12O\n" +
-	"\x16last_probe_finished_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x13lastProbeFinishedAt\x12D\n" +
-	"\x10next_probe_after\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\x0enextProbeAfter\x129\n" +
-	"\n" +
-	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"k\n" +
-	"\x1eGetTokenLiquidityScoreResponse\x12I\n" +
-	"\tliquidity\x18\x01 \x01(\v2+.gfxcafe.oku.account.v2.TokenLiquidityScoreR\tliquidity2\x95\n" +
-	"\n" +
+	"\x0etoken_decimals\x18\b \x01(\x05R\rtokenDecimals2\xe7\x01\n" +
 	"\fTokenService\x12i\n" +
-	"\fSearchTokens\x12+.gfxcafe.oku.account.v2.SearchTokensRequest\x1a,.gfxcafe.oku.account.v2.SearchTokensResponse\x12]\n" +
-	"\bGetToken\x12'.gfxcafe.oku.account.v2.GetTokenRequest\x1a(.gfxcafe.oku.account.v2.GetTokenResponse\x12u\n" +
-	"\x10GetTokensByChain\x12/.gfxcafe.oku.account.v2.GetTokensByChainRequest\x1a0.gfxcafe.oku.account.v2.GetTokensByChainResponse\x12~\n" +
-	"\x13GetTopTokensByChain\x122.gfxcafe.oku.account.v2.GetTopTokensByChainRequest\x1a3.gfxcafe.oku.account.v2.GetTopTokensByChainResponse\x12\x81\x01\n" +
-	"\x14GetTokensByAddresses\x123.gfxcafe.oku.account.v2.GetTokensByAddressesRequest\x1a4.gfxcafe.oku.account.v2.GetTokensByAddressesResponse\x12u\n" +
-	"\x10GetFullTokenList\x12/.gfxcafe.oku.account.v2.GetFullTokenListRequest\x1a0.gfxcafe.oku.account.v2.GetFullTokenListResponse\x12l\n" +
-	"\rGetTokenPrice\x12,.gfxcafe.oku.account.v2.GetTokenPriceRequest\x1a-.gfxcafe.oku.account.v2.GetTokenPriceResponse\x12]\n" +
-	"\bGetOHLCV\x12'.gfxcafe.oku.account.v2.GetOHLCVRequest\x1a(.gfxcafe.oku.account.v2.GetOHLCVResponse\x12\x87\x01\n" +
-	"\x16GetTokenLiquidityScore\x125.gfxcafe.oku.account.v2.GetTokenLiquidityScoreRequest\x1a6.gfxcafe.oku.account.v2.GetTokenLiquidityScoreResponse\x12x\n" +
-	"\x11GetStandardTokens\x120.gfxcafe.oku.account.v2.GetStandardTokensRequest\x1a1.gfxcafe.oku.account.v2.GetStandardTokensResponse\x12x\n" +
-	"\x11GetTokenBlacklist\x120.gfxcafe.oku.account.v2.GetTokenBlacklistRequest\x1a1.gfxcafe.oku.account.v2.GetTokenBlacklistResponseB\xea\x01\n" +
+	"\fSearchTokens\x12+.gfxcafe.oku.account.v2.SearchTokensRequest\x1a,.gfxcafe.oku.account.v2.SearchTokensResponse\x12l\n" +
+	"\rGetTokenPrice\x12,.gfxcafe.oku.account.v2.GetTokenPriceRequest\x1a-.gfxcafe.oku.account.v2.GetTokenPriceResponseB\xea\x01\n" +
 	"\x1acom.gfxcafe.oku.account.v2B\n" +
 	"TokenProtoP\x01ZEgithub.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2;accountv2\xa2\x02\x03GOA\xaa\x02\x16Gfxcafe.Oku.Account.V2\xca\x02\x16Gfxcafe\\Oku\\Account\\V2\xe2\x02\"Gfxcafe\\Oku\\Account\\V2\\GPBMetadata\xea\x02\x19Gfxcafe::Oku::Account::V2b\x06proto3"
 
@@ -2774,108 +1139,40 @@ func file_gfxcafe_oku_account_v2_token_proto_rawDescGZIP() []byte {
 	return file_gfxcafe_oku_account_v2_token_proto_rawDescData
 }
 
-var file_gfxcafe_oku_account_v2_token_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
+var file_gfxcafe_oku_account_v2_token_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_gfxcafe_oku_account_v2_token_proto_goTypes = []any{
-	(*SearchTokensRequest)(nil),            // 0: gfxcafe.oku.account.v2.SearchTokensRequest
-	(*SearchTokensResponse)(nil),           // 1: gfxcafe.oku.account.v2.SearchTokensResponse
-	(*GetTokenRequest)(nil),                // 2: gfxcafe.oku.account.v2.GetTokenRequest
-	(*GetTokenResponse)(nil),               // 3: gfxcafe.oku.account.v2.GetTokenResponse
-	(*GetTokensByChainRequest)(nil),        // 4: gfxcafe.oku.account.v2.GetTokensByChainRequest
-	(*GetTokensByChainResponse)(nil),       // 5: gfxcafe.oku.account.v2.GetTokensByChainResponse
-	(*GetTopTokensByChainRequest)(nil),     // 6: gfxcafe.oku.account.v2.GetTopTokensByChainRequest
-	(*GetTopTokensByChainResponse)(nil),    // 7: gfxcafe.oku.account.v2.GetTopTokensByChainResponse
-	(*GetTokensByAddressesRequest)(nil),    // 8: gfxcafe.oku.account.v2.GetTokensByAddressesRequest
-	(*TokenIdentifier)(nil),                // 9: gfxcafe.oku.account.v2.TokenIdentifier
-	(*GetTokensByAddressesResponse)(nil),   // 10: gfxcafe.oku.account.v2.GetTokensByAddressesResponse
-	(*TokenInfo)(nil),                      // 11: gfxcafe.oku.account.v2.TokenInfo
-	(*TokenSearchResult)(nil),              // 12: gfxcafe.oku.account.v2.TokenSearchResult
-	(*TokenMarketData)(nil),                // 13: gfxcafe.oku.account.v2.TokenMarketData
-	(*TokenHighlight)(nil),                 // 14: gfxcafe.oku.account.v2.TokenHighlight
-	(*GetFullTokenListRequest)(nil),        // 15: gfxcafe.oku.account.v2.GetFullTokenListRequest
-	(*GetFullTokenListResponse)(nil),       // 16: gfxcafe.oku.account.v2.GetFullTokenListResponse
-	(*GetStandardTokensRequest)(nil),       // 17: gfxcafe.oku.account.v2.GetStandardTokensRequest
-	(*StandardTokenChain)(nil),             // 18: gfxcafe.oku.account.v2.StandardTokenChain
-	(*GetStandardTokensResponse)(nil),      // 19: gfxcafe.oku.account.v2.GetStandardTokensResponse
-	(*GetTokenBlacklistRequest)(nil),       // 20: gfxcafe.oku.account.v2.GetTokenBlacklistRequest
-	(*TokenBlacklistEntry)(nil),            // 21: gfxcafe.oku.account.v2.TokenBlacklistEntry
-	(*TokenBlacklistEntries)(nil),          // 22: gfxcafe.oku.account.v2.TokenBlacklistEntries
-	(*GetTokenBlacklistResponse)(nil),      // 23: gfxcafe.oku.account.v2.GetTokenBlacklistResponse
-	(*GetTokenPriceRequest)(nil),           // 24: gfxcafe.oku.account.v2.GetTokenPriceRequest
-	(*ChainAddress)(nil),                   // 25: gfxcafe.oku.account.v2.ChainAddress
-	(*GetTokenPriceResponse)(nil),          // 26: gfxcafe.oku.account.v2.GetTokenPriceResponse
-	(*TokenPriceResult)(nil),               // 27: gfxcafe.oku.account.v2.TokenPriceResult
-	(*GetOHLCVRequest)(nil),                // 28: gfxcafe.oku.account.v2.GetOHLCVRequest
-	(*GetOHLCVResponse)(nil),               // 29: gfxcafe.oku.account.v2.GetOHLCVResponse
-	(*OHLCVCandle)(nil),                    // 30: gfxcafe.oku.account.v2.OHLCVCandle
-	(*OHLCVTimeRange)(nil),                 // 31: gfxcafe.oku.account.v2.OHLCVTimeRange
-	(*GetTokenLiquidityScoreRequest)(nil),  // 32: gfxcafe.oku.account.v2.GetTokenLiquidityScoreRequest
-	(*TokenLiquidityScore)(nil),            // 33: gfxcafe.oku.account.v2.TokenLiquidityScore
-	(*GetTokenLiquidityScoreResponse)(nil), // 34: gfxcafe.oku.account.v2.GetTokenLiquidityScoreResponse
-	nil,                                    // 35: gfxcafe.oku.account.v2.TokenSearchResult.MetadataEntry
-	nil,                                    // 36: gfxcafe.oku.account.v2.GetTokenBlacklistResponse.BlacklistEntry
-	(*timestamppb.Timestamp)(nil),          // 37: google.protobuf.Timestamp
+	(*SearchTokensRequest)(nil),   // 0: gfxcafe.oku.account.v2.SearchTokensRequest
+	(*SearchTokensResponse)(nil),  // 1: gfxcafe.oku.account.v2.SearchTokensResponse
+	(*TokenIdentifier)(nil),       // 2: gfxcafe.oku.account.v2.TokenIdentifier
+	(*TokenInfo)(nil),             // 3: gfxcafe.oku.account.v2.TokenInfo
+	(*TokenSearchResult)(nil),     // 4: gfxcafe.oku.account.v2.TokenSearchResult
+	(*TokenMarketData)(nil),       // 5: gfxcafe.oku.account.v2.TokenMarketData
+	(*TokenHighlight)(nil),        // 6: gfxcafe.oku.account.v2.TokenHighlight
+	(*GetTokenPriceRequest)(nil),  // 7: gfxcafe.oku.account.v2.GetTokenPriceRequest
+	(*ChainAddress)(nil),          // 8: gfxcafe.oku.account.v2.ChainAddress
+	(*GetTokenPriceResponse)(nil), // 9: gfxcafe.oku.account.v2.GetTokenPriceResponse
+	(*TokenPriceResult)(nil),      // 10: gfxcafe.oku.account.v2.TokenPriceResult
+	nil,                           // 11: gfxcafe.oku.account.v2.TokenSearchResult.MetadataEntry
+	(*timestamppb.Timestamp)(nil), // 12: google.protobuf.Timestamp
 }
 var file_gfxcafe_oku_account_v2_token_proto_depIdxs = []int32{
-	12, // 0: gfxcafe.oku.account.v2.SearchTokensResponse.results:type_name -> gfxcafe.oku.account.v2.TokenSearchResult
-	11, // 1: gfxcafe.oku.account.v2.GetTokenResponse.token:type_name -> gfxcafe.oku.account.v2.TokenInfo
-	11, // 2: gfxcafe.oku.account.v2.GetTokensByChainResponse.tokens:type_name -> gfxcafe.oku.account.v2.TokenInfo
-	12, // 3: gfxcafe.oku.account.v2.GetTopTokensByChainResponse.tokens:type_name -> gfxcafe.oku.account.v2.TokenSearchResult
-	9,  // 4: gfxcafe.oku.account.v2.GetTokensByAddressesRequest.token_identifiers:type_name -> gfxcafe.oku.account.v2.TokenIdentifier
-	11, // 5: gfxcafe.oku.account.v2.GetTokensByAddressesResponse.tokens:type_name -> gfxcafe.oku.account.v2.TokenInfo
-	11, // 6: gfxcafe.oku.account.v2.TokenSearchResult.token:type_name -> gfxcafe.oku.account.v2.TokenInfo
-	13, // 7: gfxcafe.oku.account.v2.TokenSearchResult.market_data:type_name -> gfxcafe.oku.account.v2.TokenMarketData
-	35, // 8: gfxcafe.oku.account.v2.TokenSearchResult.metadata:type_name -> gfxcafe.oku.account.v2.TokenSearchResult.MetadataEntry
-	14, // 9: gfxcafe.oku.account.v2.TokenSearchResult.highlights:type_name -> gfxcafe.oku.account.v2.TokenHighlight
-	11, // 10: gfxcafe.oku.account.v2.GetFullTokenListResponse.tokens:type_name -> gfxcafe.oku.account.v2.TokenInfo
-	11, // 11: gfxcafe.oku.account.v2.StandardTokenChain.tokens:type_name -> gfxcafe.oku.account.v2.TokenInfo
-	18, // 12: gfxcafe.oku.account.v2.GetStandardTokensResponse.chains:type_name -> gfxcafe.oku.account.v2.StandardTokenChain
-	21, // 13: gfxcafe.oku.account.v2.TokenBlacklistEntries.entries:type_name -> gfxcafe.oku.account.v2.TokenBlacklistEntry
-	36, // 14: gfxcafe.oku.account.v2.GetTokenBlacklistResponse.blacklist:type_name -> gfxcafe.oku.account.v2.GetTokenBlacklistResponse.BlacklistEntry
-	25, // 15: gfxcafe.oku.account.v2.GetTokenPriceRequest.tokens:type_name -> gfxcafe.oku.account.v2.ChainAddress
-	37, // 16: gfxcafe.oku.account.v2.GetTokenPriceRequest.timestamp:type_name -> google.protobuf.Timestamp
-	27, // 17: gfxcafe.oku.account.v2.GetTokenPriceResponse.results:type_name -> gfxcafe.oku.account.v2.TokenPriceResult
-	37, // 18: gfxcafe.oku.account.v2.GetOHLCVRequest.from:type_name -> google.protobuf.Timestamp
-	37, // 19: gfxcafe.oku.account.v2.GetOHLCVRequest.to:type_name -> google.protobuf.Timestamp
-	30, // 20: gfxcafe.oku.account.v2.GetOHLCVResponse.candles:type_name -> gfxcafe.oku.account.v2.OHLCVCandle
-	31, // 21: gfxcafe.oku.account.v2.GetOHLCVResponse.gaps:type_name -> gfxcafe.oku.account.v2.OHLCVTimeRange
-	37, // 22: gfxcafe.oku.account.v2.GetOHLCVResponse.current_price_time:type_name -> google.protobuf.Timestamp
-	37, // 23: gfxcafe.oku.account.v2.OHLCVCandle.time:type_name -> google.protobuf.Timestamp
-	37, // 24: gfxcafe.oku.account.v2.OHLCVTimeRange.from:type_name -> google.protobuf.Timestamp
-	37, // 25: gfxcafe.oku.account.v2.OHLCVTimeRange.to:type_name -> google.protobuf.Timestamp
-	37, // 26: gfxcafe.oku.account.v2.TokenLiquidityScore.last_live_quote_at:type_name -> google.protobuf.Timestamp
-	37, // 27: gfxcafe.oku.account.v2.TokenLiquidityScore.last_probe_started_at:type_name -> google.protobuf.Timestamp
-	37, // 28: gfxcafe.oku.account.v2.TokenLiquidityScore.last_probe_finished_at:type_name -> google.protobuf.Timestamp
-	37, // 29: gfxcafe.oku.account.v2.TokenLiquidityScore.next_probe_after:type_name -> google.protobuf.Timestamp
-	37, // 30: gfxcafe.oku.account.v2.TokenLiquidityScore.updated_at:type_name -> google.protobuf.Timestamp
-	33, // 31: gfxcafe.oku.account.v2.GetTokenLiquidityScoreResponse.liquidity:type_name -> gfxcafe.oku.account.v2.TokenLiquidityScore
-	22, // 32: gfxcafe.oku.account.v2.GetTokenBlacklistResponse.BlacklistEntry.value:type_name -> gfxcafe.oku.account.v2.TokenBlacklistEntries
-	0,  // 33: gfxcafe.oku.account.v2.TokenService.SearchTokens:input_type -> gfxcafe.oku.account.v2.SearchTokensRequest
-	2,  // 34: gfxcafe.oku.account.v2.TokenService.GetToken:input_type -> gfxcafe.oku.account.v2.GetTokenRequest
-	4,  // 35: gfxcafe.oku.account.v2.TokenService.GetTokensByChain:input_type -> gfxcafe.oku.account.v2.GetTokensByChainRequest
-	6,  // 36: gfxcafe.oku.account.v2.TokenService.GetTopTokensByChain:input_type -> gfxcafe.oku.account.v2.GetTopTokensByChainRequest
-	8,  // 37: gfxcafe.oku.account.v2.TokenService.GetTokensByAddresses:input_type -> gfxcafe.oku.account.v2.GetTokensByAddressesRequest
-	15, // 38: gfxcafe.oku.account.v2.TokenService.GetFullTokenList:input_type -> gfxcafe.oku.account.v2.GetFullTokenListRequest
-	24, // 39: gfxcafe.oku.account.v2.TokenService.GetTokenPrice:input_type -> gfxcafe.oku.account.v2.GetTokenPriceRequest
-	28, // 40: gfxcafe.oku.account.v2.TokenService.GetOHLCV:input_type -> gfxcafe.oku.account.v2.GetOHLCVRequest
-	32, // 41: gfxcafe.oku.account.v2.TokenService.GetTokenLiquidityScore:input_type -> gfxcafe.oku.account.v2.GetTokenLiquidityScoreRequest
-	17, // 42: gfxcafe.oku.account.v2.TokenService.GetStandardTokens:input_type -> gfxcafe.oku.account.v2.GetStandardTokensRequest
-	20, // 43: gfxcafe.oku.account.v2.TokenService.GetTokenBlacklist:input_type -> gfxcafe.oku.account.v2.GetTokenBlacklistRequest
-	1,  // 44: gfxcafe.oku.account.v2.TokenService.SearchTokens:output_type -> gfxcafe.oku.account.v2.SearchTokensResponse
-	3,  // 45: gfxcafe.oku.account.v2.TokenService.GetToken:output_type -> gfxcafe.oku.account.v2.GetTokenResponse
-	5,  // 46: gfxcafe.oku.account.v2.TokenService.GetTokensByChain:output_type -> gfxcafe.oku.account.v2.GetTokensByChainResponse
-	7,  // 47: gfxcafe.oku.account.v2.TokenService.GetTopTokensByChain:output_type -> gfxcafe.oku.account.v2.GetTopTokensByChainResponse
-	10, // 48: gfxcafe.oku.account.v2.TokenService.GetTokensByAddresses:output_type -> gfxcafe.oku.account.v2.GetTokensByAddressesResponse
-	16, // 49: gfxcafe.oku.account.v2.TokenService.GetFullTokenList:output_type -> gfxcafe.oku.account.v2.GetFullTokenListResponse
-	26, // 50: gfxcafe.oku.account.v2.TokenService.GetTokenPrice:output_type -> gfxcafe.oku.account.v2.GetTokenPriceResponse
-	29, // 51: gfxcafe.oku.account.v2.TokenService.GetOHLCV:output_type -> gfxcafe.oku.account.v2.GetOHLCVResponse
-	34, // 52: gfxcafe.oku.account.v2.TokenService.GetTokenLiquidityScore:output_type -> gfxcafe.oku.account.v2.GetTokenLiquidityScoreResponse
-	19, // 53: gfxcafe.oku.account.v2.TokenService.GetStandardTokens:output_type -> gfxcafe.oku.account.v2.GetStandardTokensResponse
-	23, // 54: gfxcafe.oku.account.v2.TokenService.GetTokenBlacklist:output_type -> gfxcafe.oku.account.v2.GetTokenBlacklistResponse
-	44, // [44:55] is the sub-list for method output_type
-	33, // [33:44] is the sub-list for method input_type
-	33, // [33:33] is the sub-list for extension type_name
-	33, // [33:33] is the sub-list for extension extendee
-	0,  // [0:33] is the sub-list for field type_name
+	4,  // 0: gfxcafe.oku.account.v2.SearchTokensResponse.results:type_name -> gfxcafe.oku.account.v2.TokenSearchResult
+	3,  // 1: gfxcafe.oku.account.v2.TokenSearchResult.token:type_name -> gfxcafe.oku.account.v2.TokenInfo
+	5,  // 2: gfxcafe.oku.account.v2.TokenSearchResult.market_data:type_name -> gfxcafe.oku.account.v2.TokenMarketData
+	11, // 3: gfxcafe.oku.account.v2.TokenSearchResult.metadata:type_name -> gfxcafe.oku.account.v2.TokenSearchResult.MetadataEntry
+	6,  // 4: gfxcafe.oku.account.v2.TokenSearchResult.highlights:type_name -> gfxcafe.oku.account.v2.TokenHighlight
+	8,  // 5: gfxcafe.oku.account.v2.GetTokenPriceRequest.tokens:type_name -> gfxcafe.oku.account.v2.ChainAddress
+	12, // 6: gfxcafe.oku.account.v2.GetTokenPriceRequest.timestamp:type_name -> google.protobuf.Timestamp
+	10, // 7: gfxcafe.oku.account.v2.GetTokenPriceResponse.results:type_name -> gfxcafe.oku.account.v2.TokenPriceResult
+	0,  // 8: gfxcafe.oku.account.v2.TokenService.SearchTokens:input_type -> gfxcafe.oku.account.v2.SearchTokensRequest
+	7,  // 9: gfxcafe.oku.account.v2.TokenService.GetTokenPrice:input_type -> gfxcafe.oku.account.v2.GetTokenPriceRequest
+	1,  // 10: gfxcafe.oku.account.v2.TokenService.SearchTokens:output_type -> gfxcafe.oku.account.v2.SearchTokensResponse
+	9,  // 11: gfxcafe.oku.account.v2.TokenService.GetTokenPrice:output_type -> gfxcafe.oku.account.v2.GetTokenPriceResponse
+	10, // [10:12] is the sub-list for method output_type
+	8,  // [8:10] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_gfxcafe_oku_account_v2_token_proto_init() }
@@ -2884,15 +1181,14 @@ func file_gfxcafe_oku_account_v2_token_proto_init() {
 		return
 	}
 	file_gfxcafe_oku_account_v2_validate_proto_init()
-	file_gfxcafe_oku_account_v2_token_proto_msgTypes[21].OneofWrappers = []any{}
-	file_gfxcafe_oku_account_v2_token_proto_msgTypes[24].OneofWrappers = []any{}
+	file_gfxcafe_oku_account_v2_token_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gfxcafe_oku_account_v2_token_proto_rawDesc), len(file_gfxcafe_oku_account_v2_token_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   37,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

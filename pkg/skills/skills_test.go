@@ -86,3 +86,33 @@ func TestPristine(t *testing.T) {
 		t.Fatal("edited older install must not be pristine")
 	}
 }
+
+func TestBundledConsolidationSkillsInstall(t *testing.T) {
+	listed, err := List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"consolidate-agent-funds", "coinbase-deposit-targets"} {
+		found := false
+		for _, skill := range listed {
+			found = found || skill.Name == name
+		}
+		if !found {
+			t.Fatalf("missing bundled skill %s", name)
+		}
+	}
+	root := t.TempDir()
+	if _, err := Install(root, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"consolidate-agent-funds", "coinbase-deposit-targets"} {
+		bundled, err := Read(name, "SKILL.md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		installed, err := os.ReadFile(filepath.Join(root, name, "SKILL.md"))
+		if err != nil || string(installed) != string(bundled) {
+			t.Fatalf("%s not installed from bundle: %v", name, err)
+		}
+	}
+}

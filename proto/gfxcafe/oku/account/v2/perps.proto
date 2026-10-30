@@ -20,52 +20,13 @@ service PerpsService {
   // Pass optional coin filter to get a single market.
   rpc GetMarkets(GetMarketsRequest) returns (GetMarketsResponse);
 
-  // GetSpotMarkets returns all available spot markets with metadata and live stats.
-  // Pass optional coin filter to get a single market.
-  rpc GetSpotMarkets(GetSpotMarketsRequest) returns (GetSpotMarketsResponse);
-
   // GetMarketPrice returns current prices for a single perp market. Served from
   // a short-lived server-side cache shared across all users, so it is safe to
   // poll frequently. Use this instead of GetMarkets when only prices are needed.
   rpc GetMarketPrice(GetMarketPriceRequest) returns (GetMarketPriceResponse);
 
-  // GetOrderbook returns an L2 orderbook snapshot for a market.
-  rpc GetOrderbook(GetOrderbookRequest) returns (GetOrderbookResponse);
-
-  // GetOrderbookAggregationOptions returns asset-aware display steps and the
-  // native Hyperliquid parameters needed to subscribe at each depth.
-  rpc GetOrderbookAggregationOptions(GetOrderbookAggregationOptionsRequest) returns (GetOrderbookAggregationOptionsResponse);
-
-  // GetCandles returns OHLCV candlestick data for a market.
-  rpc GetCandles(GetCandlesRequest) returns (GetCandlesResponse);
-
   // GetMarketFundingHistory returns the market-wide funding rate history.
   rpc GetMarketFundingHistory(GetMarketFundingHistoryRequest) returns (GetMarketFundingHistoryResponse);
-
-  // ---- Streaming (no auth for market data) ----
-
-  // StreamOrderbook streams live orderbook updates for a market.
-  rpc StreamOrderbook(StreamOrderbookRequest) returns (stream OrderbookUpdate);
-
-  // StreamCandles streams live candlestick updates for a market.
-  rpc StreamCandles(StreamCandlesRequest) returns (stream CandleUpdate);
-
-  // StreamTrades streams recent and live public trades for a market.
-  rpc StreamTrades(StreamTradesRequest) returns (stream TradeUpdate);
-
-  // StreamAssetContext streams live market context for a perpetual asset.
-  rpc StreamAssetContext(StreamAssetContextRequest) returns (stream AssetContextUpdate);
-
-  // ---- Account (no auth, address-based reads) ----
-
-  // GetAccountState returns a user's full account state: balance, margin summary,
-  // positions, open orders, and builder fee approval status.
-  //
-  // Deprecated: this fans out to 7 Hyperliquid info requests (~86 rate-limit
-  // weight) per call. Prefer the split endpoints so each data group can be
-  // polled at its own cadence: GetPerpPositions (fast, cheap), GetOpenOrders,
-  // GetAccountBalances (slow), and GetBuilderFeeStatus (once per session).
-  rpc GetAccountState(GetAccountStateRequest) returns (GetAccountStateResponse);
 
   // GetPerpPositions returns perp positions and margin summaries aggregated
   // across all supported Hyperliquid perp interfaces. Cheap on Hyperliquid rate
@@ -82,21 +43,12 @@ service PerpsService {
   // after deposits, withdrawals, transfers, and spot conversions.
   rpc GetAccountBalances(GetAccountBalancesRequest) returns (GetAccountBalancesResponse);
 
-  // GetAccountMode returns Hyperliquid's raw account abstraction mode.
-  rpc GetAccountMode(GetAccountModeRequest) returns (GetAccountModeResponse);
-
   // GetBuilderFeeStatus returns the user's builder fee approval status and
   // Oku's builder fee configuration. Approval flips at most once per account --
   // fetch once per session and invalidate after ApproveBuilderFee.
   rpc GetBuilderFeeStatus(GetBuilderFeeStatusRequest) returns (GetBuilderFeeStatusResponse);
 
-  // GetActiveAssetData returns user-scoped active asset data for a coin.
-  rpc GetActiveAssetData(GetActiveAssetDataRequest) returns (GetActiveAssetDataResponse);
-
-  // GetPerpsPnlSummary returns Hyperliquid's cumulative perps-only PnL
-  // (realized + unrealized, net of deposits and withdrawals) per window, taken
-  // from the portfolio info request. Weight 20 on Hyperliquid rate limits and
-  // served from a short-lived cache -- poll slowly.
+  // Read cumulative perps-only PnL for the account over each supported window.
   rpc GetPerpsPnlSummary(GetPerpsPnlSummaryRequest) returns (GetPerpsPnlSummaryResponse);
 
   // ---- Trading (auth required) ----
@@ -107,10 +59,6 @@ service PerpsService {
   // CreateAction starts an action workflow session and builds the HL action payload.
   // The action is NOT submitted to HL yet -- call ConfirmAction with the signed payload.
   rpc CreateAction(CreateActionRequest) returns (ActionPayloadResponse);
-
-  // UpdateAction changes the parameters of a pending (unconfirmed) action.
-  // Returns an updated HL action payload for the client to sign.
-  rpc UpdateAction(UpdateActionRequest) returns (ActionPayloadResponse);
 
   // ConfirmAction submits the signed action to Hyperliquid.
   // The workflow then tracks the action's lifecycle (fills, cancellation, etc.).
@@ -130,103 +78,12 @@ service PerpsService {
   // refreshing long-lived resting orders.
   rpc ReconcileActions(ReconcileActionsRequest) returns (ReconcileActionsResponse);
 
-  // GetOrderStatuses returns the current Hyperliquid status for multiple order IDs.
-  // Used by the frontend to track submitted resting orders without fetching all open orders.
-  rpc GetOrderStatuses(GetOrderStatusesRequest) returns (GetOrderStatusesResponse);
-
-  // GetActiveTwaps returns currently active Hyperliquid TWAP orders for a user.
-  rpc GetActiveTwaps(GetActiveTwapsRequest) returns (GetActiveTwapsResponse);
-
-  // GetTwapHistory returns a user's TWAP lifecycle entries across all states (active and terminal), newest first.
-  rpc GetTwapHistory(GetTwapHistoryRequest) returns (GetTwapHistoryResponse);
-
-  // GetTwapSliceFills returns the fills produced by a user's TWAP slice orders,
-  // each linked to its parent TWAP by twap_id.
-  rpc GetTwapSliceFills(GetTwapSliceFillsRequest) returns (GetTwapSliceFillsResponse);
-
   // ValidateAgentKey checks whether an agent wallet is approved on Hyperliquid
   // for the authenticated user.
   rpc ValidateAgentKey(ValidateAgentKeyRequest) returns (ValidateAgentKeyResponse);
 
-  // GetBuilderFeeApprovalPayload returns the typed data clients must sign to
-  // approve Oku's configured builder fee on Hyperliquid.
-  rpc GetBuilderFeeApprovalPayload(GetBuilderFeeApprovalPayloadRequest) returns (GetBuilderFeeApprovalPayloadResponse);
-
-  // CreateApproveAgentPayload returns the EIP-712 payload the client must sign
-  // before calling ApproveAgent. The payload includes a fresh Oku-generated
-  // named agent wallet label so approvals do not use Hyperliquid's unnamed slot.
-  rpc CreateApproveAgentPayload(CreateApproveAgentPayloadRequest) returns (CreateApproveAgentPayloadResponse);
-
-  // ApproveAgent relays a signed Hyperliquid approveAgent action through the
-  // backend so clients never call Hyperliquid directly.
-  rpc ApproveAgent(ApproveAgentRequest) returns (ApproveAgentResponse);
-
-  // ApproveBuilderFee relays a signed Hyperliquid approveBuilderFee action.
-  // This grants Oku permission to include builder fees on future orders.
-  rpc ApproveBuilderFee(ApproveBuilderFeeRequest) returns (ApproveBuilderFeeResponse);
-
-  // CreateSetAccountAbstractionPayload returns the typed data the user's main
-  // wallet must sign before changing Hyperliquid account mode.
-  rpc CreateSetAccountAbstractionPayload(CreateSetAccountAbstractionPayloadRequest) returns (CreateSetAccountAbstractionPayloadResponse);
-
-  // SetAccountAbstraction relays the signed userSetAbstraction action.
-  rpc SetAccountAbstraction(SetAccountAbstractionRequest) returns (SetAccountAbstractionResponse);
-
-  // CreateBalanceTransferPayload returns typed data for moving collateral
-  // between spot and default or supported HIP-3 perps balances.
-  rpc CreateBalanceTransferPayload(CreateBalanceTransferPayloadRequest) returns (CreateBalanceTransferPayloadResponse);
-
-  // TransferBalance relays a signed usdClassTransfer or sendAsset action.
-  rpc TransferBalance(TransferBalanceRequest) returns (TransferBalanceResponse);
-
-  // CreateWithdrawPayload returns the EIP-712 payload the client must sign
-  // before calling Withdraw. Withdrawals require the user's wallet signature;
-  // approved agents cannot withdraw funds.
-  rpc CreateWithdrawPayload(CreateWithdrawPayloadRequest) returns (CreateWithdrawPayloadResponse);
-
-  // Withdraw relays a signed Hyperliquid withdraw3 action through the backend.
-  rpc Withdraw(WithdrawRequest) returns (WithdrawResponse);
-
-  // ---- Trade Info ----
-
-  // GetTradeEstimate previews a trade: estimated fill price, margin required, max size.
-  rpc GetTradeEstimate(GetTradeEstimateRequest) returns (GetTradeEstimateResponse);
-
-  // GetUserFeeRates returns effective protocol and builder fee rates for a user and market.
-  rpc GetUserFeeRates(GetUserFeeRatesRequest) returns (GetUserFeeRatesResponse);
-
-  // GetUserFeeSchedule returns Hyperliquid's fee schedule (base rates, VIP and
-  // market-maker tiers, discount tables) plus the user's effective rates. The
-  // JSON shape mirrors Hyperliquid's native {"type":"userFees"} response.
-  rpc GetUserFeeSchedule(GetUserFeeScheduleRequest) returns (GetUserFeeScheduleResponse);
-
-  // ---- History (auth required) ----
-
-  // GetTradeHistory returns the user's persisted trade/fill history.
-  rpc GetTradeHistory(GetTradeHistoryRequest) returns (GetTradeHistoryResponse);
-
   // GetUserFills returns the user's most recent fills live from Hyperliquid (userFills), newest first.
   rpc GetUserFills(GetUserFillsRequest) returns (GetUserFillsResponse);
-
-  // GetFundingHistory returns the user's funding payment history.
-  rpc GetFundingHistory(GetFundingHistoryRequest) returns (GetFundingHistoryResponse);
-
-  // GetOrderHistory returns the user's historical orders.
-  rpc GetOrderHistory(GetOrderHistoryRequest) returns (GetOrderHistoryResponse);
-
-  // GetDepositWithdrawHistory returns the user's USDC deposits and withdrawals.
-  rpc GetDepositWithdrawHistory(GetDepositWithdrawHistoryRequest) returns (GetDepositWithdrawHistoryResponse);
-
-  // GetHyperliquidOrderInfo returns fill-derived entry, close, size, PnL, fees,
-  // and return data for a closing Hyperliquid order. Requires authentication.
-  rpc GetHyperliquidOrderInfo(GetHyperliquidOrderInfoRequest) returns (GetHyperliquidOrderInfoResponse);
-
-  // ---- Share Cards ----
-
-  // GeneratePnlCard renders a shareable PnL card image server-side, uploads it
-  // to CDN storage, and returns the public URL. Requires authentication; rate
-  // limited.
-  rpc GeneratePnlCard(GeneratePnlCardRequest) returns (GeneratePnlCardResponse);
 
   // ---- Deposits ----
 
@@ -234,18 +91,10 @@ service PerpsService {
   // including bridge contract details, chain info, and minimum amounts.
   rpc GetDepositTokens(GetDepositTokensRequest) returns (GetDepositTokensResponse);
 
-  // BuildDepositTransaction forms the ERC-20 approve and bridge deposit transactions
-  // for the native Arbitrum USDC bridge.
-  rpc BuildDepositTransaction(BuildDepositTransactionRequest) returns (BuildDepositTransactionResponse);
-
   // GenerateDepositAddress generates a unique deposit address via HyperUnit
   // for depositing native assets (BTC, ETH, SOL, etc.) to Hyperliquid.
   // The address is permanently tied to the user's HL address.
   rpc GenerateDepositAddress(GenerateDepositAddressRequest) returns (GenerateDepositAddressResponse);
-
-  // GetDepositOperations returns HyperUnit deposit/withdraw operations associated
-  // with a Hyperliquid address or generated deposit address.
-  rpc GetDepositOperations(GetDepositOperationsRequest) returns (GetDepositOperationsResponse);
 }
 
 // ============================================================================
@@ -307,16 +156,6 @@ message PerpPosition {
   string cum_funding_since_open = 12;
 }
 
-// PerpActiveAssetData represents Hyperliquid activeAssetData for one user/coin.
-message PerpActiveAssetData {
-  string coin = 1;
-  string leverage_type = 2;   // "cross" or "isolated"
-  int32 leverage_value = 3;
-  string mark_px = 4;
-  repeated string available_to_trade = 5; // [buy, sell] notional available to trade
-  repeated string max_trade_szs = 6;      // [buy, sell] max base size
-}
-
 // PerpOrder represents an open order.
 message PerpOrder {
   string coin = 1;
@@ -336,45 +175,6 @@ message PerpOrder {
   int32 asset_id = 15;            // exchange asset id when known
   string tif = 16;                // time-in-force: "Gtc", "Ioc", "Alo"
   repeated PerpOrder children = 17; // nested TP/SL orders attached to this order
-}
-
-// PerpTwap represents a Hyperliquid TWAP lifecycle entry.
-message PerpTwap {
-  int64 twap_id = 1;
-  int64 time = 2;              // HL event time, seconds
-  string status = 3;
-  string coin = 4;
-  string user = 5;
-  string side = 6;             // "B" (buy) or "A" (sell)
-  string sz = 7;
-  int32 minutes = 8;
-  bool reduce_only = 9;
-  bool randomize = 10;
-  int64 timestamp = 11;        // TWAP start timestamp, milliseconds
-  int32 leverage = 12;
-  string executed_sz = 13;
-  string executed_ntl = 14;
-  string trigger_px = 15;
-  bool trigger_activate_above = 16;
-  string stop_px = 17;
-}
-
-// OrderbookLevel represents a single price level in the orderbook.
-message OrderbookLevel {
-  string px = 1;
-  string sz = 2;
-  int32 n = 3;                // number of orders at this level
-}
-
-// PerpCandle represents an OHLCV candlestick.
-message PerpCandle {
-  int64 t = 1;                // open time (milliseconds)
-  string o = 2;               // open price
-  string h = 3;               // high price
-  string l = 4;               // low price
-  string c = 5;               // close price
-  string v = 6;               // volume (base)
-  int32 n = 7;                // number of trades
 }
 
 // PerpTrade represents a trade fill.
@@ -410,42 +210,6 @@ message PerpLiquidation {
   string liquidated_user = 1;
   string mark_px = 2;
   string method = 3;
-}
-
-// PerpMarketTrade represents a public market trade.
-message PerpMarketTrade {
-  string coin = 1;
-  string px = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true];
-  string sz = 3 [(buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true];
-  string side = 4;            // "B" (buy) or "A" (sell)
-  int64 time = 5;
-  string hash = 6;
-  int64 tid = 7;
-}
-
-// PerpFundingPayment represents a single funding payment.
-message PerpFundingPayment {
-  int64 time = 1;
-  string coin = 2;
-  string usdc = 3;            // funding payment amount
-  string szi = 4;             // position size at time
-  string funding_rate = 5;
-  string hash = 6;            // HL transaction hash for this funding payment
-}
-
-message PerpDepositWithdraw {
-  int64 time = 1;
-  string hash = 2;
-  string type = 3;            // "deposit", "withdraw", "spotTransfer"
-  string token = 4;
-  string amount = 5;
-  string usdc_value = 6;
-  string fee = 7;
-  // HL ledger nonce; for withdrawals it is the signed action time (ms) * 1000.
-  int64 nonce = 8;
-  // Oku Bridge (onramp) order that produced this credit, when it can be joined.
-  // Only ever set on inbound USDC "spotTransfer" rows from 0x2000000000000000000000000000000000000000, never on "deposit".
-  string onramp_order_id = 9;
 }
 
 // MarginSummary contains margin/balance information.
@@ -503,93 +267,6 @@ message GetMarketPriceResponse {
   string oracle_px = 4; // oracle price
 }
 
-// ----------------------------------------------------------------------------
-// GetSpotMarkets
-// ----------------------------------------------------------------------------
-
-message GetSpotMarketsRequest {
-  string coin = 1; // optional filter: raw Hyperliquid spot coin, e.g. "@107" or "PURR/USDC"
-}
-
-message GetSpotMarketsResponse {
-  repeated SpotMarket markets = 1;
-}
-
-message SpotMarket {
-  string coin = 1;          // raw Hyperliquid spot coin, e.g. "@107" or "PURR/USDC"
-  string display_coin = 2;  // derived pair name, e.g. "HYPE/USDC"
-  int32 index = 3;          // spot pair index; "@107" uses index 107
-  int32 asset_id = 4;       // exchange asset id used in signed spot actions: 10000 + index
-
-  string base_token = 5;
-  string quote_token = 6;
-  int32 base_token_index = 7;
-  int32 quote_token_index = 8;
-  int32 sz_decimals = 9;
-  int32 wei_decimals = 10;
-  bool is_canonical = 11;
-
-  // Live context (populated when available)
-  string mark_px = 12;
-  string mid_px = 13;
-  string prev_day_px = 14;
-  string day_ntl_vlm = 15;
-}
-
-// ----------------------------------------------------------------------------
-// GetOrderbook
-// ----------------------------------------------------------------------------
-
-message GetOrderbookRequest {
-  string coin = 1 [(buf.validate.field).required = true];
-  optional int32 n_sig_figs = 2; // aggregation: 2, 3, 4, or 5
-  optional int32 mantissa = 3;   // aggregation step: 1, 2, or 5; only valid with n_sig_figs = 5
-}
-
-message GetOrderbookResponse {
-  string coin = 1;
-  repeated OrderbookLevel bids = 2;
-  repeated OrderbookLevel asks = 3;
-}
-
-message GetOrderbookAggregationOptionsRequest {
-  string coin = 1 [(buf.validate.field).required = true];
-}
-
-message GetOrderbookAggregationOptionsResponse {
-  string coin = 1;
-  repeated OrderbookAggregationOption options = 2;
-  // Price used to resolve current significant-figure magnitude.
-  string reference_price = 3;
-  // Options remain valid while price is in [valid_from_price, valid_until_price).
-  string valid_from_price = 4;
-  string valid_until_price = 5;
-}
-
-message OrderbookAggregationOption {
-  // Stable native configuration identifier: 5:1, 5:2, 5:5, 4, 3, or 2.
-  string id = 1;
-  // Exact user-facing price bucket increment.
-  string price_step = 2;
-  int32 n_sig_figs = 3;
-  optional int32 mantissa = 4;
-}
-
-// ----------------------------------------------------------------------------
-// GetCandles
-// ----------------------------------------------------------------------------
-
-message GetCandlesRequest {
-  string coin = 1 [(buf.validate.field).required = true];
-  string interval = 2 [(buf.validate.field).required = true]; // "1m","5m","15m","1h","4h","1d", etc.
-  int64 start_time = 3 [(buf.validate.field).required = true]; // milliseconds
-  int64 end_time = 4 [(buf.validate.field).required = true];   // milliseconds
-}
-
-message GetCandlesResponse {
-  repeated PerpCandle candles = 1;
-}
-
 message GetMarketFundingHistoryRequest {
   string coin = 1 [(buf.validate.field).required = true];
   int64 start_time = 2 [(buf.validate.field).required = true];
@@ -604,86 +281,6 @@ message PerpFundingRate {
 
 message GetMarketFundingHistoryResponse {
   repeated PerpFundingRate rates = 1;
-}
-
-// ============================================================================
-// Streaming Request/Response
-// ============================================================================
-
-// ----------------------------------------------------------------------------
-// StreamOrderbook
-// ----------------------------------------------------------------------------
-
-message StreamOrderbookRequest {
-  string coin = 1 [(buf.validate.field).required = true];
-  optional int32 n_sig_figs = 2;
-  optional int32 mantissa = 3;
-}
-
-message OrderbookUpdate {
-  string coin = 1;
-  int64 time = 2;
-  repeated OrderbookLevel bids = 3;
-  repeated OrderbookLevel asks = 4;
-}
-
-// ----------------------------------------------------------------------------
-// StreamCandles
-// ----------------------------------------------------------------------------
-
-message StreamCandlesRequest {
-  string coin = 1 [(buf.validate.field).required = true];
-  string interval = 2 [(buf.validate.field).required = true];
-}
-
-message CandleUpdate {
-  PerpCandle candle = 1;
-  string coin = 2;
-  string interval = 3;
-}
-
-// ----------------------------------------------------------------------------
-// StreamTrades
-// ----------------------------------------------------------------------------
-
-message StreamTradesRequest {
-  string coin = 1 [(buf.validate.field).required = true];
-  optional int32 limit = 2; // number of retained recent trades to send before live updates
-}
-
-message TradeUpdate {
-  string coin = 1;
-  repeated PerpMarketTrade trades = 2;
-}
-
-message StreamAssetContextRequest {
-  string coin = 1 [(buf.validate.field).required = true];
-}
-
-message AssetContextUpdate {
-  string coin = 1;
-  string mark_px = 2;               // mark price (used for PnL/liquidations)
-  string mid_px = 3;                // book mid price
-  string oracle_px = 4;             // oracle price
-  string funding = 5;               // current funding rate
-  string open_interest = 6;         // open interest
-  string prev_day_px = 7;           // price 24h ago (for computing 24h change)
-  string day_ntl_vlm = 8;           // 24h notional volume
-  string premium = 9;               // premium
-  string day_base_vlm = 10;         // 24h base volume
-  repeated string impact_pxs = 11;  // impact bid/ask prices
-}
-
-// ============================================================================
-// Account Request/Response
-// ============================================================================
-
-// ----------------------------------------------------------------------------
-// GetAccountState
-// ----------------------------------------------------------------------------
-
-message GetAccountStateRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
 }
 
 message SpotBalance {
@@ -707,46 +304,6 @@ message PerpsDexBalance {
   string account_value = 2;
   string withdrawable = 3;
   string margin_used = 4;
-}
-
-message GetAccountStateResponse {
-  // Balance / margin info
-  PerpsMarginSummary margin_summary = 1;
-  PerpsMarginSummary cross_margin_summary = 2;
-  string withdrawable = 3;
-  string cross_maintenance_margin_used = 4;
-
-  // Open positions across all Hyperliquid perp interfaces.
-  repeated PerpPosition positions = 5;
-
-  // Open orders across all Hyperliquid perp interfaces.
-  repeated PerpOrder open_orders = 6;
-
-  // Builder fee approval status for Oku
-  int32 builder_fee_ppm = 7; // max approved fee in parts per million (0 = not approved)
-  bool builder_fee_approved = 8;
-  string builder_address = 9;
-
-  // Spot USDC balance (unified accounts hold USDC in spot, not perps clearinghouse)
-  string spot_usdc_balance = 10;
-
-  // Builder fee config advertised by Oku. The charged fee is attached to orders;
-  // the approval target is the max fee users should approve on Hyperliquid.
-  int32 builder_fee_charged_ppm = 11;
-  int32 builder_fee_approval_target_ppm = 12;
-
-  // All HyperCore spot balances. HyperUnit deposits land here as their native asset (e.g. ETH), not perps margin.
-  repeated SpotBalance spot_balances = 13;
-
-  // Hyperliquid account abstraction mode: "default", "unifiedAccount",
-  // "portfolioMargin", "disabled", or legacy "dexAbstraction".
-  string account_abstraction = 14;
-
-  // Default validator-operated perps balance, excluding HIP-3 DEX balances.
-  PerpsBalance perps_balance = 15;
-
-  // Separate balances for supported HIP-3 DEXs in Standard mode.
-  repeated PerpsDexBalance hip3_balances = 16;
 }
 
 // ----------------------------------------------------------------------------
@@ -824,52 +381,21 @@ message GetAccountBalancesResponse {
 }
 
 // ----------------------------------------------------------------------------
-// GetAccountMode
-// ----------------------------------------------------------------------------
-
-message GetAccountModeRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-
-  // Bypass the server-side account-mode cache and fetch fresh from
-  // Hyperliquid. The mode can be changed on Hyperliquid's own UI; use this on
-  // first load and for explicit user-triggered refreshes.
-  bool skip_cache = 2;
-}
-
-message GetAccountModeResponse {
-  // Exact Hyperliquid userAbstraction value. Known values are "default",
-  // "disabled", "unifiedAccount", "portfolioMargin", and "dexAbstraction".
-  string account_abstraction = 1;
-}
-
-// ----------------------------------------------------------------------------
-// GetPerpsPnlSummary
+// GetBuilderFeeStatus
 // ----------------------------------------------------------------------------
 
 message GetPerpsPnlSummaryRequest {
   string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-
-  // Bypass the server-side cache and fetch fresh from Hyperliquid. Honored
-  // only for authenticated sessions; anonymous callers always read the cache.
   bool skip_cache = 2;
 }
 
-// Each PnL is a decimal USD string from the most recent sample of the matching
-// perp* window (perpDay, perpWeek, perpMonth, perpAllTime). Wallets with no
-// Hyperliquid history get "0".
 message GetPerpsPnlSummaryResponse {
   string day_pnl = 1;
   string week_pnl = 2;
   string month_pnl = 3;
-  // Lifetime perps PnL: realized + unrealized.
   string all_time_pnl = 4;
-  // Timestamp (ms) of the all-time sample the values were read at; 0 when none.
   int64 as_of_ms = 5;
 }
-
-// ----------------------------------------------------------------------------
-// GetBuilderFeeStatus
-// ----------------------------------------------------------------------------
 
 message GetBuilderFeeStatusRequest {
   string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
@@ -919,15 +445,6 @@ message CreateActionRequest {
   ActionParams params = 2 [(buf.validate.field).required = true];
 }
 
-// ----------------------------------------------------------------------------
-// UpdateAction - change parameters of a pending (unconfirmed) action
-// ----------------------------------------------------------------------------
-
-message UpdateActionRequest {
-  string action_id = 1 [(buf.validate.field).required = true];
-  ActionParams params = 2 [(buf.validate.field).required = true];
-}
-
 message ActionPayloadResponse {
   string action_id = 1;              // our internal tracking UUID
   string action_type = 2;            // "order", "cancel", "modify", etc.
@@ -965,30 +482,6 @@ message CancelActionResponse {
   string status = 1;
 }
 
-// ActionWorkflowInput wraps the initial request with server-side fields
-// for use as the Temporal workflow input. Not used in the RPC API directly.
-message ActionWorkflowInput {
-  string address = 1;
-  string action_id = 2;
-  string user_id = 3;
-  // Set only on continue-as-new, so the new run resumes order tracking.
-  ActionTrackingState continued_state = 4;
-}
-
-// ActionTrackingState carries order-tracking state across a continue-as-new.
-message ActionTrackingState {
-  int64 hl_oid = 1;
-  // Lower bound (unix millis) for the fills lookup on fill.
-  int64 since_ms = 2;
-  string dex = 3;
-  string coin = 4;
-  string side = 5;
-  // Unix millis of the first consecutive "unknown" status, or 0 if not unknown.
-  int64 unknown_since_ms = 6;
-  // Current poll backoff in millis, so backoff is not reset by the new run.
-  int64 poll_interval_ms = 7;
-}
-
 // ----------------------------------------------------------------------------
 // GetAction - retrieve current state of an action
 // ----------------------------------------------------------------------------
@@ -1017,66 +510,6 @@ message GetActionResponse {
   string error_message = 5;   // error details (if state == "error")
 }
 
-message GetOrderStatusesRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  repeated int64 oid = 2;
-}
-
-message PerpOrderStatus {
-  int64 oid = 1;
-  string status = 2;          // "open", "filled", "canceled", "triggered", "rejected", "marginCanceled", "unknownOid"
-  int64 status_timestamp = 3;
-  PerpOrder order = 4;
-}
-
-message GetOrderStatusesResponse {
-  repeated PerpOrderStatus statuses = 1;
-}
-
-message GetActiveTwapsRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-
-  // Bypass the server-side cache and fetch fresh from Hyperliquid. The cache
-  // is refreshed automatically when TWAP actions tracked by Oku finish; use
-  // this for explicit user-triggered refreshes.
-  bool skip_cache = 2;
-}
-
-message GetActiveTwapsResponse {
-  repeated PerpTwap twaps = 1;
-}
-
-message GetTwapHistoryRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-
-  bool skip_cache = 2;
-}
-
-message GetTwapHistoryResponse {
-  repeated PerpTwap twaps = 1;
-}
-
-// PerpTwapSliceFill is a fill produced by one slice order of a TWAP.
-message PerpTwapSliceFill {
-  PerpTrade fill = 1;
-  int64 twap_id = 2;
-}
-
-message GetTwapSliceFillsRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-
-  // Bypass the server-side cache and fetch fresh from Hyperliquid.
-  bool skip_cache = 2;
-
-  // When set, only fills belonging to this TWAP are returned.
-  optional int64 twap_id = 3;
-}
-
-message GetTwapSliceFillsResponse {
-  // Newest first.
-  repeated PerpTwapSliceFill fills = 1;
-}
-
 // ----------------------------------------------------------------------------
 // ValidateAgentKey - check if an agent wallet is approved on Hyperliquid
 // ----------------------------------------------------------------------------
@@ -1093,162 +526,6 @@ message ValidateAgentKeyResponse {
   string status = 2;
   string approved_user = 3;
   string role = 4;
-}
-
-// ----------------------------------------------------------------------------
-// ApproveAgent - approve an agent wallet on Hyperliquid
-// ----------------------------------------------------------------------------
-
-message CreateApproveAgentPayloadRequest {
-  string agent_address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  // user_address is the Hyperliquid master account that will sign the approveAgent payload.
-  string user_address = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-}
-
-message CreateApproveAgentPayloadResponse {
-  int64 nonce = 1;
-  string typed_data_json = 2; // EIP-712 typed data to pass to signTypedData
-  // agent_name must be passed back unchanged to ApproveAgent with the signature.
-  // Empty means the flow fell back to Hyperliquid's unnamed agent slot.
-  string agent_name = 3;
-}
-
-message ApproveAgentRequest {
-  string agent_address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  int64 nonce = 2 [(buf.validate.field).int64.gt = 0];
-  EVMSignature signature = 3 [(buf.validate.field).required = true];
-  // agent_name must match the value in CreateApproveAgentPayloadResponse and
-  // the signed typed data. Empty is used when all named slots are occupied by
-  // non-Oku agents and the flow falls back to Hyperliquid's unnamed agent slot.
-  string agent_name = 4 [(buf.validate.field).string.max_len = 16];
-}
-
-message ApproveAgentResponse {
-  string status = 1;
-  string agent_address = 2;
-}
-
-// ----------------------------------------------------------------------------
-// ApproveBuilderFee - approve Oku's builder fee on Hyperliquid
-// ----------------------------------------------------------------------------
-
-message GetBuilderFeeApprovalPayloadRequest {}
-
-message GetBuilderFeeApprovalPayloadResponse {
-  string typed_data_json = 1; // EIP-712 typed data to pass to signTypedData
-  int64 nonce = 2;
-  string builder_address = 3;
-  int32 fee_ppm = 4;
-}
-
-message ApproveBuilderFeeRequest {
-  int64 nonce = 1 [(buf.validate.field).int64.gt = 0];
-  EVMSignature signature = 2 [(buf.validate.field).required = true];
-  string builder_address = 3 [(buf.validate.field).required = true, (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  int32 fee_ppm = 4 [(buf.validate.field).int32.gt = 0]; // approval cap in parts per million; must match Oku's configured max
-}
-
-message ApproveBuilderFeeResponse {
-  string status = 1;
-  string builder_address = 2;
-  int32 fee_ppm = 3;
-}
-
-// ----------------------------------------------------------------------------
-// Account abstraction - select the Hyperliquid account mode
-// ----------------------------------------------------------------------------
-
-enum PerpsAccountMode {
-  PERPS_ACCOUNT_MODE_UNSPECIFIED = 0;
-  PERPS_ACCOUNT_MODE_STANDARD = 1;
-  PERPS_ACCOUNT_MODE_UNIFIED = 2;
-  PERPS_ACCOUNT_MODE_PORTFOLIO_MARGIN = 3;
-}
-
-message CreateSetAccountAbstractionPayloadRequest {
-  string user_address = 1 [(buf.validate.field).required = true, (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  PerpsAccountMode mode = 2 [(buf.validate.field).required = true, (buf.validate.field).enum.defined_only = true];
-}
-
-message CreateSetAccountAbstractionPayloadResponse {
-  int64 nonce = 1;
-  string typed_data_json = 2; // EIP-712 typed data for the user's main wallet
-}
-
-message SetAccountAbstractionRequest {
-  int64 nonce = 1 [(buf.validate.field).int64.gt = 0];
-  EVMSignature signature = 2 [(buf.validate.field).required = true];
-  string user_address = 3 [(buf.validate.field).required = true, (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  PerpsAccountMode mode = 4 [(buf.validate.field).required = true, (buf.validate.field).enum.defined_only = true];
-}
-
-message SetAccountAbstractionResponse {
-  string status = 1;
-  PerpsAccountMode mode = 2;
-}
-
-// ----------------------------------------------------------------------------
-// Balance transfer - move USDC between Standard spot and perps balances
-// ----------------------------------------------------------------------------
-
-enum PerpsBalanceClass {
-  PERPS_BALANCE_CLASS_UNSPECIFIED = 0;
-  PERPS_BALANCE_CLASS_SPOT = 1;
-  PERPS_BALANCE_CLASS_PERPS = 2;
-}
-
-message CreateBalanceTransferPayloadRequest {
-  string amount = 1 [(buf.validate.field).required = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.canonical_decimal_string) = true];
-  PerpsBalanceClass source = 2 [(buf.validate.field).required = true, (buf.validate.field).enum.defined_only = true];
-  PerpsBalanceClass destination = 3 [(buf.validate.field).required = true, (buf.validate.field).enum.defined_only = true];
-  string perps_dex = 4; // empty for default perps, or a HIP-3 DEX name such as "xyz"
-  string user_address = 5 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true]; // required for HIP-3 transfers
-}
-
-message CreateBalanceTransferPayloadResponse {
-  int64 nonce = 1;
-  string typed_data_json = 2;
-}
-
-message TransferBalanceRequest {
-  string amount = 1 [(buf.validate.field).required = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.canonical_decimal_string) = true];
-  PerpsBalanceClass source = 2 [(buf.validate.field).required = true, (buf.validate.field).enum.defined_only = true];
-  PerpsBalanceClass destination = 3 [(buf.validate.field).required = true, (buf.validate.field).enum.defined_only = true];
-  int64 nonce = 4 [(buf.validate.field).int64.gt = 0];
-  EVMSignature signature = 5 [(buf.validate.field).required = true];
-  string perps_dex = 6; // empty for default perps, or a HIP-3 DEX name such as "xyz"
-  string user_address = 7 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true]; // required for HIP-3 transfers
-}
-
-message TransferBalanceResponse {
-  string status = 1;
-}
-
-// ----------------------------------------------------------------------------
-// Withdraw - withdraw USDC margin from Hyperliquid to an Arbitrum wallet
-// ----------------------------------------------------------------------------
-
-message CreateWithdrawPayloadRequest {
-  string destination = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  string amount = 2 [(buf.validate.field).required = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.canonical_decimal_string) = true];
-}
-
-message CreateWithdrawPayloadResponse {
-  int64 time = 1;
-  string typed_data_json = 2; // EIP-712 typed data to pass to signTypedData
-}
-
-message WithdrawRequest {
-  string destination = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  string amount = 2 [(buf.validate.field).required = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.canonical_decimal_string) = true];
-  int64 time = 3 [(buf.validate.field).int64.gt = 0];
-  EVMSignature signature = 4 [(buf.validate.field).required = true];
-}
-
-message WithdrawResponse {
-  string status = 1;
-  string destination = 2;
-  string amount = 3;
 }
 
 // ---- Action Metadata Variants ----
@@ -1311,7 +588,7 @@ enum TriggerOrderType {
 }
 
 // ModifyActionMetadata is metadata for modifying existing orders via Hyperliquid
-// batchModify. Each item is a complete replacement order — Hyperliquid performs a
+// batchModify. Each item is a complete replacement order. Hyperliquid performs a
 // server-side cancel-and-replace, so every field of the replacement OrderSpec must
 // be provided.
 message ModifyActionMetadata {
@@ -1407,26 +684,6 @@ message MarginActionMetadata {
   string amount = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v2.signed_decimal_string) = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.canonical_signed_decimal_string) = true];          // amount to add/remove (negative to remove)
 }
 
-// ============================================================================
-// History Request/Response
-// ============================================================================
-
-// ----------------------------------------------------------------------------
-// GetTradeHistory
-// ----------------------------------------------------------------------------
-
-message GetTradeHistoryRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  int64 start_time = 2;      // milliseconds, optional
-  int64 end_time = 3;        // milliseconds, optional
-  int32 limit = 4;           // max results, default 100
-  string dex = 5;            // optional perp dex filter; empty means all/default-compatible behavior
-}
-
-message GetTradeHistoryResponse {
-  repeated PerpTrade trades = 1;
-}
-
 message GetUserFillsRequest {
   string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
 
@@ -1437,213 +694,6 @@ message GetUserFillsRequest {
 
 message GetUserFillsResponse {
   repeated PerpTrade fills = 1;
-}
-
-// ----------------------------------------------------------------------------
-// GetFundingHistory
-// ----------------------------------------------------------------------------
-
-message GetFundingHistoryRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  int64 start_time = 2 [(buf.validate.field).required = true]; // milliseconds
-  int64 end_time = 3;
-}
-
-message GetFundingHistoryResponse {
-  repeated PerpFundingPayment payments = 1;
-}
-
-// ----------------------------------------------------------------------------
-// GetOrderHistory
-// ----------------------------------------------------------------------------
-
-message GetOrderHistoryRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-}
-
-message GetOrderHistoryResponse {
-  repeated PerpHistoricalOrder orders = 1;
-}
-
-message PerpHistoricalOrder {
-  PerpOrder order = 1;
-  string status = 2;          // "filled", "canceled", "marginCanceled", etc.
-  int64 status_timestamp = 3;
-}
-
-// ----------------------------------------------------------------------------
-// GetDepositWithdrawHistory
-// ----------------------------------------------------------------------------
-
-message GetDepositWithdrawHistoryRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  int64 start_time = 2 [(buf.validate.field).required = true]; // milliseconds
-  int64 end_time = 3;
-}
-
-message GetDepositWithdrawHistoryResponse {
-  repeated PerpDepositWithdraw entries = 1;
-}
-
-// ----------------------------------------------------------------------------
-// GetHyperliquidOrderInfo
-// ----------------------------------------------------------------------------
-
-message GetHyperliquidOrderInfoRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  int64 oid = 2 [(buf.validate.field).int64.gt = 0];
-}
-
-message GetHyperliquidOrderInfoResponse {
-  string address = 1;
-  int64 oid = 2;
-  string status = 3;
-  string coin = 4;
-  int64 order_timestamp = 5;
-  int64 status_timestamp = 6;
-  int64 filled_at = 7;
-  string position = 8;       // "long" or "short"
-  string entry_px = 9;
-  string close_px = 10;      // size-weighted average execution price
-  string closed_size = 11;
-  string closed_pnl = 12;    // gross realized PnL, before fees
-  string fees = 13;          // fees attributable to closed size
-  string return_percent = 14; // unlevered return net of fees: (closed_pnl - fees) / entry_notional * 100
-}
-
-// ============================================================================
-// Deposit Request/Response
-// ============================================================================
-
-
-
-
-
-// ----------------------------------------------------------------------------
-// GetTradeEstimate
-// ----------------------------------------------------------------------------
-
-message GetTradeEstimateRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  string coin = 2 [(buf.validate.field).required = true];
-  bool is_buy = 3;
-  string sz = 4 [(buf.validate.field).required = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.canonical_decimal_string) = true];
-  string execution_px = 5 [(buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true, (buf.validate.field).string.(gfxcafe.oku.account.v2.canonical_decimal_string) = true];
-  uint32 leverage = 6 [(buf.validate.field).uint32 = {gte: 1, lte: 1000}];
-  bool post_only = 7; // estimate as a maker/post-only order; defaults to taker fees
-  // Margin mode of the order. Optional: when unset the estimate is computed as cross,
-  // matching pre-existing clients.
-  optional bool is_cross = 8;
-}
-
-message GetTradeEstimateResponse {
-  string estimated_fill_px = 1;     // estimated execution price from orderbook
-  string estimated_slippage_pct = 2; // estimated slippage from mid price
-  string margin_required = 3;       // margin needed at current leverage
-  string fee_estimate = 4 [deprecated = true];          // Deprecated: use GetUserFeeRates; estimated trading fee in USDC
-  string builder_fee_estimate = 5 [deprecated = true];  // Deprecated: use GetUserFeeRates; estimated builder fee in USDC
-  string max_trade_sz = 6;          // maximum position size given current margin
-  string mark_px = 7;               // current mark price
-  string mid_px = 8;                // current mid price
-  uint32 leverage = 9;              // current leverage setting
-  string available_margin = 10;     // available margin for new positions
-  string estimated_liquidation_px = 11; // projected liquidation price, empty if not available
-  string total_fee_estimate = 12 [deprecated = true];    // Deprecated: use GetUserFeeRates; fee_estimate + builder_fee_estimate in USDC
-}
-
-// ----------------------------------------------------------------------------
-// GetUserFeeRates
-// ----------------------------------------------------------------------------
-
-message GetUserFeeRatesRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  string coin = 2 [(buf.validate.field).required = true];
-}
-
-message GetUserFeeRatesResponse {
-  string maker_protocol_fee_rate = 1; // effective protocol rate as a decimal fraction; 0.000144 = 0.0144%
-  string taker_protocol_fee_rate = 2; // effective protocol rate as a decimal fraction; 0.000432 = 0.0432%
-  string builder_fee_rate = 3;         // Oku builder rate as a decimal fraction
-}
-
-// ----------------------------------------------------------------------------
-// GetUserFeeSchedule
-// ----------------------------------------------------------------------------
-// Field names deliberately mirror Hyperliquid's native {"type":"userFees"}
-// payload (feeSchedule.tiers.vip, dailyUserVlm, ...) so clients can validate it
-// with the same schema as the native info endpoint. Every number is a decimal
-// string and every rate a decimal fraction (0.00045 = 0.045%).
-
-message GetUserFeeScheduleRequest {
-  // Master or sub-account address. An agent (API) wallet is resolved to its
-  // master account server-side.
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-}
-
-message GetUserFeeScheduleResponse {
-  PerpFeeSchedule fee_schedule = 1;
-  string user_cross_rate = 2;       // effective perp taker rate, VIP, referral and staking discounts applied
-  string user_add_rate = 3;         // effective perp maker rate, VIP, referral and staking discounts applied
-  string user_spot_cross_rate = 4;  // effective spot taker rate
-  string user_spot_add_rate = 5;    // effective spot maker rate
-  string active_referral_discount = 6;
-  optional PerpStakingDiscountTier active_staking_discount = 7; // unset when the user has no staking discount
-  // Most recent UTC days, oldest first: the 14 completed days that score the
-  // VIP tier plus today's in-progress bucket.
-  repeated PerpDailyUserVolume daily_user_vlm = 8;
-}
-
-message PerpFeeSchedule {
-  string cross = 1;       // base perp taker rate
-  string add = 2;         // base perp maker rate
-  string spot_cross = 3;  // base spot taker rate
-  string spot_add = 4;    // base spot maker rate
-  PerpFeeTiers tiers = 5;
-  string referral_discount = 6;
-  repeated PerpStakingDiscountTier staking_discount_tiers = 7;
-}
-
-message PerpFeeTiers {
-  repeated PerpVipFeeTier vip = 1; // VIP tiers 1..N; tier 0 is PerpFeeSchedule.cross/add
-  repeated PerpMmFeeTier mm = 2;
-}
-
-message PerpVipFeeTier {
-  string ntl_cutoff = 1;  // rolling notional volume in USDC required for the tier
-  string cross = 2;       // taker rate
-  string add = 3;         // maker rate
-  string spot_cross = 4;
-  string spot_add = 5;
-}
-
-message PerpMmFeeTier {
-  string maker_fraction_cutoff = 1;
-  string add = 2; // maker rate, negative for a rebate
-}
-
-message PerpStakingDiscountTier {
-  string bps_of_max_supply = 1;
-  string discount = 2;
-}
-
-message PerpDailyUserVolume {
-  string date = 1; // UTC day as YYYY-M-D (Hyperliquid does not zero-pad)
-  string user_cross = 2;
-  string user_add = 3;
-  string exchange = 4;
-}
-
-// ----------------------------------------------------------------------------
-// GetActiveAssetData
-// ----------------------------------------------------------------------------
-
-message GetActiveAssetDataRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true]; // Account wallet not agent wallet
-  string coin = 2 [(buf.validate.field).required = true];
-}
-
-message GetActiveAssetDataResponse {
-  PerpActiveAssetData active_asset_data = 1;
 }
 
 // ============================================================================
@@ -1670,36 +720,6 @@ message GetDepositTokensResponse {
 }
 
 // ----------------------------------------------------------------------------
-// BuildDepositTransaction
-// ----------------------------------------------------------------------------
-
-message BuildDepositTransactionRequest {
-  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  string amount = 2 [(buf.validate.field).required = true]; // human-readable amount (e.g., "100.0")
-  string token_symbol = 3;         // defaults to "USDC" if not specified
-}
-
-message BuildDepositTransactionResponse {
-  // ERC-20 approve transaction (if needed)
-  DepositTransaction approve_tx = 1;
-  // Bridge deposit transaction
-  DepositTransaction deposit_tx = 2;
-  // Whether approval is needed (false if already approved for sufficient amount)
-  bool needs_approval = 3;
-  // Effective amount being deposited (after any conversions)
-  string amount = 4;
-  string token_symbol = 5;
-}
-
-message DepositTransaction {
-  string to = 1;                   // contract address
-  string data = 2;                 // encoded calldata (hex)
-  string value = 3;                // ETH value (usually "0")
-  int64 chain_id = 4;              // chain to submit on
-  string chain = 5;                // CAIP-2 chain identifier
-}
-
-// ----------------------------------------------------------------------------
 // GenerateDepositAddress (via HyperUnit)
 // ----------------------------------------------------------------------------
 
@@ -1715,80 +735,4 @@ message GenerateDepositAddressResponse {
   string source_chain = 3;         // CAIP-2 chain identifier (echo back)
   string min_deposit = 4;          // minimum deposit amount for this asset
   string hl_address = 5;           // the HL address this deposit address is tied to
-}
-
-// ----------------------------------------------------------------------------
-// GetDepositOperations (via HyperUnit)
-// ----------------------------------------------------------------------------
-
-message GetDepositOperationsRequest {
-  // Hyperliquid destination address or generated HyperUnit protocol/deposit address.
-  string address = 1 [(buf.validate.field).required = true];
-}
-
-message HyperUnitDepositAddress {
-  string source_coin_type = 1;
-  string destination_chain = 2;
-  string address = 3;
-}
-
-message HyperUnitOperation {
-  string operation_id = 1;
-  string op_created_at = 2;
-  string protocol_address = 3;
-  string source_address = 4;
-  string destination_address = 5;
-  string source_chain = 6;
-  string destination_chain = 7;
-  string source_amount = 8;
-  string destination_fee_amount = 9;
-  string sweep_fee_amount = 10;
-  string state = 11;
-  string source_tx_hash = 12;
-  string destination_tx_hash = 13;
-  int64 source_tx_confirmations = 14;
-  int64 destination_tx_confirmations = 15;
-  string asset = 16;
-  string state_started_at = 17;
-  string state_updated_at = 18;
-  string state_next_attempt_at = 19;
-  string broadcast_at = 20;
-  int64 position_in_withdraw_queue = 21;
-}
-
-message GetDepositOperationsResponse {
-  repeated HyperUnitDepositAddress addresses = 1;
-  repeated HyperUnitOperation operations = 2;
-}
-
-// ============================================================================
-// Share Cards
-// ============================================================================
-
-message GeneratePnlCardRequest {
-  // Background variant: 1 = driving, 2 = flying, 3 = astronaut.
-  int32 background = 1 [(buf.validate.field).int32 = {gte: 1, lte: 3}];
-  // Hyperliquid account/subaccount that owns the order.
-  string address = 2 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
-  // Closing Hyperliquid order ID. Card values are derived server-side from its fills.
-  int64 oid = 3 [(buf.validate.field).int64.gt = 0];
-  // Leverage multiplier rendered in the position badge (e.g. 3 renders "3x Long").
-  // Optional; omit or send 0 to render the badge without a multiplier. Fills carry
-  // no leverage, so this is client-supplied and not verified server-side.
-  uint32 leverage = 4 [(buf.validate.field).uint32.lte = 1000];
-  // Whether the server-rendered ROI is visible. Defaults to visible when omitted.
-  optional bool show_roi = 5;
-  // Whether the server-rendered USD PnL is visible. Defaults to visible when omitted.
-  optional bool show_pnl = 6;
-  // Whether the server-rendered entry price is visible. Defaults to visible when omitted.
-  optional bool show_entry_price = 7;
-  // Whether the server-rendered close price is visible. Defaults to visible when omitted.
-  optional bool show_close_price = 8;
-  // Whether the server-rendered position duration is visible. Defaults to hidden when omitted.
-  optional bool show_time_open = 9;
-}
-
-message GeneratePnlCardResponse {
-  // Public CDN URL of the rendered PNG.
-  string url = 1;
 }

@@ -9,11 +9,11 @@ import (
 	"time"
 )
 
-// The device token must never follow a redirect to another origin.
+// Session credentials must never follow a redirect to another origin.
 func TestRedirectNotFollowedAndTokenNotLeaked(t *testing.T) {
 	leaked := false
 	evil := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(DeviceTokenHeader) != "" {
+		if r.Header.Get(SessionTokenHeader) != "" {
 			leaked = true
 		}
 		w.Write([]byte(`{}`))
@@ -24,7 +24,7 @@ func TestRedirectNotFollowedAndTokenNotLeaked(t *testing.T) {
 	}))
 	defer origin.Close()
 
-	c := &Client{BaseURL: origin.URL, HTTP: NewHTTPClient(5 * time.Second), Token: "okud_secret"}
+	c := &Client{BaseURL: origin.URL, HTTP: NewHTTPClient(5 * time.Second), SessionID: "session", SessionToken: "test-session-token"}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	err := c.Perps(ctx, "GetOpenOrders", map[string]string{}, &struct{}{}, true)
@@ -119,14 +119,14 @@ func TestErrorMessagesDoNotReflectSecrets(t *testing.T) {
 	defer cancel()
 	for _, err := range []error{
 		cl.Perps(ctx, "GetOpenOrders", struct{}{}, nil, false),
-		cl.Device(ctx, "PollEnrollment", struct{}{}, nil, false),
+		cl.Auth(ctx, "ExtendSession", struct{}{}, nil, false),
 	} {
 		msg := err.Error()
 		if strings.Contains(msg, "okud_") || strings.Contains(msg, poll) {
 			t.Errorf("secret reflected: %s", msg)
 		}
 	}
-	if m := cl.Device(ctx, "PollEnrollment", struct{}{}, nil, false).Error(); strings.Contains(m, "bad token") {
-		t.Errorf("device error text surfaced: %s", m)
+	if m := cl.Auth(ctx, "ExtendSession", struct{}{}, nil, false).Error(); strings.Contains(m, "bad token") {
+		t.Errorf("sensitive error text surfaced: %s", m)
 	}
 }

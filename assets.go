@@ -7,11 +7,10 @@ import (
 	"io/fs"
 )
 
-// Runtime documentation shipped in binaries. This is an explicit allowlist:
-// internal notes (for example, which holds local
-// validation evidence) must never be embedded by a wildcard.
+// Runtime documentation shipped in binaries. Keep this user-facing allowlist
+// explicit so maintainer notes are not bundled accidentally.
 //
-//go:embed docs/architecture.md docs/commands.md docs/releasing.md docs/security.md docs/telemetry.md docs/usage.md
+//go:embed docs/architecture.md docs/commands.md docs/security.md docs/telemetry.md docs/usage.md
 var docsFS embed.FS
 
 //go:embed all:skills

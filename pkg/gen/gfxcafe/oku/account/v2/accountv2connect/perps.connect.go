@@ -35,38 +35,12 @@ const (
 const (
 	// PerpsServiceGetMarketsProcedure is the fully-qualified name of the PerpsService's GetMarkets RPC.
 	PerpsServiceGetMarketsProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetMarkets"
-	// PerpsServiceGetSpotMarketsProcedure is the fully-qualified name of the PerpsService's
-	// GetSpotMarkets RPC.
-	PerpsServiceGetSpotMarketsProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetSpotMarkets"
 	// PerpsServiceGetMarketPriceProcedure is the fully-qualified name of the PerpsService's
 	// GetMarketPrice RPC.
 	PerpsServiceGetMarketPriceProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetMarketPrice"
-	// PerpsServiceGetOrderbookProcedure is the fully-qualified name of the PerpsService's GetOrderbook
-	// RPC.
-	PerpsServiceGetOrderbookProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetOrderbook"
-	// PerpsServiceGetOrderbookAggregationOptionsProcedure is the fully-qualified name of the
-	// PerpsService's GetOrderbookAggregationOptions RPC.
-	PerpsServiceGetOrderbookAggregationOptionsProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetOrderbookAggregationOptions"
-	// PerpsServiceGetCandlesProcedure is the fully-qualified name of the PerpsService's GetCandles RPC.
-	PerpsServiceGetCandlesProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetCandles"
 	// PerpsServiceGetMarketFundingHistoryProcedure is the fully-qualified name of the PerpsService's
 	// GetMarketFundingHistory RPC.
 	PerpsServiceGetMarketFundingHistoryProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetMarketFundingHistory"
-	// PerpsServiceStreamOrderbookProcedure is the fully-qualified name of the PerpsService's
-	// StreamOrderbook RPC.
-	PerpsServiceStreamOrderbookProcedure = "/gfxcafe.oku.account.v2.PerpsService/StreamOrderbook"
-	// PerpsServiceStreamCandlesProcedure is the fully-qualified name of the PerpsService's
-	// StreamCandles RPC.
-	PerpsServiceStreamCandlesProcedure = "/gfxcafe.oku.account.v2.PerpsService/StreamCandles"
-	// PerpsServiceStreamTradesProcedure is the fully-qualified name of the PerpsService's StreamTrades
-	// RPC.
-	PerpsServiceStreamTradesProcedure = "/gfxcafe.oku.account.v2.PerpsService/StreamTrades"
-	// PerpsServiceStreamAssetContextProcedure is the fully-qualified name of the PerpsService's
-	// StreamAssetContext RPC.
-	PerpsServiceStreamAssetContextProcedure = "/gfxcafe.oku.account.v2.PerpsService/StreamAssetContext"
-	// PerpsServiceGetAccountStateProcedure is the fully-qualified name of the PerpsService's
-	// GetAccountState RPC.
-	PerpsServiceGetAccountStateProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetAccountState"
 	// PerpsServiceGetPerpPositionsProcedure is the fully-qualified name of the PerpsService's
 	// GetPerpPositions RPC.
 	PerpsServiceGetPerpPositionsProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetPerpPositions"
@@ -76,24 +50,15 @@ const (
 	// PerpsServiceGetAccountBalancesProcedure is the fully-qualified name of the PerpsService's
 	// GetAccountBalances RPC.
 	PerpsServiceGetAccountBalancesProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetAccountBalances"
-	// PerpsServiceGetAccountModeProcedure is the fully-qualified name of the PerpsService's
-	// GetAccountMode RPC.
-	PerpsServiceGetAccountModeProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetAccountMode"
 	// PerpsServiceGetBuilderFeeStatusProcedure is the fully-qualified name of the PerpsService's
 	// GetBuilderFeeStatus RPC.
 	PerpsServiceGetBuilderFeeStatusProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetBuilderFeeStatus"
-	// PerpsServiceGetActiveAssetDataProcedure is the fully-qualified name of the PerpsService's
-	// GetActiveAssetData RPC.
-	PerpsServiceGetActiveAssetDataProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetActiveAssetData"
 	// PerpsServiceGetPerpsPnlSummaryProcedure is the fully-qualified name of the PerpsService's
 	// GetPerpsPnlSummary RPC.
 	PerpsServiceGetPerpsPnlSummaryProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetPerpsPnlSummary"
 	// PerpsServiceCreateActionProcedure is the fully-qualified name of the PerpsService's CreateAction
 	// RPC.
 	PerpsServiceCreateActionProcedure = "/gfxcafe.oku.account.v2.PerpsService/CreateAction"
-	// PerpsServiceUpdateActionProcedure is the fully-qualified name of the PerpsService's UpdateAction
-	// RPC.
-	PerpsServiceUpdateActionProcedure = "/gfxcafe.oku.account.v2.PerpsService/UpdateAction"
 	// PerpsServiceConfirmActionProcedure is the fully-qualified name of the PerpsService's
 	// ConfirmAction RPC.
 	PerpsServiceConfirmActionProcedure = "/gfxcafe.oku.account.v2.PerpsService/ConfirmAction"
@@ -105,92 +70,18 @@ const (
 	// PerpsServiceReconcileActionsProcedure is the fully-qualified name of the PerpsService's
 	// ReconcileActions RPC.
 	PerpsServiceReconcileActionsProcedure = "/gfxcafe.oku.account.v2.PerpsService/ReconcileActions"
-	// PerpsServiceGetOrderStatusesProcedure is the fully-qualified name of the PerpsService's
-	// GetOrderStatuses RPC.
-	PerpsServiceGetOrderStatusesProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetOrderStatuses"
-	// PerpsServiceGetActiveTwapsProcedure is the fully-qualified name of the PerpsService's
-	// GetActiveTwaps RPC.
-	PerpsServiceGetActiveTwapsProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetActiveTwaps"
-	// PerpsServiceGetTwapHistoryProcedure is the fully-qualified name of the PerpsService's
-	// GetTwapHistory RPC.
-	PerpsServiceGetTwapHistoryProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetTwapHistory"
-	// PerpsServiceGetTwapSliceFillsProcedure is the fully-qualified name of the PerpsService's
-	// GetTwapSliceFills RPC.
-	PerpsServiceGetTwapSliceFillsProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetTwapSliceFills"
 	// PerpsServiceValidateAgentKeyProcedure is the fully-qualified name of the PerpsService's
 	// ValidateAgentKey RPC.
 	PerpsServiceValidateAgentKeyProcedure = "/gfxcafe.oku.account.v2.PerpsService/ValidateAgentKey"
-	// PerpsServiceGetBuilderFeeApprovalPayloadProcedure is the fully-qualified name of the
-	// PerpsService's GetBuilderFeeApprovalPayload RPC.
-	PerpsServiceGetBuilderFeeApprovalPayloadProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetBuilderFeeApprovalPayload"
-	// PerpsServiceCreateApproveAgentPayloadProcedure is the fully-qualified name of the PerpsService's
-	// CreateApproveAgentPayload RPC.
-	PerpsServiceCreateApproveAgentPayloadProcedure = "/gfxcafe.oku.account.v2.PerpsService/CreateApproveAgentPayload"
-	// PerpsServiceApproveAgentProcedure is the fully-qualified name of the PerpsService's ApproveAgent
-	// RPC.
-	PerpsServiceApproveAgentProcedure = "/gfxcafe.oku.account.v2.PerpsService/ApproveAgent"
-	// PerpsServiceApproveBuilderFeeProcedure is the fully-qualified name of the PerpsService's
-	// ApproveBuilderFee RPC.
-	PerpsServiceApproveBuilderFeeProcedure = "/gfxcafe.oku.account.v2.PerpsService/ApproveBuilderFee"
-	// PerpsServiceCreateSetAccountAbstractionPayloadProcedure is the fully-qualified name of the
-	// PerpsService's CreateSetAccountAbstractionPayload RPC.
-	PerpsServiceCreateSetAccountAbstractionPayloadProcedure = "/gfxcafe.oku.account.v2.PerpsService/CreateSetAccountAbstractionPayload"
-	// PerpsServiceSetAccountAbstractionProcedure is the fully-qualified name of the PerpsService's
-	// SetAccountAbstraction RPC.
-	PerpsServiceSetAccountAbstractionProcedure = "/gfxcafe.oku.account.v2.PerpsService/SetAccountAbstraction"
-	// PerpsServiceCreateBalanceTransferPayloadProcedure is the fully-qualified name of the
-	// PerpsService's CreateBalanceTransferPayload RPC.
-	PerpsServiceCreateBalanceTransferPayloadProcedure = "/gfxcafe.oku.account.v2.PerpsService/CreateBalanceTransferPayload"
-	// PerpsServiceTransferBalanceProcedure is the fully-qualified name of the PerpsService's
-	// TransferBalance RPC.
-	PerpsServiceTransferBalanceProcedure = "/gfxcafe.oku.account.v2.PerpsService/TransferBalance"
-	// PerpsServiceCreateWithdrawPayloadProcedure is the fully-qualified name of the PerpsService's
-	// CreateWithdrawPayload RPC.
-	PerpsServiceCreateWithdrawPayloadProcedure = "/gfxcafe.oku.account.v2.PerpsService/CreateWithdrawPayload"
-	// PerpsServiceWithdrawProcedure is the fully-qualified name of the PerpsService's Withdraw RPC.
-	PerpsServiceWithdrawProcedure = "/gfxcafe.oku.account.v2.PerpsService/Withdraw"
-	// PerpsServiceGetTradeEstimateProcedure is the fully-qualified name of the PerpsService's
-	// GetTradeEstimate RPC.
-	PerpsServiceGetTradeEstimateProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetTradeEstimate"
-	// PerpsServiceGetUserFeeRatesProcedure is the fully-qualified name of the PerpsService's
-	// GetUserFeeRates RPC.
-	PerpsServiceGetUserFeeRatesProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetUserFeeRates"
-	// PerpsServiceGetUserFeeScheduleProcedure is the fully-qualified name of the PerpsService's
-	// GetUserFeeSchedule RPC.
-	PerpsServiceGetUserFeeScheduleProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetUserFeeSchedule"
-	// PerpsServiceGetTradeHistoryProcedure is the fully-qualified name of the PerpsService's
-	// GetTradeHistory RPC.
-	PerpsServiceGetTradeHistoryProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetTradeHistory"
 	// PerpsServiceGetUserFillsProcedure is the fully-qualified name of the PerpsService's GetUserFills
 	// RPC.
 	PerpsServiceGetUserFillsProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetUserFills"
-	// PerpsServiceGetFundingHistoryProcedure is the fully-qualified name of the PerpsService's
-	// GetFundingHistory RPC.
-	PerpsServiceGetFundingHistoryProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetFundingHistory"
-	// PerpsServiceGetOrderHistoryProcedure is the fully-qualified name of the PerpsService's
-	// GetOrderHistory RPC.
-	PerpsServiceGetOrderHistoryProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetOrderHistory"
-	// PerpsServiceGetDepositWithdrawHistoryProcedure is the fully-qualified name of the PerpsService's
-	// GetDepositWithdrawHistory RPC.
-	PerpsServiceGetDepositWithdrawHistoryProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetDepositWithdrawHistory"
-	// PerpsServiceGetHyperliquidOrderInfoProcedure is the fully-qualified name of the PerpsService's
-	// GetHyperliquidOrderInfo RPC.
-	PerpsServiceGetHyperliquidOrderInfoProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetHyperliquidOrderInfo"
-	// PerpsServiceGeneratePnlCardProcedure is the fully-qualified name of the PerpsService's
-	// GeneratePnlCard RPC.
-	PerpsServiceGeneratePnlCardProcedure = "/gfxcafe.oku.account.v2.PerpsService/GeneratePnlCard"
 	// PerpsServiceGetDepositTokensProcedure is the fully-qualified name of the PerpsService's
 	// GetDepositTokens RPC.
 	PerpsServiceGetDepositTokensProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetDepositTokens"
-	// PerpsServiceBuildDepositTransactionProcedure is the fully-qualified name of the PerpsService's
-	// BuildDepositTransaction RPC.
-	PerpsServiceBuildDepositTransactionProcedure = "/gfxcafe.oku.account.v2.PerpsService/BuildDepositTransaction"
 	// PerpsServiceGenerateDepositAddressProcedure is the fully-qualified name of the PerpsService's
 	// GenerateDepositAddress RPC.
 	PerpsServiceGenerateDepositAddressProcedure = "/gfxcafe.oku.account.v2.PerpsService/GenerateDepositAddress"
-	// PerpsServiceGetDepositOperationsProcedure is the fully-qualified name of the PerpsService's
-	// GetDepositOperations RPC.
-	PerpsServiceGetDepositOperationsProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetDepositOperations"
 )
 
 // PerpsServiceClient is a client for the gfxcafe.oku.account.v2.PerpsService service.
@@ -198,38 +89,12 @@ type PerpsServiceClient interface {
 	// GetMarkets returns all available perpetual markets with metadata and live stats.
 	// Pass optional coin filter to get a single market.
 	GetMarkets(context.Context, *connect.Request[v2.GetMarketsRequest]) (*connect.Response[v2.GetMarketsResponse], error)
-	// GetSpotMarkets returns all available spot markets with metadata and live stats.
-	// Pass optional coin filter to get a single market.
-	GetSpotMarkets(context.Context, *connect.Request[v2.GetSpotMarketsRequest]) (*connect.Response[v2.GetSpotMarketsResponse], error)
 	// GetMarketPrice returns current prices for a single perp market. Served from
 	// a short-lived server-side cache shared across all users, so it is safe to
 	// poll frequently. Use this instead of GetMarkets when only prices are needed.
 	GetMarketPrice(context.Context, *connect.Request[v2.GetMarketPriceRequest]) (*connect.Response[v2.GetMarketPriceResponse], error)
-	// GetOrderbook returns an L2 orderbook snapshot for a market.
-	GetOrderbook(context.Context, *connect.Request[v2.GetOrderbookRequest]) (*connect.Response[v2.GetOrderbookResponse], error)
-	// GetOrderbookAggregationOptions returns asset-aware display steps and the
-	// native Hyperliquid parameters needed to subscribe at each depth.
-	GetOrderbookAggregationOptions(context.Context, *connect.Request[v2.GetOrderbookAggregationOptionsRequest]) (*connect.Response[v2.GetOrderbookAggregationOptionsResponse], error)
-	// GetCandles returns OHLCV candlestick data for a market.
-	GetCandles(context.Context, *connect.Request[v2.GetCandlesRequest]) (*connect.Response[v2.GetCandlesResponse], error)
 	// GetMarketFundingHistory returns the market-wide funding rate history.
 	GetMarketFundingHistory(context.Context, *connect.Request[v2.GetMarketFundingHistoryRequest]) (*connect.Response[v2.GetMarketFundingHistoryResponse], error)
-	// StreamOrderbook streams live orderbook updates for a market.
-	StreamOrderbook(context.Context, *connect.Request[v2.StreamOrderbookRequest]) (*connect.ServerStreamForClient[v2.OrderbookUpdate], error)
-	// StreamCandles streams live candlestick updates for a market.
-	StreamCandles(context.Context, *connect.Request[v2.StreamCandlesRequest]) (*connect.ServerStreamForClient[v2.CandleUpdate], error)
-	// StreamTrades streams recent and live public trades for a market.
-	StreamTrades(context.Context, *connect.Request[v2.StreamTradesRequest]) (*connect.ServerStreamForClient[v2.TradeUpdate], error)
-	// StreamAssetContext streams live market context for a perpetual asset.
-	StreamAssetContext(context.Context, *connect.Request[v2.StreamAssetContextRequest]) (*connect.ServerStreamForClient[v2.AssetContextUpdate], error)
-	// GetAccountState returns a user's full account state: balance, margin summary,
-	// positions, open orders, and builder fee approval status.
-	//
-	// Deprecated: this fans out to 7 Hyperliquid info requests (~86 rate-limit
-	// weight) per call. Prefer the split endpoints so each data group can be
-	// polled at its own cadence: GetPerpPositions (fast, cheap), GetOpenOrders,
-	// GetAccountBalances (slow), and GetBuilderFeeStatus (once per session).
-	GetAccountState(context.Context, *connect.Request[v2.GetAccountStateRequest]) (*connect.Response[v2.GetAccountStateResponse], error)
 	// GetPerpPositions returns perp positions and margin summaries aggregated
 	// across all supported Hyperliquid perp interfaces. Cheap on Hyperliquid rate
 	// limits (weight 2 per interface) -- safe to poll frequently.
@@ -242,25 +107,15 @@ type PerpsServiceClient interface {
 	// This may fan out across supported HIP-3 DEXs; poll slowly and invalidate
 	// after deposits, withdrawals, transfers, and spot conversions.
 	GetAccountBalances(context.Context, *connect.Request[v2.GetAccountBalancesRequest]) (*connect.Response[v2.GetAccountBalancesResponse], error)
-	// GetAccountMode returns Hyperliquid's raw account abstraction mode.
-	GetAccountMode(context.Context, *connect.Request[v2.GetAccountModeRequest]) (*connect.Response[v2.GetAccountModeResponse], error)
 	// GetBuilderFeeStatus returns the user's builder fee approval status and
 	// Oku's builder fee configuration. Approval flips at most once per account --
 	// fetch once per session and invalidate after ApproveBuilderFee.
 	GetBuilderFeeStatus(context.Context, *connect.Request[v2.GetBuilderFeeStatusRequest]) (*connect.Response[v2.GetBuilderFeeStatusResponse], error)
-	// GetActiveAssetData returns user-scoped active asset data for a coin.
-	GetActiveAssetData(context.Context, *connect.Request[v2.GetActiveAssetDataRequest]) (*connect.Response[v2.GetActiveAssetDataResponse], error)
-	// GetPerpsPnlSummary returns Hyperliquid's cumulative perps-only PnL
-	// (realized + unrealized, net of deposits and withdrawals) per window, taken
-	// from the portfolio info request. Weight 20 on Hyperliquid rate limits and
-	// served from a short-lived cache -- poll slowly.
+	// Read cumulative perps-only PnL for the account over each supported window.
 	GetPerpsPnlSummary(context.Context, *connect.Request[v2.GetPerpsPnlSummaryRequest]) (*connect.Response[v2.GetPerpsPnlSummaryResponse], error)
 	// CreateAction starts an action workflow session and builds the HL action payload.
 	// The action is NOT submitted to HL yet -- call ConfirmAction with the signed payload.
 	CreateAction(context.Context, *connect.Request[v2.CreateActionRequest]) (*connect.Response[v2.ActionPayloadResponse], error)
-	// UpdateAction changes the parameters of a pending (unconfirmed) action.
-	// Returns an updated HL action payload for the client to sign.
-	UpdateAction(context.Context, *connect.Request[v2.UpdateActionRequest]) (*connect.Response[v2.ActionPayloadResponse], error)
 	// ConfirmAction submits the signed action to Hyperliquid.
 	// The workflow then tracks the action's lifecycle (fills, cancellation, etc.).
 	ConfirmAction(context.Context, *connect.Request[v2.ConfirmActionRequest]) (*connect.Response[v2.ConfirmActionResponse], error)
@@ -275,86 +130,18 @@ type PerpsServiceClient interface {
 	// any terminal statuses/fills. Use this when reconnecting or explicitly
 	// refreshing long-lived resting orders.
 	ReconcileActions(context.Context, *connect.Request[v2.ReconcileActionsRequest]) (*connect.Response[v2.ReconcileActionsResponse], error)
-	// GetOrderStatuses returns the current Hyperliquid status for multiple order IDs.
-	// Used by the frontend to track submitted resting orders without fetching all open orders.
-	GetOrderStatuses(context.Context, *connect.Request[v2.GetOrderStatusesRequest]) (*connect.Response[v2.GetOrderStatusesResponse], error)
-	// GetActiveTwaps returns currently active Hyperliquid TWAP orders for a user.
-	GetActiveTwaps(context.Context, *connect.Request[v2.GetActiveTwapsRequest]) (*connect.Response[v2.GetActiveTwapsResponse], error)
-	// GetTwapHistory returns a user's TWAP lifecycle entries across all states (active and terminal), newest first.
-	GetTwapHistory(context.Context, *connect.Request[v2.GetTwapHistoryRequest]) (*connect.Response[v2.GetTwapHistoryResponse], error)
-	// GetTwapSliceFills returns the fills produced by a user's TWAP slice orders,
-	// each linked to its parent TWAP by twap_id.
-	GetTwapSliceFills(context.Context, *connect.Request[v2.GetTwapSliceFillsRequest]) (*connect.Response[v2.GetTwapSliceFillsResponse], error)
 	// ValidateAgentKey checks whether an agent wallet is approved on Hyperliquid
 	// for the authenticated user.
 	ValidateAgentKey(context.Context, *connect.Request[v2.ValidateAgentKeyRequest]) (*connect.Response[v2.ValidateAgentKeyResponse], error)
-	// GetBuilderFeeApprovalPayload returns the typed data clients must sign to
-	// approve Oku's configured builder fee on Hyperliquid.
-	GetBuilderFeeApprovalPayload(context.Context, *connect.Request[v2.GetBuilderFeeApprovalPayloadRequest]) (*connect.Response[v2.GetBuilderFeeApprovalPayloadResponse], error)
-	// CreateApproveAgentPayload returns the EIP-712 payload the client must sign
-	// before calling ApproveAgent. The payload includes a fresh Oku-generated
-	// named agent wallet label so approvals do not use Hyperliquid's unnamed slot.
-	CreateApproveAgentPayload(context.Context, *connect.Request[v2.CreateApproveAgentPayloadRequest]) (*connect.Response[v2.CreateApproveAgentPayloadResponse], error)
-	// ApproveAgent relays a signed Hyperliquid approveAgent action through the
-	// backend so clients never call Hyperliquid directly.
-	ApproveAgent(context.Context, *connect.Request[v2.ApproveAgentRequest]) (*connect.Response[v2.ApproveAgentResponse], error)
-	// ApproveBuilderFee relays a signed Hyperliquid approveBuilderFee action.
-	// This grants Oku permission to include builder fees on future orders.
-	ApproveBuilderFee(context.Context, *connect.Request[v2.ApproveBuilderFeeRequest]) (*connect.Response[v2.ApproveBuilderFeeResponse], error)
-	// CreateSetAccountAbstractionPayload returns the typed data the user's main
-	// wallet must sign before changing Hyperliquid account mode.
-	CreateSetAccountAbstractionPayload(context.Context, *connect.Request[v2.CreateSetAccountAbstractionPayloadRequest]) (*connect.Response[v2.CreateSetAccountAbstractionPayloadResponse], error)
-	// SetAccountAbstraction relays the signed userSetAbstraction action.
-	SetAccountAbstraction(context.Context, *connect.Request[v2.SetAccountAbstractionRequest]) (*connect.Response[v2.SetAccountAbstractionResponse], error)
-	// CreateBalanceTransferPayload returns typed data for moving collateral
-	// between spot and default or supported HIP-3 perps balances.
-	CreateBalanceTransferPayload(context.Context, *connect.Request[v2.CreateBalanceTransferPayloadRequest]) (*connect.Response[v2.CreateBalanceTransferPayloadResponse], error)
-	// TransferBalance relays a signed usdClassTransfer or sendAsset action.
-	TransferBalance(context.Context, *connect.Request[v2.TransferBalanceRequest]) (*connect.Response[v2.TransferBalanceResponse], error)
-	// CreateWithdrawPayload returns the EIP-712 payload the client must sign
-	// before calling Withdraw. Withdrawals require the user's wallet signature;
-	// approved agents cannot withdraw funds.
-	CreateWithdrawPayload(context.Context, *connect.Request[v2.CreateWithdrawPayloadRequest]) (*connect.Response[v2.CreateWithdrawPayloadResponse], error)
-	// Withdraw relays a signed Hyperliquid withdraw3 action through the backend.
-	Withdraw(context.Context, *connect.Request[v2.WithdrawRequest]) (*connect.Response[v2.WithdrawResponse], error)
-	// GetTradeEstimate previews a trade: estimated fill price, margin required, max size.
-	GetTradeEstimate(context.Context, *connect.Request[v2.GetTradeEstimateRequest]) (*connect.Response[v2.GetTradeEstimateResponse], error)
-	// GetUserFeeRates returns effective protocol and builder fee rates for a user and market.
-	GetUserFeeRates(context.Context, *connect.Request[v2.GetUserFeeRatesRequest]) (*connect.Response[v2.GetUserFeeRatesResponse], error)
-	// GetUserFeeSchedule returns Hyperliquid's fee schedule (base rates, VIP and
-	// market-maker tiers, discount tables) plus the user's effective rates. The
-	// JSON shape mirrors Hyperliquid's native {"type":"userFees"} response.
-	GetUserFeeSchedule(context.Context, *connect.Request[v2.GetUserFeeScheduleRequest]) (*connect.Response[v2.GetUserFeeScheduleResponse], error)
-	// GetTradeHistory returns the user's persisted trade/fill history.
-	GetTradeHistory(context.Context, *connect.Request[v2.GetTradeHistoryRequest]) (*connect.Response[v2.GetTradeHistoryResponse], error)
 	// GetUserFills returns the user's most recent fills live from Hyperliquid (userFills), newest first.
 	GetUserFills(context.Context, *connect.Request[v2.GetUserFillsRequest]) (*connect.Response[v2.GetUserFillsResponse], error)
-	// GetFundingHistory returns the user's funding payment history.
-	GetFundingHistory(context.Context, *connect.Request[v2.GetFundingHistoryRequest]) (*connect.Response[v2.GetFundingHistoryResponse], error)
-	// GetOrderHistory returns the user's historical orders.
-	GetOrderHistory(context.Context, *connect.Request[v2.GetOrderHistoryRequest]) (*connect.Response[v2.GetOrderHistoryResponse], error)
-	// GetDepositWithdrawHistory returns the user's USDC deposits and withdrawals.
-	GetDepositWithdrawHistory(context.Context, *connect.Request[v2.GetDepositWithdrawHistoryRequest]) (*connect.Response[v2.GetDepositWithdrawHistoryResponse], error)
-	// GetHyperliquidOrderInfo returns fill-derived entry, close, size, PnL, fees,
-	// and return data for a closing Hyperliquid order. Requires authentication.
-	GetHyperliquidOrderInfo(context.Context, *connect.Request[v2.GetHyperliquidOrderInfoRequest]) (*connect.Response[v2.GetHyperliquidOrderInfoResponse], error)
-	// GeneratePnlCard renders a shareable PnL card image server-side, uploads it
-	// to CDN storage, and returns the public URL. Requires authentication; rate
-	// limited.
-	GeneratePnlCard(context.Context, *connect.Request[v2.GeneratePnlCardRequest]) (*connect.Response[v2.GeneratePnlCardResponse], error)
 	// GetDepositTokens returns tokens that can be deposited to Hyperliquid,
 	// including bridge contract details, chain info, and minimum amounts.
 	GetDepositTokens(context.Context, *connect.Request[v2.GetDepositTokensRequest]) (*connect.Response[v2.GetDepositTokensResponse], error)
-	// BuildDepositTransaction forms the ERC-20 approve and bridge deposit transactions
-	// for the native Arbitrum USDC bridge.
-	BuildDepositTransaction(context.Context, *connect.Request[v2.BuildDepositTransactionRequest]) (*connect.Response[v2.BuildDepositTransactionResponse], error)
 	// GenerateDepositAddress generates a unique deposit address via HyperUnit
 	// for depositing native assets (BTC, ETH, SOL, etc.) to Hyperliquid.
 	// The address is permanently tied to the user's HL address.
 	GenerateDepositAddress(context.Context, *connect.Request[v2.GenerateDepositAddressRequest]) (*connect.Response[v2.GenerateDepositAddressResponse], error)
-	// GetDepositOperations returns HyperUnit deposit/withdraw operations associated
-	// with a Hyperliquid address or generated deposit address.
-	GetDepositOperations(context.Context, *connect.Request[v2.GetDepositOperationsRequest]) (*connect.Response[v2.GetDepositOperationsResponse], error)
 }
 
 // NewPerpsServiceClient constructs a client for the gfxcafe.oku.account.v2.PerpsService service. By
@@ -374,70 +161,16 @@ func NewPerpsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(perpsServiceMethods.ByName("GetMarkets")),
 			connect.WithClientOptions(opts...),
 		),
-		getSpotMarkets: connect.NewClient[v2.GetSpotMarketsRequest, v2.GetSpotMarketsResponse](
-			httpClient,
-			baseURL+PerpsServiceGetSpotMarketsProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetSpotMarkets")),
-			connect.WithClientOptions(opts...),
-		),
 		getMarketPrice: connect.NewClient[v2.GetMarketPriceRequest, v2.GetMarketPriceResponse](
 			httpClient,
 			baseURL+PerpsServiceGetMarketPriceProcedure,
 			connect.WithSchema(perpsServiceMethods.ByName("GetMarketPrice")),
 			connect.WithClientOptions(opts...),
 		),
-		getOrderbook: connect.NewClient[v2.GetOrderbookRequest, v2.GetOrderbookResponse](
-			httpClient,
-			baseURL+PerpsServiceGetOrderbookProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetOrderbook")),
-			connect.WithClientOptions(opts...),
-		),
-		getOrderbookAggregationOptions: connect.NewClient[v2.GetOrderbookAggregationOptionsRequest, v2.GetOrderbookAggregationOptionsResponse](
-			httpClient,
-			baseURL+PerpsServiceGetOrderbookAggregationOptionsProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetOrderbookAggregationOptions")),
-			connect.WithClientOptions(opts...),
-		),
-		getCandles: connect.NewClient[v2.GetCandlesRequest, v2.GetCandlesResponse](
-			httpClient,
-			baseURL+PerpsServiceGetCandlesProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetCandles")),
-			connect.WithClientOptions(opts...),
-		),
 		getMarketFundingHistory: connect.NewClient[v2.GetMarketFundingHistoryRequest, v2.GetMarketFundingHistoryResponse](
 			httpClient,
 			baseURL+PerpsServiceGetMarketFundingHistoryProcedure,
 			connect.WithSchema(perpsServiceMethods.ByName("GetMarketFundingHistory")),
-			connect.WithClientOptions(opts...),
-		),
-		streamOrderbook: connect.NewClient[v2.StreamOrderbookRequest, v2.OrderbookUpdate](
-			httpClient,
-			baseURL+PerpsServiceStreamOrderbookProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("StreamOrderbook")),
-			connect.WithClientOptions(opts...),
-		),
-		streamCandles: connect.NewClient[v2.StreamCandlesRequest, v2.CandleUpdate](
-			httpClient,
-			baseURL+PerpsServiceStreamCandlesProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("StreamCandles")),
-			connect.WithClientOptions(opts...),
-		),
-		streamTrades: connect.NewClient[v2.StreamTradesRequest, v2.TradeUpdate](
-			httpClient,
-			baseURL+PerpsServiceStreamTradesProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("StreamTrades")),
-			connect.WithClientOptions(opts...),
-		),
-		streamAssetContext: connect.NewClient[v2.StreamAssetContextRequest, v2.AssetContextUpdate](
-			httpClient,
-			baseURL+PerpsServiceStreamAssetContextProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("StreamAssetContext")),
-			connect.WithClientOptions(opts...),
-		),
-		getAccountState: connect.NewClient[v2.GetAccountStateRequest, v2.GetAccountStateResponse](
-			httpClient,
-			baseURL+PerpsServiceGetAccountStateProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetAccountState")),
 			connect.WithClientOptions(opts...),
 		),
 		getPerpPositions: connect.NewClient[v2.GetPerpPositionsRequest, v2.GetPerpPositionsResponse](
@@ -458,22 +191,10 @@ func NewPerpsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(perpsServiceMethods.ByName("GetAccountBalances")),
 			connect.WithClientOptions(opts...),
 		),
-		getAccountMode: connect.NewClient[v2.GetAccountModeRequest, v2.GetAccountModeResponse](
-			httpClient,
-			baseURL+PerpsServiceGetAccountModeProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetAccountMode")),
-			connect.WithClientOptions(opts...),
-		),
 		getBuilderFeeStatus: connect.NewClient[v2.GetBuilderFeeStatusRequest, v2.GetBuilderFeeStatusResponse](
 			httpClient,
 			baseURL+PerpsServiceGetBuilderFeeStatusProcedure,
 			connect.WithSchema(perpsServiceMethods.ByName("GetBuilderFeeStatus")),
-			connect.WithClientOptions(opts...),
-		),
-		getActiveAssetData: connect.NewClient[v2.GetActiveAssetDataRequest, v2.GetActiveAssetDataResponse](
-			httpClient,
-			baseURL+PerpsServiceGetActiveAssetDataProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetActiveAssetData")),
 			connect.WithClientOptions(opts...),
 		),
 		getPerpsPnlSummary: connect.NewClient[v2.GetPerpsPnlSummaryRequest, v2.GetPerpsPnlSummaryResponse](
@@ -486,12 +207,6 @@ func NewPerpsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+PerpsServiceCreateActionProcedure,
 			connect.WithSchema(perpsServiceMethods.ByName("CreateAction")),
-			connect.WithClientOptions(opts...),
-		),
-		updateAction: connect.NewClient[v2.UpdateActionRequest, v2.ActionPayloadResponse](
-			httpClient,
-			baseURL+PerpsServiceUpdateActionProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("UpdateAction")),
 			connect.WithClientOptions(opts...),
 		),
 		confirmAction: connect.NewClient[v2.ConfirmActionRequest, v2.ConfirmActionResponse](
@@ -518,118 +233,10 @@ func NewPerpsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(perpsServiceMethods.ByName("ReconcileActions")),
 			connect.WithClientOptions(opts...),
 		),
-		getOrderStatuses: connect.NewClient[v2.GetOrderStatusesRequest, v2.GetOrderStatusesResponse](
-			httpClient,
-			baseURL+PerpsServiceGetOrderStatusesProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetOrderStatuses")),
-			connect.WithClientOptions(opts...),
-		),
-		getActiveTwaps: connect.NewClient[v2.GetActiveTwapsRequest, v2.GetActiveTwapsResponse](
-			httpClient,
-			baseURL+PerpsServiceGetActiveTwapsProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetActiveTwaps")),
-			connect.WithClientOptions(opts...),
-		),
-		getTwapHistory: connect.NewClient[v2.GetTwapHistoryRequest, v2.GetTwapHistoryResponse](
-			httpClient,
-			baseURL+PerpsServiceGetTwapHistoryProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetTwapHistory")),
-			connect.WithClientOptions(opts...),
-		),
-		getTwapSliceFills: connect.NewClient[v2.GetTwapSliceFillsRequest, v2.GetTwapSliceFillsResponse](
-			httpClient,
-			baseURL+PerpsServiceGetTwapSliceFillsProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetTwapSliceFills")),
-			connect.WithClientOptions(opts...),
-		),
 		validateAgentKey: connect.NewClient[v2.ValidateAgentKeyRequest, v2.ValidateAgentKeyResponse](
 			httpClient,
 			baseURL+PerpsServiceValidateAgentKeyProcedure,
 			connect.WithSchema(perpsServiceMethods.ByName("ValidateAgentKey")),
-			connect.WithClientOptions(opts...),
-		),
-		getBuilderFeeApprovalPayload: connect.NewClient[v2.GetBuilderFeeApprovalPayloadRequest, v2.GetBuilderFeeApprovalPayloadResponse](
-			httpClient,
-			baseURL+PerpsServiceGetBuilderFeeApprovalPayloadProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetBuilderFeeApprovalPayload")),
-			connect.WithClientOptions(opts...),
-		),
-		createApproveAgentPayload: connect.NewClient[v2.CreateApproveAgentPayloadRequest, v2.CreateApproveAgentPayloadResponse](
-			httpClient,
-			baseURL+PerpsServiceCreateApproveAgentPayloadProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("CreateApproveAgentPayload")),
-			connect.WithClientOptions(opts...),
-		),
-		approveAgent: connect.NewClient[v2.ApproveAgentRequest, v2.ApproveAgentResponse](
-			httpClient,
-			baseURL+PerpsServiceApproveAgentProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("ApproveAgent")),
-			connect.WithClientOptions(opts...),
-		),
-		approveBuilderFee: connect.NewClient[v2.ApproveBuilderFeeRequest, v2.ApproveBuilderFeeResponse](
-			httpClient,
-			baseURL+PerpsServiceApproveBuilderFeeProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("ApproveBuilderFee")),
-			connect.WithClientOptions(opts...),
-		),
-		createSetAccountAbstractionPayload: connect.NewClient[v2.CreateSetAccountAbstractionPayloadRequest, v2.CreateSetAccountAbstractionPayloadResponse](
-			httpClient,
-			baseURL+PerpsServiceCreateSetAccountAbstractionPayloadProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("CreateSetAccountAbstractionPayload")),
-			connect.WithClientOptions(opts...),
-		),
-		setAccountAbstraction: connect.NewClient[v2.SetAccountAbstractionRequest, v2.SetAccountAbstractionResponse](
-			httpClient,
-			baseURL+PerpsServiceSetAccountAbstractionProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("SetAccountAbstraction")),
-			connect.WithClientOptions(opts...),
-		),
-		createBalanceTransferPayload: connect.NewClient[v2.CreateBalanceTransferPayloadRequest, v2.CreateBalanceTransferPayloadResponse](
-			httpClient,
-			baseURL+PerpsServiceCreateBalanceTransferPayloadProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("CreateBalanceTransferPayload")),
-			connect.WithClientOptions(opts...),
-		),
-		transferBalance: connect.NewClient[v2.TransferBalanceRequest, v2.TransferBalanceResponse](
-			httpClient,
-			baseURL+PerpsServiceTransferBalanceProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("TransferBalance")),
-			connect.WithClientOptions(opts...),
-		),
-		createWithdrawPayload: connect.NewClient[v2.CreateWithdrawPayloadRequest, v2.CreateWithdrawPayloadResponse](
-			httpClient,
-			baseURL+PerpsServiceCreateWithdrawPayloadProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("CreateWithdrawPayload")),
-			connect.WithClientOptions(opts...),
-		),
-		withdraw: connect.NewClient[v2.WithdrawRequest, v2.WithdrawResponse](
-			httpClient,
-			baseURL+PerpsServiceWithdrawProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("Withdraw")),
-			connect.WithClientOptions(opts...),
-		),
-		getTradeEstimate: connect.NewClient[v2.GetTradeEstimateRequest, v2.GetTradeEstimateResponse](
-			httpClient,
-			baseURL+PerpsServiceGetTradeEstimateProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetTradeEstimate")),
-			connect.WithClientOptions(opts...),
-		),
-		getUserFeeRates: connect.NewClient[v2.GetUserFeeRatesRequest, v2.GetUserFeeRatesResponse](
-			httpClient,
-			baseURL+PerpsServiceGetUserFeeRatesProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetUserFeeRates")),
-			connect.WithClientOptions(opts...),
-		),
-		getUserFeeSchedule: connect.NewClient[v2.GetUserFeeScheduleRequest, v2.GetUserFeeScheduleResponse](
-			httpClient,
-			baseURL+PerpsServiceGetUserFeeScheduleProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetUserFeeSchedule")),
-			connect.WithClientOptions(opts...),
-		),
-		getTradeHistory: connect.NewClient[v2.GetTradeHistoryRequest, v2.GetTradeHistoryResponse](
-			httpClient,
-			baseURL+PerpsServiceGetTradeHistoryProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetTradeHistory")),
 			connect.WithClientOptions(opts...),
 		),
 		getUserFills: connect.NewClient[v2.GetUserFillsRequest, v2.GetUserFillsResponse](
@@ -638,46 +245,10 @@ func NewPerpsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(perpsServiceMethods.ByName("GetUserFills")),
 			connect.WithClientOptions(opts...),
 		),
-		getFundingHistory: connect.NewClient[v2.GetFundingHistoryRequest, v2.GetFundingHistoryResponse](
-			httpClient,
-			baseURL+PerpsServiceGetFundingHistoryProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetFundingHistory")),
-			connect.WithClientOptions(opts...),
-		),
-		getOrderHistory: connect.NewClient[v2.GetOrderHistoryRequest, v2.GetOrderHistoryResponse](
-			httpClient,
-			baseURL+PerpsServiceGetOrderHistoryProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetOrderHistory")),
-			connect.WithClientOptions(opts...),
-		),
-		getDepositWithdrawHistory: connect.NewClient[v2.GetDepositWithdrawHistoryRequest, v2.GetDepositWithdrawHistoryResponse](
-			httpClient,
-			baseURL+PerpsServiceGetDepositWithdrawHistoryProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetDepositWithdrawHistory")),
-			connect.WithClientOptions(opts...),
-		),
-		getHyperliquidOrderInfo: connect.NewClient[v2.GetHyperliquidOrderInfoRequest, v2.GetHyperliquidOrderInfoResponse](
-			httpClient,
-			baseURL+PerpsServiceGetHyperliquidOrderInfoProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetHyperliquidOrderInfo")),
-			connect.WithClientOptions(opts...),
-		),
-		generatePnlCard: connect.NewClient[v2.GeneratePnlCardRequest, v2.GeneratePnlCardResponse](
-			httpClient,
-			baseURL+PerpsServiceGeneratePnlCardProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GeneratePnlCard")),
-			connect.WithClientOptions(opts...),
-		),
 		getDepositTokens: connect.NewClient[v2.GetDepositTokensRequest, v2.GetDepositTokensResponse](
 			httpClient,
 			baseURL+PerpsServiceGetDepositTokensProcedure,
 			connect.WithSchema(perpsServiceMethods.ByName("GetDepositTokens")),
-			connect.WithClientOptions(opts...),
-		),
-		buildDepositTransaction: connect.NewClient[v2.BuildDepositTransactionRequest, v2.BuildDepositTransactionResponse](
-			httpClient,
-			baseURL+PerpsServiceBuildDepositTransactionProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("BuildDepositTransaction")),
 			connect.WithClientOptions(opts...),
 		),
 		generateDepositAddress: connect.NewClient[v2.GenerateDepositAddressRequest, v2.GenerateDepositAddressResponse](
@@ -686,71 +257,28 @@ func NewPerpsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(perpsServiceMethods.ByName("GenerateDepositAddress")),
 			connect.WithClientOptions(opts...),
 		),
-		getDepositOperations: connect.NewClient[v2.GetDepositOperationsRequest, v2.GetDepositOperationsResponse](
-			httpClient,
-			baseURL+PerpsServiceGetDepositOperationsProcedure,
-			connect.WithSchema(perpsServiceMethods.ByName("GetDepositOperations")),
-			connect.WithClientOptions(opts...),
-		),
 	}
 }
 
 // perpsServiceClient implements PerpsServiceClient.
 type perpsServiceClient struct {
-	getMarkets                         *connect.Client[v2.GetMarketsRequest, v2.GetMarketsResponse]
-	getSpotMarkets                     *connect.Client[v2.GetSpotMarketsRequest, v2.GetSpotMarketsResponse]
-	getMarketPrice                     *connect.Client[v2.GetMarketPriceRequest, v2.GetMarketPriceResponse]
-	getOrderbook                       *connect.Client[v2.GetOrderbookRequest, v2.GetOrderbookResponse]
-	getOrderbookAggregationOptions     *connect.Client[v2.GetOrderbookAggregationOptionsRequest, v2.GetOrderbookAggregationOptionsResponse]
-	getCandles                         *connect.Client[v2.GetCandlesRequest, v2.GetCandlesResponse]
-	getMarketFundingHistory            *connect.Client[v2.GetMarketFundingHistoryRequest, v2.GetMarketFundingHistoryResponse]
-	streamOrderbook                    *connect.Client[v2.StreamOrderbookRequest, v2.OrderbookUpdate]
-	streamCandles                      *connect.Client[v2.StreamCandlesRequest, v2.CandleUpdate]
-	streamTrades                       *connect.Client[v2.StreamTradesRequest, v2.TradeUpdate]
-	streamAssetContext                 *connect.Client[v2.StreamAssetContextRequest, v2.AssetContextUpdate]
-	getAccountState                    *connect.Client[v2.GetAccountStateRequest, v2.GetAccountStateResponse]
-	getPerpPositions                   *connect.Client[v2.GetPerpPositionsRequest, v2.GetPerpPositionsResponse]
-	getOpenOrders                      *connect.Client[v2.GetOpenOrdersRequest, v2.GetOpenOrdersResponse]
-	getAccountBalances                 *connect.Client[v2.GetAccountBalancesRequest, v2.GetAccountBalancesResponse]
-	getAccountMode                     *connect.Client[v2.GetAccountModeRequest, v2.GetAccountModeResponse]
-	getBuilderFeeStatus                *connect.Client[v2.GetBuilderFeeStatusRequest, v2.GetBuilderFeeStatusResponse]
-	getActiveAssetData                 *connect.Client[v2.GetActiveAssetDataRequest, v2.GetActiveAssetDataResponse]
-	getPerpsPnlSummary                 *connect.Client[v2.GetPerpsPnlSummaryRequest, v2.GetPerpsPnlSummaryResponse]
-	createAction                       *connect.Client[v2.CreateActionRequest, v2.ActionPayloadResponse]
-	updateAction                       *connect.Client[v2.UpdateActionRequest, v2.ActionPayloadResponse]
-	confirmAction                      *connect.Client[v2.ConfirmActionRequest, v2.ConfirmActionResponse]
-	cancelAction                       *connect.Client[v2.CancelActionRequest, v2.CancelActionResponse]
-	getAction                          *connect.Client[v2.GetActionRequest, v2.GetActionResponse]
-	reconcileActions                   *connect.Client[v2.ReconcileActionsRequest, v2.ReconcileActionsResponse]
-	getOrderStatuses                   *connect.Client[v2.GetOrderStatusesRequest, v2.GetOrderStatusesResponse]
-	getActiveTwaps                     *connect.Client[v2.GetActiveTwapsRequest, v2.GetActiveTwapsResponse]
-	getTwapHistory                     *connect.Client[v2.GetTwapHistoryRequest, v2.GetTwapHistoryResponse]
-	getTwapSliceFills                  *connect.Client[v2.GetTwapSliceFillsRequest, v2.GetTwapSliceFillsResponse]
-	validateAgentKey                   *connect.Client[v2.ValidateAgentKeyRequest, v2.ValidateAgentKeyResponse]
-	getBuilderFeeApprovalPayload       *connect.Client[v2.GetBuilderFeeApprovalPayloadRequest, v2.GetBuilderFeeApprovalPayloadResponse]
-	createApproveAgentPayload          *connect.Client[v2.CreateApproveAgentPayloadRequest, v2.CreateApproveAgentPayloadResponse]
-	approveAgent                       *connect.Client[v2.ApproveAgentRequest, v2.ApproveAgentResponse]
-	approveBuilderFee                  *connect.Client[v2.ApproveBuilderFeeRequest, v2.ApproveBuilderFeeResponse]
-	createSetAccountAbstractionPayload *connect.Client[v2.CreateSetAccountAbstractionPayloadRequest, v2.CreateSetAccountAbstractionPayloadResponse]
-	setAccountAbstraction              *connect.Client[v2.SetAccountAbstractionRequest, v2.SetAccountAbstractionResponse]
-	createBalanceTransferPayload       *connect.Client[v2.CreateBalanceTransferPayloadRequest, v2.CreateBalanceTransferPayloadResponse]
-	transferBalance                    *connect.Client[v2.TransferBalanceRequest, v2.TransferBalanceResponse]
-	createWithdrawPayload              *connect.Client[v2.CreateWithdrawPayloadRequest, v2.CreateWithdrawPayloadResponse]
-	withdraw                           *connect.Client[v2.WithdrawRequest, v2.WithdrawResponse]
-	getTradeEstimate                   *connect.Client[v2.GetTradeEstimateRequest, v2.GetTradeEstimateResponse]
-	getUserFeeRates                    *connect.Client[v2.GetUserFeeRatesRequest, v2.GetUserFeeRatesResponse]
-	getUserFeeSchedule                 *connect.Client[v2.GetUserFeeScheduleRequest, v2.GetUserFeeScheduleResponse]
-	getTradeHistory                    *connect.Client[v2.GetTradeHistoryRequest, v2.GetTradeHistoryResponse]
-	getUserFills                       *connect.Client[v2.GetUserFillsRequest, v2.GetUserFillsResponse]
-	getFundingHistory                  *connect.Client[v2.GetFundingHistoryRequest, v2.GetFundingHistoryResponse]
-	getOrderHistory                    *connect.Client[v2.GetOrderHistoryRequest, v2.GetOrderHistoryResponse]
-	getDepositWithdrawHistory          *connect.Client[v2.GetDepositWithdrawHistoryRequest, v2.GetDepositWithdrawHistoryResponse]
-	getHyperliquidOrderInfo            *connect.Client[v2.GetHyperliquidOrderInfoRequest, v2.GetHyperliquidOrderInfoResponse]
-	generatePnlCard                    *connect.Client[v2.GeneratePnlCardRequest, v2.GeneratePnlCardResponse]
-	getDepositTokens                   *connect.Client[v2.GetDepositTokensRequest, v2.GetDepositTokensResponse]
-	buildDepositTransaction            *connect.Client[v2.BuildDepositTransactionRequest, v2.BuildDepositTransactionResponse]
-	generateDepositAddress             *connect.Client[v2.GenerateDepositAddressRequest, v2.GenerateDepositAddressResponse]
-	getDepositOperations               *connect.Client[v2.GetDepositOperationsRequest, v2.GetDepositOperationsResponse]
+	getMarkets              *connect.Client[v2.GetMarketsRequest, v2.GetMarketsResponse]
+	getMarketPrice          *connect.Client[v2.GetMarketPriceRequest, v2.GetMarketPriceResponse]
+	getMarketFundingHistory *connect.Client[v2.GetMarketFundingHistoryRequest, v2.GetMarketFundingHistoryResponse]
+	getPerpPositions        *connect.Client[v2.GetPerpPositionsRequest, v2.GetPerpPositionsResponse]
+	getOpenOrders           *connect.Client[v2.GetOpenOrdersRequest, v2.GetOpenOrdersResponse]
+	getAccountBalances      *connect.Client[v2.GetAccountBalancesRequest, v2.GetAccountBalancesResponse]
+	getBuilderFeeStatus     *connect.Client[v2.GetBuilderFeeStatusRequest, v2.GetBuilderFeeStatusResponse]
+	getPerpsPnlSummary      *connect.Client[v2.GetPerpsPnlSummaryRequest, v2.GetPerpsPnlSummaryResponse]
+	createAction            *connect.Client[v2.CreateActionRequest, v2.ActionPayloadResponse]
+	confirmAction           *connect.Client[v2.ConfirmActionRequest, v2.ConfirmActionResponse]
+	cancelAction            *connect.Client[v2.CancelActionRequest, v2.CancelActionResponse]
+	getAction               *connect.Client[v2.GetActionRequest, v2.GetActionResponse]
+	reconcileActions        *connect.Client[v2.ReconcileActionsRequest, v2.ReconcileActionsResponse]
+	validateAgentKey        *connect.Client[v2.ValidateAgentKeyRequest, v2.ValidateAgentKeyResponse]
+	getUserFills            *connect.Client[v2.GetUserFillsRequest, v2.GetUserFillsResponse]
+	getDepositTokens        *connect.Client[v2.GetDepositTokensRequest, v2.GetDepositTokensResponse]
+	generateDepositAddress  *connect.Client[v2.GenerateDepositAddressRequest, v2.GenerateDepositAddressResponse]
 }
 
 // GetMarkets calls gfxcafe.oku.account.v2.PerpsService.GetMarkets.
@@ -758,60 +286,14 @@ func (c *perpsServiceClient) GetMarkets(ctx context.Context, req *connect.Reques
 	return c.getMarkets.CallUnary(ctx, req)
 }
 
-// GetSpotMarkets calls gfxcafe.oku.account.v2.PerpsService.GetSpotMarkets.
-func (c *perpsServiceClient) GetSpotMarkets(ctx context.Context, req *connect.Request[v2.GetSpotMarketsRequest]) (*connect.Response[v2.GetSpotMarketsResponse], error) {
-	return c.getSpotMarkets.CallUnary(ctx, req)
-}
-
 // GetMarketPrice calls gfxcafe.oku.account.v2.PerpsService.GetMarketPrice.
 func (c *perpsServiceClient) GetMarketPrice(ctx context.Context, req *connect.Request[v2.GetMarketPriceRequest]) (*connect.Response[v2.GetMarketPriceResponse], error) {
 	return c.getMarketPrice.CallUnary(ctx, req)
 }
 
-// GetOrderbook calls gfxcafe.oku.account.v2.PerpsService.GetOrderbook.
-func (c *perpsServiceClient) GetOrderbook(ctx context.Context, req *connect.Request[v2.GetOrderbookRequest]) (*connect.Response[v2.GetOrderbookResponse], error) {
-	return c.getOrderbook.CallUnary(ctx, req)
-}
-
-// GetOrderbookAggregationOptions calls
-// gfxcafe.oku.account.v2.PerpsService.GetOrderbookAggregationOptions.
-func (c *perpsServiceClient) GetOrderbookAggregationOptions(ctx context.Context, req *connect.Request[v2.GetOrderbookAggregationOptionsRequest]) (*connect.Response[v2.GetOrderbookAggregationOptionsResponse], error) {
-	return c.getOrderbookAggregationOptions.CallUnary(ctx, req)
-}
-
-// GetCandles calls gfxcafe.oku.account.v2.PerpsService.GetCandles.
-func (c *perpsServiceClient) GetCandles(ctx context.Context, req *connect.Request[v2.GetCandlesRequest]) (*connect.Response[v2.GetCandlesResponse], error) {
-	return c.getCandles.CallUnary(ctx, req)
-}
-
 // GetMarketFundingHistory calls gfxcafe.oku.account.v2.PerpsService.GetMarketFundingHistory.
 func (c *perpsServiceClient) GetMarketFundingHistory(ctx context.Context, req *connect.Request[v2.GetMarketFundingHistoryRequest]) (*connect.Response[v2.GetMarketFundingHistoryResponse], error) {
 	return c.getMarketFundingHistory.CallUnary(ctx, req)
-}
-
-// StreamOrderbook calls gfxcafe.oku.account.v2.PerpsService.StreamOrderbook.
-func (c *perpsServiceClient) StreamOrderbook(ctx context.Context, req *connect.Request[v2.StreamOrderbookRequest]) (*connect.ServerStreamForClient[v2.OrderbookUpdate], error) {
-	return c.streamOrderbook.CallServerStream(ctx, req)
-}
-
-// StreamCandles calls gfxcafe.oku.account.v2.PerpsService.StreamCandles.
-func (c *perpsServiceClient) StreamCandles(ctx context.Context, req *connect.Request[v2.StreamCandlesRequest]) (*connect.ServerStreamForClient[v2.CandleUpdate], error) {
-	return c.streamCandles.CallServerStream(ctx, req)
-}
-
-// StreamTrades calls gfxcafe.oku.account.v2.PerpsService.StreamTrades.
-func (c *perpsServiceClient) StreamTrades(ctx context.Context, req *connect.Request[v2.StreamTradesRequest]) (*connect.ServerStreamForClient[v2.TradeUpdate], error) {
-	return c.streamTrades.CallServerStream(ctx, req)
-}
-
-// StreamAssetContext calls gfxcafe.oku.account.v2.PerpsService.StreamAssetContext.
-func (c *perpsServiceClient) StreamAssetContext(ctx context.Context, req *connect.Request[v2.StreamAssetContextRequest]) (*connect.ServerStreamForClient[v2.AssetContextUpdate], error) {
-	return c.streamAssetContext.CallServerStream(ctx, req)
-}
-
-// GetAccountState calls gfxcafe.oku.account.v2.PerpsService.GetAccountState.
-func (c *perpsServiceClient) GetAccountState(ctx context.Context, req *connect.Request[v2.GetAccountStateRequest]) (*connect.Response[v2.GetAccountStateResponse], error) {
-	return c.getAccountState.CallUnary(ctx, req)
 }
 
 // GetPerpPositions calls gfxcafe.oku.account.v2.PerpsService.GetPerpPositions.
@@ -829,19 +311,9 @@ func (c *perpsServiceClient) GetAccountBalances(ctx context.Context, req *connec
 	return c.getAccountBalances.CallUnary(ctx, req)
 }
 
-// GetAccountMode calls gfxcafe.oku.account.v2.PerpsService.GetAccountMode.
-func (c *perpsServiceClient) GetAccountMode(ctx context.Context, req *connect.Request[v2.GetAccountModeRequest]) (*connect.Response[v2.GetAccountModeResponse], error) {
-	return c.getAccountMode.CallUnary(ctx, req)
-}
-
 // GetBuilderFeeStatus calls gfxcafe.oku.account.v2.PerpsService.GetBuilderFeeStatus.
 func (c *perpsServiceClient) GetBuilderFeeStatus(ctx context.Context, req *connect.Request[v2.GetBuilderFeeStatusRequest]) (*connect.Response[v2.GetBuilderFeeStatusResponse], error) {
 	return c.getBuilderFeeStatus.CallUnary(ctx, req)
-}
-
-// GetActiveAssetData calls gfxcafe.oku.account.v2.PerpsService.GetActiveAssetData.
-func (c *perpsServiceClient) GetActiveAssetData(ctx context.Context, req *connect.Request[v2.GetActiveAssetDataRequest]) (*connect.Response[v2.GetActiveAssetDataResponse], error) {
-	return c.getActiveAssetData.CallUnary(ctx, req)
 }
 
 // GetPerpsPnlSummary calls gfxcafe.oku.account.v2.PerpsService.GetPerpsPnlSummary.
@@ -852,11 +324,6 @@ func (c *perpsServiceClient) GetPerpsPnlSummary(ctx context.Context, req *connec
 // CreateAction calls gfxcafe.oku.account.v2.PerpsService.CreateAction.
 func (c *perpsServiceClient) CreateAction(ctx context.Context, req *connect.Request[v2.CreateActionRequest]) (*connect.Response[v2.ActionPayloadResponse], error) {
 	return c.createAction.CallUnary(ctx, req)
-}
-
-// UpdateAction calls gfxcafe.oku.account.v2.PerpsService.UpdateAction.
-func (c *perpsServiceClient) UpdateAction(ctx context.Context, req *connect.Request[v2.UpdateActionRequest]) (*connect.Response[v2.ActionPayloadResponse], error) {
-	return c.updateAction.CallUnary(ctx, req)
 }
 
 // ConfirmAction calls gfxcafe.oku.account.v2.PerpsService.ConfirmAction.
@@ -879,102 +346,9 @@ func (c *perpsServiceClient) ReconcileActions(ctx context.Context, req *connect.
 	return c.reconcileActions.CallUnary(ctx, req)
 }
 
-// GetOrderStatuses calls gfxcafe.oku.account.v2.PerpsService.GetOrderStatuses.
-func (c *perpsServiceClient) GetOrderStatuses(ctx context.Context, req *connect.Request[v2.GetOrderStatusesRequest]) (*connect.Response[v2.GetOrderStatusesResponse], error) {
-	return c.getOrderStatuses.CallUnary(ctx, req)
-}
-
-// GetActiveTwaps calls gfxcafe.oku.account.v2.PerpsService.GetActiveTwaps.
-func (c *perpsServiceClient) GetActiveTwaps(ctx context.Context, req *connect.Request[v2.GetActiveTwapsRequest]) (*connect.Response[v2.GetActiveTwapsResponse], error) {
-	return c.getActiveTwaps.CallUnary(ctx, req)
-}
-
-// GetTwapHistory calls gfxcafe.oku.account.v2.PerpsService.GetTwapHistory.
-func (c *perpsServiceClient) GetTwapHistory(ctx context.Context, req *connect.Request[v2.GetTwapHistoryRequest]) (*connect.Response[v2.GetTwapHistoryResponse], error) {
-	return c.getTwapHistory.CallUnary(ctx, req)
-}
-
-// GetTwapSliceFills calls gfxcafe.oku.account.v2.PerpsService.GetTwapSliceFills.
-func (c *perpsServiceClient) GetTwapSliceFills(ctx context.Context, req *connect.Request[v2.GetTwapSliceFillsRequest]) (*connect.Response[v2.GetTwapSliceFillsResponse], error) {
-	return c.getTwapSliceFills.CallUnary(ctx, req)
-}
-
 // ValidateAgentKey calls gfxcafe.oku.account.v2.PerpsService.ValidateAgentKey.
 func (c *perpsServiceClient) ValidateAgentKey(ctx context.Context, req *connect.Request[v2.ValidateAgentKeyRequest]) (*connect.Response[v2.ValidateAgentKeyResponse], error) {
 	return c.validateAgentKey.CallUnary(ctx, req)
-}
-
-// GetBuilderFeeApprovalPayload calls
-// gfxcafe.oku.account.v2.PerpsService.GetBuilderFeeApprovalPayload.
-func (c *perpsServiceClient) GetBuilderFeeApprovalPayload(ctx context.Context, req *connect.Request[v2.GetBuilderFeeApprovalPayloadRequest]) (*connect.Response[v2.GetBuilderFeeApprovalPayloadResponse], error) {
-	return c.getBuilderFeeApprovalPayload.CallUnary(ctx, req)
-}
-
-// CreateApproveAgentPayload calls gfxcafe.oku.account.v2.PerpsService.CreateApproveAgentPayload.
-func (c *perpsServiceClient) CreateApproveAgentPayload(ctx context.Context, req *connect.Request[v2.CreateApproveAgentPayloadRequest]) (*connect.Response[v2.CreateApproveAgentPayloadResponse], error) {
-	return c.createApproveAgentPayload.CallUnary(ctx, req)
-}
-
-// ApproveAgent calls gfxcafe.oku.account.v2.PerpsService.ApproveAgent.
-func (c *perpsServiceClient) ApproveAgent(ctx context.Context, req *connect.Request[v2.ApproveAgentRequest]) (*connect.Response[v2.ApproveAgentResponse], error) {
-	return c.approveAgent.CallUnary(ctx, req)
-}
-
-// ApproveBuilderFee calls gfxcafe.oku.account.v2.PerpsService.ApproveBuilderFee.
-func (c *perpsServiceClient) ApproveBuilderFee(ctx context.Context, req *connect.Request[v2.ApproveBuilderFeeRequest]) (*connect.Response[v2.ApproveBuilderFeeResponse], error) {
-	return c.approveBuilderFee.CallUnary(ctx, req)
-}
-
-// CreateSetAccountAbstractionPayload calls
-// gfxcafe.oku.account.v2.PerpsService.CreateSetAccountAbstractionPayload.
-func (c *perpsServiceClient) CreateSetAccountAbstractionPayload(ctx context.Context, req *connect.Request[v2.CreateSetAccountAbstractionPayloadRequest]) (*connect.Response[v2.CreateSetAccountAbstractionPayloadResponse], error) {
-	return c.createSetAccountAbstractionPayload.CallUnary(ctx, req)
-}
-
-// SetAccountAbstraction calls gfxcafe.oku.account.v2.PerpsService.SetAccountAbstraction.
-func (c *perpsServiceClient) SetAccountAbstraction(ctx context.Context, req *connect.Request[v2.SetAccountAbstractionRequest]) (*connect.Response[v2.SetAccountAbstractionResponse], error) {
-	return c.setAccountAbstraction.CallUnary(ctx, req)
-}
-
-// CreateBalanceTransferPayload calls
-// gfxcafe.oku.account.v2.PerpsService.CreateBalanceTransferPayload.
-func (c *perpsServiceClient) CreateBalanceTransferPayload(ctx context.Context, req *connect.Request[v2.CreateBalanceTransferPayloadRequest]) (*connect.Response[v2.CreateBalanceTransferPayloadResponse], error) {
-	return c.createBalanceTransferPayload.CallUnary(ctx, req)
-}
-
-// TransferBalance calls gfxcafe.oku.account.v2.PerpsService.TransferBalance.
-func (c *perpsServiceClient) TransferBalance(ctx context.Context, req *connect.Request[v2.TransferBalanceRequest]) (*connect.Response[v2.TransferBalanceResponse], error) {
-	return c.transferBalance.CallUnary(ctx, req)
-}
-
-// CreateWithdrawPayload calls gfxcafe.oku.account.v2.PerpsService.CreateWithdrawPayload.
-func (c *perpsServiceClient) CreateWithdrawPayload(ctx context.Context, req *connect.Request[v2.CreateWithdrawPayloadRequest]) (*connect.Response[v2.CreateWithdrawPayloadResponse], error) {
-	return c.createWithdrawPayload.CallUnary(ctx, req)
-}
-
-// Withdraw calls gfxcafe.oku.account.v2.PerpsService.Withdraw.
-func (c *perpsServiceClient) Withdraw(ctx context.Context, req *connect.Request[v2.WithdrawRequest]) (*connect.Response[v2.WithdrawResponse], error) {
-	return c.withdraw.CallUnary(ctx, req)
-}
-
-// GetTradeEstimate calls gfxcafe.oku.account.v2.PerpsService.GetTradeEstimate.
-func (c *perpsServiceClient) GetTradeEstimate(ctx context.Context, req *connect.Request[v2.GetTradeEstimateRequest]) (*connect.Response[v2.GetTradeEstimateResponse], error) {
-	return c.getTradeEstimate.CallUnary(ctx, req)
-}
-
-// GetUserFeeRates calls gfxcafe.oku.account.v2.PerpsService.GetUserFeeRates.
-func (c *perpsServiceClient) GetUserFeeRates(ctx context.Context, req *connect.Request[v2.GetUserFeeRatesRequest]) (*connect.Response[v2.GetUserFeeRatesResponse], error) {
-	return c.getUserFeeRates.CallUnary(ctx, req)
-}
-
-// GetUserFeeSchedule calls gfxcafe.oku.account.v2.PerpsService.GetUserFeeSchedule.
-func (c *perpsServiceClient) GetUserFeeSchedule(ctx context.Context, req *connect.Request[v2.GetUserFeeScheduleRequest]) (*connect.Response[v2.GetUserFeeScheduleResponse], error) {
-	return c.getUserFeeSchedule.CallUnary(ctx, req)
-}
-
-// GetTradeHistory calls gfxcafe.oku.account.v2.PerpsService.GetTradeHistory.
-func (c *perpsServiceClient) GetTradeHistory(ctx context.Context, req *connect.Request[v2.GetTradeHistoryRequest]) (*connect.Response[v2.GetTradeHistoryResponse], error) {
-	return c.getTradeHistory.CallUnary(ctx, req)
 }
 
 // GetUserFills calls gfxcafe.oku.account.v2.PerpsService.GetUserFills.
@@ -982,39 +356,9 @@ func (c *perpsServiceClient) GetUserFills(ctx context.Context, req *connect.Requ
 	return c.getUserFills.CallUnary(ctx, req)
 }
 
-// GetFundingHistory calls gfxcafe.oku.account.v2.PerpsService.GetFundingHistory.
-func (c *perpsServiceClient) GetFundingHistory(ctx context.Context, req *connect.Request[v2.GetFundingHistoryRequest]) (*connect.Response[v2.GetFundingHistoryResponse], error) {
-	return c.getFundingHistory.CallUnary(ctx, req)
-}
-
-// GetOrderHistory calls gfxcafe.oku.account.v2.PerpsService.GetOrderHistory.
-func (c *perpsServiceClient) GetOrderHistory(ctx context.Context, req *connect.Request[v2.GetOrderHistoryRequest]) (*connect.Response[v2.GetOrderHistoryResponse], error) {
-	return c.getOrderHistory.CallUnary(ctx, req)
-}
-
-// GetDepositWithdrawHistory calls gfxcafe.oku.account.v2.PerpsService.GetDepositWithdrawHistory.
-func (c *perpsServiceClient) GetDepositWithdrawHistory(ctx context.Context, req *connect.Request[v2.GetDepositWithdrawHistoryRequest]) (*connect.Response[v2.GetDepositWithdrawHistoryResponse], error) {
-	return c.getDepositWithdrawHistory.CallUnary(ctx, req)
-}
-
-// GetHyperliquidOrderInfo calls gfxcafe.oku.account.v2.PerpsService.GetHyperliquidOrderInfo.
-func (c *perpsServiceClient) GetHyperliquidOrderInfo(ctx context.Context, req *connect.Request[v2.GetHyperliquidOrderInfoRequest]) (*connect.Response[v2.GetHyperliquidOrderInfoResponse], error) {
-	return c.getHyperliquidOrderInfo.CallUnary(ctx, req)
-}
-
-// GeneratePnlCard calls gfxcafe.oku.account.v2.PerpsService.GeneratePnlCard.
-func (c *perpsServiceClient) GeneratePnlCard(ctx context.Context, req *connect.Request[v2.GeneratePnlCardRequest]) (*connect.Response[v2.GeneratePnlCardResponse], error) {
-	return c.generatePnlCard.CallUnary(ctx, req)
-}
-
 // GetDepositTokens calls gfxcafe.oku.account.v2.PerpsService.GetDepositTokens.
 func (c *perpsServiceClient) GetDepositTokens(ctx context.Context, req *connect.Request[v2.GetDepositTokensRequest]) (*connect.Response[v2.GetDepositTokensResponse], error) {
 	return c.getDepositTokens.CallUnary(ctx, req)
-}
-
-// BuildDepositTransaction calls gfxcafe.oku.account.v2.PerpsService.BuildDepositTransaction.
-func (c *perpsServiceClient) BuildDepositTransaction(ctx context.Context, req *connect.Request[v2.BuildDepositTransactionRequest]) (*connect.Response[v2.BuildDepositTransactionResponse], error) {
-	return c.buildDepositTransaction.CallUnary(ctx, req)
 }
 
 // GenerateDepositAddress calls gfxcafe.oku.account.v2.PerpsService.GenerateDepositAddress.
@@ -1022,48 +366,17 @@ func (c *perpsServiceClient) GenerateDepositAddress(ctx context.Context, req *co
 	return c.generateDepositAddress.CallUnary(ctx, req)
 }
 
-// GetDepositOperations calls gfxcafe.oku.account.v2.PerpsService.GetDepositOperations.
-func (c *perpsServiceClient) GetDepositOperations(ctx context.Context, req *connect.Request[v2.GetDepositOperationsRequest]) (*connect.Response[v2.GetDepositOperationsResponse], error) {
-	return c.getDepositOperations.CallUnary(ctx, req)
-}
-
 // PerpsServiceHandler is an implementation of the gfxcafe.oku.account.v2.PerpsService service.
 type PerpsServiceHandler interface {
 	// GetMarkets returns all available perpetual markets with metadata and live stats.
 	// Pass optional coin filter to get a single market.
 	GetMarkets(context.Context, *connect.Request[v2.GetMarketsRequest]) (*connect.Response[v2.GetMarketsResponse], error)
-	// GetSpotMarkets returns all available spot markets with metadata and live stats.
-	// Pass optional coin filter to get a single market.
-	GetSpotMarkets(context.Context, *connect.Request[v2.GetSpotMarketsRequest]) (*connect.Response[v2.GetSpotMarketsResponse], error)
 	// GetMarketPrice returns current prices for a single perp market. Served from
 	// a short-lived server-side cache shared across all users, so it is safe to
 	// poll frequently. Use this instead of GetMarkets when only prices are needed.
 	GetMarketPrice(context.Context, *connect.Request[v2.GetMarketPriceRequest]) (*connect.Response[v2.GetMarketPriceResponse], error)
-	// GetOrderbook returns an L2 orderbook snapshot for a market.
-	GetOrderbook(context.Context, *connect.Request[v2.GetOrderbookRequest]) (*connect.Response[v2.GetOrderbookResponse], error)
-	// GetOrderbookAggregationOptions returns asset-aware display steps and the
-	// native Hyperliquid parameters needed to subscribe at each depth.
-	GetOrderbookAggregationOptions(context.Context, *connect.Request[v2.GetOrderbookAggregationOptionsRequest]) (*connect.Response[v2.GetOrderbookAggregationOptionsResponse], error)
-	// GetCandles returns OHLCV candlestick data for a market.
-	GetCandles(context.Context, *connect.Request[v2.GetCandlesRequest]) (*connect.Response[v2.GetCandlesResponse], error)
 	// GetMarketFundingHistory returns the market-wide funding rate history.
 	GetMarketFundingHistory(context.Context, *connect.Request[v2.GetMarketFundingHistoryRequest]) (*connect.Response[v2.GetMarketFundingHistoryResponse], error)
-	// StreamOrderbook streams live orderbook updates for a market.
-	StreamOrderbook(context.Context, *connect.Request[v2.StreamOrderbookRequest], *connect.ServerStream[v2.OrderbookUpdate]) error
-	// StreamCandles streams live candlestick updates for a market.
-	StreamCandles(context.Context, *connect.Request[v2.StreamCandlesRequest], *connect.ServerStream[v2.CandleUpdate]) error
-	// StreamTrades streams recent and live public trades for a market.
-	StreamTrades(context.Context, *connect.Request[v2.StreamTradesRequest], *connect.ServerStream[v2.TradeUpdate]) error
-	// StreamAssetContext streams live market context for a perpetual asset.
-	StreamAssetContext(context.Context, *connect.Request[v2.StreamAssetContextRequest], *connect.ServerStream[v2.AssetContextUpdate]) error
-	// GetAccountState returns a user's full account state: balance, margin summary,
-	// positions, open orders, and builder fee approval status.
-	//
-	// Deprecated: this fans out to 7 Hyperliquid info requests (~86 rate-limit
-	// weight) per call. Prefer the split endpoints so each data group can be
-	// polled at its own cadence: GetPerpPositions (fast, cheap), GetOpenOrders,
-	// GetAccountBalances (slow), and GetBuilderFeeStatus (once per session).
-	GetAccountState(context.Context, *connect.Request[v2.GetAccountStateRequest]) (*connect.Response[v2.GetAccountStateResponse], error)
 	// GetPerpPositions returns perp positions and margin summaries aggregated
 	// across all supported Hyperliquid perp interfaces. Cheap on Hyperliquid rate
 	// limits (weight 2 per interface) -- safe to poll frequently.
@@ -1076,25 +389,15 @@ type PerpsServiceHandler interface {
 	// This may fan out across supported HIP-3 DEXs; poll slowly and invalidate
 	// after deposits, withdrawals, transfers, and spot conversions.
 	GetAccountBalances(context.Context, *connect.Request[v2.GetAccountBalancesRequest]) (*connect.Response[v2.GetAccountBalancesResponse], error)
-	// GetAccountMode returns Hyperliquid's raw account abstraction mode.
-	GetAccountMode(context.Context, *connect.Request[v2.GetAccountModeRequest]) (*connect.Response[v2.GetAccountModeResponse], error)
 	// GetBuilderFeeStatus returns the user's builder fee approval status and
 	// Oku's builder fee configuration. Approval flips at most once per account --
 	// fetch once per session and invalidate after ApproveBuilderFee.
 	GetBuilderFeeStatus(context.Context, *connect.Request[v2.GetBuilderFeeStatusRequest]) (*connect.Response[v2.GetBuilderFeeStatusResponse], error)
-	// GetActiveAssetData returns user-scoped active asset data for a coin.
-	GetActiveAssetData(context.Context, *connect.Request[v2.GetActiveAssetDataRequest]) (*connect.Response[v2.GetActiveAssetDataResponse], error)
-	// GetPerpsPnlSummary returns Hyperliquid's cumulative perps-only PnL
-	// (realized + unrealized, net of deposits and withdrawals) per window, taken
-	// from the portfolio info request. Weight 20 on Hyperliquid rate limits and
-	// served from a short-lived cache -- poll slowly.
+	// Read cumulative perps-only PnL for the account over each supported window.
 	GetPerpsPnlSummary(context.Context, *connect.Request[v2.GetPerpsPnlSummaryRequest]) (*connect.Response[v2.GetPerpsPnlSummaryResponse], error)
 	// CreateAction starts an action workflow session and builds the HL action payload.
 	// The action is NOT submitted to HL yet -- call ConfirmAction with the signed payload.
 	CreateAction(context.Context, *connect.Request[v2.CreateActionRequest]) (*connect.Response[v2.ActionPayloadResponse], error)
-	// UpdateAction changes the parameters of a pending (unconfirmed) action.
-	// Returns an updated HL action payload for the client to sign.
-	UpdateAction(context.Context, *connect.Request[v2.UpdateActionRequest]) (*connect.Response[v2.ActionPayloadResponse], error)
 	// ConfirmAction submits the signed action to Hyperliquid.
 	// The workflow then tracks the action's lifecycle (fills, cancellation, etc.).
 	ConfirmAction(context.Context, *connect.Request[v2.ConfirmActionRequest]) (*connect.Response[v2.ConfirmActionResponse], error)
@@ -1109,86 +412,18 @@ type PerpsServiceHandler interface {
 	// any terminal statuses/fills. Use this when reconnecting or explicitly
 	// refreshing long-lived resting orders.
 	ReconcileActions(context.Context, *connect.Request[v2.ReconcileActionsRequest]) (*connect.Response[v2.ReconcileActionsResponse], error)
-	// GetOrderStatuses returns the current Hyperliquid status for multiple order IDs.
-	// Used by the frontend to track submitted resting orders without fetching all open orders.
-	GetOrderStatuses(context.Context, *connect.Request[v2.GetOrderStatusesRequest]) (*connect.Response[v2.GetOrderStatusesResponse], error)
-	// GetActiveTwaps returns currently active Hyperliquid TWAP orders for a user.
-	GetActiveTwaps(context.Context, *connect.Request[v2.GetActiveTwapsRequest]) (*connect.Response[v2.GetActiveTwapsResponse], error)
-	// GetTwapHistory returns a user's TWAP lifecycle entries across all states (active and terminal), newest first.
-	GetTwapHistory(context.Context, *connect.Request[v2.GetTwapHistoryRequest]) (*connect.Response[v2.GetTwapHistoryResponse], error)
-	// GetTwapSliceFills returns the fills produced by a user's TWAP slice orders,
-	// each linked to its parent TWAP by twap_id.
-	GetTwapSliceFills(context.Context, *connect.Request[v2.GetTwapSliceFillsRequest]) (*connect.Response[v2.GetTwapSliceFillsResponse], error)
 	// ValidateAgentKey checks whether an agent wallet is approved on Hyperliquid
 	// for the authenticated user.
 	ValidateAgentKey(context.Context, *connect.Request[v2.ValidateAgentKeyRequest]) (*connect.Response[v2.ValidateAgentKeyResponse], error)
-	// GetBuilderFeeApprovalPayload returns the typed data clients must sign to
-	// approve Oku's configured builder fee on Hyperliquid.
-	GetBuilderFeeApprovalPayload(context.Context, *connect.Request[v2.GetBuilderFeeApprovalPayloadRequest]) (*connect.Response[v2.GetBuilderFeeApprovalPayloadResponse], error)
-	// CreateApproveAgentPayload returns the EIP-712 payload the client must sign
-	// before calling ApproveAgent. The payload includes a fresh Oku-generated
-	// named agent wallet label so approvals do not use Hyperliquid's unnamed slot.
-	CreateApproveAgentPayload(context.Context, *connect.Request[v2.CreateApproveAgentPayloadRequest]) (*connect.Response[v2.CreateApproveAgentPayloadResponse], error)
-	// ApproveAgent relays a signed Hyperliquid approveAgent action through the
-	// backend so clients never call Hyperliquid directly.
-	ApproveAgent(context.Context, *connect.Request[v2.ApproveAgentRequest]) (*connect.Response[v2.ApproveAgentResponse], error)
-	// ApproveBuilderFee relays a signed Hyperliquid approveBuilderFee action.
-	// This grants Oku permission to include builder fees on future orders.
-	ApproveBuilderFee(context.Context, *connect.Request[v2.ApproveBuilderFeeRequest]) (*connect.Response[v2.ApproveBuilderFeeResponse], error)
-	// CreateSetAccountAbstractionPayload returns the typed data the user's main
-	// wallet must sign before changing Hyperliquid account mode.
-	CreateSetAccountAbstractionPayload(context.Context, *connect.Request[v2.CreateSetAccountAbstractionPayloadRequest]) (*connect.Response[v2.CreateSetAccountAbstractionPayloadResponse], error)
-	// SetAccountAbstraction relays the signed userSetAbstraction action.
-	SetAccountAbstraction(context.Context, *connect.Request[v2.SetAccountAbstractionRequest]) (*connect.Response[v2.SetAccountAbstractionResponse], error)
-	// CreateBalanceTransferPayload returns typed data for moving collateral
-	// between spot and default or supported HIP-3 perps balances.
-	CreateBalanceTransferPayload(context.Context, *connect.Request[v2.CreateBalanceTransferPayloadRequest]) (*connect.Response[v2.CreateBalanceTransferPayloadResponse], error)
-	// TransferBalance relays a signed usdClassTransfer or sendAsset action.
-	TransferBalance(context.Context, *connect.Request[v2.TransferBalanceRequest]) (*connect.Response[v2.TransferBalanceResponse], error)
-	// CreateWithdrawPayload returns the EIP-712 payload the client must sign
-	// before calling Withdraw. Withdrawals require the user's wallet signature;
-	// approved agents cannot withdraw funds.
-	CreateWithdrawPayload(context.Context, *connect.Request[v2.CreateWithdrawPayloadRequest]) (*connect.Response[v2.CreateWithdrawPayloadResponse], error)
-	// Withdraw relays a signed Hyperliquid withdraw3 action through the backend.
-	Withdraw(context.Context, *connect.Request[v2.WithdrawRequest]) (*connect.Response[v2.WithdrawResponse], error)
-	// GetTradeEstimate previews a trade: estimated fill price, margin required, max size.
-	GetTradeEstimate(context.Context, *connect.Request[v2.GetTradeEstimateRequest]) (*connect.Response[v2.GetTradeEstimateResponse], error)
-	// GetUserFeeRates returns effective protocol and builder fee rates for a user and market.
-	GetUserFeeRates(context.Context, *connect.Request[v2.GetUserFeeRatesRequest]) (*connect.Response[v2.GetUserFeeRatesResponse], error)
-	// GetUserFeeSchedule returns Hyperliquid's fee schedule (base rates, VIP and
-	// market-maker tiers, discount tables) plus the user's effective rates. The
-	// JSON shape mirrors Hyperliquid's native {"type":"userFees"} response.
-	GetUserFeeSchedule(context.Context, *connect.Request[v2.GetUserFeeScheduleRequest]) (*connect.Response[v2.GetUserFeeScheduleResponse], error)
-	// GetTradeHistory returns the user's persisted trade/fill history.
-	GetTradeHistory(context.Context, *connect.Request[v2.GetTradeHistoryRequest]) (*connect.Response[v2.GetTradeHistoryResponse], error)
 	// GetUserFills returns the user's most recent fills live from Hyperliquid (userFills), newest first.
 	GetUserFills(context.Context, *connect.Request[v2.GetUserFillsRequest]) (*connect.Response[v2.GetUserFillsResponse], error)
-	// GetFundingHistory returns the user's funding payment history.
-	GetFundingHistory(context.Context, *connect.Request[v2.GetFundingHistoryRequest]) (*connect.Response[v2.GetFundingHistoryResponse], error)
-	// GetOrderHistory returns the user's historical orders.
-	GetOrderHistory(context.Context, *connect.Request[v2.GetOrderHistoryRequest]) (*connect.Response[v2.GetOrderHistoryResponse], error)
-	// GetDepositWithdrawHistory returns the user's USDC deposits and withdrawals.
-	GetDepositWithdrawHistory(context.Context, *connect.Request[v2.GetDepositWithdrawHistoryRequest]) (*connect.Response[v2.GetDepositWithdrawHistoryResponse], error)
-	// GetHyperliquidOrderInfo returns fill-derived entry, close, size, PnL, fees,
-	// and return data for a closing Hyperliquid order. Requires authentication.
-	GetHyperliquidOrderInfo(context.Context, *connect.Request[v2.GetHyperliquidOrderInfoRequest]) (*connect.Response[v2.GetHyperliquidOrderInfoResponse], error)
-	// GeneratePnlCard renders a shareable PnL card image server-side, uploads it
-	// to CDN storage, and returns the public URL. Requires authentication; rate
-	// limited.
-	GeneratePnlCard(context.Context, *connect.Request[v2.GeneratePnlCardRequest]) (*connect.Response[v2.GeneratePnlCardResponse], error)
 	// GetDepositTokens returns tokens that can be deposited to Hyperliquid,
 	// including bridge contract details, chain info, and minimum amounts.
 	GetDepositTokens(context.Context, *connect.Request[v2.GetDepositTokensRequest]) (*connect.Response[v2.GetDepositTokensResponse], error)
-	// BuildDepositTransaction forms the ERC-20 approve and bridge deposit transactions
-	// for the native Arbitrum USDC bridge.
-	BuildDepositTransaction(context.Context, *connect.Request[v2.BuildDepositTransactionRequest]) (*connect.Response[v2.BuildDepositTransactionResponse], error)
 	// GenerateDepositAddress generates a unique deposit address via HyperUnit
 	// for depositing native assets (BTC, ETH, SOL, etc.) to Hyperliquid.
 	// The address is permanently tied to the user's HL address.
 	GenerateDepositAddress(context.Context, *connect.Request[v2.GenerateDepositAddressRequest]) (*connect.Response[v2.GenerateDepositAddressResponse], error)
-	// GetDepositOperations returns HyperUnit deposit/withdraw operations associated
-	// with a Hyperliquid address or generated deposit address.
-	GetDepositOperations(context.Context, *connect.Request[v2.GetDepositOperationsRequest]) (*connect.Response[v2.GetDepositOperationsResponse], error)
 }
 
 // NewPerpsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -1204,70 +439,16 @@ func NewPerpsServiceHandler(svc PerpsServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(perpsServiceMethods.ByName("GetMarkets")),
 		connect.WithHandlerOptions(opts...),
 	)
-	perpsServiceGetSpotMarketsHandler := connect.NewUnaryHandler(
-		PerpsServiceGetSpotMarketsProcedure,
-		svc.GetSpotMarkets,
-		connect.WithSchema(perpsServiceMethods.ByName("GetSpotMarkets")),
-		connect.WithHandlerOptions(opts...),
-	)
 	perpsServiceGetMarketPriceHandler := connect.NewUnaryHandler(
 		PerpsServiceGetMarketPriceProcedure,
 		svc.GetMarketPrice,
 		connect.WithSchema(perpsServiceMethods.ByName("GetMarketPrice")),
 		connect.WithHandlerOptions(opts...),
 	)
-	perpsServiceGetOrderbookHandler := connect.NewUnaryHandler(
-		PerpsServiceGetOrderbookProcedure,
-		svc.GetOrderbook,
-		connect.WithSchema(perpsServiceMethods.ByName("GetOrderbook")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetOrderbookAggregationOptionsHandler := connect.NewUnaryHandler(
-		PerpsServiceGetOrderbookAggregationOptionsProcedure,
-		svc.GetOrderbookAggregationOptions,
-		connect.WithSchema(perpsServiceMethods.ByName("GetOrderbookAggregationOptions")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetCandlesHandler := connect.NewUnaryHandler(
-		PerpsServiceGetCandlesProcedure,
-		svc.GetCandles,
-		connect.WithSchema(perpsServiceMethods.ByName("GetCandles")),
-		connect.WithHandlerOptions(opts...),
-	)
 	perpsServiceGetMarketFundingHistoryHandler := connect.NewUnaryHandler(
 		PerpsServiceGetMarketFundingHistoryProcedure,
 		svc.GetMarketFundingHistory,
 		connect.WithSchema(perpsServiceMethods.ByName("GetMarketFundingHistory")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceStreamOrderbookHandler := connect.NewServerStreamHandler(
-		PerpsServiceStreamOrderbookProcedure,
-		svc.StreamOrderbook,
-		connect.WithSchema(perpsServiceMethods.ByName("StreamOrderbook")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceStreamCandlesHandler := connect.NewServerStreamHandler(
-		PerpsServiceStreamCandlesProcedure,
-		svc.StreamCandles,
-		connect.WithSchema(perpsServiceMethods.ByName("StreamCandles")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceStreamTradesHandler := connect.NewServerStreamHandler(
-		PerpsServiceStreamTradesProcedure,
-		svc.StreamTrades,
-		connect.WithSchema(perpsServiceMethods.ByName("StreamTrades")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceStreamAssetContextHandler := connect.NewServerStreamHandler(
-		PerpsServiceStreamAssetContextProcedure,
-		svc.StreamAssetContext,
-		connect.WithSchema(perpsServiceMethods.ByName("StreamAssetContext")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetAccountStateHandler := connect.NewUnaryHandler(
-		PerpsServiceGetAccountStateProcedure,
-		svc.GetAccountState,
-		connect.WithSchema(perpsServiceMethods.ByName("GetAccountState")),
 		connect.WithHandlerOptions(opts...),
 	)
 	perpsServiceGetPerpPositionsHandler := connect.NewUnaryHandler(
@@ -1288,22 +469,10 @@ func NewPerpsServiceHandler(svc PerpsServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(perpsServiceMethods.ByName("GetAccountBalances")),
 		connect.WithHandlerOptions(opts...),
 	)
-	perpsServiceGetAccountModeHandler := connect.NewUnaryHandler(
-		PerpsServiceGetAccountModeProcedure,
-		svc.GetAccountMode,
-		connect.WithSchema(perpsServiceMethods.ByName("GetAccountMode")),
-		connect.WithHandlerOptions(opts...),
-	)
 	perpsServiceGetBuilderFeeStatusHandler := connect.NewUnaryHandler(
 		PerpsServiceGetBuilderFeeStatusProcedure,
 		svc.GetBuilderFeeStatus,
 		connect.WithSchema(perpsServiceMethods.ByName("GetBuilderFeeStatus")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetActiveAssetDataHandler := connect.NewUnaryHandler(
-		PerpsServiceGetActiveAssetDataProcedure,
-		svc.GetActiveAssetData,
-		connect.WithSchema(perpsServiceMethods.ByName("GetActiveAssetData")),
 		connect.WithHandlerOptions(opts...),
 	)
 	perpsServiceGetPerpsPnlSummaryHandler := connect.NewUnaryHandler(
@@ -1316,12 +485,6 @@ func NewPerpsServiceHandler(svc PerpsServiceHandler, opts ...connect.HandlerOpti
 		PerpsServiceCreateActionProcedure,
 		svc.CreateAction,
 		connect.WithSchema(perpsServiceMethods.ByName("CreateAction")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceUpdateActionHandler := connect.NewUnaryHandler(
-		PerpsServiceUpdateActionProcedure,
-		svc.UpdateAction,
-		connect.WithSchema(perpsServiceMethods.ByName("UpdateAction")),
 		connect.WithHandlerOptions(opts...),
 	)
 	perpsServiceConfirmActionHandler := connect.NewUnaryHandler(
@@ -1348,118 +511,10 @@ func NewPerpsServiceHandler(svc PerpsServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(perpsServiceMethods.ByName("ReconcileActions")),
 		connect.WithHandlerOptions(opts...),
 	)
-	perpsServiceGetOrderStatusesHandler := connect.NewUnaryHandler(
-		PerpsServiceGetOrderStatusesProcedure,
-		svc.GetOrderStatuses,
-		connect.WithSchema(perpsServiceMethods.ByName("GetOrderStatuses")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetActiveTwapsHandler := connect.NewUnaryHandler(
-		PerpsServiceGetActiveTwapsProcedure,
-		svc.GetActiveTwaps,
-		connect.WithSchema(perpsServiceMethods.ByName("GetActiveTwaps")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetTwapHistoryHandler := connect.NewUnaryHandler(
-		PerpsServiceGetTwapHistoryProcedure,
-		svc.GetTwapHistory,
-		connect.WithSchema(perpsServiceMethods.ByName("GetTwapHistory")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetTwapSliceFillsHandler := connect.NewUnaryHandler(
-		PerpsServiceGetTwapSliceFillsProcedure,
-		svc.GetTwapSliceFills,
-		connect.WithSchema(perpsServiceMethods.ByName("GetTwapSliceFills")),
-		connect.WithHandlerOptions(opts...),
-	)
 	perpsServiceValidateAgentKeyHandler := connect.NewUnaryHandler(
 		PerpsServiceValidateAgentKeyProcedure,
 		svc.ValidateAgentKey,
 		connect.WithSchema(perpsServiceMethods.ByName("ValidateAgentKey")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetBuilderFeeApprovalPayloadHandler := connect.NewUnaryHandler(
-		PerpsServiceGetBuilderFeeApprovalPayloadProcedure,
-		svc.GetBuilderFeeApprovalPayload,
-		connect.WithSchema(perpsServiceMethods.ByName("GetBuilderFeeApprovalPayload")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceCreateApproveAgentPayloadHandler := connect.NewUnaryHandler(
-		PerpsServiceCreateApproveAgentPayloadProcedure,
-		svc.CreateApproveAgentPayload,
-		connect.WithSchema(perpsServiceMethods.ByName("CreateApproveAgentPayload")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceApproveAgentHandler := connect.NewUnaryHandler(
-		PerpsServiceApproveAgentProcedure,
-		svc.ApproveAgent,
-		connect.WithSchema(perpsServiceMethods.ByName("ApproveAgent")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceApproveBuilderFeeHandler := connect.NewUnaryHandler(
-		PerpsServiceApproveBuilderFeeProcedure,
-		svc.ApproveBuilderFee,
-		connect.WithSchema(perpsServiceMethods.ByName("ApproveBuilderFee")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceCreateSetAccountAbstractionPayloadHandler := connect.NewUnaryHandler(
-		PerpsServiceCreateSetAccountAbstractionPayloadProcedure,
-		svc.CreateSetAccountAbstractionPayload,
-		connect.WithSchema(perpsServiceMethods.ByName("CreateSetAccountAbstractionPayload")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceSetAccountAbstractionHandler := connect.NewUnaryHandler(
-		PerpsServiceSetAccountAbstractionProcedure,
-		svc.SetAccountAbstraction,
-		connect.WithSchema(perpsServiceMethods.ByName("SetAccountAbstraction")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceCreateBalanceTransferPayloadHandler := connect.NewUnaryHandler(
-		PerpsServiceCreateBalanceTransferPayloadProcedure,
-		svc.CreateBalanceTransferPayload,
-		connect.WithSchema(perpsServiceMethods.ByName("CreateBalanceTransferPayload")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceTransferBalanceHandler := connect.NewUnaryHandler(
-		PerpsServiceTransferBalanceProcedure,
-		svc.TransferBalance,
-		connect.WithSchema(perpsServiceMethods.ByName("TransferBalance")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceCreateWithdrawPayloadHandler := connect.NewUnaryHandler(
-		PerpsServiceCreateWithdrawPayloadProcedure,
-		svc.CreateWithdrawPayload,
-		connect.WithSchema(perpsServiceMethods.ByName("CreateWithdrawPayload")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceWithdrawHandler := connect.NewUnaryHandler(
-		PerpsServiceWithdrawProcedure,
-		svc.Withdraw,
-		connect.WithSchema(perpsServiceMethods.ByName("Withdraw")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetTradeEstimateHandler := connect.NewUnaryHandler(
-		PerpsServiceGetTradeEstimateProcedure,
-		svc.GetTradeEstimate,
-		connect.WithSchema(perpsServiceMethods.ByName("GetTradeEstimate")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetUserFeeRatesHandler := connect.NewUnaryHandler(
-		PerpsServiceGetUserFeeRatesProcedure,
-		svc.GetUserFeeRates,
-		connect.WithSchema(perpsServiceMethods.ByName("GetUserFeeRates")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetUserFeeScheduleHandler := connect.NewUnaryHandler(
-		PerpsServiceGetUserFeeScheduleProcedure,
-		svc.GetUserFeeSchedule,
-		connect.WithSchema(perpsServiceMethods.ByName("GetUserFeeSchedule")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetTradeHistoryHandler := connect.NewUnaryHandler(
-		PerpsServiceGetTradeHistoryProcedure,
-		svc.GetTradeHistory,
-		connect.WithSchema(perpsServiceMethods.ByName("GetTradeHistory")),
 		connect.WithHandlerOptions(opts...),
 	)
 	perpsServiceGetUserFillsHandler := connect.NewUnaryHandler(
@@ -1468,46 +523,10 @@ func NewPerpsServiceHandler(svc PerpsServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(perpsServiceMethods.ByName("GetUserFills")),
 		connect.WithHandlerOptions(opts...),
 	)
-	perpsServiceGetFundingHistoryHandler := connect.NewUnaryHandler(
-		PerpsServiceGetFundingHistoryProcedure,
-		svc.GetFundingHistory,
-		connect.WithSchema(perpsServiceMethods.ByName("GetFundingHistory")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetOrderHistoryHandler := connect.NewUnaryHandler(
-		PerpsServiceGetOrderHistoryProcedure,
-		svc.GetOrderHistory,
-		connect.WithSchema(perpsServiceMethods.ByName("GetOrderHistory")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetDepositWithdrawHistoryHandler := connect.NewUnaryHandler(
-		PerpsServiceGetDepositWithdrawHistoryProcedure,
-		svc.GetDepositWithdrawHistory,
-		connect.WithSchema(perpsServiceMethods.ByName("GetDepositWithdrawHistory")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGetHyperliquidOrderInfoHandler := connect.NewUnaryHandler(
-		PerpsServiceGetHyperliquidOrderInfoProcedure,
-		svc.GetHyperliquidOrderInfo,
-		connect.WithSchema(perpsServiceMethods.ByName("GetHyperliquidOrderInfo")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceGeneratePnlCardHandler := connect.NewUnaryHandler(
-		PerpsServiceGeneratePnlCardProcedure,
-		svc.GeneratePnlCard,
-		connect.WithSchema(perpsServiceMethods.ByName("GeneratePnlCard")),
-		connect.WithHandlerOptions(opts...),
-	)
 	perpsServiceGetDepositTokensHandler := connect.NewUnaryHandler(
 		PerpsServiceGetDepositTokensProcedure,
 		svc.GetDepositTokens,
 		connect.WithSchema(perpsServiceMethods.ByName("GetDepositTokens")),
-		connect.WithHandlerOptions(opts...),
-	)
-	perpsServiceBuildDepositTransactionHandler := connect.NewUnaryHandler(
-		PerpsServiceBuildDepositTransactionProcedure,
-		svc.BuildDepositTransaction,
-		connect.WithSchema(perpsServiceMethods.ByName("BuildDepositTransaction")),
 		connect.WithHandlerOptions(opts...),
 	)
 	perpsServiceGenerateDepositAddressHandler := connect.NewUnaryHandler(
@@ -1516,56 +535,26 @@ func NewPerpsServiceHandler(svc PerpsServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(perpsServiceMethods.ByName("GenerateDepositAddress")),
 		connect.WithHandlerOptions(opts...),
 	)
-	perpsServiceGetDepositOperationsHandler := connect.NewUnaryHandler(
-		PerpsServiceGetDepositOperationsProcedure,
-		svc.GetDepositOperations,
-		connect.WithSchema(perpsServiceMethods.ByName("GetDepositOperations")),
-		connect.WithHandlerOptions(opts...),
-	)
 	return "/gfxcafe.oku.account.v2.PerpsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PerpsServiceGetMarketsProcedure:
 			perpsServiceGetMarketsHandler.ServeHTTP(w, r)
-		case PerpsServiceGetSpotMarketsProcedure:
-			perpsServiceGetSpotMarketsHandler.ServeHTTP(w, r)
 		case PerpsServiceGetMarketPriceProcedure:
 			perpsServiceGetMarketPriceHandler.ServeHTTP(w, r)
-		case PerpsServiceGetOrderbookProcedure:
-			perpsServiceGetOrderbookHandler.ServeHTTP(w, r)
-		case PerpsServiceGetOrderbookAggregationOptionsProcedure:
-			perpsServiceGetOrderbookAggregationOptionsHandler.ServeHTTP(w, r)
-		case PerpsServiceGetCandlesProcedure:
-			perpsServiceGetCandlesHandler.ServeHTTP(w, r)
 		case PerpsServiceGetMarketFundingHistoryProcedure:
 			perpsServiceGetMarketFundingHistoryHandler.ServeHTTP(w, r)
-		case PerpsServiceStreamOrderbookProcedure:
-			perpsServiceStreamOrderbookHandler.ServeHTTP(w, r)
-		case PerpsServiceStreamCandlesProcedure:
-			perpsServiceStreamCandlesHandler.ServeHTTP(w, r)
-		case PerpsServiceStreamTradesProcedure:
-			perpsServiceStreamTradesHandler.ServeHTTP(w, r)
-		case PerpsServiceStreamAssetContextProcedure:
-			perpsServiceStreamAssetContextHandler.ServeHTTP(w, r)
-		case PerpsServiceGetAccountStateProcedure:
-			perpsServiceGetAccountStateHandler.ServeHTTP(w, r)
 		case PerpsServiceGetPerpPositionsProcedure:
 			perpsServiceGetPerpPositionsHandler.ServeHTTP(w, r)
 		case PerpsServiceGetOpenOrdersProcedure:
 			perpsServiceGetOpenOrdersHandler.ServeHTTP(w, r)
 		case PerpsServiceGetAccountBalancesProcedure:
 			perpsServiceGetAccountBalancesHandler.ServeHTTP(w, r)
-		case PerpsServiceGetAccountModeProcedure:
-			perpsServiceGetAccountModeHandler.ServeHTTP(w, r)
 		case PerpsServiceGetBuilderFeeStatusProcedure:
 			perpsServiceGetBuilderFeeStatusHandler.ServeHTTP(w, r)
-		case PerpsServiceGetActiveAssetDataProcedure:
-			perpsServiceGetActiveAssetDataHandler.ServeHTTP(w, r)
 		case PerpsServiceGetPerpsPnlSummaryProcedure:
 			perpsServiceGetPerpsPnlSummaryHandler.ServeHTTP(w, r)
 		case PerpsServiceCreateActionProcedure:
 			perpsServiceCreateActionHandler.ServeHTTP(w, r)
-		case PerpsServiceUpdateActionProcedure:
-			perpsServiceUpdateActionHandler.ServeHTTP(w, r)
 		case PerpsServiceConfirmActionProcedure:
 			perpsServiceConfirmActionHandler.ServeHTTP(w, r)
 		case PerpsServiceCancelActionProcedure:
@@ -1574,64 +563,14 @@ func NewPerpsServiceHandler(svc PerpsServiceHandler, opts ...connect.HandlerOpti
 			perpsServiceGetActionHandler.ServeHTTP(w, r)
 		case PerpsServiceReconcileActionsProcedure:
 			perpsServiceReconcileActionsHandler.ServeHTTP(w, r)
-		case PerpsServiceGetOrderStatusesProcedure:
-			perpsServiceGetOrderStatusesHandler.ServeHTTP(w, r)
-		case PerpsServiceGetActiveTwapsProcedure:
-			perpsServiceGetActiveTwapsHandler.ServeHTTP(w, r)
-		case PerpsServiceGetTwapHistoryProcedure:
-			perpsServiceGetTwapHistoryHandler.ServeHTTP(w, r)
-		case PerpsServiceGetTwapSliceFillsProcedure:
-			perpsServiceGetTwapSliceFillsHandler.ServeHTTP(w, r)
 		case PerpsServiceValidateAgentKeyProcedure:
 			perpsServiceValidateAgentKeyHandler.ServeHTTP(w, r)
-		case PerpsServiceGetBuilderFeeApprovalPayloadProcedure:
-			perpsServiceGetBuilderFeeApprovalPayloadHandler.ServeHTTP(w, r)
-		case PerpsServiceCreateApproveAgentPayloadProcedure:
-			perpsServiceCreateApproveAgentPayloadHandler.ServeHTTP(w, r)
-		case PerpsServiceApproveAgentProcedure:
-			perpsServiceApproveAgentHandler.ServeHTTP(w, r)
-		case PerpsServiceApproveBuilderFeeProcedure:
-			perpsServiceApproveBuilderFeeHandler.ServeHTTP(w, r)
-		case PerpsServiceCreateSetAccountAbstractionPayloadProcedure:
-			perpsServiceCreateSetAccountAbstractionPayloadHandler.ServeHTTP(w, r)
-		case PerpsServiceSetAccountAbstractionProcedure:
-			perpsServiceSetAccountAbstractionHandler.ServeHTTP(w, r)
-		case PerpsServiceCreateBalanceTransferPayloadProcedure:
-			perpsServiceCreateBalanceTransferPayloadHandler.ServeHTTP(w, r)
-		case PerpsServiceTransferBalanceProcedure:
-			perpsServiceTransferBalanceHandler.ServeHTTP(w, r)
-		case PerpsServiceCreateWithdrawPayloadProcedure:
-			perpsServiceCreateWithdrawPayloadHandler.ServeHTTP(w, r)
-		case PerpsServiceWithdrawProcedure:
-			perpsServiceWithdrawHandler.ServeHTTP(w, r)
-		case PerpsServiceGetTradeEstimateProcedure:
-			perpsServiceGetTradeEstimateHandler.ServeHTTP(w, r)
-		case PerpsServiceGetUserFeeRatesProcedure:
-			perpsServiceGetUserFeeRatesHandler.ServeHTTP(w, r)
-		case PerpsServiceGetUserFeeScheduleProcedure:
-			perpsServiceGetUserFeeScheduleHandler.ServeHTTP(w, r)
-		case PerpsServiceGetTradeHistoryProcedure:
-			perpsServiceGetTradeHistoryHandler.ServeHTTP(w, r)
 		case PerpsServiceGetUserFillsProcedure:
 			perpsServiceGetUserFillsHandler.ServeHTTP(w, r)
-		case PerpsServiceGetFundingHistoryProcedure:
-			perpsServiceGetFundingHistoryHandler.ServeHTTP(w, r)
-		case PerpsServiceGetOrderHistoryProcedure:
-			perpsServiceGetOrderHistoryHandler.ServeHTTP(w, r)
-		case PerpsServiceGetDepositWithdrawHistoryProcedure:
-			perpsServiceGetDepositWithdrawHistoryHandler.ServeHTTP(w, r)
-		case PerpsServiceGetHyperliquidOrderInfoProcedure:
-			perpsServiceGetHyperliquidOrderInfoHandler.ServeHTTP(w, r)
-		case PerpsServiceGeneratePnlCardProcedure:
-			perpsServiceGeneratePnlCardHandler.ServeHTTP(w, r)
 		case PerpsServiceGetDepositTokensProcedure:
 			perpsServiceGetDepositTokensHandler.ServeHTTP(w, r)
-		case PerpsServiceBuildDepositTransactionProcedure:
-			perpsServiceBuildDepositTransactionHandler.ServeHTTP(w, r)
 		case PerpsServiceGenerateDepositAddressProcedure:
 			perpsServiceGenerateDepositAddressHandler.ServeHTTP(w, r)
-		case PerpsServiceGetDepositOperationsProcedure:
-			perpsServiceGetDepositOperationsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1645,48 +584,12 @@ func (UnimplementedPerpsServiceHandler) GetMarkets(context.Context, *connect.Req
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetMarkets is not implemented"))
 }
 
-func (UnimplementedPerpsServiceHandler) GetSpotMarkets(context.Context, *connect.Request[v2.GetSpotMarketsRequest]) (*connect.Response[v2.GetSpotMarketsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetSpotMarkets is not implemented"))
-}
-
 func (UnimplementedPerpsServiceHandler) GetMarketPrice(context.Context, *connect.Request[v2.GetMarketPriceRequest]) (*connect.Response[v2.GetMarketPriceResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetMarketPrice is not implemented"))
 }
 
-func (UnimplementedPerpsServiceHandler) GetOrderbook(context.Context, *connect.Request[v2.GetOrderbookRequest]) (*connect.Response[v2.GetOrderbookResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetOrderbook is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetOrderbookAggregationOptions(context.Context, *connect.Request[v2.GetOrderbookAggregationOptionsRequest]) (*connect.Response[v2.GetOrderbookAggregationOptionsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetOrderbookAggregationOptions is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetCandles(context.Context, *connect.Request[v2.GetCandlesRequest]) (*connect.Response[v2.GetCandlesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetCandles is not implemented"))
-}
-
 func (UnimplementedPerpsServiceHandler) GetMarketFundingHistory(context.Context, *connect.Request[v2.GetMarketFundingHistoryRequest]) (*connect.Response[v2.GetMarketFundingHistoryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetMarketFundingHistory is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) StreamOrderbook(context.Context, *connect.Request[v2.StreamOrderbookRequest], *connect.ServerStream[v2.OrderbookUpdate]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.StreamOrderbook is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) StreamCandles(context.Context, *connect.Request[v2.StreamCandlesRequest], *connect.ServerStream[v2.CandleUpdate]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.StreamCandles is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) StreamTrades(context.Context, *connect.Request[v2.StreamTradesRequest], *connect.ServerStream[v2.TradeUpdate]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.StreamTrades is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) StreamAssetContext(context.Context, *connect.Request[v2.StreamAssetContextRequest], *connect.ServerStream[v2.AssetContextUpdate]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.StreamAssetContext is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetAccountState(context.Context, *connect.Request[v2.GetAccountStateRequest]) (*connect.Response[v2.GetAccountStateResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetAccountState is not implemented"))
 }
 
 func (UnimplementedPerpsServiceHandler) GetPerpPositions(context.Context, *connect.Request[v2.GetPerpPositionsRequest]) (*connect.Response[v2.GetPerpPositionsResponse], error) {
@@ -1701,16 +604,8 @@ func (UnimplementedPerpsServiceHandler) GetAccountBalances(context.Context, *con
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetAccountBalances is not implemented"))
 }
 
-func (UnimplementedPerpsServiceHandler) GetAccountMode(context.Context, *connect.Request[v2.GetAccountModeRequest]) (*connect.Response[v2.GetAccountModeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetAccountMode is not implemented"))
-}
-
 func (UnimplementedPerpsServiceHandler) GetBuilderFeeStatus(context.Context, *connect.Request[v2.GetBuilderFeeStatusRequest]) (*connect.Response[v2.GetBuilderFeeStatusResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetBuilderFeeStatus is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetActiveAssetData(context.Context, *connect.Request[v2.GetActiveAssetDataRequest]) (*connect.Response[v2.GetActiveAssetDataResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetActiveAssetData is not implemented"))
 }
 
 func (UnimplementedPerpsServiceHandler) GetPerpsPnlSummary(context.Context, *connect.Request[v2.GetPerpsPnlSummaryRequest]) (*connect.Response[v2.GetPerpsPnlSummaryResponse], error) {
@@ -1719,10 +614,6 @@ func (UnimplementedPerpsServiceHandler) GetPerpsPnlSummary(context.Context, *con
 
 func (UnimplementedPerpsServiceHandler) CreateAction(context.Context, *connect.Request[v2.CreateActionRequest]) (*connect.Response[v2.ActionPayloadResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.CreateAction is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) UpdateAction(context.Context, *connect.Request[v2.UpdateActionRequest]) (*connect.Response[v2.ActionPayloadResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.UpdateAction is not implemented"))
 }
 
 func (UnimplementedPerpsServiceHandler) ConfirmAction(context.Context, *connect.Request[v2.ConfirmActionRequest]) (*connect.Response[v2.ConfirmActionResponse], error) {
@@ -1741,118 +632,18 @@ func (UnimplementedPerpsServiceHandler) ReconcileActions(context.Context, *conne
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.ReconcileActions is not implemented"))
 }
 
-func (UnimplementedPerpsServiceHandler) GetOrderStatuses(context.Context, *connect.Request[v2.GetOrderStatusesRequest]) (*connect.Response[v2.GetOrderStatusesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetOrderStatuses is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetActiveTwaps(context.Context, *connect.Request[v2.GetActiveTwapsRequest]) (*connect.Response[v2.GetActiveTwapsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetActiveTwaps is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetTwapHistory(context.Context, *connect.Request[v2.GetTwapHistoryRequest]) (*connect.Response[v2.GetTwapHistoryResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetTwapHistory is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetTwapSliceFills(context.Context, *connect.Request[v2.GetTwapSliceFillsRequest]) (*connect.Response[v2.GetTwapSliceFillsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetTwapSliceFills is not implemented"))
-}
-
 func (UnimplementedPerpsServiceHandler) ValidateAgentKey(context.Context, *connect.Request[v2.ValidateAgentKeyRequest]) (*connect.Response[v2.ValidateAgentKeyResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.ValidateAgentKey is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetBuilderFeeApprovalPayload(context.Context, *connect.Request[v2.GetBuilderFeeApprovalPayloadRequest]) (*connect.Response[v2.GetBuilderFeeApprovalPayloadResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetBuilderFeeApprovalPayload is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) CreateApproveAgentPayload(context.Context, *connect.Request[v2.CreateApproveAgentPayloadRequest]) (*connect.Response[v2.CreateApproveAgentPayloadResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.CreateApproveAgentPayload is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) ApproveAgent(context.Context, *connect.Request[v2.ApproveAgentRequest]) (*connect.Response[v2.ApproveAgentResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.ApproveAgent is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) ApproveBuilderFee(context.Context, *connect.Request[v2.ApproveBuilderFeeRequest]) (*connect.Response[v2.ApproveBuilderFeeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.ApproveBuilderFee is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) CreateSetAccountAbstractionPayload(context.Context, *connect.Request[v2.CreateSetAccountAbstractionPayloadRequest]) (*connect.Response[v2.CreateSetAccountAbstractionPayloadResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.CreateSetAccountAbstractionPayload is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) SetAccountAbstraction(context.Context, *connect.Request[v2.SetAccountAbstractionRequest]) (*connect.Response[v2.SetAccountAbstractionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.SetAccountAbstraction is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) CreateBalanceTransferPayload(context.Context, *connect.Request[v2.CreateBalanceTransferPayloadRequest]) (*connect.Response[v2.CreateBalanceTransferPayloadResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.CreateBalanceTransferPayload is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) TransferBalance(context.Context, *connect.Request[v2.TransferBalanceRequest]) (*connect.Response[v2.TransferBalanceResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.TransferBalance is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) CreateWithdrawPayload(context.Context, *connect.Request[v2.CreateWithdrawPayloadRequest]) (*connect.Response[v2.CreateWithdrawPayloadResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.CreateWithdrawPayload is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) Withdraw(context.Context, *connect.Request[v2.WithdrawRequest]) (*connect.Response[v2.WithdrawResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.Withdraw is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetTradeEstimate(context.Context, *connect.Request[v2.GetTradeEstimateRequest]) (*connect.Response[v2.GetTradeEstimateResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetTradeEstimate is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetUserFeeRates(context.Context, *connect.Request[v2.GetUserFeeRatesRequest]) (*connect.Response[v2.GetUserFeeRatesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetUserFeeRates is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetUserFeeSchedule(context.Context, *connect.Request[v2.GetUserFeeScheduleRequest]) (*connect.Response[v2.GetUserFeeScheduleResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetUserFeeSchedule is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetTradeHistory(context.Context, *connect.Request[v2.GetTradeHistoryRequest]) (*connect.Response[v2.GetTradeHistoryResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetTradeHistory is not implemented"))
 }
 
 func (UnimplementedPerpsServiceHandler) GetUserFills(context.Context, *connect.Request[v2.GetUserFillsRequest]) (*connect.Response[v2.GetUserFillsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetUserFills is not implemented"))
 }
 
-func (UnimplementedPerpsServiceHandler) GetFundingHistory(context.Context, *connect.Request[v2.GetFundingHistoryRequest]) (*connect.Response[v2.GetFundingHistoryResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetFundingHistory is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetOrderHistory(context.Context, *connect.Request[v2.GetOrderHistoryRequest]) (*connect.Response[v2.GetOrderHistoryResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetOrderHistory is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetDepositWithdrawHistory(context.Context, *connect.Request[v2.GetDepositWithdrawHistoryRequest]) (*connect.Response[v2.GetDepositWithdrawHistoryResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetDepositWithdrawHistory is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetHyperliquidOrderInfo(context.Context, *connect.Request[v2.GetHyperliquidOrderInfoRequest]) (*connect.Response[v2.GetHyperliquidOrderInfoResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetHyperliquidOrderInfo is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GeneratePnlCard(context.Context, *connect.Request[v2.GeneratePnlCardRequest]) (*connect.Response[v2.GeneratePnlCardResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GeneratePnlCard is not implemented"))
-}
-
 func (UnimplementedPerpsServiceHandler) GetDepositTokens(context.Context, *connect.Request[v2.GetDepositTokensRequest]) (*connect.Response[v2.GetDepositTokensResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetDepositTokens is not implemented"))
 }
 
-func (UnimplementedPerpsServiceHandler) BuildDepositTransaction(context.Context, *connect.Request[v2.BuildDepositTransactionRequest]) (*connect.Response[v2.BuildDepositTransactionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.BuildDepositTransaction is not implemented"))
-}
-
 func (UnimplementedPerpsServiceHandler) GenerateDepositAddress(context.Context, *connect.Request[v2.GenerateDepositAddressRequest]) (*connect.Response[v2.GenerateDepositAddressResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GenerateDepositAddress is not implemented"))
-}
-
-func (UnimplementedPerpsServiceHandler) GetDepositOperations(context.Context, *connect.Request[v2.GetDepositOperationsRequest]) (*connect.Response[v2.GetDepositOperationsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetDepositOperations is not implemented"))
 }

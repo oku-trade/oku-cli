@@ -20,12 +20,8 @@ const NetworkMainnet = "mainnet"
 
 // DefaultAPIURL is the production Oku account API origin. It applies only to
 // fresh profiles created without --api-url and to profile-less commands;
-// existing profiles keep the api_url they stored. Staging is opt-in with
-// StagingAPIURL (--api-url or a staging profile).
+// existing profiles keep the api_url they stored. --api-url accepts a custom origin.
 const DefaultAPIURL = "https://accounts.icarus.tools"
-
-// StagingAPIURL is the staging account API origin.
-const StagingAPIURL = "https://accounts.staging.invalid"
 
 var (
 	addressRE = regexp.MustCompile(`^0x[0-9a-fA-F]{40}$`)

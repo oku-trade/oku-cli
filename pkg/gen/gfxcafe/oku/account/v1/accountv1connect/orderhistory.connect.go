@@ -36,20 +36,12 @@ const (
 	// OrderHistoryServiceHistoryProcedure is the fully-qualified name of the OrderHistoryService's
 	// History RPC.
 	OrderHistoryServiceHistoryProcedure = "/gfxcafe.oku.account.v1.OrderHistoryService/History"
-	// OrderHistoryServiceGetOrderProcedure is the fully-qualified name of the OrderHistoryService's
-	// GetOrder RPC.
-	OrderHistoryServiceGetOrderProcedure = "/gfxcafe.oku.account.v1.OrderHistoryService/GetOrder"
 )
 
 // OrderHistoryServiceClient is a client for the gfxcafe.oku.account.v1.OrderHistoryService service.
 type OrderHistoryServiceClient interface {
 	// Get order history for addresses (/orders/history)
 	History(context.Context, *connect.Request[v1.OrderHistoryRequest]) (*connect.Response[v1.OrderHistoryResponse], error)
-	// Read live status for one market intent order by internal UUID and wallet address.
-	// Non-intent and bridge orders return FAILED_PRECONDITION. No history scan.
-	// Like History, this is a public address-scoped read, not proof of wallet ownership.
-	// Missing orders and wallet mismatches both return NOT_FOUND.
-	GetOrder(context.Context, *connect.Request[v1.GetOrderRequest]) (*connect.Response[v1.GetOrderResponse], error)
 }
 
 // NewOrderHistoryServiceClient constructs a client for the
@@ -69,19 +61,12 @@ func NewOrderHistoryServiceClient(httpClient connect.HTTPClient, baseURL string,
 			connect.WithSchema(orderHistoryServiceMethods.ByName("History")),
 			connect.WithClientOptions(opts...),
 		),
-		getOrder: connect.NewClient[v1.GetOrderRequest, v1.GetOrderResponse](
-			httpClient,
-			baseURL+OrderHistoryServiceGetOrderProcedure,
-			connect.WithSchema(orderHistoryServiceMethods.ByName("GetOrder")),
-			connect.WithClientOptions(opts...),
-		),
 	}
 }
 
 // orderHistoryServiceClient implements OrderHistoryServiceClient.
 type orderHistoryServiceClient struct {
-	history  *connect.Client[v1.OrderHistoryRequest, v1.OrderHistoryResponse]
-	getOrder *connect.Client[v1.GetOrderRequest, v1.GetOrderResponse]
+	history *connect.Client[v1.OrderHistoryRequest, v1.OrderHistoryResponse]
 }
 
 // History calls gfxcafe.oku.account.v1.OrderHistoryService.History.
@@ -89,21 +74,11 @@ func (c *orderHistoryServiceClient) History(ctx context.Context, req *connect.Re
 	return c.history.CallUnary(ctx, req)
 }
 
-// GetOrder calls gfxcafe.oku.account.v1.OrderHistoryService.GetOrder.
-func (c *orderHistoryServiceClient) GetOrder(ctx context.Context, req *connect.Request[v1.GetOrderRequest]) (*connect.Response[v1.GetOrderResponse], error) {
-	return c.getOrder.CallUnary(ctx, req)
-}
-
 // OrderHistoryServiceHandler is an implementation of the gfxcafe.oku.account.v1.OrderHistoryService
 // service.
 type OrderHistoryServiceHandler interface {
 	// Get order history for addresses (/orders/history)
 	History(context.Context, *connect.Request[v1.OrderHistoryRequest]) (*connect.Response[v1.OrderHistoryResponse], error)
-	// Read live status for one market intent order by internal UUID and wallet address.
-	// Non-intent and bridge orders return FAILED_PRECONDITION. No history scan.
-	// Like History, this is a public address-scoped read, not proof of wallet ownership.
-	// Missing orders and wallet mismatches both return NOT_FOUND.
-	GetOrder(context.Context, *connect.Request[v1.GetOrderRequest]) (*connect.Response[v1.GetOrderResponse], error)
 }
 
 // NewOrderHistoryServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -119,18 +94,10 @@ func NewOrderHistoryServiceHandler(svc OrderHistoryServiceHandler, opts ...conne
 		connect.WithSchema(orderHistoryServiceMethods.ByName("History")),
 		connect.WithHandlerOptions(opts...),
 	)
-	orderHistoryServiceGetOrderHandler := connect.NewUnaryHandler(
-		OrderHistoryServiceGetOrderProcedure,
-		svc.GetOrder,
-		connect.WithSchema(orderHistoryServiceMethods.ByName("GetOrder")),
-		connect.WithHandlerOptions(opts...),
-	)
 	return "/gfxcafe.oku.account.v1.OrderHistoryService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case OrderHistoryServiceHistoryProcedure:
 			orderHistoryServiceHistoryHandler.ServeHTTP(w, r)
-		case OrderHistoryServiceGetOrderProcedure:
-			orderHistoryServiceGetOrderHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -142,8 +109,4 @@ type UnimplementedOrderHistoryServiceHandler struct{}
 
 func (UnimplementedOrderHistoryServiceHandler) History(context.Context, *connect.Request[v1.OrderHistoryRequest]) (*connect.Response[v1.OrderHistoryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.OrderHistoryService.History is not implemented"))
-}
-
-func (UnimplementedOrderHistoryServiceHandler) GetOrder(context.Context, *connect.Request[v1.GetOrderRequest]) (*connect.Response[v1.GetOrderResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.OrderHistoryService.GetOrder is not implemented"))
 }

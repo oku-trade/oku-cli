@@ -5,21 +5,15 @@ Swap and bridge across 30+ chains and trade perps on Oku, from your terminal or 
 - **Swap** any token on 30+ chains at the best available rate. Oku compares DEX aggregators and intent solvers, and transaction swaps settle through the Oku Router.
 - **Bridge** across 30+ EVM chains with Oku's bridge meta-aggregator. The agent picks the route with the best net value, or the one you name.
 - **Trade perps** on Hyperliquid with Oku: market and limit orders, leverage, margin, positions and fills.
-- **Built for agents.** Every command has a versioned JSON contract (`oku.cli/v1`), and the binary ships offline docs (`oku docs`), task skills (`oku skills`) and an MCP server (`oku mcp serve`). Every trade is prepared and shown for review before it is signed.
+- **Built for agents.** Every command has a versioned JSON contract (`oku.cli/v1`), and the binary ships offline docs (`oku docs`), task skills (`oku skills`) and an MCP server (`oku mcp serve`). Mutations use a prepare/submit flow: review the preview against the user's authorized action before submitting, and ask for confirmation if anything is ambiguous or differs.
 
 `oku` is a non-custodial Go CLI. It trades from an embedded agent wallet that you approve on oku.trade, and talks to the Oku account service (`gfxcafe.oku.account.v2.PerpsService`) for perps. It prints human-readable tables by default and JSON with `--json`.
 
-Perps trading supports Hyperliquid **mainnet** only. Agent-wallet EVM commands (send, swap, bridge) work on any EVM chain. Swaps work on every chain where Oku's swap markets are active and the shared `gfx-labs/chain-config` networks package (the same one the Oku backend uses) lists an Oku Router for a non-deprecated chain; the CLI takes the router address from that package and checks its code on chain before signing. Common chains have a built-in public RPC; for others set `OKU_RPC_URL_<CHAINID>`.
+Perps trading supports Hyperliquid **mainnet** only. Agent-wallet EVM commands (send, swap, bridge) work on EVM chains when supported by the backend and configured with an RPC. Swaps require an active Oku market and an Oku Router in the shared `gfx-labs/chain-config` networks package; the CLI checks router code on chain before signing. Set `OKU_RPC_URL_<CHAINID>` to an RPC you trust for each chain you use. Some transaction reconciliation requires historical account state and full block transactions; choose a provider that serves the required history.
 
-For user-operated authentication, run `oku auth login` in a terminal. Sign on the Oku authorization page with the wallet you want to use as the account. The CLI derives that account from Hyperliquid's approved agent and creates a `default` profile if none exists; no account flag is needed. The default API is production (`https://accounts.icarus.tools`). For staging, create the profile with `oku auth login --api-url https://accounts.staging.invalid` (or `oku profiles add NAME --api-url https://accounts.staging.invalid`). Existing profiles keep the API URL they were created with.
+For user-operated authentication, run `oku auth login` in a terminal. Sign on the Oku authorization page with the wallet you want to use as the account. The CLI derives that account from Hyperliquid's approved agent and creates a `default` profile if none exists; no account flag is needed. The default API is production (`https://accounts.icarus.tools`). Existing profiles keep the API URL they were created with; `--api-url` remains available for custom deployments.
 
-> **Status: pre-release / private alpha development.**
-> - The repository is private. Prebuilt binaries are published as GitHub Releases (repo access required). There is no published npm package and no auto-update.
-> - Staging acceptance on 2026-10-14 verified Privy login, signed order submission, order listing and cancel. This is not production acceptance.
-> - Live checks with small amounts verified agent-wallet send, master deposit transfer, a single-step swap and an atomic approve+swap batch on Arbitrum (2026-10-19), and a Circle CCTP bridge Arbitrum to Base including the destination claim (2026-10-20). Transaction-based Oku bridge execution is available via `bridge prepare`, `submit`, `status`, `claim`, and `reconcile`; bridge calldata and approvals are backend-built without independent CLI verification, and destination claims require agent native gas on the destination chain.
-> - Accounts multi-app verification (the account service) and the authorize page (the web app) are merged. The authorize page URL comes from the Privy app configuration (the device-grant `verification_uri`), not from the CLI or Accounts. Since 2026-10-22 the built-in Oku Trade Agents app returns `https://oku.trade/agent/authorize`.
-> - Earlier release checks in [docs/validation.md](docs/validation.md) predate this auth model.
-> - The command grammar may change.
+> **Status: pre-release.** Commands may change. Prebuilt binaries are distributed as GitHub Releases. npm publishing is a separate decision. Automatic updates are opt-in and disabled by default. Transaction-based bridges support prepare, submit, status, claim and reconcile; destination claims require native gas on the destination chain.
 
 ## Agent wallet funds
 
@@ -41,7 +35,7 @@ oku swap pnl                                   # realized/unrealized PnL of the 
 - Intent-based swaps and bridges (such as CoW and Aori) are selectable by net value or `--route NAME`; `--no-intent` excludes them. They sign the backend's EIP-712 order, send any necessary approvals as ordinary transactions, then relay off-chain without an agent swap/bridge transaction. `submitted` is not a fill. Check order history via `swap status` or `bridge status`; solver execution may expire or refund. Intent typed-data and approvals trust Oku's backend as the web app does, not the transaction swap's OkuRouter verifier.
 - When a transaction swap token approval is needed, approve and swap are sent as **one atomic** Privy `wallet_sendCalls` batch (EIP-7702; the first batch upgrades the agent wallet to a Kernel smart account at the same address). An approval can never confirm without its swap.
 - `send` transfers from the agent (to the master by default); `deposit prepare` only moves agent USDC to the master on Arbitrum. The master deposits to Hyperliquid itself; never send agent USDC to the Hyperliquid bridge.
-- Keep native gas (ETH on Arbitrum) in the agent wallet. Chain RPC defaults to Oku's eRPC gateway (`https://rpc.invalid/<chain>`); override any chain with `OKU_RPC_URL_<CHAINID>`.
+- Keep native gas (ETH on Arbitrum) in the agent wallet. Configure your own trusted chain RPC with `OKU_RPC_URL_<CHAINID>` before sending, swapping or bridging on that chain.
 - `OUTCOME_UNKNOWN` means never resubmit; use `status` or `reconcile`. See [agent EVM transfers](docs/usage.md#agent-evm-transfers-and-master-deposits) and [security](docs/security.md).
 
 ## JSON input
@@ -50,26 +44,27 @@ For agent-authored orders, inspect `oku docs schema --command 'orders prepare'`,
 
 ## Install (prebuilt binary)
 
-Releases on this repo carry `oku_<version>_<os>_<arch>.tar.gz` for linux/darwin amd64/arm64 plus `SHA256SUMS`. You need access to the private repo and either the `gh` CLI logged in (`gh auth login`) or a `GITHUB_TOKEN`.
+Public releases carry `oku_<version>_<os>_<arch>.tar.gz` for linux/darwin amd64/arm64 plus `SHA256SUMS`. No GitHub token is needed for ordinary downloads.
 
 ```sh
 # latest release to ~/.local/bin/oku (verifies SHA256SUMS, no sudo)
-gh api -H 'Accept: application/vnd.github.raw' repos/oku-trade/oku-cli/contents/scripts/install.sh | sh
-# options: sh install.sh --version v0.1.0 --dir ~/bin
+curl -fsSLO https://raw.githubusercontent.com/oku-trade/oku-cli/master/scripts/install.sh
+sh install.sh # options: --version v0.1.0 --dir ~/bin
 ```
 
 Manual install (Apple Silicon Mac shown; use `darwin_amd64`, `linux_amd64` or `linux_arm64` as needed):
 
 ```sh
-V=$(gh release view -R oku-trade/oku-cli --json tagName -q .tagName)
-gh release download "$V" -R oku-trade/oku-cli -p "oku_${V}_darwin_arm64.tar.gz" -p SHA256SUMS
+V=$(curl -fsSL https://api.github.com/repos/oku-trade/oku-cli/releases/latest | awk -F '"' '/"tag_name"/ {print $4; exit}')
+curl -fsSLO "https://github.com/oku-trade/oku-cli/releases/download/${V}/oku_${V}_darwin_arm64.tar.gz"
+curl -fsSLO "https://github.com/oku-trade/oku-cli/releases/download/${V}/SHA256SUMS"
 shasum -a 256 -c --ignore-missing SHA256SUMS
 tar -xzf "oku_${V}_darwin_arm64.tar.gz"
 mkdir -p ~/.local/bin && mv "oku_${V}_darwin_arm64/oku" ~/.local/bin/oku
 oku version
 ```
 
-macOS binaries are ad-hoc signed only (not Developer ID signed or notarized). Files fetched with `gh` or curl normally run as is. If you downloaded through a browser and macOS blocks it, run `xattr -d com.apple.quarantine ~/.local/bin/oku` (or right-click the binary in Finder and choose Open). Maintainers: see [docs/releasing.md](docs/releasing.md) for cutting a release.
+macOS signing depends on release configuration: the workflow uses Developer ID signing and notarization when configured, otherwise ad-hoc signing. Check a release's artifacts before assuming either status. If macOS blocks a download, verify the source and checksum before following the operating system's instructions. Maintainers: see [docs/releasing.md](docs/releasing.md).
 
 ### Upgrade
 
@@ -79,7 +74,9 @@ oku self-update           # download, verify SHA256SUMS and replace this binary 
 oku self-update --version v0.1.0   # install a specific release (downgrades allowed)
 ```
 
-`self-update` uses `GITHUB_TOKEN`/`GH_TOKEN`, else `gh auth token`, and never needs sudo. It only replaces binaries installed by `install.sh` or a release tarball: mise, Nix and Homebrew installs are refused (use `mise up github:oku-trade/oku-cli` and so on), and so are source builds (`git pull && make install`). By default it never runs on its own.
+`self-update` uses public release downloads anonymously by default; `GITHUB_TOKEN`/`GH_TOKEN` are optional for API rate limits. It never needs sudo. It refuses mise, Nix, Homebrew and source builds. By default it never runs on its own.
+
+`SHA256SUMS` checks the archive against the manifest published in the same GitHub release. It is not an independent signature: update trust depends on the repository's release permissions and the integrity of GitHub's release delivery. `--version` can install an older release; check the tag before using it.
 
 #### Opt-in auto-update
 
@@ -94,15 +91,6 @@ When enabled, any `oku` command checks whether the interval (default 24h, minimu
 ## Install (mise)
 
 [mise](https://mise.jdx.dev) installs `oku` straight from this repo's GitHub Releases with its `github` backend. It picks the archive for your OS and arch, checks it against the release digest, and puts `oku` on your `PATH`.
-
-The repo is private, so mise needs a GitHub token. If you use the `gh` CLI, let mise ask it (on macOS `gh` keeps its token in Keychain, where mise can't read it directly). Add this to `~/.config/mise/config.toml`:
-
-```toml
-[settings.github]
-credential_command = 'gh auth token --hostname "$MISE_CREDENTIAL_HOST"'
-```
-
-Or export `MISE_GITHUB_TOKEN` (a fine-grained token with Contents: read on `oku-trade/oku-cli` is enough). Check which token mise will use with `mise token github`.
 
 Then install it globally:
 
@@ -168,9 +156,9 @@ inputs.oku-cli.url = "github:oku-trade/oku-cli/master";
 
 The release tooling packs a thin launcher `@oku-trade/cli` plus four exact-version platform packages `@oku-trade/cli-{linux,darwin}-{x64,arm64}`. There are no postinstall scripts or downloads.
 
-- Names, scope ownership, visibility and license (`UNLICENSED`) are pending owner decisions.
+- Publishing requires confirmation of package scope ownership and trusted-publisher configuration. The packages are configured for public access under Apache-2.0.
 - Publishing is manual and gated. See [docs/releasing.md](docs/releasing.md).
-- No provenance is produced, because the source repository is private.
+- Check the publishing workflow and registry metadata for provenance before making a provenance claim.
 
 ## Uninstall
 
@@ -182,15 +170,16 @@ Removing the binary does **not** revoke Oku sessions or the exchange delegated s
 
 ## Docs
 
-All of these except `validation.md` (repository-only evidence, not embedded) are also available offline via `oku docs show <name>`:
+The following user docs are available offline via `oku docs show <name>`:
 
 - [docs/usage.md](docs/usage.md): commands, JSON contract, order lifecycle, risk actions, agent-wallet sends, deposits and swaps, draft repair, skills, MCP, journal
 - [docs/commands.md](docs/commands.md): generated command and flag reference (`make docs`, `make docs-check`)
 - [docs/security.md](docs/security.md): Privy signing model, credential storage, grant and agent revocation, agent-wallet swap verification and batch execution
 - [docs/telemetry.md](docs/telemetry.md): opt-in usage telemetry (off by default, `DO_NOT_TRACK=1` respected): exact fields, enable and disable
 - [docs/architecture.md](docs/architecture.md): code layout and how the CLI talks to Oku
-- [docs/deployment.md](docs/deployment.md): backend/frontend/release prerequisites
-- [docs/local-testing.md](docs/local-testing.md): local read-only checks and operator-led Privy login/trade guidance
-- [docs/releasing.md](docs/releasing.md): native builds, npm packaging, checksums
-- [docs/validation.md](docs/validation.md): what has actually been verified
+- Maintainers: [docs/releasing.md](docs/releasing.md) is in the repository, not embedded in the binary.
 - Agent skills: [skills/](skills/)
+
+## License
+
+Oku CLI is licensed under Apache-2.0. See [LICENSE](LICENSE). Dependency licenses and notices are included in release archives as `THIRD_PARTY_NOTICES`; some dependencies contain components under other licenses, including LGPL-3.0 portions of go-ethereum.

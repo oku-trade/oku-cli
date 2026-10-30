@@ -29,13 +29,15 @@ check_allowlist() {
 # launcher
 mkdir -p "$work/cli/bin"
 cp "$root/npm/cli/bin/oku.js" "$work/cli/bin/"; cp "$root/npm/README.md" "$work/cli/README.md"
+cp "$root/LICENSE" "$work/cli/LICENSE"
+cp "$root/npm/cli/package.json" "$work/cli/package.json"
 node -e '
   const fs=require("fs"),[f,v]=process.argv.slice(1),p=JSON.parse(fs.readFileSync(f));
   p.version=v; for (const k of Object.keys(p.optionalDependencies)) p.optionalDependencies[k]=v;
   fs.writeFileSync(f,JSON.stringify(p,null,2)+"\n");' \
-  "$(cp "$root/npm/cli/package.json" "$work/cli/package.json"; echo "$work/cli/package.json")" "$VERSION"
+  "$work/cli/package.json" "$VERSION"
 tgz="$(cd "$work/cli" && npm pack --silent --pack-destination "$OUT")"
-check_allowlist "$OUT/$tgz" bin/oku.js README.md package.json
+check_allowlist "$OUT/$tgz" bin/oku.js README.md LICENSE package.json
 echo "$OUT/$tgz"
 
 for spec in "$@"; do
@@ -46,9 +48,10 @@ for spec in "$@"; do
   [[ -s "$notices" ]] || { echo "missing $notices (run 'mise run dist' or 'mise run third-party-notices')" >&2; exit 1; }
   grep -q "^Third-party notices for oku ($os/${plat#*/}," "$notices" || { echo "$notices is not for $plat" >&2; exit 1; }
   install -m755 "$bin" "$d/bin/oku"; cp "$root/npm/README.md" "$d/README.md"; cp "$notices" "$d/THIRD_PARTY_NOTICES"
+  cp "$root/LICENSE" "$d/LICENSE"
   sed -e "s/@OS@/$os/g" -e "s/@CPU@/$cpu/g" -e "s/@VERSION@/$VERSION/g" \
     "$root/npm/platform/package.json.tmpl" > "$d/package.json"
   tgz="$(cd "$d" && npm pack --silent --pack-destination "$OUT")"
-  check_allowlist "$OUT/$tgz" bin/oku README.md THIRD_PARTY_NOTICES package.json
+  check_allowlist "$OUT/$tgz" bin/oku README.md LICENSE THIRD_PARTY_NOTICES package.json
   echo "$OUT/$tgz"
 done

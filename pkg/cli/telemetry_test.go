@@ -232,7 +232,7 @@ func TestTelemetryHintOnceTTYOnly(t *testing.T) {
 }
 
 func TestAPIEnvName(t *testing.T) {
-	for in, want := range map[string]string{config.DefaultAPIURL: "prod", config.StagingAPIURL + "/": "staging", "http://localhost:8080": "local", "https://example.com": "custom"} {
+	for in, want := range map[string]string{config.DefaultAPIURL: "prod", "http://localhost:8080": "local", "https://example.com": "custom"} {
 		if got := apiEnvName(in); got != want {
 			t.Errorf("%s: %s", in, got)
 		}

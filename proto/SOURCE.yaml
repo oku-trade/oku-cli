@@ -1,6 +1,9 @@
 upstream: github.com/oku-trade/account
 commit: 69e63d224dfde4dcc022c43322cc9f2055e69ead
 protovalidate_version: https://github.com/bufbuild/protovalidate.git v1.0.0
+# Trimmed subset of upstream at the commit above: only CLI-used service RPCs
+# and their transitive message dependencies are retained. Wire field numbers,
+# package names and service names are unchanged.
 files:
   - gfxcafe/oku/account/v1/validate.proto
   - gfxcafe/oku/account/v1/auth.proto
@@ -8,7 +11,6 @@ files:
   - gfxcafe/oku/account/v1/orderhistory.proto
   - gfxcafe/oku/account/v2/validate.proto
   - gfxcafe/oku/account/v2/perps.proto
-  - gfxcafe/oku/account/v2/cli_device.proto
   - gfxcafe/oku/account/v2/orders.proto
   - gfxcafe/oku/account/v2/simpleswap.proto
   - gfxcafe/oku/account/v2/bridge.proto

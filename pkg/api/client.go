@@ -28,18 +28,13 @@ const (
 	maxBody            = 16 << 20
 	SessionHeader      = "x-oku-account-session"
 	SessionTokenHeader = "x-oku-account-session-token"
-	// DeviceTokenHeader carries the scoped CLI device credential.
-	DeviceTokenHeader = "x-oku-device-token"
 )
 
 // Client calls Oku Connect endpoints.
 type Client struct {
-	BaseURL   string
-	HTTP      *http.Client
-	UserAgent string
-	// Token is the device token; sent only when non-empty and only for
-	// calls made with Authed.
-	Token        string
+	BaseURL      string
+	HTTP         *http.Client
+	UserAgent    string
 	SessionID    string
 	SessionToken string
 	// OnUnauthenticated is notified only for a definite server rejection of
@@ -97,17 +92,6 @@ var portfolioMethods = map[string]handler{
 	}),
 }
 
-// Device calls a CliDeviceService method through the generated Connect client.
-func (c *Client) Device(ctx context.Context, method string, req, resp any, authed bool) error {
-	h, ok := deviceMethods[method]
-	if !ok {
-		return &Error{Code: "unimplemented", Message: "CliDeviceService/" + method + " is not supported by this CLI"}
-	}
-	// Device enrollment requests and responses carry codes, poll secrets
-	// and tokens; server error text is never surfaced for them.
-	return c.call(ctx, h, req, resp, authed, true)
-}
-
 // Auth calls an allowlisted AuthService method without exposing sensitive server errors.
 func (c *Client) Auth(ctx context.Context, method string, req, resp any, authed bool) error {
 	h, ok := authMethods[method]
@@ -137,13 +121,9 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 	}
 	if authed {
 		switch {
-		case c.Token != "" && (c.SessionID != "" || c.SessionToken != ""):
-			return &Error{Code: "invalid_argument", Message: "mutually exclusive credentials"}
 		case c.SessionID != "" && c.SessionToken != "":
 			hdr.Set(SessionHeader, c.SessionID)
 			hdr.Set(SessionTokenHeader, c.SessionToken)
-		case c.Token != "":
-			hdr.Set(DeviceTokenHeader, c.Token)
 		default:
 			return &Error{Code: "unauthenticated", Message: "credential required"}
 		}
@@ -154,7 +134,6 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 	opts := []connect.ClientOption{connect.WithProtoJSON(), connect.WithReadMaxBytes(maxBody)}
 	msg, err := h(ctx,
 		accountv2connect.NewPerpsServiceClient(doer, base, opts...),
-		accountv2connect.NewCliDeviceServiceClient(doer, base, opts...),
 		accountv1connect.NewAuthServiceClient(doer, base, opts...),
 		fundsClients{
 			history:   accountv1connect.NewOrderHistoryServiceClient(doer, base, opts...),
@@ -249,8 +228,8 @@ func classify(ctx context.Context, st *callState, err error, sensitive bool) err
 
 var (
 	connectCodeRE = regexp.MustCompile(`^[a-z_]{1,32}$`)
-	// secretRE matches device tokens and long opaque strings that could be
-	// credentials or poll secrets reflected by a server.
+	// secretRE matches token-shaped strings and long opaque values that could be
+	// credentials reflected by a server.
 	secretRE = regexp.MustCompile(`okud_[A-Za-z0-9_\-]+|[A-Za-z0-9_\-]{32,}`)
 )
 
@@ -327,7 +306,7 @@ func (i Int64) MarshalJSON() ([]byte, error) {
 }
 
 // NewHTTPClient returns an HTTP client that never follows redirects, so the
-// device token header can never be forwarded to another origin, and that
+// session credentials can never be forwarded to another origin, and that
 // has a hard overall timeout as a backstop to the context deadline.
 func NewHTTPClient(timeout time.Duration) *http.Client {
 	return &http.Client{

@@ -159,10 +159,9 @@ message RawCoupon {
 }
 
 // ExecutionRequest represents an execution request
-// Consumer only needs to send signing_request and blockaid_sim
-// The workflow handles forwarding coupon/executionInfo/approvals internally
+// Callers provide signing_request; coupon is a legacy field.
 message ExecutionRequest {
-  // DEPRECATED: Workflow handles forwarding internally, consumer doesn't need to send this
+  // Deprecated: retained for wire compatibility.
   Coupon coupon = 1 [deprecated = true];
   SigningRequest signing_request = 2;
   reserved 3;

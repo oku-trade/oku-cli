@@ -39,9 +39,6 @@ const (
 	// OnchainServiceGetNativeBalanceProcedure is the fully-qualified name of the OnchainService's
 	// GetNativeBalance RPC.
 	OnchainServiceGetNativeBalanceProcedure = "/gfxcafe.oku.account.v2.OnchainService/GetNativeBalance"
-	// OnchainServiceGetTokenInfoProcedure is the fully-qualified name of the OnchainService's
-	// GetTokenInfo RPC.
-	OnchainServiceGetTokenInfoProcedure = "/gfxcafe.oku.account.v2.OnchainService/GetTokenInfo"
 	// OnchainServiceGetGasPriceProcedure is the fully-qualified name of the OnchainService's
 	// GetGasPrice RPC.
 	OnchainServiceGetGasPriceProcedure = "/gfxcafe.oku.account.v2.OnchainService/GetGasPrice"
@@ -56,8 +53,6 @@ type OnchainServiceClient interface {
 	GetOnchainTokenBalances(context.Context, *connect.Request[v2.GetOnchainTokenBalancesRequest]) (*connect.Response[v2.GetOnchainTokenBalancesResponse], error)
 	// Get native token balance (ETH, etc.) for an address
 	GetNativeBalance(context.Context, *connect.Request[v2.GetNativeBalanceRequest]) (*connect.Response[v2.GetNativeBalanceResponse], error)
-	// Get real-time ERC20 token info (balances and allowances) via RPC
-	GetTokenInfo(context.Context, *connect.Request[v2.GetTokenInfoRequest]) (*connect.Response[v2.GetTokenInfoResponse], error)
 	// Get current gas pricing for a chain (legacy + EIP-1559)
 	GetGasPrice(context.Context, *connect.Request[v2.GetGasPriceRequest]) (*connect.Response[v2.GetGasPriceResponse], error)
 	// Get transaction receipt (status, block number, gas used)
@@ -87,12 +82,6 @@ func NewOnchainServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(onchainServiceMethods.ByName("GetNativeBalance")),
 			connect.WithClientOptions(opts...),
 		),
-		getTokenInfo: connect.NewClient[v2.GetTokenInfoRequest, v2.GetTokenInfoResponse](
-			httpClient,
-			baseURL+OnchainServiceGetTokenInfoProcedure,
-			connect.WithSchema(onchainServiceMethods.ByName("GetTokenInfo")),
-			connect.WithClientOptions(opts...),
-		),
 		getGasPrice: connect.NewClient[v2.GetGasPriceRequest, v2.GetGasPriceResponse](
 			httpClient,
 			baseURL+OnchainServiceGetGasPriceProcedure,
@@ -112,7 +101,6 @@ func NewOnchainServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 type onchainServiceClient struct {
 	getOnchainTokenBalances *connect.Client[v2.GetOnchainTokenBalancesRequest, v2.GetOnchainTokenBalancesResponse]
 	getNativeBalance        *connect.Client[v2.GetNativeBalanceRequest, v2.GetNativeBalanceResponse]
-	getTokenInfo            *connect.Client[v2.GetTokenInfoRequest, v2.GetTokenInfoResponse]
 	getGasPrice             *connect.Client[v2.GetGasPriceRequest, v2.GetGasPriceResponse]
 	getTransactionReceipt   *connect.Client[v2.GetTransactionReceiptRequest, v2.GetTransactionReceiptResponse]
 }
@@ -125,11 +113,6 @@ func (c *onchainServiceClient) GetOnchainTokenBalances(ctx context.Context, req 
 // GetNativeBalance calls gfxcafe.oku.account.v2.OnchainService.GetNativeBalance.
 func (c *onchainServiceClient) GetNativeBalance(ctx context.Context, req *connect.Request[v2.GetNativeBalanceRequest]) (*connect.Response[v2.GetNativeBalanceResponse], error) {
 	return c.getNativeBalance.CallUnary(ctx, req)
-}
-
-// GetTokenInfo calls gfxcafe.oku.account.v2.OnchainService.GetTokenInfo.
-func (c *onchainServiceClient) GetTokenInfo(ctx context.Context, req *connect.Request[v2.GetTokenInfoRequest]) (*connect.Response[v2.GetTokenInfoResponse], error) {
-	return c.getTokenInfo.CallUnary(ctx, req)
 }
 
 // GetGasPrice calls gfxcafe.oku.account.v2.OnchainService.GetGasPrice.
@@ -148,8 +131,6 @@ type OnchainServiceHandler interface {
 	GetOnchainTokenBalances(context.Context, *connect.Request[v2.GetOnchainTokenBalancesRequest]) (*connect.Response[v2.GetOnchainTokenBalancesResponse], error)
 	// Get native token balance (ETH, etc.) for an address
 	GetNativeBalance(context.Context, *connect.Request[v2.GetNativeBalanceRequest]) (*connect.Response[v2.GetNativeBalanceResponse], error)
-	// Get real-time ERC20 token info (balances and allowances) via RPC
-	GetTokenInfo(context.Context, *connect.Request[v2.GetTokenInfoRequest]) (*connect.Response[v2.GetTokenInfoResponse], error)
 	// Get current gas pricing for a chain (legacy + EIP-1559)
 	GetGasPrice(context.Context, *connect.Request[v2.GetGasPriceRequest]) (*connect.Response[v2.GetGasPriceResponse], error)
 	// Get transaction receipt (status, block number, gas used)
@@ -175,12 +156,6 @@ func NewOnchainServiceHandler(svc OnchainServiceHandler, opts ...connect.Handler
 		connect.WithSchema(onchainServiceMethods.ByName("GetNativeBalance")),
 		connect.WithHandlerOptions(opts...),
 	)
-	onchainServiceGetTokenInfoHandler := connect.NewUnaryHandler(
-		OnchainServiceGetTokenInfoProcedure,
-		svc.GetTokenInfo,
-		connect.WithSchema(onchainServiceMethods.ByName("GetTokenInfo")),
-		connect.WithHandlerOptions(opts...),
-	)
 	onchainServiceGetGasPriceHandler := connect.NewUnaryHandler(
 		OnchainServiceGetGasPriceProcedure,
 		svc.GetGasPrice,
@@ -199,8 +174,6 @@ func NewOnchainServiceHandler(svc OnchainServiceHandler, opts ...connect.Handler
 			onchainServiceGetOnchainTokenBalancesHandler.ServeHTTP(w, r)
 		case OnchainServiceGetNativeBalanceProcedure:
 			onchainServiceGetNativeBalanceHandler.ServeHTTP(w, r)
-		case OnchainServiceGetTokenInfoProcedure:
-			onchainServiceGetTokenInfoHandler.ServeHTTP(w, r)
 		case OnchainServiceGetGasPriceProcedure:
 			onchainServiceGetGasPriceHandler.ServeHTTP(w, r)
 		case OnchainServiceGetTransactionReceiptProcedure:
@@ -220,10 +193,6 @@ func (UnimplementedOnchainServiceHandler) GetOnchainTokenBalances(context.Contex
 
 func (UnimplementedOnchainServiceHandler) GetNativeBalance(context.Context, *connect.Request[v2.GetNativeBalanceRequest]) (*connect.Response[v2.GetNativeBalanceResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.OnchainService.GetNativeBalance is not implemented"))
-}
-
-func (UnimplementedOnchainServiceHandler) GetTokenInfo(context.Context, *connect.Request[v2.GetTokenInfoRequest]) (*connect.Response[v2.GetTokenInfoResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.OnchainService.GetTokenInfo is not implemented"))
 }
 
 func (UnimplementedOnchainServiceHandler) GetGasPrice(context.Context, *connect.Request[v2.GetGasPriceRequest]) (*connect.Response[v2.GetGasPriceResponse], error) {

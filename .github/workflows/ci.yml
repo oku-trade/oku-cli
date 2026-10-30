@@ -1,6 +1,7 @@
 name: ci
-# Cheap per-push check: one Ubicloud linux/amd64 job. The full platform matrix (linux arm64,
-# darwin arm64/amd64, packaged-binary smoke) runs only in github-release.yml. Race tests and
+# Per-push and same-repository PR checks use Ubicloud. Fork PRs use GitHub-hosted runners.
+# The full platform matrix (linux arm64, darwin arm64/amd64, packaged-binary smoke)
+# runs only in github-release.yml. Race tests and
 # the nix build are dispatch-only in ci-full.yml.
 on:
   push:
@@ -14,7 +15,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   check:
-    runs-on: ubicloud-standard-2
+    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'ubicloud-standard-2' }}
     env:
       CGO_ENABLED: "0"
     steps:

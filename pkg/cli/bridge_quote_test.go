@@ -23,6 +23,7 @@ func TestBridgeQuoteNativeAddressAliases(t *testing.T) {
 		t.Run(address, func(t *testing.T) {
 			h := newHarness(t)
 			h.enroll()
+			h.rpcChain, h.rpcURL = "8453", "https://rpc.example"
 			h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
 				switch method {
 				case "GetSupportedBridges":

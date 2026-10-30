@@ -49,21 +49,25 @@ type fakeRelease struct {
 	tag     string
 	archive []byte              // archive for this platform; nil means no asset
 	sums    func([]byte) string // SHA256SUMS content
+	token   bool
 }
 
 func (f *fakeRelease) server(t *testing.T) *httptest.Server {
 	asset := fmt.Sprintf("oku_%s_%s_%s.tar.gz", f.tag, runtime.GOOS, runtime.GOARCH)
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer test-token" {
-			http.Error(w, "no auth", http.StatusUnauthorized)
-			return
+		wantAuth := ""
+		if f.token {
+			wantAuth = "Bearer test-token"
+		}
+		if got := r.Header.Get("Authorization"); got != wantAuth {
+			t.Errorf("authorization header does not match optional token setting")
 		}
 		switch r.URL.Path {
 		case "/repos/oku-trade/oku-cli/releases/latest", "/repos/oku-trade/oku-cli/releases/tags/" + f.tag:
-			assets := []map[string]any{{"name": "SHA256SUMS", "url": srv.URL + "/assets/sums"}}
+			assets := []map[string]any{{"name": "SHA256SUMS", "browser_download_url": srv.URL + "/assets/sums"}}
 			if f.archive != nil {
-				assets = append(assets, map[string]any{"name": asset, "url": srv.URL + "/assets/archive"})
+				assets = append(assets, map[string]any{"name": asset, "browser_download_url": srv.URL + "/assets/archive"})
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"tag_name": f.tag, "assets": assets})
 		case "/assets/sums":
@@ -111,8 +115,6 @@ func runSelfUpdate(t *testing.T, version, exe, apiURL string, args ...string) su
 			switch k {
 			case "OKU_GITHUB_API_URL":
 				return apiURL
-			case "GITHUB_TOKEN":
-				return "test-token"
 			}
 			return ""
 		}}
@@ -120,9 +122,6 @@ func runSelfUpdate(t *testing.T, version, exe, apiURL string, args ...string) su
 	var env map[string]any
 	if err := json.Unmarshal(out.Bytes(), &env); err != nil {
 		t.Fatalf("bad json %q: %v (stderr %s)", out.String(), err, errb.String())
-	}
-	if strings.Contains(out.String()+errb.String(), "test-token") {
-		t.Fatal("token leaked to output")
 	}
 	return suRun{code, out.String(), env}
 }

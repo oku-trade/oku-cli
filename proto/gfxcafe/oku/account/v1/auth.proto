@@ -4,77 +4,14 @@ package gfxcafe.oku.account.v1;
 
 option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v1;v1";
 
-import "google/protobuf/timestamp.proto";
 import "gfxcafe/oku/account/v1/common.proto";
 import "buf/validate/validate.proto";
-import "gfxcafe/oku/account/v1/validate.proto";
 
-// AuthService handles authentication and session management
+// Only the session operations called by Oku CLI are vendored here.
 service AuthService {
-  // Exchange a verified Privy access token for an Oku account session.
   rpc PrivySessionExchange(PrivySessionExchangeRequest) returns (PrivySessionExchangeResponse);
-
-  // EVM authentication endpoints (/auth/evm/*)
-  
-  // Create a challenge for EVM wallet authentication (/auth/evm/challenge)
-  rpc EvmChallenge(EvmChallengeRequest) returns (EvmChallengeResponse);
-  
-  // Solve the challenge to authenticate (/auth/evm/solve)
-  rpc EvmSolve(EvmSolveRequest) returns (EvmSolveResponse);
-  
-  // Core auth endpoints (/auth/*)
-  
-  // Logout and invalidate session (/auth/logout)
   rpc Logout(LogoutRequest) returns (LogoutResponse);
-  
-  // Extend the current session (/auth/extend_session)
   rpc ExtendSession(ExtendSessionRequest) returns (ExtendSessionResponse);
-  
-  // User info endpoints (/auth/user_info/*)
-  
-  // Get current user information (/auth/user_info)
-  rpc UserInfo(UserInfoRequest) returns (UserInfoResponse);
-  
-  // Update user's display name (/auth/user_info/update/display_name)
-  rpc UserInfoUpdateDisplayName(UserInfoUpdateDisplayNameRequest) returns (UserInfoUpdateDisplayNameResponse);
-  
-  // Bridge info endpoints (/auth/bridge_info/*)
-  
-  // Get bridge information for the user (/auth/bridge_info)
-  rpc BridgeInfo(BridgeInfoRequest) returns (BridgeInfoResponse);
-  
-  // Set bridge information for the user (/auth/bridge_info)
-  rpc BridgeInfoSet(BridgeInfoSetRequest) returns (BridgeInfoSetResponse);
-  
-  // Email authentication endpoints (/auth/email/*)
-  
-  // Request email login code (/auth/email/challenge)
-  rpc EmailChallenge(EmailChallengeRequest) returns (EmailChallengeResponse);
-  
-  // Verify email with code (/auth/email/verify)
-  rpc EmailVerify(EmailVerifyRequest) returns (EmailVerifyResponse);
-  
-  // Confirm email verification (/auth/email/confirm)
-  rpc EmailConfirm(EmailConfirmRequest) returns (EmailConfirmResponse);
-
-  // Email code authentication endpoints (/auth/email_code/*)
-
-  // Start an email code login challenge. Sends a 6-digit numeric PIN to the
-  // user's email and returns a challenge key the client must present when
-  // confirming the code. (/auth/email_code/challenge)
-  rpc EmailCodeChallenge(EmailCodeChallengeRequest) returns (EmailCodeChallengeResponse);
-
-  // Confirm the 6-digit code using the challenge key returned by
-  // EmailCodeChallenge. On success returns a session. (/auth/email_code/confirm)
-  rpc EmailCodeConfirm(EmailCodeConfirmRequest) returns (EmailCodeConfirmResponse);
-
-  // Account management endpoints (/auth/manage/*)
-  
-  // Merge two user accounts (/auth/manage/merge)
-  rpc ManageMerge(ManageMergeRequest) returns (ManageMergeResponse);
-  
-  // Remove wallet IDP from user (/auth/manage/remove_wallet_idp)
-  rpc ManageRemoveWalletIdp(ManageRemoveWalletIdpRequest) returns (ManageRemoveWalletIdpResponse);
 }
 
 message PrivySessionExchangeRequest {
@@ -89,224 +26,18 @@ message PrivySessionExchangeResponse {
   User user = 2 [(buf.validate.field).required = true];
 }
 
-// EVM authentication messages
-
-// Request to create an EVM authentication challenge (/auth/evm/challenge)
-message EvmChallengeRequest {
-  string address = 1 [
-    (buf.validate.field).string.(eth_address) = true,
-    (buf.validate.field).required = true
-  ];
-  optional int32 chain_id = 2; // EVM chain ID (e.g., 1 for mainnet, 137 for Polygon)
-  optional string uri = 3; // Optional URI path (e.g., "/login") - combined with config domain
-}
-
-// EVM challenge response
-message EvmChallengeResponse {
-  string workflow_id = 1 [(buf.validate.field).required = true];
-  string message = 2 [(buf.validate.field).required = true];
-}
-
-// Request to solve EVM authentication challenge (/auth/evm/solve)
-message EvmSolveRequest {
-  string workflow_id = 1 [(buf.validate.field).required = true];
-  string signature = 2 [
-    (buf.validate.field).string.(eth_hex_data) = true,
-    (buf.validate.field).required = true
-  ];
-  // Optional wallet type hint to skip RPC detection: "eoa" or "erc1271"
-  optional string wallet_type = 3;
-}
-
-// EVM authentication success response
-message EvmSolveResponse {
-  Session session = 1;
-  User user = 2;
-}
-
-// Request for user information (/auth/user_info)
-message UserInfoRequest {
-  // Empty - uses session from headers
-}
-
-// User info response
-message UserInfoResponse {
-  User user = 1;
-  Session session = 2;
-}
-
-// Request to extend session
 message ExtendSessionRequest {
   // Empty - uses session from headers
 }
 
-// Extended session response
 message ExtendSessionResponse {
   Session session = 1;
 }
 
-// Logout request
 message LogoutRequest {
   // Empty - uses session from headers
 }
 
-// Logout response
 message LogoutResponse {
   bool success = 1;
-}
-
-// Update display name request (/auth/user_info/update/display_name)
-message UserInfoUpdateDisplayNameRequest {
-  string display_name = 1 [
-    (buf.validate.field).string = {
-      min_len: 1,
-      max_len: 64
-    },
-    (buf.validate.field).required = true
-  ];
-}
-
-// Update display name response
-message UserInfoUpdateDisplayNameResponse {
-  bool success = 1;
-  string message = 2;
-}
-
-// Get bridge info request (/auth/bridge_info)
-message BridgeInfoRequest {
-  // Empty - uses session from headers
-}
-
-// Bridge information
-message BridgeInfo {
-  string bridge_id = 1;
-  string bridge_tos_link = 2;
-  string bridge_kyc_link = 3;
-}
-
-// Get bridge info response
-message BridgeInfoResponse {
-  BridgeInfo bridge_info = 1;
-}
-
-// Set bridge info request (/auth/bridge_info)
-message BridgeInfoSetRequest {
-  BridgeInfo bridge_info = 1 [(buf.validate.field).required = true];
-}
-
-// Set bridge info response
-message BridgeInfoSetResponse {
-  bool success = 1;
-}
-
-// Request email login code (/auth/email/challenge)
-message EmailChallengeRequest {
-  string email = 1 [
-    (buf.validate.field).string.email = true,
-    (buf.validate.field).required = true
-  ];
-  string url = 2 [(buf.validate.field).required = true];
-  // Optional ALTCHA solution for anti-spam protection
-  optional AltchaSolution altcha_solution = 3;
-}
-
-// Email challenge response
-message EmailChallengeResponse {
-  string email = 1;
-  bool verified = 2;
-}
-
-// Verify email request (/auth/email/verify)
-message EmailVerifyRequest {
-  string email = 1 [
-    (buf.validate.field).string.email = true,
-    (buf.validate.field).required = true
-  ];
-  string url = 2 [(buf.validate.field).required = true];
-}
-
-// Verify email response
-message EmailVerifyResponse {
-  string email = 1;
-  bool verified = 2;
-}
-
-// Confirm email request (/auth/email/confirm)
-message EmailConfirmRequest {
-  string email = 1 [
-    (buf.validate.field).string.email = true,
-    (buf.validate.field).required = true
-  ];
-  string code = 2 [(buf.validate.field).required = true];
-}
-
-// Confirm email response
-message EmailConfirmResponse {
-  Session session = 1;
-}
-
-// Merge users request (/auth/manage/merge)
-message ManageMergeRequest {
-  string primary_user_id = 1 [(buf.validate.field).required = true];
-  string primary_session_id = 2 [(buf.validate.field).required = true];
-  string primary_session_token = 3 [(buf.validate.field).required = true];
-  string surrender_user_id = 4 [(buf.validate.field).required = true];
-  string surrender_session_id = 5 [(buf.validate.field).required = true];
-  string surrender_session_token = 6 [(buf.validate.field).required = true];
-}
-
-// Merge users response
-message ManageMergeResponse {
-  bool success = 1;
-  Session new_session = 2;
-}
-
-// Remove wallet IDP request (/auth/manage/remove_wallet_idp)
-message ManageRemoveWalletIdpRequest {
-  string address = 1 [
-    (buf.validate.field).string.(eth_address) = true,
-    (buf.validate.field).required = true
-  ];
-}
-
-// Remove wallet IDP response
-message ManageRemoveWalletIdpResponse {
-  bool success = 1;
-  string message = 2;
-}
-
-// Request to start an email code login challenge (/auth/email_code/challenge)
-message EmailCodeChallengeRequest {
-  string email = 1 [
-    (buf.validate.field).string.email = true,
-    (buf.validate.field).required = true
-  ];
-  // Optional ALTCHA solution for anti-spam protection
-  optional AltchaSolution altcha_solution = 2;
-}
-
-// Email code challenge response — contains the challenge key the client must
-// send back together with the 6-digit code received via email.
-message EmailCodeChallengeResponse {
-  // Opaque challenge key that identifies this login attempt.
-  string challenge_key = 1;
-}
-
-// Request to confirm an email code login (/auth/email_code/confirm)
-message EmailCodeConfirmRequest {
-  // The challenge key returned by EmailCodeChallenge.
-  string challenge_key = 1 [(buf.validate.field).required = true];
-  // The 6-digit numeric code the user received via email.
-  string code = 2 [
-    (buf.validate.field).string = {
-      len: 6,
-      pattern: "^[0-9]{6}$"
-    },
-    (buf.validate.field).required = true
-  ];
-}
-
-// Email code confirm response
-message EmailCodeConfirmResponse {
-  Session session = 1;
 }

@@ -14,37 +14,8 @@ service TokenService {
   // SearchTokens searches for tokens across supported chains
   rpc SearchTokens(SearchTokensRequest) returns (SearchTokensResponse);
 
-  // GetToken retrieves a specific token by address and chain
-  rpc GetToken(GetTokenRequest) returns (GetTokenResponse);
-
-  // GetTokensByChain returns all tokens for a specific chain
-  rpc GetTokensByChain(GetTokensByChainRequest) returns (GetTokensByChainResponse);
-
-  // GetTopTokensByChain returns the top N tokens for a specific chain by market cap or volume
-  rpc GetTopTokensByChain(GetTopTokensByChainRequest) returns (GetTopTokensByChainResponse);
-
-  // GetTokensByAddresses retrieves multiple tokens by their addresses and chains
-  rpc GetTokensByAddresses(GetTokensByAddressesRequest) returns (GetTokensByAddressesResponse);
-
-  // GetFullTokenList returns the complete tokenlist from all supported chains
-  rpc GetFullTokenList(GetFullTokenListRequest) returns (GetFullTokenListResponse);
-
   // GetTokenPrice fetches current USD prices for tokens using the oracle
   rpc GetTokenPrice(GetTokenPriceRequest) returns (GetTokenPriceResponse);
-
-  // GetOHLCV retrieves OHLCV candle data for a token on a specific chain.
-  // Data is fetched on-demand from CoinGecko and cached in a TimescaleDB hypertable.
-  // Returns available candles and any time ranges still being fetched (gaps).
-  rpc GetOHLCV(GetOHLCVRequest) returns (GetOHLCVResponse);
-
-  // GetTokenLiquidityScore retrieves the current liquidity score for a token deployment.
-  rpc GetTokenLiquidityScore(GetTokenLiquidityScoreRequest) returns (GetTokenLiquidityScoreResponse);
-
-  // GetStandardTokens returns the curated standard token list grouped by chain name.
-  rpc GetStandardTokens(GetStandardTokensRequest) returns (GetStandardTokensResponse);
-
-  // GetTokenBlacklist returns all blacklisted token entries.
-  rpc GetTokenBlacklist(GetTokenBlacklistRequest) returns (GetTokenBlacklistResponse);
 }
 
 // SearchTokensRequest for token search
@@ -119,95 +90,6 @@ message SearchTokensResponse {
   int32 total_documents = 6;
 }
 
-// GetTokenRequest for retrieving a specific token
-message GetTokenRequest {
-  // Token address
-  string address = 1 [
-    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true
-  ];
-
-  // Chain ID
-  int32 chain_id = 2 [(buf.validate.field).int32.gt = 0];
-}
-
-// GetTokenResponse containing the requested token
-message GetTokenResponse {
-  // The requested token (null if not found)
-  TokenInfo token = 1;
-}
-
-// GetTokensByChainRequest for retrieving all tokens on a chain
-message GetTokensByChainRequest {
-  // Chain ID
-  int32 chain_id = 1 [(buf.validate.field).int32.gt = 0];
-
-  // Maximum number of results (default 100, max 1000)
-  int32 limit = 2 [(buf.validate.field).int32 = {gte: 1, lte: 1000}];
-
-  // Pagination offset
-  int32 offset = 3 [(buf.validate.field).int32.gte = 0];
-
-  // Sort by field ("name", "symbol", "market_cap", "volume")
-  string sort_by = 4;
-
-  // Sort order ("asc", "desc")
-  string sort_order = 5;
-
-  // Include price and market data
-  bool include_market_data = 6;
-}
-
-// GetTokensByChainResponse containing tokens for the requested chain
-message GetTokensByChainResponse {
-  // List of tokens on the chain
-  repeated TokenInfo tokens = 1;
-
-  // Total number of tokens on chain
-  int32 total_count = 2;
-
-  // Current offset
-  int32 offset = 3;
-
-  // Limit used
-  int32 limit = 4;
-}
-
-// GetTopTokensByChainRequest for retrieving top tokens on a chain
-message GetTopTokensByChainRequest {
-  // Chain ID
-  int32 chain_id = 1 [(buf.validate.field).int32.gt = 0];
-
-  // Number of top tokens to return (default 25, max 250)
-  int32 limit = 2 [(buf.validate.field).int32 = {gte: 1, lte: 250}];
-
-  // Rank by ("market_cap", "volume_24h", "price_change_24h")
-  string rank_by = 3;
-
-  // Include price and market data
-  bool include_market_data = 4;
-}
-
-// GetTopTokensByChainResponse containing the top tokens
-message GetTopTokensByChainResponse {
-  // List of top tokens with ranking scores
-  repeated TokenSearchResult tokens = 1;
-
-  // Ranking criteria used
-  string ranked_by = 2;
-
-  // Number of tokens returned
-  int32 count = 3;
-}
-
-// GetTokensByAddressesRequest for batch token retrieval
-message GetTokensByAddressesRequest {
-  // List of token addresses and chain IDs
-  repeated TokenIdentifier token_identifiers = 1 [(buf.validate.field).repeated.min_items = 1];
-
-  // Include price and market data
-  bool include_market_data = 2;
-}
-
 // TokenIdentifier represents a token address and chain combination
 message TokenIdentifier {
   // Token address
@@ -217,18 +99,6 @@ message TokenIdentifier {
 
   // Chain ID
   int32 chain_id = 2 [(buf.validate.field).int32.gt = 0];
-}
-
-// GetTokensByAddressesResponse containing the requested tokens
-message GetTokensByAddressesResponse {
-  // List of found tokens (order matches request)
-  repeated TokenInfo tokens = 1;
-
-  // Number of tokens found
-  int32 found_count = 2;
-
-  // Number of tokens requested
-  int32 requested_count = 3;
 }
 
 // TokenInfo represents core token information from the tokenlist
@@ -325,68 +195,6 @@ message TokenHighlight {
   repeated string description = 3;
 }
 
-// GetFullTokenListRequest for retrieving the complete tokenlist
-message GetFullTokenListRequest {
-  // Chain IDs to exclude from the response (e.g., exclude Base chain ID 8453)
-  repeated int32 exclude_chain_ids = 1;
-}
-
-// GetFullTokenListResponse containing the full tokenlist
-message GetFullTokenListResponse {
-  // List of all tokens from all chains
-  repeated TokenInfo tokens = 1;
-
-  // Total number of tokens returned
-  int32 total_count = 2;
-
-  // Timestamp when the tokenlist was generated
-  int64 generated_at_unix = 3;
-}
-
-// GetStandardTokensRequest retrieves the curated standard token list.
-message GetStandardTokensRequest {
-  // Optional chain identifiers to include (e.g., "1", "ethereum", "eip155:1"). Empty returns all configured chains.
-  repeated string chains = 1;
-}
-
-// StandardTokenChain groups curated tokens by chain.
-message StandardTokenChain {
-  // CAIP-2 chain identifier, e.g. "eip155:1".
-  string chain = 1;
-
-  // Curated standard tokens on this chain.
-  repeated TokenInfo tokens = 2;
-}
-
-// GetStandardTokensResponse contains curated tokens grouped by chain name.
-message GetStandardTokensResponse {
-  repeated StandardTokenChain chains = 1;
-}
-
-// GetTokenBlacklistRequest retrieves all blacklisted token entries.
-message GetTokenBlacklistRequest {}
-
-// TokenBlacklistEntry is a single blacklisted token.
-message TokenBlacklistEntry {
-  // Token address as 0x-prefixed hex.
-  string address = 1;
-
-  // Reason the token was blacklisted.
-  optional string reason = 2;
-}
-
-// TokenBlacklistEntries is a list of blacklisted tokens.
-message TokenBlacklistEntries {
-  repeated TokenBlacklistEntry entries = 1;
-}
-
-// GetTokenBlacklistResponse contains all blacklisted token entries keyed by
-// chain internal name (e.g. "ethereum"), with "global" for tokens
-// blacklisted on all chains.
-message GetTokenBlacklistResponse {
-  map<string, TokenBlacklistEntries> blacklist = 1;
-}
-
 // GetTokenPriceRequest for fetching token prices from the oracle
 message GetTokenPriceRequest {
   // List of tokens to fetch prices for (use 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for native token per EIP-7528)
@@ -449,105 +257,4 @@ message TokenPriceResult {
 
   // Token decimals (present if fetch succeeded)
   int32 token_decimals = 8;
-}
-
-// GetOHLCVRequest for retrieving OHLCV candle data
-message GetOHLCVRequest {
-  // CAIP-2 chain identifier, e.g. "eip155:1" for Ethereum mainnet.
-  string chain = 1 [
-    (buf.validate.field).required = true,
-    (buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true
-  ];
-
-  // Token address
-  string address = 2 [
-    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true
-  ];
-
-  // Start of the time range
-  google.protobuf.Timestamp from = 3 [(buf.validate.field).required = true];
-
-  // End of the time range
-  google.protobuf.Timestamp to = 4 [(buf.validate.field).required = true];
-
-  // Candle interval: "5m", "1h", or "1d"
-  string interval = 5 [(buf.validate.field).string = {in: ["5m", "1h", "1d"]}];
-
-  // Quote currency (default "usd")
-  string vs_currency = 6;
-}
-
-// GetOHLCVResponse containing candle data and any pending gaps
-message GetOHLCVResponse {
-  // Available candles in the requested range
-  repeated OHLCVCandle candles = 1;
-
-  // Time ranges where data is still being fetched in the background
-  repeated OHLCVTimeRange gaps = 2;
-
-  // Live price from the oracle (populated when the requested range includes the current time)
-  double current_price = 3;
-
-  // Timestamp of the live price
-  google.protobuf.Timestamp current_price_time = 4;
-}
-
-// OHLCVCandle represents a single OHLCV candle
-message OHLCVCandle {
-  // Candle timestamp
-  google.protobuf.Timestamp time = 1;
-
-  // Opening price
-  double open = 2;
-
-  // Highest price
-  double high = 3;
-
-  // Lowest price
-  double low = 4;
-
-  // Closing price
-  double close = 5;
-
-  // Trading volume (0 if not available from data source)
-  double volume = 6;
-
-  // Adjusted close, if available from the backing data source
-  double adjusted_close = 7;
-}
-
-// OHLCVTimeRange represents a time range where data is pending
-message OHLCVTimeRange {
-  // Start of the range
-  google.protobuf.Timestamp from = 1;
-
-  // End of the range
-  google.protobuf.Timestamp to = 2;
-}
-
-message GetTokenLiquidityScoreRequest {
-  int32 chain_id = 1 [(buf.validate.field).int32.gt = 0];
-  string address = 2 [
-    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true
-  ];
-}
-
-message TokenLiquidityScore {
-  int32 chain_id = 1;
-  string address = 2;
-  int32 liquidity_score = 3;
-  double max_supported_usd = 4;
-  int32 slippage_bps_limit = 5;
-  string status = 6;
-  string status_reason = 7;
-  string quote_source = 8;
-  google.protobuf.Timestamp last_live_quote_at = 9;
-  google.protobuf.Timestamp last_probe_started_at = 10;
-  google.protobuf.Timestamp last_probe_finished_at = 11;
-  google.protobuf.Timestamp next_probe_after = 12;
-  google.protobuf.Timestamp updated_at = 13;
-}
-
-message GetTokenLiquidityScoreResponse {
-  TokenLiquidityScore liquidity = 1;
 }

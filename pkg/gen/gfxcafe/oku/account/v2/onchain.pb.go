@@ -491,257 +491,6 @@ func (x *GetNativeBalanceResponse) GetBalance() string {
 	return ""
 }
 
-type GetTokenInfoRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Chain identifier (e.g., "1", "ethereum", "eip155:1")
-	Chain string `protobuf:"bytes,1,opt,name=chain,proto3" json:"chain,omitempty"`
-	// Wallet address to check balances/allowances for
-	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-	// Token queries (max 50)
-	Tokens        []*TokenInfoQuery `protobuf:"bytes,3,rep,name=tokens,proto3" json:"tokens,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTokenInfoRequest) Reset() {
-	*x = GetTokenInfoRequest{}
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTokenInfoRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTokenInfoRequest) ProtoMessage() {}
-
-func (x *GetTokenInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTokenInfoRequest.ProtoReflect.Descriptor instead.
-func (*GetTokenInfoRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_onchain_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *GetTokenInfoRequest) GetChain() string {
-	if x != nil {
-		return x.Chain
-	}
-	return ""
-}
-
-func (x *GetTokenInfoRequest) GetAddress() string {
-	if x != nil {
-		return x.Address
-	}
-	return ""
-}
-
-func (x *GetTokenInfoRequest) GetTokens() []*TokenInfoQuery {
-	if x != nil {
-		return x.Tokens
-	}
-	return nil
-}
-
-type TokenInfoQuery struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// ERC20 token contract address
-	Token string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	// Spender address to check allowance for (optional)
-	Spender       *string `protobuf:"bytes,2,opt,name=spender,proto3,oneof" json:"spender,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TokenInfoQuery) Reset() {
-	*x = TokenInfoQuery{}
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TokenInfoQuery) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TokenInfoQuery) ProtoMessage() {}
-
-func (x *TokenInfoQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TokenInfoQuery.ProtoReflect.Descriptor instead.
-func (*TokenInfoQuery) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_onchain_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *TokenInfoQuery) GetToken() string {
-	if x != nil {
-		return x.Token
-	}
-	return ""
-}
-
-func (x *TokenInfoQuery) GetSpender() string {
-	if x != nil && x.Spender != nil {
-		return *x.Spender
-	}
-	return ""
-}
-
-type GetTokenInfoResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Tokens        []*TokenInfoResult     `protobuf:"bytes,1,rep,name=tokens,proto3" json:"tokens,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTokenInfoResponse) Reset() {
-	*x = GetTokenInfoResponse{}
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTokenInfoResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTokenInfoResponse) ProtoMessage() {}
-
-func (x *GetTokenInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTokenInfoResponse.ProtoReflect.Descriptor instead.
-func (*GetTokenInfoResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_onchain_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *GetTokenInfoResponse) GetTokens() []*TokenInfoResult {
-	if x != nil {
-		return x.Tokens
-	}
-	return nil
-}
-
-type TokenInfoResult struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// ERC20 token contract address
-	Token string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	// Balance as decimal string (wei)
-	Balance string `protobuf:"bytes,2,opt,name=balance,proto3" json:"balance,omitempty"`
-	// Balance error message, only present if fetch failed
-	BalanceError *string `protobuf:"bytes,3,opt,name=balance_error,json=balanceError,proto3,oneof" json:"balance_error,omitempty"`
-	// Spender address (if requested)
-	Spender *string `protobuf:"bytes,4,opt,name=spender,proto3,oneof" json:"spender,omitempty"`
-	// Allowance as decimal string (wei), only present if spender was requested
-	Allowance *string `protobuf:"bytes,5,opt,name=allowance,proto3,oneof" json:"allowance,omitempty"`
-	// Allowance error message, only present if fetch failed
-	AllowanceError *string `protobuf:"bytes,6,opt,name=allowance_error,json=allowanceError,proto3,oneof" json:"allowance_error,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
-}
-
-func (x *TokenInfoResult) Reset() {
-	*x = TokenInfoResult{}
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TokenInfoResult) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TokenInfoResult) ProtoMessage() {}
-
-func (x *TokenInfoResult) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[9]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TokenInfoResult.ProtoReflect.Descriptor instead.
-func (*TokenInfoResult) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_onchain_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *TokenInfoResult) GetToken() string {
-	if x != nil {
-		return x.Token
-	}
-	return ""
-}
-
-func (x *TokenInfoResult) GetBalance() string {
-	if x != nil {
-		return x.Balance
-	}
-	return ""
-}
-
-func (x *TokenInfoResult) GetBalanceError() string {
-	if x != nil && x.BalanceError != nil {
-		return *x.BalanceError
-	}
-	return ""
-}
-
-func (x *TokenInfoResult) GetSpender() string {
-	if x != nil && x.Spender != nil {
-		return *x.Spender
-	}
-	return ""
-}
-
-func (x *TokenInfoResult) GetAllowance() string {
-	if x != nil && x.Allowance != nil {
-		return *x.Allowance
-	}
-	return ""
-}
-
-func (x *TokenInfoResult) GetAllowanceError() string {
-	if x != nil && x.AllowanceError != nil {
-		return *x.AllowanceError
-	}
-	return ""
-}
-
 type GetGasPriceRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Chain identifier (e.g., "1", "ethereum", "eip155:1")
@@ -752,7 +501,7 @@ type GetGasPriceRequest struct {
 
 func (x *GetGasPriceRequest) Reset() {
 	*x = GetGasPriceRequest{}
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[10]
+	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -764,7 +513,7 @@ func (x *GetGasPriceRequest) String() string {
 func (*GetGasPriceRequest) ProtoMessage() {}
 
 func (x *GetGasPriceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[10]
+	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -777,7 +526,7 @@ func (x *GetGasPriceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGasPriceRequest.ProtoReflect.Descriptor instead.
 func (*GetGasPriceRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_onchain_proto_rawDescGZIP(), []int{10}
+	return file_gfxcafe_oku_account_v2_onchain_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetGasPriceRequest) GetChain() string {
@@ -806,7 +555,7 @@ type GetGasPriceResponse struct {
 
 func (x *GetGasPriceResponse) Reset() {
 	*x = GetGasPriceResponse{}
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[11]
+	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -818,7 +567,7 @@ func (x *GetGasPriceResponse) String() string {
 func (*GetGasPriceResponse) ProtoMessage() {}
 
 func (x *GetGasPriceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[11]
+	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -831,7 +580,7 @@ func (x *GetGasPriceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGasPriceResponse.ProtoReflect.Descriptor instead.
 func (*GetGasPriceResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_onchain_proto_rawDescGZIP(), []int{11}
+	return file_gfxcafe_oku_account_v2_onchain_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetGasPriceResponse) GetGasPrice() string {
@@ -874,7 +623,7 @@ type GetTransactionReceiptRequest struct {
 
 func (x *GetTransactionReceiptRequest) Reset() {
 	*x = GetTransactionReceiptRequest{}
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[12]
+	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -886,7 +635,7 @@ func (x *GetTransactionReceiptRequest) String() string {
 func (*GetTransactionReceiptRequest) ProtoMessage() {}
 
 func (x *GetTransactionReceiptRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[12]
+	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -899,7 +648,7 @@ func (x *GetTransactionReceiptRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTransactionReceiptRequest.ProtoReflect.Descriptor instead.
 func (*GetTransactionReceiptRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_onchain_proto_rawDescGZIP(), []int{12}
+	return file_gfxcafe_oku_account_v2_onchain_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetTransactionReceiptRequest) GetChain() string {
@@ -930,7 +679,7 @@ type GetTransactionReceiptResponse struct {
 
 func (x *GetTransactionReceiptResponse) Reset() {
 	*x = GetTransactionReceiptResponse{}
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[13]
+	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -942,7 +691,7 @@ func (x *GetTransactionReceiptResponse) String() string {
 func (*GetTransactionReceiptResponse) ProtoMessage() {}
 
 func (x *GetTransactionReceiptResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[13]
+	mi := &file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -955,7 +704,7 @@ func (x *GetTransactionReceiptResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTransactionReceiptResponse.ProtoReflect.Descriptor instead.
 func (*GetTransactionReceiptResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_onchain_proto_rawDescGZIP(), []int{13}
+	return file_gfxcafe_oku_account_v2_onchain_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetTransactionReceiptResponse) GetStatus() TransactionStatus {
@@ -1011,31 +760,7 @@ const file_gfxcafe_oku_account_v2_onchain_proto_rawDesc = "" +
 	"\x05chain\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x05chain\x12%\n" +
 	"\aaddress\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xd0H\x01R\aaddress\"4\n" +
 	"\x18GetNativeBalanceResponse\x12\x18\n" +
-	"\abalance\x18\x01 \x01(\tR\abalance\"\xa4\x01\n" +
-	"\x13GetTokenInfoRequest\x12\x1c\n" +
-	"\x05chain\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x05chain\x12%\n" +
-	"\aaddress\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xd0H\x01R\aaddress\x12H\n" +
-	"\x06tokens\x18\x03 \x03(\v2&.gfxcafe.oku.account.v2.TokenInfoQueryB\b\xbaH\x05\x92\x01\x02\x102R\x06tokens\"h\n" +
-	"\x0eTokenInfoQuery\x12!\n" +
-	"\x05token\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xd0H\x01R\x05token\x12'\n" +
-	"\aspender\x18\x02 \x01(\tB\b\xbaH\x05r\x03\xd0H\x01H\x00R\aspender\x88\x01\x01B\n" +
-	"\n" +
-	"\b_spender\"W\n" +
-	"\x14GetTokenInfoResponse\x12?\n" +
-	"\x06tokens\x18\x01 \x03(\v2'.gfxcafe.oku.account.v2.TokenInfoResultR\x06tokens\"\x9b\x02\n" +
-	"\x0fTokenInfoResult\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\x12\x18\n" +
-	"\abalance\x18\x02 \x01(\tR\abalance\x12(\n" +
-	"\rbalance_error\x18\x03 \x01(\tH\x00R\fbalanceError\x88\x01\x01\x12\x1d\n" +
-	"\aspender\x18\x04 \x01(\tH\x01R\aspender\x88\x01\x01\x12!\n" +
-	"\tallowance\x18\x05 \x01(\tH\x02R\tallowance\x88\x01\x01\x12,\n" +
-	"\x0fallowance_error\x18\x06 \x01(\tH\x03R\x0eallowanceError\x88\x01\x01B\x10\n" +
-	"\x0e_balance_errorB\n" +
-	"\n" +
-	"\b_spenderB\f\n" +
-	"\n" +
-	"_allowanceB\x12\n" +
-	"\x10_allowance_error\"2\n" +
+	"\abalance\x18\x01 \x01(\tR\abalance\"2\n" +
 	"\x12GetGasPriceRequest\x12\x1c\n" +
 	"\x05chain\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\x05chain\"\x8f\x02\n" +
 	"\x13GetGasPriceResponse\x12\x1b\n" +
@@ -1059,11 +784,10 @@ const file_gfxcafe_oku_account_v2_onchain_proto_rawDesc = "" +
 	"\x1eTRANSACTION_STATUS_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTRANSACTION_STATUS_PENDING\x10\x01\x12\x1e\n" +
 	"\x1aTRANSACTION_STATUS_SUCCESS\x10\x02\x12\x1f\n" +
-	"\x1bTRANSACTION_STATUS_REVERTED\x10\x032\xee\x04\n" +
+	"\x1bTRANSACTION_STATUS_REVERTED\x10\x032\x83\x04\n" +
 	"\x0eOnchainService\x12\x8a\x01\n" +
 	"\x17GetOnchainTokenBalances\x126.gfxcafe.oku.account.v2.GetOnchainTokenBalancesRequest\x1a7.gfxcafe.oku.account.v2.GetOnchainTokenBalancesResponse\x12u\n" +
-	"\x10GetNativeBalance\x12/.gfxcafe.oku.account.v2.GetNativeBalanceRequest\x1a0.gfxcafe.oku.account.v2.GetNativeBalanceResponse\x12i\n" +
-	"\fGetTokenInfo\x12+.gfxcafe.oku.account.v2.GetTokenInfoRequest\x1a,.gfxcafe.oku.account.v2.GetTokenInfoResponse\x12f\n" +
+	"\x10GetNativeBalance\x12/.gfxcafe.oku.account.v2.GetNativeBalanceRequest\x1a0.gfxcafe.oku.account.v2.GetNativeBalanceResponse\x12f\n" +
 	"\vGetGasPrice\x12*.gfxcafe.oku.account.v2.GetGasPriceRequest\x1a+.gfxcafe.oku.account.v2.GetGasPriceResponse\x12\x84\x01\n" +
 	"\x15GetTransactionReceipt\x124.gfxcafe.oku.account.v2.GetTransactionReceiptRequest\x1a5.gfxcafe.oku.account.v2.GetTransactionReceiptResponseB\xec\x01\n" +
 	"\x1acom.gfxcafe.oku.account.v2B\fOnchainProtoP\x01ZEgithub.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2;accountv2\xa2\x02\x03GOA\xaa\x02\x16Gfxcafe.Oku.Account.V2\xca\x02\x16Gfxcafe\\Oku\\Account\\V2\xe2\x02\"Gfxcafe\\Oku\\Account\\V2\\GPBMetadata\xea\x02\x19Gfxcafe::Oku::Account::V2b\x06proto3"
@@ -1081,7 +805,7 @@ func file_gfxcafe_oku_account_v2_onchain_proto_rawDescGZIP() []byte {
 }
 
 var file_gfxcafe_oku_account_v2_onchain_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_gfxcafe_oku_account_v2_onchain_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_gfxcafe_oku_account_v2_onchain_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_gfxcafe_oku_account_v2_onchain_proto_goTypes = []any{
 	(TransactionStatus)(0),                  // 0: gfxcafe.oku.account.v2.TransactionStatus
 	(*GetOnchainTokenBalancesRequest)(nil),  // 1: gfxcafe.oku.account.v2.GetOnchainTokenBalancesRequest
@@ -1090,41 +814,33 @@ var file_gfxcafe_oku_account_v2_onchain_proto_goTypes = []any{
 	(*TokenBalance)(nil),                    // 4: gfxcafe.oku.account.v2.TokenBalance
 	(*GetNativeBalanceRequest)(nil),         // 5: gfxcafe.oku.account.v2.GetNativeBalanceRequest
 	(*GetNativeBalanceResponse)(nil),        // 6: gfxcafe.oku.account.v2.GetNativeBalanceResponse
-	(*GetTokenInfoRequest)(nil),             // 7: gfxcafe.oku.account.v2.GetTokenInfoRequest
-	(*TokenInfoQuery)(nil),                  // 8: gfxcafe.oku.account.v2.TokenInfoQuery
-	(*GetTokenInfoResponse)(nil),            // 9: gfxcafe.oku.account.v2.GetTokenInfoResponse
-	(*TokenInfoResult)(nil),                 // 10: gfxcafe.oku.account.v2.TokenInfoResult
-	(*GetGasPriceRequest)(nil),              // 11: gfxcafe.oku.account.v2.GetGasPriceRequest
-	(*GetGasPriceResponse)(nil),             // 12: gfxcafe.oku.account.v2.GetGasPriceResponse
-	(*GetTransactionReceiptRequest)(nil),    // 13: gfxcafe.oku.account.v2.GetTransactionReceiptRequest
-	(*GetTransactionReceiptResponse)(nil),   // 14: gfxcafe.oku.account.v2.GetTransactionReceiptResponse
-	(*TokenIdentifier)(nil),                 // 15: gfxcafe.oku.account.v2.TokenIdentifier
-	(*TokenInfo)(nil),                       // 16: gfxcafe.oku.account.v2.TokenInfo
+	(*GetGasPriceRequest)(nil),              // 7: gfxcafe.oku.account.v2.GetGasPriceRequest
+	(*GetGasPriceResponse)(nil),             // 8: gfxcafe.oku.account.v2.GetGasPriceResponse
+	(*GetTransactionReceiptRequest)(nil),    // 9: gfxcafe.oku.account.v2.GetTransactionReceiptRequest
+	(*GetTransactionReceiptResponse)(nil),   // 10: gfxcafe.oku.account.v2.GetTransactionReceiptResponse
+	(*TokenIdentifier)(nil),                 // 11: gfxcafe.oku.account.v2.TokenIdentifier
+	(*TokenInfo)(nil),                       // 12: gfxcafe.oku.account.v2.TokenInfo
 }
 var file_gfxcafe_oku_account_v2_onchain_proto_depIdxs = []int32{
-	15, // 0: gfxcafe.oku.account.v2.GetOnchainTokenBalancesRequest.token_identifiers:type_name -> gfxcafe.oku.account.v2.TokenIdentifier
+	11, // 0: gfxcafe.oku.account.v2.GetOnchainTokenBalancesRequest.token_identifiers:type_name -> gfxcafe.oku.account.v2.TokenIdentifier
 	4,  // 1: gfxcafe.oku.account.v2.GetOnchainTokenBalancesResponse.balances:type_name -> gfxcafe.oku.account.v2.TokenBalance
 	3,  // 2: gfxcafe.oku.account.v2.GetOnchainTokenBalancesResponse.recommended_default_tokens:type_name -> gfxcafe.oku.account.v2.RecommendedDefaultToken
-	16, // 3: gfxcafe.oku.account.v2.RecommendedDefaultToken.token:type_name -> gfxcafe.oku.account.v2.TokenInfo
-	16, // 4: gfxcafe.oku.account.v2.TokenBalance.token_info:type_name -> gfxcafe.oku.account.v2.TokenInfo
-	8,  // 5: gfxcafe.oku.account.v2.GetTokenInfoRequest.tokens:type_name -> gfxcafe.oku.account.v2.TokenInfoQuery
-	10, // 6: gfxcafe.oku.account.v2.GetTokenInfoResponse.tokens:type_name -> gfxcafe.oku.account.v2.TokenInfoResult
-	0,  // 7: gfxcafe.oku.account.v2.GetTransactionReceiptResponse.status:type_name -> gfxcafe.oku.account.v2.TransactionStatus
-	1,  // 8: gfxcafe.oku.account.v2.OnchainService.GetOnchainTokenBalances:input_type -> gfxcafe.oku.account.v2.GetOnchainTokenBalancesRequest
-	5,  // 9: gfxcafe.oku.account.v2.OnchainService.GetNativeBalance:input_type -> gfxcafe.oku.account.v2.GetNativeBalanceRequest
-	7,  // 10: gfxcafe.oku.account.v2.OnchainService.GetTokenInfo:input_type -> gfxcafe.oku.account.v2.GetTokenInfoRequest
-	11, // 11: gfxcafe.oku.account.v2.OnchainService.GetGasPrice:input_type -> gfxcafe.oku.account.v2.GetGasPriceRequest
-	13, // 12: gfxcafe.oku.account.v2.OnchainService.GetTransactionReceipt:input_type -> gfxcafe.oku.account.v2.GetTransactionReceiptRequest
-	2,  // 13: gfxcafe.oku.account.v2.OnchainService.GetOnchainTokenBalances:output_type -> gfxcafe.oku.account.v2.GetOnchainTokenBalancesResponse
-	6,  // 14: gfxcafe.oku.account.v2.OnchainService.GetNativeBalance:output_type -> gfxcafe.oku.account.v2.GetNativeBalanceResponse
-	9,  // 15: gfxcafe.oku.account.v2.OnchainService.GetTokenInfo:output_type -> gfxcafe.oku.account.v2.GetTokenInfoResponse
-	12, // 16: gfxcafe.oku.account.v2.OnchainService.GetGasPrice:output_type -> gfxcafe.oku.account.v2.GetGasPriceResponse
-	14, // 17: gfxcafe.oku.account.v2.OnchainService.GetTransactionReceipt:output_type -> gfxcafe.oku.account.v2.GetTransactionReceiptResponse
-	13, // [13:18] is the sub-list for method output_type
-	8,  // [8:13] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	12, // 3: gfxcafe.oku.account.v2.RecommendedDefaultToken.token:type_name -> gfxcafe.oku.account.v2.TokenInfo
+	12, // 4: gfxcafe.oku.account.v2.TokenBalance.token_info:type_name -> gfxcafe.oku.account.v2.TokenInfo
+	0,  // 5: gfxcafe.oku.account.v2.GetTransactionReceiptResponse.status:type_name -> gfxcafe.oku.account.v2.TransactionStatus
+	1,  // 6: gfxcafe.oku.account.v2.OnchainService.GetOnchainTokenBalances:input_type -> gfxcafe.oku.account.v2.GetOnchainTokenBalancesRequest
+	5,  // 7: gfxcafe.oku.account.v2.OnchainService.GetNativeBalance:input_type -> gfxcafe.oku.account.v2.GetNativeBalanceRequest
+	7,  // 8: gfxcafe.oku.account.v2.OnchainService.GetGasPrice:input_type -> gfxcafe.oku.account.v2.GetGasPriceRequest
+	9,  // 9: gfxcafe.oku.account.v2.OnchainService.GetTransactionReceipt:input_type -> gfxcafe.oku.account.v2.GetTransactionReceiptRequest
+	2,  // 10: gfxcafe.oku.account.v2.OnchainService.GetOnchainTokenBalances:output_type -> gfxcafe.oku.account.v2.GetOnchainTokenBalancesResponse
+	6,  // 11: gfxcafe.oku.account.v2.OnchainService.GetNativeBalance:output_type -> gfxcafe.oku.account.v2.GetNativeBalanceResponse
+	8,  // 12: gfxcafe.oku.account.v2.OnchainService.GetGasPrice:output_type -> gfxcafe.oku.account.v2.GetGasPriceResponse
+	10, // 13: gfxcafe.oku.account.v2.OnchainService.GetTransactionReceipt:output_type -> gfxcafe.oku.account.v2.GetTransactionReceiptResponse
+	10, // [10:14] is the sub-list for method output_type
+	6,  // [6:10] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_gfxcafe_oku_account_v2_onchain_proto_init() }
@@ -1136,15 +852,13 @@ func file_gfxcafe_oku_account_v2_onchain_proto_init() {
 	file_gfxcafe_oku_account_v2_validate_proto_init()
 	file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[7].OneofWrappers = []any{}
 	file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[9].OneofWrappers = []any{}
-	file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[11].OneofWrappers = []any{}
-	file_gfxcafe_oku_account_v2_onchain_proto_msgTypes[13].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gfxcafe_oku_account_v2_onchain_proto_rawDesc), len(file_gfxcafe_oku_account_v2_onchain_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   14,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

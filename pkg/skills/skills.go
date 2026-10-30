@@ -44,9 +44,7 @@ type Skill struct {
 }
 
 // Targets maps supported agents to their user skill directories relative to
-// the home directory. Sources: jcode crates/jcode-base/src/skill.rs
-// (~/.jcode/skills); Codex docs "Where Codex loads local skills"
-// ($HOME/.agents/skills); Claude Code user skills (~/.claude/skills).
+// the home directory.
 var Targets = map[string]string{
 	"jcode":  ".jcode/skills",
 	"claude": ".claude/skills",

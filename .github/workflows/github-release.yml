@@ -74,7 +74,7 @@ jobs:
   build-darwin:
     needs: validate
     name: build darwin/arm64 + darwin/amd64
-    # Namespace macOS (Apple Silicon), same profile as the retail app. Override the label with
+    # Namespace macOS (Apple Silicon). Override the label with
     # the OKU_MACOS_RUNNER repo variable. darwin/amd64 is cross-compiled here with CGO
     # (clang -arch x86_64, OKU_DARWIN_CROSS=1 in dist.sh); no Intel runner.
     runs-on: ${{ vars.OKU_MACOS_RUNNER || 'namespace-profile-ios' }}
@@ -228,7 +228,7 @@ jobs:
         with: { name: sha256sums, path: release/SHA256SUMS, if-no-files-found: error }
   homebrew-tap:
     # Updates Formula/oku.rb in oku-trade/homebrew-tap. Stable tags only. Authenticates as the org
-    # GitHub App (APP_ID / APP_PRIVATE_KEY, as in account/retail CI) with a token scoped to the tap
+    # GitHub App (APP_ID / APP_PRIVATE_KEY) with a token scoped to the tap
     # repo; the app needs Contents read/write and access to homebrew-tap. Skipped if the secrets are absent.
     needs: publish
     environment: release

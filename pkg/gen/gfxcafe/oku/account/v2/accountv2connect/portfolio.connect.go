@@ -33,9 +33,6 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// PortfolioServiceGetHoldingsAndPositionsProcedure is the fully-qualified name of the
-	// PortfolioService's GetHoldingsAndPositions RPC.
-	PortfolioServiceGetHoldingsAndPositionsProcedure = "/gfxcafe.oku.account.v2.PortfolioService/GetHoldingsAndPositions"
 	// PortfolioServiceGetNetWorthChartProcedure is the fully-qualified name of the PortfolioService's
 	// GetNetWorthChart RPC.
 	PortfolioServiceGetNetWorthChartProcedure = "/gfxcafe.oku.account.v2.PortfolioService/GetNetWorthChart"
@@ -43,11 +40,6 @@ const (
 
 // PortfolioServiceClient is a client for the gfxcafe.oku.account.v2.PortfolioService service.
 type PortfolioServiceClient interface {
-	// GetHoldingsAndPositions returns a wallet's fungible token holdings and its
-	// DeFi protocol positions, grouped by chain. Tokens the upstream classifies
-	// as spam are always excluded.
-	GetHoldingsAndPositions(context.Context, *connect.Request[v2.GetHoldingsAndPositionsRequest]) (*connect.Response[v2.GetHoldingsAndPositionsResponse], error)
-	// GetNetWorthChart returns a wallet's total USD value over time.
 	GetNetWorthChart(context.Context, *connect.Request[v2.GetNetWorthChartRequest]) (*connect.Response[v2.GetNetWorthChartResponse], error)
 }
 
@@ -62,12 +54,6 @@ func NewPortfolioServiceClient(httpClient connect.HTTPClient, baseURL string, op
 	baseURL = strings.TrimRight(baseURL, "/")
 	portfolioServiceMethods := v2.File_gfxcafe_oku_account_v2_portfolio_proto.Services().ByName("PortfolioService").Methods()
 	return &portfolioServiceClient{
-		getHoldingsAndPositions: connect.NewClient[v2.GetHoldingsAndPositionsRequest, v2.GetHoldingsAndPositionsResponse](
-			httpClient,
-			baseURL+PortfolioServiceGetHoldingsAndPositionsProcedure,
-			connect.WithSchema(portfolioServiceMethods.ByName("GetHoldingsAndPositions")),
-			connect.WithClientOptions(opts...),
-		),
 		getNetWorthChart: connect.NewClient[v2.GetNetWorthChartRequest, v2.GetNetWorthChartResponse](
 			httpClient,
 			baseURL+PortfolioServiceGetNetWorthChartProcedure,
@@ -79,13 +65,7 @@ func NewPortfolioServiceClient(httpClient connect.HTTPClient, baseURL string, op
 
 // portfolioServiceClient implements PortfolioServiceClient.
 type portfolioServiceClient struct {
-	getHoldingsAndPositions *connect.Client[v2.GetHoldingsAndPositionsRequest, v2.GetHoldingsAndPositionsResponse]
-	getNetWorthChart        *connect.Client[v2.GetNetWorthChartRequest, v2.GetNetWorthChartResponse]
-}
-
-// GetHoldingsAndPositions calls gfxcafe.oku.account.v2.PortfolioService.GetHoldingsAndPositions.
-func (c *portfolioServiceClient) GetHoldingsAndPositions(ctx context.Context, req *connect.Request[v2.GetHoldingsAndPositionsRequest]) (*connect.Response[v2.GetHoldingsAndPositionsResponse], error) {
-	return c.getHoldingsAndPositions.CallUnary(ctx, req)
+	getNetWorthChart *connect.Client[v2.GetNetWorthChartRequest, v2.GetNetWorthChartResponse]
 }
 
 // GetNetWorthChart calls gfxcafe.oku.account.v2.PortfolioService.GetNetWorthChart.
@@ -96,11 +76,6 @@ func (c *portfolioServiceClient) GetNetWorthChart(ctx context.Context, req *conn
 // PortfolioServiceHandler is an implementation of the gfxcafe.oku.account.v2.PortfolioService
 // service.
 type PortfolioServiceHandler interface {
-	// GetHoldingsAndPositions returns a wallet's fungible token holdings and its
-	// DeFi protocol positions, grouped by chain. Tokens the upstream classifies
-	// as spam are always excluded.
-	GetHoldingsAndPositions(context.Context, *connect.Request[v2.GetHoldingsAndPositionsRequest]) (*connect.Response[v2.GetHoldingsAndPositionsResponse], error)
-	// GetNetWorthChart returns a wallet's total USD value over time.
 	GetNetWorthChart(context.Context, *connect.Request[v2.GetNetWorthChartRequest]) (*connect.Response[v2.GetNetWorthChartResponse], error)
 }
 
@@ -111,12 +86,6 @@ type PortfolioServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewPortfolioServiceHandler(svc PortfolioServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	portfolioServiceMethods := v2.File_gfxcafe_oku_account_v2_portfolio_proto.Services().ByName("PortfolioService").Methods()
-	portfolioServiceGetHoldingsAndPositionsHandler := connect.NewUnaryHandler(
-		PortfolioServiceGetHoldingsAndPositionsProcedure,
-		svc.GetHoldingsAndPositions,
-		connect.WithSchema(portfolioServiceMethods.ByName("GetHoldingsAndPositions")),
-		connect.WithHandlerOptions(opts...),
-	)
 	portfolioServiceGetNetWorthChartHandler := connect.NewUnaryHandler(
 		PortfolioServiceGetNetWorthChartProcedure,
 		svc.GetNetWorthChart,
@@ -125,8 +94,6 @@ func NewPortfolioServiceHandler(svc PortfolioServiceHandler, opts ...connect.Han
 	)
 	return "/gfxcafe.oku.account.v2.PortfolioService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case PortfolioServiceGetHoldingsAndPositionsProcedure:
-			portfolioServiceGetHoldingsAndPositionsHandler.ServeHTTP(w, r)
 		case PortfolioServiceGetNetWorthChartProcedure:
 			portfolioServiceGetNetWorthChartHandler.ServeHTTP(w, r)
 		default:
@@ -137,10 +104,6 @@ func NewPortfolioServiceHandler(svc PortfolioServiceHandler, opts ...connect.Han
 
 // UnimplementedPortfolioServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedPortfolioServiceHandler struct{}
-
-func (UnimplementedPortfolioServiceHandler) GetHoldingsAndPositions(context.Context, *connect.Request[v2.GetHoldingsAndPositionsRequest]) (*connect.Response[v2.GetHoldingsAndPositionsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PortfolioService.GetHoldingsAndPositions is not implemented"))
-}
 
 func (UnimplementedPortfolioServiceHandler) GetNetWorthChart(context.Context, *connect.Request[v2.GetNetWorthChartRequest]) (*connect.Response[v2.GetNetWorthChartResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PortfolioService.GetNetWorthChart is not implemented"))

@@ -32,7 +32,7 @@ oku profiles add <name> --account 0x...
 oku auth login --profile <name>
 ```
 
-The default API is production, `https://accounts.icarus.tools`. Staging is opt-in: on a fresh configuration use `oku auth login --api-url https://accounts.staging.invalid`, or add a staging profile with `--api-url https://accounts.staging.invalid`. Existing profiles keep the API URL they were created with (check `oku profiles list`). The Privy app is built in; `--privy-app-id` or `OKU_PRIVY_APP_ID` can override it.
+The default API is production, `https://accounts.icarus.tools`. Existing profiles keep the API URL they were created with (check `oku profiles list`); `--api-url` is available for custom deployments. The Privy app is built in; `--privy-app-id` or `OKU_PRIVY_APP_ID` can override it.
 
 On macOS, when Keychain authentication fails, follow `troubleshoot-macos-keychain` before suggesting another login. In particular, an updated binary may only need the user's **Always Allow** authorization.
 
