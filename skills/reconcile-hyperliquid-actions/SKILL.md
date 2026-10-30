@@ -23,7 +23,7 @@ oku orders intents --profile <p> --unresolved --json   # lists them: state, serv
 oku orders status --profile <p> --intent <id> --json
 ```
 
-`orders intents` reads only the local journal. Each row has `current_api`: an unresolved intent sent through a different API origin (for example staging) cannot be reconciled from this profile; use a profile on that origin. A row with `state: submitted`, `server_state: submitted` and an `order_id` was accepted by the exchange; reconcile refreshes whether it later filled or was canceled.
+`orders intents` reads only the local journal. Each row has `current_api`: an unresolved intent sent through a different API origin cannot be reconciled from this profile; use a profile on that origin. A row with `state: submitted`, `server_state: submitted` and an `order_id` was accepted by the exchange; reconcile refreshes whether it later filled or was canceled.
 
 ## Resolve with Oku
 
@@ -36,7 +36,7 @@ This asks Oku for the authoritative state of each unresolved intent and records 
 ## Outcomes
 
 - **Submitted or completed:** done. Report the effect, such as a fill or a resting oid. A `submitted` local record can remain stale after a later fill or cancel, so confirm with fresh `orders list`, `positions list` and `fills list` before treating it as proof the order is still resting.
-- **Rejected:** nothing executed. The intent is closed. A retry is a new prepare, submitted without asking again only within the original authorized scope; anything new or broader needs new permission. An unknown outcome is never retried: reconcile first.
+- **Rejected:** nothing executed. The intent is closed. A retry requires a new prepare and preview review; confirm inferred values and any differences from the user's authorized action. An unknown outcome is never retried: reconcile first.
 - **Still unknown:** stop, report it, and run reconcile again later. New exposure stays blocked while an intent is unknown. That is intentional.
 - **Never signed (prepared or created):** `oku orders abandon --intent <id>` makes sure it can never execute.
 

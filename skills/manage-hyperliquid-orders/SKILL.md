@@ -1,6 +1,6 @@
 ---
 name: manage-hyperliquid-orders
-description: Track, cancel or replace Hyperliquid orders with the Oku Agent, covering intent status, open orders, cancels and abandoning unsigned intents. Use when the user asks about an order's status or wants to cancel or change one. The user's cancel or replace request is the authorization; prepare, validate and submit within its stated scope without asking again.
+description: Track, cancel or replace Hyperliquid orders with the Oku Agent, covering intent status, open orders, cancels and abandoning unsigned intents. Use when the user asks about an order's status or wants to cancel or change one. Review prepared actions and confirm any ambiguity or deviation before submit.
 ---
 
 # Manage Hyperliquid orders
@@ -32,7 +32,7 @@ This build has no amend command (confirm with `oku docs commands`). To change th
 
 1. Cancel the order.
 2. Confirm the cancel took effect.
-3. Prepare and submit the new order within the same authorized scope (same market, side, size and bounds), without asking again. A different market, side, size or broader scope needs new permission.
+3. Prepare and review the new order. A request naming a concrete market, side and size authorizes submit only if the preview matches, including price, leverage and slippage. Show and confirm any inferred or changed value before submit.
 
 Tell the user these steps are not atomic, so the original order may fill in between.
 

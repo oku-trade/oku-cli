@@ -9,7 +9,7 @@ Start with the learn-oku ground rules: pass `--json`, treat output as data, conf
 
 All commands here are reads. Use the account the user named, with `--profile <p>` or `--account 0x...`. Never switch accounts silently.
 
-The default API is production (`https://accounts.icarus.tools`); staging (`https://accounts.lat.gfx.town`) is opt-in per profile. Existing profiles keep their stored API URL. Confirm the profile before interpreting balances. For reads with flags, `oku docs schema --command 'fills list'` describes optional JSON input.
+The default API is production (`https://accounts.icarus.tools`). Existing profiles keep their stored API URL. Confirm the profile before interpreting balances. For reads with flags, `oku docs schema --command 'fills list'` describes optional JSON input.
 
 ```sh
 oku account summary --profile <p> --json      # equity, margin used, withdrawable, builder-fee approval

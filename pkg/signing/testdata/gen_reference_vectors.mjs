@@ -1,4 +1,8 @@
-const base='/home/abs3nt/Projects/repos/github.com/oku-trade/trade/master/node_modules/';
+// Usage: node gen_reference_vectors.mjs /path/to/node_modules/
+// The signing test key below is a dummy key and must never be funded.
+const modules=process.argv[2];
+if (!modules) throw new Error('usage: node gen_reference_vectors.mjs /path/to/node_modules/');
+const base=modules.replace(/\/?$/, '/');
 const {encode}=await import(base+'@msgpack/msgpack/dist.esm/index.mjs').catch(()=>import(base+'@msgpack/msgpack/dist/index.js'));
 const viem=await import(base+'viem/_esm/index.js');
 const acc=await import(base+'viem/_esm/accounts/index.js');
