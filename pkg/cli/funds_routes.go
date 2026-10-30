@@ -337,7 +337,8 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 		}
 		w = &resolvedWallet{profile: p, agent: p.Account}
 	}
-	chain, err := strconv.ParseUint(str(e, "chain"), 10, 64)
+	// Chain IDs are bounded to int32 because the API uses int32 chain IDs.
+	chain, err := strconv.ParseUint(str(e, "chain"), 10, 31)
 	if err != nil || !onchain.Allowed(chain) {
 		return nil, nil, routeQuote{}, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
 	}
@@ -347,7 +348,7 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 	}
 	dst := chain
 	if kind == "bridge" {
-		dst, err = strconv.ParseUint(str(e, "destination-chain"), 10, 64)
+		dst, err = strconv.ParseUint(str(e, "destination-chain"), 10, 31)
 		if err != nil || !onchain.Allowed(dst) || dst == chain {
 			return nil, nil, routeQuote{}, output.Errorf(output.CodeInvalidArgument, "destination must be a different EVM chain ID")
 		}
