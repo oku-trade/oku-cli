@@ -226,11 +226,13 @@ jobs:
             rpmarch=x86_64; [ "$arch" = arm64 ] && rpmarch=aarch64
             nfpm pkg -f packaging/nfpm.yaml -p rpm -t "release/oku-${version}-1.${rpmarch}.rpm"
           done
-          test_completions='test -s /usr/share/bash-completion/completions/oku && test -s /usr/share/zsh/site-functions/_oku && test -s /usr/share/fish/vendor_completions.d/oku.fish && test -s /usr/share/doc/oku/THIRD_PARTY_NOTICES'
+          test_completions='test -s /usr/share/bash-completion/completions/oku && test -s /usr/share/zsh/site-functions/_oku && test -s /usr/share/fish/vendor_completions.d/oku.fish'
+          # Slim Debian and Fedora images skip /usr/share/doc on install (dpkg path-exclude,
+          # dnf tsflags=nodocs), so check the notices in the package contents instead.
           timeout 10m docker run --rm -v "$PWD/release:/release:ro" debian:stable-slim sh -ec \
-            "apt install -y /release/oku_${version}_linux_amd64.deb && oku version | grep -F '$TAG' && $test_completions"
+            "apt install -y /release/oku_${version}_linux_amd64.deb && oku version | grep -F '$TAG' && $test_completions && dpkg-deb -c /release/oku_${version}_linux_amd64.deb | grep >/dev/null ' ./usr/share/doc/oku/THIRD_PARTY_NOTICES\$'"
           timeout 10m docker run --rm -v "$PWD/release:/release:ro" fedora:latest sh -ec \
-            "dnf install -y /release/oku-${version}-1.x86_64.rpm && oku version | grep -F '$TAG' && $test_completions"
+            "dnf install -y /release/oku-${version}-1.x86_64.rpm && oku version | grep -F '$TAG' && $test_completions && rpm -qlp /release/oku-${version}-1.x86_64.rpm | grep -x >/dev/null /usr/share/doc/oku/THIRD_PARTY_NOTICES"
       - uses: actions/upload-artifact@v4
         with:
           name: gh-release-packages
