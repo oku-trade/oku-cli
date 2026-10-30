@@ -63,23 +63,30 @@ func TestDedicatedNativeKeychain(t *testing.T) {
 	if _, _, err := LoadPrivy(profile + "-other"); !errors.Is(err, ErrNoCredentials) {
 		t.Fatalf("other profile resolved: %v", err)
 	}
+	// This separate binary is not in the item's default trusted-app ACL.
+	// JSON must report denial without ever showing a Keychain dialog.
+	checkCLIStatus := func(want output.Code) {
+		t.Helper()
+		callCtx, callCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer callCancel()
+		call := exec.CommandContext(callCtx, binary, "auth", "status", "--profile", profile, "--json")
+		call.Stdin = strings.NewReader("")
+		stdout, err := call.Output()
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) || exit.ExitCode() != 3 {
+			t.Fatalf("%s JSON status exit: %v", want, err)
+		}
+		var envelope output.Envelope
+		if err := json.Unmarshal(stdout, &envelope); err != nil || envelope.Error == nil || envelope.Error.Code != want {
+			t.Fatalf("JSON status should report %s: %v: %s", want, err, stdout)
+		}
+	}
+	checkCLIStatus(output.CodeKeychainAccessDenied)
 	if err := exec.Command("security", "lock-keychain", dedicated).Run(); err != nil {
 		t.Fatalf("lock disposable Keychain: %v", err)
 	}
 	if _, err := LoadPrivyMetadata(profile); !errors.Is(err, ErrKeychainLocked) {
 		t.Fatalf("locked Keychain should report locked without prompting: %v", err)
 	}
-	callCtx, callCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer callCancel()
-	call := exec.CommandContext(callCtx, binary, "auth", "status", "--profile", profile, "--json")
-	call.Stdin = strings.NewReader("")
-	stdout, err := call.Output()
-	var exit *exec.ExitError
-	if !errors.As(err, &exit) || exit.ExitCode() != 3 {
-		t.Fatalf("locked JSON status exit: %v", err)
-	}
-	var envelope output.Envelope
-	if err := json.Unmarshal(stdout, &envelope); err != nil || envelope.Error == nil || envelope.Error.Code != output.CodeKeychainLocked {
-		t.Fatalf("locked JSON status should report KEYCHAIN_LOCKED: %v: %s", err, stdout)
-	}
+	checkCLIStatus(output.CodeKeychainLocked)
 }
