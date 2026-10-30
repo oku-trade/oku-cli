@@ -14,7 +14,7 @@ mods="$(go list -deps -f '{{with .Module}}{{if not .Main}}{{.Path}}@{{.Version}}
 tmp="$(mktemp)"; trap 'rm -f "$tmp"' EXIT
 (
   echo "Third-party notices for oku ($(go env GOOS)/$(go env GOARCH), CGO_ENABLED=$(go env CGO_ENABLED))"
-  echo "The oku program itself ($main) is Apache-2.0 licensed; these notices cover bundled dependencies, including separately licensed components."
+  echo "The oku program itself ($main) is licensed under AGPL-3.0-only; these notices cover bundled dependencies, including separately licensed components."
   echo
   echo "================================================================"
   echo "Go standard library and runtime ($(go env GOVERSION))"
