@@ -31,7 +31,7 @@ func interactiveKeychain(gui bool) credentialItemStore {
 
 func graphicalKeychainSession() bool {
 	session := C.CGSessionCopyCurrentDictionary()
-	if session == nil {
+	if session == 0 {
 		return false
 	}
 	C.CFRelease(C.CFTypeRef(session))
