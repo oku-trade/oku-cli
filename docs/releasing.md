@@ -165,6 +165,10 @@ identifier `com.oku-trade.oku`) when `MACOS_DEVELOPER_ID_P12` is set, and notari
 
 Bare binaries cannot be stapled, so Gatekeeper checks the notarization ticket online on first run.
 
+These secrets and `APP_PRIVATE_KEY` belong in the `release` environment, which only `v*` tags may
+deploy to, so a branch or PR workflow cannot read them. To rebuild an existing tag, dispatch from
+the tag ref: `gh workflow run github-release --ref vX.Y.Z -f tag=vX.Y.Z`.
+
 ### npm publishing (disabled)
 
 `.github/workflows/release.yml` is `workflow_dispatch` only and does nothing unless the repo

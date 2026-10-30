@@ -78,6 +78,8 @@ jobs:
     # the OKU_MACOS_RUNNER repo variable. darwin/amd64 is cross-compiled here with CGO
     # (clang -arch x86_64, OKU_DARWIN_CROSS=1 in dist.sh); no Intel runner.
     runs-on: ${{ vars.OKU_MACOS_RUNNER || 'namespace-profile-ios' }}
+    # Signing secrets live in the `release` environment, which only v* tags may deploy to.
+    environment: release
     env:
       CGO_ENABLED: "1"
     steps:
@@ -222,6 +224,7 @@ jobs:
     # GitHub App (APP_ID / APP_PRIVATE_KEY, as in account/retail CI) with a token scoped to the tap
     # repo; the app needs Contents read/write and access to homebrew-tap. Skipped if the secrets are absent.
     needs: publish
+    environment: release
     if: ${{ !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') }}
     runs-on: ubicloud-standard-2
     env:
