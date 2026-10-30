@@ -60,7 +60,7 @@ func (pathBackend) Call(context.Context, string, Globals, map[string]any, []stri
 // Agent-wallet funds are usable over MCP: reads and journal-only prepares by
 // default, and Privy-signing submit/reconcile/claim only with mutations on.
 func TestFundsToolsExposedAndGated(t *testing.T) {
-	paths := []string{"wallet balances", "swap quote", "swap prepare", "swap status", "swap submit", "bridge quote", "bridge prepare", "bridge status", "bridge submit", "bridge claim", "bridge reconcile", "send prepare", "send submit", "deposit prepare", "deposit submit", "swap orders list", "swap orders create", "swap orders cancel", "swap orders watch", "swap pnl", "auth login"}
+	paths := []string{"wallet balances", "swap quote", "swap prepare", "swap status", "swap submit", "bridge quote", "bridge prepare", "bridge status", "bridge submit", "bridge claim", "bridge reconcile", "send prepare", "send submit", "deposit prepare", "deposit submit", "swap orders list", "swap orders create", "swap orders cancel", "swap orders watch", "swap pnl", "pnl", "auth login"}
 	list := func(allow bool) map[string]*sdk.Tool {
 		ctx := context.Background()
 		server := NewServer(pathBackend{paths}, Config{Version: "test", AllowMutations: allow})
@@ -83,7 +83,7 @@ func TestFundsToolsExposedAndGated(t *testing.T) {
 		}
 		return out
 	}
-	reads := []string{"wallet_balances", "swap_quote", "swap_prepare", "swap_status", "bridge_quote", "bridge_prepare", "bridge_status", "send_prepare", "deposit_prepare", "swap_orders_list", "swap_pnl"}
+	reads := []string{"wallet_balances", "swap_quote", "swap_prepare", "swap_status", "bridge_quote", "bridge_prepare", "bridge_status", "send_prepare", "deposit_prepare", "swap_orders_list", "swap_pnl", "pnl"}
 	mutations := []string{"swap_submit", "bridge_submit", "bridge_claim", "bridge_reconcile", "send_submit", "deposit_submit", "swap_orders_create", "swap_orders_cancel", "swap_orders_watch"}
 	gated := list(false)
 	for _, n := range reads {

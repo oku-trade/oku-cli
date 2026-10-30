@@ -23,6 +23,7 @@ if [[ $CHECK -eq 0 ]]; then
     gfxcafe/oku/account/v2/bridge.proto
     gfxcafe/oku/account/v2/token.proto
     gfxcafe/oku/account/v2/onchain.proto
+    gfxcafe/oku/account/v2/portfolio.proto
   )
   rm -rf proto/gfxcafe proto/buf
   for f in "${FILES[@]}"; do
