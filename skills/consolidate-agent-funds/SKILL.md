@@ -66,7 +66,10 @@ The addresses come from Circle's native USDC list (developers.circle.com/stablec
 ```sh
 oku wallet address --json
 oku wallet balances --tokens-file sweep.csv --json        # reads every chain in the CSV; add --chains to restrict
+oku wallet balances --chains 8453,42161 --stables --json  # destination snapshot: native USDC and native gas on Base and Arbitrum, even if they are not in the CSV
 ```
+
+The second read is the shared snapshot every worker gets: Base and Arbitrum native USDC holdings (for the tie-break in step 2) and native gas (for the claim gas check). A chain under `errors` is unknown, not zero: skip the tie-break preference for it.
 
 The CSV is `chain_id,token_address,amount` (optional header). Its `amount` is informational only (`csv_amount`, `mismatch`); never spend it. Per chain, keep tokens with nonzero live `balance`. Skip as **dust** any token whose swap `gas_usd + oku_fee_usd` is at least its `in_usd` (assume a $0.25 flat fee on sells under $25 unless prepare shows less). Report zero and dust rows as skipped; do not sell them.
 
@@ -99,7 +102,7 @@ oku bridge quote --chain CHAIN --destination-chain D --from C --to USDC_D --amou
 
 Quote `in_amount`, `out_amount` and `min_out` are **raw base units**, while `--amount` takes a decimal. Convert SUM with C's decimals (from `wallet balances`, or 18 for native). The anonymous flat fee per swap is the same for every candidate, so quote-based ranking is still fair.
 
-**Score(C, D) = native USDC received on D** (bridge `out_amount`, minus the claim gas on D for Circle routes). Pick the highest score. If Base and Arbitrum are within 0.3%, prefer the one that already holds more native USDC in the step 1 balances (fewer chains for the user to deposit from), else Base. Use only those step 1 holdings, never other chains' plans or results. If native USDC on the source scores within 0.3% of the best, choose it (CCTP burn and mint has no slippage). If no direct bridge to D quotes, try two hops: C to native USDC on Ethereum, then Ethereum to D via circleStandard. Score the full path. Record the chain's scores and the reason for the one-line plan and the final report.
+**Score(C, D) = native USDC received on D** (bridge `out_amount`, minus the claim gas on D for Circle routes). Pick the highest score. If Base and Arbitrum are within 0.3%, prefer the one that already holds more native USDC in the step 1 destination snapshot (fewer chains for the user to deposit from), else Base. Use only that snapshot, never other chains' plans or results. If native USDC on the source scores within 0.3% of the best, choose it (CCTP burn and mint has no slippage). If no direct bridge to D quotes, try two hops: C to native USDC on Ethereum, then Ethereum to D via circleStandard. Score the full path. Record the chain's scores and the reason for the one-line plan and the final report.
 
 **0G (16661) plan.** No provider bridges 0G USDC.e (`0x1f3AA82227281cA364bFb3d253B0f1af1Da6473E`) directly to Base or Arbitrum USDC today. Recheck, and use a direct route if one appears. Otherwise:
 1. USDC.e to Ethereum USDC via `lifi`, then Ethereum USDC to Base or Arbitrum USDC via `--route circleStandard`. This needs ETH on Ethereum for the burn and gas on the destination for the claim. If Ethereum gas makes the second hop uneconomic, stop on Ethereum USDC: it is Coinbase-depositable.
@@ -108,7 +111,7 @@ Quote `in_amount`, `out_amount` and `min_out` are **raw base units**, while `--a
 **Gas check:**
 - Per worker: its source chain needs enough native gas for its swaps (about `gas_usd` each), the bridge and a reserve. Never choose `native` as C if that would sell gas below the reserve. A short source chain pauses only that chain.
 - An Ethereum first hop also needs ETH on Ethereum for the burn (part of that chain's own check).
-- Shared, destination claim gas: Circle routes are claimed on the destination, so **every destination chain a plan bridges to** (Base, Arbitrum, and Ethereum for a 0G two-hop) needs native gas for one claim per incoming bridge. Check it once right after step 1 for the likely destinations (`oku wallet balances --chains 8453,42161[,1] --json`), and again before Phase C claims. Pause and ask the user to fund any that are short (`oku wallet fund --chain D --token native`). A short destination gates only claims and bridges to that chain, never another chain's sells.
+- Shared, destination claim gas: Circle routes are claimed on the destination, so **every destination chain a plan bridges to** (Base, Arbitrum, and Ethereum for a 0G two-hop) needs native gas for one claim per incoming bridge. The step 1 snapshot gives Base and Arbitrum gas up front. Because each worker picks its destination independently, each worker re-checks its own destination's gas (including Ethereum, via `oku wallet balances --chains D --json`) right before its Phase B bridge, counting claims already pending to that chain from `oku bridge status --all --json`, and again before Phase C claims. Pause and ask the user to fund any that are short (`oku wallet fund --chain D --token native`). A short destination gates only claims and bridges to that chain, never another chain's sells.
 
 ## 3. Run each chain's pipeline concurrently
 
