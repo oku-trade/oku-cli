@@ -42,6 +42,29 @@ oku swap pnl                                   # realized/unrealized PnL of the 
 
 For agent-authored orders, inspect `oku docs schema --command 'orders prepare'`, write a JSON object of command options, and run `oku orders prepare --input order.json --json`. Global options remain CLI flags. See [JSON input](docs/usage.md#json-input).
 
+## Install (Homebrew)
+
+macOS and Linux (amd64 and arm64) can install the latest release from the Oku tap, [oku-trade/homebrew-tap](https://github.com/oku-trade/homebrew-tap):
+
+```sh
+brew tap oku-trade/tap
+brew install oku
+oku version
+```
+
+Or in one step without tapping first: `brew install oku-trade/tap/oku`.
+
+Upgrade and remove it with Homebrew:
+
+```sh
+brew update && brew upgrade oku   # fetch the latest formula and upgrade
+brew info oku                     # installed and available versions
+brew uninstall oku
+brew untap oku-trade/tap          # optional, removes the tap
+```
+
+The tap formula installs the prebuilt release archive for your platform and checks its SHA-256. It tracks the latest release only: to pin an older version, use the install script with `--version`. Homebrew owns the binary, so `oku self-update` and opt-in auto-update refuse to replace it; upgrade with `brew upgrade oku` instead.
+
 ## Install (prebuilt binary)
 
 Public releases carry `oku_<version>_<os>_<arch>.tar.gz` for linux/darwin amd64/arm64 plus `SHA256SUMS`. No GitHub token is needed for ordinary downloads.
@@ -164,7 +187,7 @@ The release tooling packs a thin launcher `@oku-trade/cli` plus four exact-versi
 
 1. Run `oku skills uninstall --target <agent>` for any installed skills.
 2. Run `oku auth logout` (then separately revoke the Hyperliquid agent with the master wallet).
-3. Run `make uninstall` (or `rm "$(command -v oku)"`).
+3. Run `brew uninstall oku` for a Homebrew install, otherwise `make uninstall` (or `rm "$(command -v oku)"`).
 
 Removing the binary does **not** revoke Oku sessions or the exchange delegated signer. It also leaves the journal in place. See [docs/security.md](docs/security.md).
 
