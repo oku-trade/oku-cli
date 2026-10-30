@@ -122,7 +122,9 @@ func (s systemKeychain) Get(k key) ([]byte, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
 			cmd := exec.CommandContext(ctx, "/usr/bin/security", "unlock-keychain")
-			cmd.Stdin, cmd.Stderr = os.Stdin, os.Stderr
+			// Route either output stream to terminal stderr so any prompt stays
+			// visible without corrupting machine-readable stdout.
+			cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stderr, os.Stderr
 			if unlockErr := cmd.Run(); unlockErr != nil {
 				return nil, fmt.Errorf("%w: unlock-keychain: %v", ErrKeychainLocked, unlockErr)
 			}
