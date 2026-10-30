@@ -5,6 +5,7 @@ pkg="${1:?PKGBUILD}"; info="${2:?SRCINFO}"
 # The generated PKGBUILD is trusted repository output, not untrusted user input.
 source "$pkg"
 grep -Fxq "# Maintainer: ${AUR_GIT_NAME:-oku release bot} <${AUR_GIT_EMAIL:-oku-release-bot@users.noreply.github.com}>" "$pkg"
+grep -Fq '$pkgdir/usr/share/doc/oku-bin/THIRD_PARTY_NOTICES' "$pkg"
 for completion in 'bash-completion/completions/oku' 'zsh/site-functions/_oku' 'fish/vendor_completions.d/oku.fish'; do
   grep -Fq "\$pkgdir/usr/share/$completion" "$pkg"
 done

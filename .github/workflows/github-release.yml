@@ -203,7 +203,7 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version: "1.27.x", check-latest: true }
       - name: install pinned nfpm
-        run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.48.0
+        run: timeout 15m go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.48.0
       - name: package and smoke Linux deb/rpm
         run: |
           set -euo pipefail
@@ -220,15 +220,16 @@ jobs:
             if [ "$arch" != amd64 ]; then tar -xzf "release/$archive.tar.gz" -C release; fi
             mkdir -p packaging/binary
             install -m755 "release/$archive/oku" packaging/binary/oku
+            install -m644 "release/$archive/THIRD_PARTY_NOTICES" packaging/binary/THIRD_PARTY_NOTICES
             export OKU_ARCH="$arch" OKU_VERSION="$version"
             nfpm pkg -f packaging/nfpm.yaml -p deb -t "release/oku_${version}_linux_${arch}.deb"
             rpmarch=x86_64; [ "$arch" = arm64 ] && rpmarch=aarch64
             nfpm pkg -f packaging/nfpm.yaml -p rpm -t "release/oku-${version}-1.${rpmarch}.rpm"
           done
-          test_completions='test -s /usr/share/bash-completion/completions/oku && test -s /usr/share/zsh/site-functions/_oku && test -s /usr/share/fish/vendor_completions.d/oku.fish'
-          docker run --rm -v "$PWD/release:/release:ro" debian:stable-slim sh -ec \
+          test_completions='test -s /usr/share/bash-completion/completions/oku && test -s /usr/share/zsh/site-functions/_oku && test -s /usr/share/fish/vendor_completions.d/oku.fish && test -s /usr/share/doc/oku/THIRD_PARTY_NOTICES'
+          timeout 10m docker run --rm -v "$PWD/release:/release:ro" debian:stable-slim sh -ec \
             "apt install -y /release/oku_${version}_linux_amd64.deb && oku version | grep -F '$TAG' && $test_completions"
-          docker run --rm -v "$PWD/release:/release:ro" fedora:latest sh -ec \
+          timeout 10m docker run --rm -v "$PWD/release:/release:ro" fedora:latest sh -ec \
             "dnf install -y /release/oku-${version}-1.x86_64.rpm && oku version | grep -F '$TAG' && $test_completions"
       - uses: actions/upload-artifact@v4
         with:
@@ -372,16 +373,16 @@ jobs:
           DRY_RUN: ${{ inputs.npm_dry_run || 'false' }}
         run: |
           set -euo pipefail
-          npm install -g 'npm@^11.19'
+          timeout 5m npm install -g 'npm@^11.19'
           npm --version
           version="${TAG#v}"
           stage_package() {
             local name="$1" tarball="$2"
             if [ "$DRY_RUN" = true ]; then
-              npm stage publish "$tarball" --dry-run --access public --tag latest
+              timeout 10m npm stage publish "$tarball" --dry-run --access public --tag latest
               return
             fi
-            if npm view "$name@$version" version --json > "$RUNNER_TEMP/npm-view.out" 2> "$RUNNER_TEMP/npm-view.err"; then
+            if timeout 90s npm view "$name@$version" version --json > /dev/null 2> "$RUNNER_TEMP/npm-view.err"; then
               echo "$name@$version already published; skipping"
               return
             fi
@@ -389,7 +390,7 @@ jobs:
               echo "registry lookup failed for $name@$version" >&2
               return 1
             fi
-            npm stage publish "$tarball" --provenance --access public --tag latest
+            timeout 10m npm stage publish "$tarball" --provenance --access public --tag latest
           }
           for os in linux darwin; do
             for arch in x64 arm64; do
@@ -404,6 +405,9 @@ jobs:
     needs: publish
     environment: release
     if: ${{ !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') }}
+    concurrency:
+      group: aur-oku-bin
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     env:
       HAS_AUR_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY != '' }}
@@ -434,12 +438,28 @@ jobs:
           printf '%s\n' "$AUR_KEY" > "$key"
           chmod 600 "$key"
           trap 'rm -f "$key"' EXIT
-          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$PWD/src/packaging/aur_known_hosts"
-          git clone ssh://aur@aur.archlinux.org/oku-bin.git aur-repo
+          export GIT_SSH_COMMAND="ssh -i $key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$PWD/src/packaging/aur_known_hosts -o ConnectTimeout=15 -o ConnectionAttempts=2 -o ServerAliveInterval=15 -o ServerAliveCountMax=2"
+          timeout 120s git clone ssh://aur@aur.archlinux.org/oku-bin.git aur-repo \
+            || { echo 'AUR clone failed or timed out' >&2; exit 1; }
+          if [ -f aur-repo/.SRCINFO ]; then
+            current="$(awk '$1 == "pkgver" && $2 == "=" { print $3; exit }' aur-repo/.SRCINFO)"
+            current_rel="$(awk '$1 == "pkgrel" && $2 == "=" { print $3; exit }' aur-repo/.SRCINFO)"
+            [[ "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$current_rel" =~ ^[0-9]+$ ]] \
+              || { echo 'AUR .SRCINFO has an invalid version; refusing to replace it' >&2; exit 1; }
+            candidate="${TAG#v}-1"
+            if [ "$(printf '%s\n%s\n' "$candidate" "$current-$current_rel" | sort -V | tail -n 1)" != "$candidate" ]; then
+              echo "AUR is already at $current-$current_rel; skipping older $candidate"
+              exit 0
+            fi
+          elif [ -f aur-repo/PKGBUILD ]; then
+            echo 'AUR PKGBUILD has no .SRCINFO; refusing to replace it' >&2
+            exit 1
+          fi
           bash src/mise-tasks/aur-pkgbuild.sh "$TAG" sums/SHA256SUMS aur-repo
           bash src/mise-tasks/aur-check.sh aur-repo/PKGBUILD aur-repo/.SRCINFO
           cd aur-repo
           git add PKGBUILD .SRCINFO
           if git diff --cached --quiet; then echo 'AUR metadata unchanged'; exit 0; fi
           git -c user.name="$AUR_GIT_NAME" -c user.email="$AUR_GIT_EMAIL" commit -m "oku-bin ${TAG#v}"
-          git push origin HEAD:master   # AUR accepts only master; a first clone of an empty repo may default to another branch
+          timeout 120s git push origin HEAD:master \
+            || { echo 'AUR push failed or timed out' >&2; exit 1; }
