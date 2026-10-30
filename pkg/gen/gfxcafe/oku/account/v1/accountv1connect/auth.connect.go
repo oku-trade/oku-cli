@@ -36,84 +36,18 @@ const (
 	// AuthServicePrivySessionExchangeProcedure is the fully-qualified name of the AuthService's
 	// PrivySessionExchange RPC.
 	AuthServicePrivySessionExchangeProcedure = "/gfxcafe.oku.account.v1.AuthService/PrivySessionExchange"
-	// AuthServiceEvmChallengeProcedure is the fully-qualified name of the AuthService's EvmChallenge
-	// RPC.
-	AuthServiceEvmChallengeProcedure = "/gfxcafe.oku.account.v1.AuthService/EvmChallenge"
-	// AuthServiceEvmSolveProcedure is the fully-qualified name of the AuthService's EvmSolve RPC.
-	AuthServiceEvmSolveProcedure = "/gfxcafe.oku.account.v1.AuthService/EvmSolve"
 	// AuthServiceLogoutProcedure is the fully-qualified name of the AuthService's Logout RPC.
 	AuthServiceLogoutProcedure = "/gfxcafe.oku.account.v1.AuthService/Logout"
 	// AuthServiceExtendSessionProcedure is the fully-qualified name of the AuthService's ExtendSession
 	// RPC.
 	AuthServiceExtendSessionProcedure = "/gfxcafe.oku.account.v1.AuthService/ExtendSession"
-	// AuthServiceUserInfoProcedure is the fully-qualified name of the AuthService's UserInfo RPC.
-	AuthServiceUserInfoProcedure = "/gfxcafe.oku.account.v1.AuthService/UserInfo"
-	// AuthServiceUserInfoUpdateDisplayNameProcedure is the fully-qualified name of the AuthService's
-	// UserInfoUpdateDisplayName RPC.
-	AuthServiceUserInfoUpdateDisplayNameProcedure = "/gfxcafe.oku.account.v1.AuthService/UserInfoUpdateDisplayName"
-	// AuthServiceBridgeInfoProcedure is the fully-qualified name of the AuthService's BridgeInfo RPC.
-	AuthServiceBridgeInfoProcedure = "/gfxcafe.oku.account.v1.AuthService/BridgeInfo"
-	// AuthServiceBridgeInfoSetProcedure is the fully-qualified name of the AuthService's BridgeInfoSet
-	// RPC.
-	AuthServiceBridgeInfoSetProcedure = "/gfxcafe.oku.account.v1.AuthService/BridgeInfoSet"
-	// AuthServiceEmailChallengeProcedure is the fully-qualified name of the AuthService's
-	// EmailChallenge RPC.
-	AuthServiceEmailChallengeProcedure = "/gfxcafe.oku.account.v1.AuthService/EmailChallenge"
-	// AuthServiceEmailVerifyProcedure is the fully-qualified name of the AuthService's EmailVerify RPC.
-	AuthServiceEmailVerifyProcedure = "/gfxcafe.oku.account.v1.AuthService/EmailVerify"
-	// AuthServiceEmailConfirmProcedure is the fully-qualified name of the AuthService's EmailConfirm
-	// RPC.
-	AuthServiceEmailConfirmProcedure = "/gfxcafe.oku.account.v1.AuthService/EmailConfirm"
-	// AuthServiceEmailCodeChallengeProcedure is the fully-qualified name of the AuthService's
-	// EmailCodeChallenge RPC.
-	AuthServiceEmailCodeChallengeProcedure = "/gfxcafe.oku.account.v1.AuthService/EmailCodeChallenge"
-	// AuthServiceEmailCodeConfirmProcedure is the fully-qualified name of the AuthService's
-	// EmailCodeConfirm RPC.
-	AuthServiceEmailCodeConfirmProcedure = "/gfxcafe.oku.account.v1.AuthService/EmailCodeConfirm"
-	// AuthServiceManageMergeProcedure is the fully-qualified name of the AuthService's ManageMerge RPC.
-	AuthServiceManageMergeProcedure = "/gfxcafe.oku.account.v1.AuthService/ManageMerge"
-	// AuthServiceManageRemoveWalletIdpProcedure is the fully-qualified name of the AuthService's
-	// ManageRemoveWalletIdp RPC.
-	AuthServiceManageRemoveWalletIdpProcedure = "/gfxcafe.oku.account.v1.AuthService/ManageRemoveWalletIdp"
 )
 
 // AuthServiceClient is a client for the gfxcafe.oku.account.v1.AuthService service.
 type AuthServiceClient interface {
-	// Exchange a verified Privy access token for an Oku account session.
 	PrivySessionExchange(context.Context, *connect.Request[v1.PrivySessionExchangeRequest]) (*connect.Response[v1.PrivySessionExchangeResponse], error)
-	// Create a challenge for EVM wallet authentication (/auth/evm/challenge)
-	EvmChallenge(context.Context, *connect.Request[v1.EvmChallengeRequest]) (*connect.Response[v1.EvmChallengeResponse], error)
-	// Solve the challenge to authenticate (/auth/evm/solve)
-	EvmSolve(context.Context, *connect.Request[v1.EvmSolveRequest]) (*connect.Response[v1.EvmSolveResponse], error)
-	// Logout and invalidate session (/auth/logout)
 	Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error)
-	// Extend the current session (/auth/extend_session)
 	ExtendSession(context.Context, *connect.Request[v1.ExtendSessionRequest]) (*connect.Response[v1.ExtendSessionResponse], error)
-	// Get current user information (/auth/user_info)
-	UserInfo(context.Context, *connect.Request[v1.UserInfoRequest]) (*connect.Response[v1.UserInfoResponse], error)
-	// Update user's display name (/auth/user_info/update/display_name)
-	UserInfoUpdateDisplayName(context.Context, *connect.Request[v1.UserInfoUpdateDisplayNameRequest]) (*connect.Response[v1.UserInfoUpdateDisplayNameResponse], error)
-	// Get bridge information for the user (/auth/bridge_info)
-	BridgeInfo(context.Context, *connect.Request[v1.BridgeInfoRequest]) (*connect.Response[v1.BridgeInfoResponse], error)
-	// Set bridge information for the user (/auth/bridge_info)
-	BridgeInfoSet(context.Context, *connect.Request[v1.BridgeInfoSetRequest]) (*connect.Response[v1.BridgeInfoSetResponse], error)
-	// Request email login code (/auth/email/challenge)
-	EmailChallenge(context.Context, *connect.Request[v1.EmailChallengeRequest]) (*connect.Response[v1.EmailChallengeResponse], error)
-	// Verify email with code (/auth/email/verify)
-	EmailVerify(context.Context, *connect.Request[v1.EmailVerifyRequest]) (*connect.Response[v1.EmailVerifyResponse], error)
-	// Confirm email verification (/auth/email/confirm)
-	EmailConfirm(context.Context, *connect.Request[v1.EmailConfirmRequest]) (*connect.Response[v1.EmailConfirmResponse], error)
-	// Start an email code login challenge. Sends a 6-digit numeric PIN to the
-	// user's email and returns a challenge key the client must present when
-	// confirming the code. (/auth/email_code/challenge)
-	EmailCodeChallenge(context.Context, *connect.Request[v1.EmailCodeChallengeRequest]) (*connect.Response[v1.EmailCodeChallengeResponse], error)
-	// Confirm the 6-digit code using the challenge key returned by
-	// EmailCodeChallenge. On success returns a session. (/auth/email_code/confirm)
-	EmailCodeConfirm(context.Context, *connect.Request[v1.EmailCodeConfirmRequest]) (*connect.Response[v1.EmailCodeConfirmResponse], error)
-	// Merge two user accounts (/auth/manage/merge)
-	ManageMerge(context.Context, *connect.Request[v1.ManageMergeRequest]) (*connect.Response[v1.ManageMergeResponse], error)
-	// Remove wallet IDP from user (/auth/manage/remove_wallet_idp)
-	ManageRemoveWalletIdp(context.Context, *connect.Request[v1.ManageRemoveWalletIdpRequest]) (*connect.Response[v1.ManageRemoveWalletIdpResponse], error)
 }
 
 // NewAuthServiceClient constructs a client for the gfxcafe.oku.account.v1.AuthService service. By
@@ -133,18 +67,6 @@ func NewAuthServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(authServiceMethods.ByName("PrivySessionExchange")),
 			connect.WithClientOptions(opts...),
 		),
-		evmChallenge: connect.NewClient[v1.EvmChallengeRequest, v1.EvmChallengeResponse](
-			httpClient,
-			baseURL+AuthServiceEvmChallengeProcedure,
-			connect.WithSchema(authServiceMethods.ByName("EvmChallenge")),
-			connect.WithClientOptions(opts...),
-		),
-		evmSolve: connect.NewClient[v1.EvmSolveRequest, v1.EvmSolveResponse](
-			httpClient,
-			baseURL+AuthServiceEvmSolveProcedure,
-			connect.WithSchema(authServiceMethods.ByName("EvmSolve")),
-			connect.WithClientOptions(opts...),
-		),
 		logout: connect.NewClient[v1.LogoutRequest, v1.LogoutResponse](
 			httpClient,
 			baseURL+AuthServiceLogoutProcedure,
@@ -157,108 +79,19 @@ func NewAuthServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(authServiceMethods.ByName("ExtendSession")),
 			connect.WithClientOptions(opts...),
 		),
-		userInfo: connect.NewClient[v1.UserInfoRequest, v1.UserInfoResponse](
-			httpClient,
-			baseURL+AuthServiceUserInfoProcedure,
-			connect.WithSchema(authServiceMethods.ByName("UserInfo")),
-			connect.WithClientOptions(opts...),
-		),
-		userInfoUpdateDisplayName: connect.NewClient[v1.UserInfoUpdateDisplayNameRequest, v1.UserInfoUpdateDisplayNameResponse](
-			httpClient,
-			baseURL+AuthServiceUserInfoUpdateDisplayNameProcedure,
-			connect.WithSchema(authServiceMethods.ByName("UserInfoUpdateDisplayName")),
-			connect.WithClientOptions(opts...),
-		),
-		bridgeInfo: connect.NewClient[v1.BridgeInfoRequest, v1.BridgeInfoResponse](
-			httpClient,
-			baseURL+AuthServiceBridgeInfoProcedure,
-			connect.WithSchema(authServiceMethods.ByName("BridgeInfo")),
-			connect.WithClientOptions(opts...),
-		),
-		bridgeInfoSet: connect.NewClient[v1.BridgeInfoSetRequest, v1.BridgeInfoSetResponse](
-			httpClient,
-			baseURL+AuthServiceBridgeInfoSetProcedure,
-			connect.WithSchema(authServiceMethods.ByName("BridgeInfoSet")),
-			connect.WithClientOptions(opts...),
-		),
-		emailChallenge: connect.NewClient[v1.EmailChallengeRequest, v1.EmailChallengeResponse](
-			httpClient,
-			baseURL+AuthServiceEmailChallengeProcedure,
-			connect.WithSchema(authServiceMethods.ByName("EmailChallenge")),
-			connect.WithClientOptions(opts...),
-		),
-		emailVerify: connect.NewClient[v1.EmailVerifyRequest, v1.EmailVerifyResponse](
-			httpClient,
-			baseURL+AuthServiceEmailVerifyProcedure,
-			connect.WithSchema(authServiceMethods.ByName("EmailVerify")),
-			connect.WithClientOptions(opts...),
-		),
-		emailConfirm: connect.NewClient[v1.EmailConfirmRequest, v1.EmailConfirmResponse](
-			httpClient,
-			baseURL+AuthServiceEmailConfirmProcedure,
-			connect.WithSchema(authServiceMethods.ByName("EmailConfirm")),
-			connect.WithClientOptions(opts...),
-		),
-		emailCodeChallenge: connect.NewClient[v1.EmailCodeChallengeRequest, v1.EmailCodeChallengeResponse](
-			httpClient,
-			baseURL+AuthServiceEmailCodeChallengeProcedure,
-			connect.WithSchema(authServiceMethods.ByName("EmailCodeChallenge")),
-			connect.WithClientOptions(opts...),
-		),
-		emailCodeConfirm: connect.NewClient[v1.EmailCodeConfirmRequest, v1.EmailCodeConfirmResponse](
-			httpClient,
-			baseURL+AuthServiceEmailCodeConfirmProcedure,
-			connect.WithSchema(authServiceMethods.ByName("EmailCodeConfirm")),
-			connect.WithClientOptions(opts...),
-		),
-		manageMerge: connect.NewClient[v1.ManageMergeRequest, v1.ManageMergeResponse](
-			httpClient,
-			baseURL+AuthServiceManageMergeProcedure,
-			connect.WithSchema(authServiceMethods.ByName("ManageMerge")),
-			connect.WithClientOptions(opts...),
-		),
-		manageRemoveWalletIdp: connect.NewClient[v1.ManageRemoveWalletIdpRequest, v1.ManageRemoveWalletIdpResponse](
-			httpClient,
-			baseURL+AuthServiceManageRemoveWalletIdpProcedure,
-			connect.WithSchema(authServiceMethods.ByName("ManageRemoveWalletIdp")),
-			connect.WithClientOptions(opts...),
-		),
 	}
 }
 
 // authServiceClient implements AuthServiceClient.
 type authServiceClient struct {
-	privySessionExchange      *connect.Client[v1.PrivySessionExchangeRequest, v1.PrivySessionExchangeResponse]
-	evmChallenge              *connect.Client[v1.EvmChallengeRequest, v1.EvmChallengeResponse]
-	evmSolve                  *connect.Client[v1.EvmSolveRequest, v1.EvmSolveResponse]
-	logout                    *connect.Client[v1.LogoutRequest, v1.LogoutResponse]
-	extendSession             *connect.Client[v1.ExtendSessionRequest, v1.ExtendSessionResponse]
-	userInfo                  *connect.Client[v1.UserInfoRequest, v1.UserInfoResponse]
-	userInfoUpdateDisplayName *connect.Client[v1.UserInfoUpdateDisplayNameRequest, v1.UserInfoUpdateDisplayNameResponse]
-	bridgeInfo                *connect.Client[v1.BridgeInfoRequest, v1.BridgeInfoResponse]
-	bridgeInfoSet             *connect.Client[v1.BridgeInfoSetRequest, v1.BridgeInfoSetResponse]
-	emailChallenge            *connect.Client[v1.EmailChallengeRequest, v1.EmailChallengeResponse]
-	emailVerify               *connect.Client[v1.EmailVerifyRequest, v1.EmailVerifyResponse]
-	emailConfirm              *connect.Client[v1.EmailConfirmRequest, v1.EmailConfirmResponse]
-	emailCodeChallenge        *connect.Client[v1.EmailCodeChallengeRequest, v1.EmailCodeChallengeResponse]
-	emailCodeConfirm          *connect.Client[v1.EmailCodeConfirmRequest, v1.EmailCodeConfirmResponse]
-	manageMerge               *connect.Client[v1.ManageMergeRequest, v1.ManageMergeResponse]
-	manageRemoveWalletIdp     *connect.Client[v1.ManageRemoveWalletIdpRequest, v1.ManageRemoveWalletIdpResponse]
+	privySessionExchange *connect.Client[v1.PrivySessionExchangeRequest, v1.PrivySessionExchangeResponse]
+	logout               *connect.Client[v1.LogoutRequest, v1.LogoutResponse]
+	extendSession        *connect.Client[v1.ExtendSessionRequest, v1.ExtendSessionResponse]
 }
 
 // PrivySessionExchange calls gfxcafe.oku.account.v1.AuthService.PrivySessionExchange.
 func (c *authServiceClient) PrivySessionExchange(ctx context.Context, req *connect.Request[v1.PrivySessionExchangeRequest]) (*connect.Response[v1.PrivySessionExchangeResponse], error) {
 	return c.privySessionExchange.CallUnary(ctx, req)
-}
-
-// EvmChallenge calls gfxcafe.oku.account.v1.AuthService.EvmChallenge.
-func (c *authServiceClient) EvmChallenge(ctx context.Context, req *connect.Request[v1.EvmChallengeRequest]) (*connect.Response[v1.EvmChallengeResponse], error) {
-	return c.evmChallenge.CallUnary(ctx, req)
-}
-
-// EvmSolve calls gfxcafe.oku.account.v1.AuthService.EvmSolve.
-func (c *authServiceClient) EvmSolve(ctx context.Context, req *connect.Request[v1.EvmSolveRequest]) (*connect.Response[v1.EvmSolveResponse], error) {
-	return c.evmSolve.CallUnary(ctx, req)
 }
 
 // Logout calls gfxcafe.oku.account.v1.AuthService.Logout.
@@ -271,98 +104,11 @@ func (c *authServiceClient) ExtendSession(ctx context.Context, req *connect.Requ
 	return c.extendSession.CallUnary(ctx, req)
 }
 
-// UserInfo calls gfxcafe.oku.account.v1.AuthService.UserInfo.
-func (c *authServiceClient) UserInfo(ctx context.Context, req *connect.Request[v1.UserInfoRequest]) (*connect.Response[v1.UserInfoResponse], error) {
-	return c.userInfo.CallUnary(ctx, req)
-}
-
-// UserInfoUpdateDisplayName calls gfxcafe.oku.account.v1.AuthService.UserInfoUpdateDisplayName.
-func (c *authServiceClient) UserInfoUpdateDisplayName(ctx context.Context, req *connect.Request[v1.UserInfoUpdateDisplayNameRequest]) (*connect.Response[v1.UserInfoUpdateDisplayNameResponse], error) {
-	return c.userInfoUpdateDisplayName.CallUnary(ctx, req)
-}
-
-// BridgeInfo calls gfxcafe.oku.account.v1.AuthService.BridgeInfo.
-func (c *authServiceClient) BridgeInfo(ctx context.Context, req *connect.Request[v1.BridgeInfoRequest]) (*connect.Response[v1.BridgeInfoResponse], error) {
-	return c.bridgeInfo.CallUnary(ctx, req)
-}
-
-// BridgeInfoSet calls gfxcafe.oku.account.v1.AuthService.BridgeInfoSet.
-func (c *authServiceClient) BridgeInfoSet(ctx context.Context, req *connect.Request[v1.BridgeInfoSetRequest]) (*connect.Response[v1.BridgeInfoSetResponse], error) {
-	return c.bridgeInfoSet.CallUnary(ctx, req)
-}
-
-// EmailChallenge calls gfxcafe.oku.account.v1.AuthService.EmailChallenge.
-func (c *authServiceClient) EmailChallenge(ctx context.Context, req *connect.Request[v1.EmailChallengeRequest]) (*connect.Response[v1.EmailChallengeResponse], error) {
-	return c.emailChallenge.CallUnary(ctx, req)
-}
-
-// EmailVerify calls gfxcafe.oku.account.v1.AuthService.EmailVerify.
-func (c *authServiceClient) EmailVerify(ctx context.Context, req *connect.Request[v1.EmailVerifyRequest]) (*connect.Response[v1.EmailVerifyResponse], error) {
-	return c.emailVerify.CallUnary(ctx, req)
-}
-
-// EmailConfirm calls gfxcafe.oku.account.v1.AuthService.EmailConfirm.
-func (c *authServiceClient) EmailConfirm(ctx context.Context, req *connect.Request[v1.EmailConfirmRequest]) (*connect.Response[v1.EmailConfirmResponse], error) {
-	return c.emailConfirm.CallUnary(ctx, req)
-}
-
-// EmailCodeChallenge calls gfxcafe.oku.account.v1.AuthService.EmailCodeChallenge.
-func (c *authServiceClient) EmailCodeChallenge(ctx context.Context, req *connect.Request[v1.EmailCodeChallengeRequest]) (*connect.Response[v1.EmailCodeChallengeResponse], error) {
-	return c.emailCodeChallenge.CallUnary(ctx, req)
-}
-
-// EmailCodeConfirm calls gfxcafe.oku.account.v1.AuthService.EmailCodeConfirm.
-func (c *authServiceClient) EmailCodeConfirm(ctx context.Context, req *connect.Request[v1.EmailCodeConfirmRequest]) (*connect.Response[v1.EmailCodeConfirmResponse], error) {
-	return c.emailCodeConfirm.CallUnary(ctx, req)
-}
-
-// ManageMerge calls gfxcafe.oku.account.v1.AuthService.ManageMerge.
-func (c *authServiceClient) ManageMerge(ctx context.Context, req *connect.Request[v1.ManageMergeRequest]) (*connect.Response[v1.ManageMergeResponse], error) {
-	return c.manageMerge.CallUnary(ctx, req)
-}
-
-// ManageRemoveWalletIdp calls gfxcafe.oku.account.v1.AuthService.ManageRemoveWalletIdp.
-func (c *authServiceClient) ManageRemoveWalletIdp(ctx context.Context, req *connect.Request[v1.ManageRemoveWalletIdpRequest]) (*connect.Response[v1.ManageRemoveWalletIdpResponse], error) {
-	return c.manageRemoveWalletIdp.CallUnary(ctx, req)
-}
-
 // AuthServiceHandler is an implementation of the gfxcafe.oku.account.v1.AuthService service.
 type AuthServiceHandler interface {
-	// Exchange a verified Privy access token for an Oku account session.
 	PrivySessionExchange(context.Context, *connect.Request[v1.PrivySessionExchangeRequest]) (*connect.Response[v1.PrivySessionExchangeResponse], error)
-	// Create a challenge for EVM wallet authentication (/auth/evm/challenge)
-	EvmChallenge(context.Context, *connect.Request[v1.EvmChallengeRequest]) (*connect.Response[v1.EvmChallengeResponse], error)
-	// Solve the challenge to authenticate (/auth/evm/solve)
-	EvmSolve(context.Context, *connect.Request[v1.EvmSolveRequest]) (*connect.Response[v1.EvmSolveResponse], error)
-	// Logout and invalidate session (/auth/logout)
 	Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error)
-	// Extend the current session (/auth/extend_session)
 	ExtendSession(context.Context, *connect.Request[v1.ExtendSessionRequest]) (*connect.Response[v1.ExtendSessionResponse], error)
-	// Get current user information (/auth/user_info)
-	UserInfo(context.Context, *connect.Request[v1.UserInfoRequest]) (*connect.Response[v1.UserInfoResponse], error)
-	// Update user's display name (/auth/user_info/update/display_name)
-	UserInfoUpdateDisplayName(context.Context, *connect.Request[v1.UserInfoUpdateDisplayNameRequest]) (*connect.Response[v1.UserInfoUpdateDisplayNameResponse], error)
-	// Get bridge information for the user (/auth/bridge_info)
-	BridgeInfo(context.Context, *connect.Request[v1.BridgeInfoRequest]) (*connect.Response[v1.BridgeInfoResponse], error)
-	// Set bridge information for the user (/auth/bridge_info)
-	BridgeInfoSet(context.Context, *connect.Request[v1.BridgeInfoSetRequest]) (*connect.Response[v1.BridgeInfoSetResponse], error)
-	// Request email login code (/auth/email/challenge)
-	EmailChallenge(context.Context, *connect.Request[v1.EmailChallengeRequest]) (*connect.Response[v1.EmailChallengeResponse], error)
-	// Verify email with code (/auth/email/verify)
-	EmailVerify(context.Context, *connect.Request[v1.EmailVerifyRequest]) (*connect.Response[v1.EmailVerifyResponse], error)
-	// Confirm email verification (/auth/email/confirm)
-	EmailConfirm(context.Context, *connect.Request[v1.EmailConfirmRequest]) (*connect.Response[v1.EmailConfirmResponse], error)
-	// Start an email code login challenge. Sends a 6-digit numeric PIN to the
-	// user's email and returns a challenge key the client must present when
-	// confirming the code. (/auth/email_code/challenge)
-	EmailCodeChallenge(context.Context, *connect.Request[v1.EmailCodeChallengeRequest]) (*connect.Response[v1.EmailCodeChallengeResponse], error)
-	// Confirm the 6-digit code using the challenge key returned by
-	// EmailCodeChallenge. On success returns a session. (/auth/email_code/confirm)
-	EmailCodeConfirm(context.Context, *connect.Request[v1.EmailCodeConfirmRequest]) (*connect.Response[v1.EmailCodeConfirmResponse], error)
-	// Merge two user accounts (/auth/manage/merge)
-	ManageMerge(context.Context, *connect.Request[v1.ManageMergeRequest]) (*connect.Response[v1.ManageMergeResponse], error)
-	// Remove wallet IDP from user (/auth/manage/remove_wallet_idp)
-	ManageRemoveWalletIdp(context.Context, *connect.Request[v1.ManageRemoveWalletIdpRequest]) (*connect.Response[v1.ManageRemoveWalletIdpResponse], error)
 }
 
 // NewAuthServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -378,18 +124,6 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(authServiceMethods.ByName("PrivySessionExchange")),
 		connect.WithHandlerOptions(opts...),
 	)
-	authServiceEvmChallengeHandler := connect.NewUnaryHandler(
-		AuthServiceEvmChallengeProcedure,
-		svc.EvmChallenge,
-		connect.WithSchema(authServiceMethods.ByName("EvmChallenge")),
-		connect.WithHandlerOptions(opts...),
-	)
-	authServiceEvmSolveHandler := connect.NewUnaryHandler(
-		AuthServiceEvmSolveProcedure,
-		svc.EvmSolve,
-		connect.WithSchema(authServiceMethods.ByName("EvmSolve")),
-		connect.WithHandlerOptions(opts...),
-	)
 	authServiceLogoutHandler := connect.NewUnaryHandler(
 		AuthServiceLogoutProcedure,
 		svc.Logout,
@@ -402,106 +136,14 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(authServiceMethods.ByName("ExtendSession")),
 		connect.WithHandlerOptions(opts...),
 	)
-	authServiceUserInfoHandler := connect.NewUnaryHandler(
-		AuthServiceUserInfoProcedure,
-		svc.UserInfo,
-		connect.WithSchema(authServiceMethods.ByName("UserInfo")),
-		connect.WithHandlerOptions(opts...),
-	)
-	authServiceUserInfoUpdateDisplayNameHandler := connect.NewUnaryHandler(
-		AuthServiceUserInfoUpdateDisplayNameProcedure,
-		svc.UserInfoUpdateDisplayName,
-		connect.WithSchema(authServiceMethods.ByName("UserInfoUpdateDisplayName")),
-		connect.WithHandlerOptions(opts...),
-	)
-	authServiceBridgeInfoHandler := connect.NewUnaryHandler(
-		AuthServiceBridgeInfoProcedure,
-		svc.BridgeInfo,
-		connect.WithSchema(authServiceMethods.ByName("BridgeInfo")),
-		connect.WithHandlerOptions(opts...),
-	)
-	authServiceBridgeInfoSetHandler := connect.NewUnaryHandler(
-		AuthServiceBridgeInfoSetProcedure,
-		svc.BridgeInfoSet,
-		connect.WithSchema(authServiceMethods.ByName("BridgeInfoSet")),
-		connect.WithHandlerOptions(opts...),
-	)
-	authServiceEmailChallengeHandler := connect.NewUnaryHandler(
-		AuthServiceEmailChallengeProcedure,
-		svc.EmailChallenge,
-		connect.WithSchema(authServiceMethods.ByName("EmailChallenge")),
-		connect.WithHandlerOptions(opts...),
-	)
-	authServiceEmailVerifyHandler := connect.NewUnaryHandler(
-		AuthServiceEmailVerifyProcedure,
-		svc.EmailVerify,
-		connect.WithSchema(authServiceMethods.ByName("EmailVerify")),
-		connect.WithHandlerOptions(opts...),
-	)
-	authServiceEmailConfirmHandler := connect.NewUnaryHandler(
-		AuthServiceEmailConfirmProcedure,
-		svc.EmailConfirm,
-		connect.WithSchema(authServiceMethods.ByName("EmailConfirm")),
-		connect.WithHandlerOptions(opts...),
-	)
-	authServiceEmailCodeChallengeHandler := connect.NewUnaryHandler(
-		AuthServiceEmailCodeChallengeProcedure,
-		svc.EmailCodeChallenge,
-		connect.WithSchema(authServiceMethods.ByName("EmailCodeChallenge")),
-		connect.WithHandlerOptions(opts...),
-	)
-	authServiceEmailCodeConfirmHandler := connect.NewUnaryHandler(
-		AuthServiceEmailCodeConfirmProcedure,
-		svc.EmailCodeConfirm,
-		connect.WithSchema(authServiceMethods.ByName("EmailCodeConfirm")),
-		connect.WithHandlerOptions(opts...),
-	)
-	authServiceManageMergeHandler := connect.NewUnaryHandler(
-		AuthServiceManageMergeProcedure,
-		svc.ManageMerge,
-		connect.WithSchema(authServiceMethods.ByName("ManageMerge")),
-		connect.WithHandlerOptions(opts...),
-	)
-	authServiceManageRemoveWalletIdpHandler := connect.NewUnaryHandler(
-		AuthServiceManageRemoveWalletIdpProcedure,
-		svc.ManageRemoveWalletIdp,
-		connect.WithSchema(authServiceMethods.ByName("ManageRemoveWalletIdp")),
-		connect.WithHandlerOptions(opts...),
-	)
 	return "/gfxcafe.oku.account.v1.AuthService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AuthServicePrivySessionExchangeProcedure:
 			authServicePrivySessionExchangeHandler.ServeHTTP(w, r)
-		case AuthServiceEvmChallengeProcedure:
-			authServiceEvmChallengeHandler.ServeHTTP(w, r)
-		case AuthServiceEvmSolveProcedure:
-			authServiceEvmSolveHandler.ServeHTTP(w, r)
 		case AuthServiceLogoutProcedure:
 			authServiceLogoutHandler.ServeHTTP(w, r)
 		case AuthServiceExtendSessionProcedure:
 			authServiceExtendSessionHandler.ServeHTTP(w, r)
-		case AuthServiceUserInfoProcedure:
-			authServiceUserInfoHandler.ServeHTTP(w, r)
-		case AuthServiceUserInfoUpdateDisplayNameProcedure:
-			authServiceUserInfoUpdateDisplayNameHandler.ServeHTTP(w, r)
-		case AuthServiceBridgeInfoProcedure:
-			authServiceBridgeInfoHandler.ServeHTTP(w, r)
-		case AuthServiceBridgeInfoSetProcedure:
-			authServiceBridgeInfoSetHandler.ServeHTTP(w, r)
-		case AuthServiceEmailChallengeProcedure:
-			authServiceEmailChallengeHandler.ServeHTTP(w, r)
-		case AuthServiceEmailVerifyProcedure:
-			authServiceEmailVerifyHandler.ServeHTTP(w, r)
-		case AuthServiceEmailConfirmProcedure:
-			authServiceEmailConfirmHandler.ServeHTTP(w, r)
-		case AuthServiceEmailCodeChallengeProcedure:
-			authServiceEmailCodeChallengeHandler.ServeHTTP(w, r)
-		case AuthServiceEmailCodeConfirmProcedure:
-			authServiceEmailCodeConfirmHandler.ServeHTTP(w, r)
-		case AuthServiceManageMergeProcedure:
-			authServiceManageMergeHandler.ServeHTTP(w, r)
-		case AuthServiceManageRemoveWalletIdpProcedure:
-			authServiceManageRemoveWalletIdpHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -515,62 +157,10 @@ func (UnimplementedAuthServiceHandler) PrivySessionExchange(context.Context, *co
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.PrivySessionExchange is not implemented"))
 }
 
-func (UnimplementedAuthServiceHandler) EvmChallenge(context.Context, *connect.Request[v1.EvmChallengeRequest]) (*connect.Response[v1.EvmChallengeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.EvmChallenge is not implemented"))
-}
-
-func (UnimplementedAuthServiceHandler) EvmSolve(context.Context, *connect.Request[v1.EvmSolveRequest]) (*connect.Response[v1.EvmSolveResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.EvmSolve is not implemented"))
-}
-
 func (UnimplementedAuthServiceHandler) Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.Logout is not implemented"))
 }
 
 func (UnimplementedAuthServiceHandler) ExtendSession(context.Context, *connect.Request[v1.ExtendSessionRequest]) (*connect.Response[v1.ExtendSessionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.ExtendSession is not implemented"))
-}
-
-func (UnimplementedAuthServiceHandler) UserInfo(context.Context, *connect.Request[v1.UserInfoRequest]) (*connect.Response[v1.UserInfoResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.UserInfo is not implemented"))
-}
-
-func (UnimplementedAuthServiceHandler) UserInfoUpdateDisplayName(context.Context, *connect.Request[v1.UserInfoUpdateDisplayNameRequest]) (*connect.Response[v1.UserInfoUpdateDisplayNameResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.UserInfoUpdateDisplayName is not implemented"))
-}
-
-func (UnimplementedAuthServiceHandler) BridgeInfo(context.Context, *connect.Request[v1.BridgeInfoRequest]) (*connect.Response[v1.BridgeInfoResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.BridgeInfo is not implemented"))
-}
-
-func (UnimplementedAuthServiceHandler) BridgeInfoSet(context.Context, *connect.Request[v1.BridgeInfoSetRequest]) (*connect.Response[v1.BridgeInfoSetResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.BridgeInfoSet is not implemented"))
-}
-
-func (UnimplementedAuthServiceHandler) EmailChallenge(context.Context, *connect.Request[v1.EmailChallengeRequest]) (*connect.Response[v1.EmailChallengeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.EmailChallenge is not implemented"))
-}
-
-func (UnimplementedAuthServiceHandler) EmailVerify(context.Context, *connect.Request[v1.EmailVerifyRequest]) (*connect.Response[v1.EmailVerifyResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.EmailVerify is not implemented"))
-}
-
-func (UnimplementedAuthServiceHandler) EmailConfirm(context.Context, *connect.Request[v1.EmailConfirmRequest]) (*connect.Response[v1.EmailConfirmResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.EmailConfirm is not implemented"))
-}
-
-func (UnimplementedAuthServiceHandler) EmailCodeChallenge(context.Context, *connect.Request[v1.EmailCodeChallengeRequest]) (*connect.Response[v1.EmailCodeChallengeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.EmailCodeChallenge is not implemented"))
-}
-
-func (UnimplementedAuthServiceHandler) EmailCodeConfirm(context.Context, *connect.Request[v1.EmailCodeConfirmRequest]) (*connect.Response[v1.EmailCodeConfirmResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.EmailCodeConfirm is not implemented"))
-}
-
-func (UnimplementedAuthServiceHandler) ManageMerge(context.Context, *connect.Request[v1.ManageMergeRequest]) (*connect.Response[v1.ManageMergeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.ManageMerge is not implemented"))
-}
-
-func (UnimplementedAuthServiceHandler) ManageRemoveWalletIdp(context.Context, *connect.Request[v1.ManageRemoveWalletIdpRequest]) (*connect.Response[v1.ManageRemoveWalletIdpResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.ManageRemoveWalletIdp is not implemented"))
 }
