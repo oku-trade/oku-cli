@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -29,11 +30,29 @@ func legacyCredentialError(profile string) error {
 
 // loadCredential reads a profile's credential under the caller's profile lock.
 func (e *env) loadCredential(profile string) (*auth.Metadata, *auth.Secrets, error) {
-	md, sec, err := auth.LoadPrivy(profile)
+	md, sec, err := auth.LoadPrivyWithInteraction(profile, e.mayPromptForKeychain(), e.guiSession())
 	if errors.Is(err, auth.ErrLegacyCredential) {
 		return nil, nil, legacyCredentialError(profile)
 	}
+	// Translate native store failures once so every caller (signing included)
+	// reports KEYCHAIN_* codes. A missing credential stays raw for callers
+	// that handle it.
+	if err != nil && !errors.Is(err, auth.ErrNoCredentials) {
+		return nil, nil, credentialLoadError(err)
+	}
 	return md, sec, err
+}
+
+func (e *env) mayPromptForKeychain() bool {
+	return e.app.StdinIsTTY && e.app.StderrIsTTY && !e.g.json && !e.g.inProcess
+}
+
+func (e *env) guiSession() bool {
+	return e.app.Getenv("SSH_CONNECTION") == "" && e.app.Getenv("SSH_TTY") == ""
+}
+
+func (e *env) loadMetadata(profile string) (*auth.Metadata, error) {
+	return auth.LoadPrivyMetadataWithInteraction(profile, e.mayPromptForKeychain(), e.guiSession())
 }
 
 // legacyPassphrase reads the passphrase of a legacy credential from
@@ -128,7 +147,7 @@ func (e *env) unlock(p *resolved, _ string) (*session, error) {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "locking credential")
 	}
 	defer release()
-	pre, err := auth.LoadPrivyMetadata(p.Name)
+	pre, err := e.loadMetadata(p.Name)
 	if errors.Is(err, auth.ErrNoCredentials) {
 		return nil, missingCredential(p.Name)
 	}
@@ -144,7 +163,7 @@ func (e *env) unlock(p *resolved, _ string) (*session, error) {
 		if errors.As(err, &oe) {
 			return nil, err
 		}
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "loading credential")
+		return nil, credentialLoadError(err)
 	}
 	if md == nil || sec == nil {
 		return nil, output.Errorf(output.CodeSignerUnavailable, "credential incomplete")
@@ -293,6 +312,22 @@ func missingCredential(profile string) error {
 // credentialLoadError maps an unreachable native store to a clear error.
 // It never falls back to another store.
 func credentialLoadError(err error) error {
+	var oe *output.Error
+	if errors.As(err, &oe) {
+		return err
+	}
+	if runtime.GOOS == "darwin" {
+		switch {
+		case errors.Is(err, auth.ErrKeychainLocked):
+			return output.Wrap(output.CodeKeychainLocked, err, "macOS login Keychain is locked; run 'security unlock-keychain ~/Library/Keychains/login.keychain-db' in your own terminal, then retry")
+		case errors.Is(err, auth.ErrKeychainAccessDenied):
+			return output.Wrap(output.CodeKeychainAccessDenied, err, "this oku binary cannot access the macOS Keychain item after an update; rerun from a terminal in the macOS desktop session and choose Always Allow in the Keychain dialog")
+		case errors.Is(err, auth.ErrKeychainCanceled):
+			return output.Wrap(output.CodeKeychainCanceled, err, "macOS Keychain authorization was canceled; rerun interactively when ready")
+		case errors.Is(err, auth.ErrKeychainUnavailable):
+			return output.Wrap(output.CodeSignerUnavailable, err, "macOS Keychain unavailable; unlock the login Keychain in your own terminal or sign in to a graphical session")
+		}
+	}
 	if errors.Is(err, auth.ErrKeychainUnavailable) {
 		return output.Wrap(output.CodeSignerUnavailable, err, "credential store unavailable (unlock your desktop keyring, or use 'oku auth migrate --to file' on headless machines)")
 	}

@@ -113,6 +113,7 @@ func (a *App) cmdDoctor(e *env) (*result, error) {
 			add("oku_api", len(mk.Markets) > 0, "PerpsService reachable")
 		}
 		if p.Name != "" {
+			// Doctor probes without prompting, even in an interactive terminal.
 			md, err := auth.LoadPrivyMetadata(p.Name)
 			switch {
 			case errors.Is(err, auth.ErrNoCredentials) && storeLabel(p.Name) == string(auth.StoreKeyring):
@@ -120,7 +121,7 @@ func (a *App) cmdDoctor(e *env) (*result, error) {
 			case errors.Is(err, auth.ErrNoCredentials):
 				add("credentials", true, "not logged in (public reads only)")
 			case err != nil:
-				add("credentials", false, err.Error())
+				add("credentials", false, credentialLoadError(err).Error())
 			default:
 				berr := e.checkBinding(md, p)
 				add("credentials", berr == nil && md.Status == "active", fmt.Sprintf("%s, agent %s, store %s", md.Status, md.AgentAddress, storeLabel(p.Name)))

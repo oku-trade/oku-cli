@@ -11,6 +11,9 @@ import (
 // ErrKeychainUnavailable distinguishes a locked, denied, or unavailable native store
 // from a missing credential. It must never trigger an encrypted-file fallback.
 var ErrKeychainUnavailable = errors.New("credential keychain unavailable")
+var ErrKeychainLocked = errors.New("macOS login Keychain is locked")
+var ErrKeychainAccessDenied = errors.New("macOS Keychain denied this binary access to the credential")
+var ErrKeychainCanceled = errors.New("macOS Keychain authorization was canceled")
 
 var ErrUnsupportedPlatform = errors.New("native Keychain migration requires macOS with CGO")
 

@@ -34,7 +34,8 @@ type App struct {
 	Stdin  io.Reader
 	// StdinIsTTY enables interactive masked prompts. When false, commands
 	// never prompt; they fail with a structured error instead.
-	StdinIsTTY bool
+	StdinIsTTY  bool
+	StderrIsTTY bool
 	// ReadSecret reads a line from the terminal without echo. It is used only
 	// to convert legacy passphrase-protected credentials.
 	ReadSecret func(prompt string) ([]byte, error)
@@ -57,16 +58,17 @@ type App struct {
 // NewApp returns an App wired to the real process.
 func NewApp(version string) *App {
 	return &App{
-		Stdout:     os.Stdout,
-		Stderr:     os.Stderr,
-		Stdin:      os.Stdin,
-		StdinIsTTY: isTerminal(os.Stdin),
-		ReadSecret: readSecretTTY,
-		Getenv:     os.Getenv,
-		Now:        time.Now,
-		Sleep:      sleepCtx,
-		OpenURL:    openBrowser,
-		Version:    version,
+		Stdout:      os.Stdout,
+		Stderr:      os.Stderr,
+		Stdin:       os.Stdin,
+		StdinIsTTY:  isTerminal(os.Stdin),
+		StderrIsTTY: isTerminal(os.Stderr),
+		ReadSecret:  readSecretTTY,
+		Getenv:      os.Getenv,
+		Now:         time.Now,
+		Sleep:       sleepCtx,
+		OpenURL:     openBrowser,
+		Version:     version,
 	}
 }
 

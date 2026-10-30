@@ -48,7 +48,10 @@ func (e *env) loginStore(profile string, create bool) (st, prev auth.Store, err 
 	if !set {
 		st = prev
 	}
-	if err = auth.CheckStore(st); err != nil {
+	if err = auth.CheckStoreWithInteraction(st, e.mayPromptForKeychain(), e.guiSession()); err != nil {
+		if st == auth.StoreKeychain {
+			return "", "", credentialLoadError(err)
+		}
 		return "", "", storeUnavailable(st, err)
 	}
 	return st, prev, nil
