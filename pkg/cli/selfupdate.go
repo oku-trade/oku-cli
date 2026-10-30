@@ -49,7 +49,7 @@ func selfUpdateFlags() []urfave.Flag {
 	return []urfave.Flag{
 		&urfave.BoolFlag{Name: "check", Usage: "only report the current and latest version; download nothing"},
 		&urfave.StringFlag{Name: "version", Usage: "install this release tag (vX.Y.Z) instead of the latest; allows downgrades"},
-		&urfave.BoolFlag{Name: "force", Usage: "reinstall even if already on that version (does not override mise/nix/Homebrew refusal)"},
+		&urfave.BoolFlag{Name: "force", Usage: "reinstall even if already on that version (does not override package-manager refusal)"},
 	}
 }
 
@@ -97,6 +97,10 @@ func managedBy(exe string) (string, string) {
 		return "nix", "this binary is managed by Nix; upgrade through your flake or nix profile (nix profile upgrade oku)"
 	case strings.Contains(p, "/Cellar/"):
 		return "homebrew", "this binary is managed by Homebrew; upgrade with brew"
+	case strings.Contains(p, "/node_modules/@gfxlabs/oku-cli-") && strings.HasSuffix(p, "/bin/oku"):
+		return "npm", "this binary is managed by npm; upgrade with npm update -g @gfxlabs/oku-cli"
+	case runtime.GOOS == "linux" && (p == "/usr/bin/oku" || p == "/bin/oku"):
+		return "system package", "this binary is installed system-wide; upgrade through your AUR helper, apt or dnf"
 	}
 	return "", ""
 }
