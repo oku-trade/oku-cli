@@ -271,6 +271,30 @@ JSON `data` fields:
 
 Amounts are decimal strings in token units (`held`) or native units (`*_native`). Over MCP, `swap_pnl` is a read tool.
 
+## Combined PnL
+
+```sh
+oku pnl [--range 1d|7d|30d|all] [--chain 42161] [--json]
+```
+
+`pnl` puts every PnL source in one report. It is read-only: it never signs, and it uses no session or device token. The only credential lookup is reading the agent wallet address from the enrolled profile. Each source has its own status, so one failing source never fails the command. A failed source prints `unavailable: <reason>` (JSON: `status: "unavailable"` and `error`), is left out of the total and is listed under `total.omitted`.
+
+| Source | Data | Range | In total |
+| --- | --- | --- | --- |
+| `perps` | `PerpsService/GetPerpsPnlSummary` for the profile account: `day_pnl`, `week_pnl`, `month_pnl` or `all_time_pnl` (Hyperliquid perps, realized + unrealized), with `as_of_ms` | `--range` | yes |
+| `launchpad` | no wallet-level launchpad PnL endpoint exists in the account API yet, so it always reports `unavailable: backend endpoint not available yet` | lifetime | yes, once available |
+| `agent_swaps` | realized + unrealized USD from the same average-cost book as `oku swap pnl`, summed over chains | lifetime | yes |
+| `net_worth` | `PortfolioService/GetNetWorthChart` for the agent wallet: last point `value_usd` minus first, plus the current `value_usd` | `--range` | **no** |
+
+- **Range.** `--range` (default `all`) maps to: `1d` = `NET_WORTH_CHART_PERIOD_DAY` / `day_pnl`, `7d` = `WEEK` / `week_pnl`, `30d` = `MONTH` / `month_pnl`, `all` = `MAX` / `all_time_pnl`. Launchpad and agent swaps have no time window. With any range other than `all` they are labeled `(all-time)`, and their JSON `range` is `all`.
+- **Total.** `total.pnl_usd` = perps + launchpad + agent swaps over the sources that are available (`total.included`). When none is available the total is `unavailable` with no number, never 0.
+- **Net worth change** is labeled `net worth change (includes deposits/withdrawals)`. Deposits, withdrawals and transfers move it, so it is not performance, and it is never added to the total.
+- **`--chain`** filters agent swaps (and launchpad once it exists) only. Net worth and perps are not filtered by chain.
+- **Agent swaps.** If a chain's swaps cannot be fully valued in USD (no oracle price), the whole source is unavailable rather than a partial sum. Run `oku swap pnl` for per-token detail.
+- **Exact math.** USD amounts are exact decimal strings. Perps strings are parsed exactly. Net worth doubles are converted once to their shortest exact decimal. Sums use big rationals with no float rounding. The table rounds to cents for display only.
+
+JSON `data` fields: `range`, `agent`, `chain` (when set), `chain_scope`, `read_only`, `fetched_at`, `sources[]` (`source`, `label`, `status`, `error`, `range`, `in_total`, `address`, `pnl_usd`, and per source: `change_usd`, `start_value_usd`, `end_value_usd`, `value_usd`, `points` for net worth, `as_of_ms` for perps, `realized_usd`, `unrealized_usd`, `chains[]` for agent swaps) and `total` (`status`, `pnl_usd`, `included`, `omitted[]` with `source` and `reason`, `note`). Over MCP, `pnl` is a read tool.
+
 ## Agent-to-master deposits
 
 `oku deposit prepare --amount N` prepares an Arbitrum USDC transfer **from agent to master EOA**, not a deposit to Hyperliquid. The master then deposits from its own wallet. `oku deposit address --asset ... --source-chain ...` reads a HyperUnit address explicitly bound to the master for external funding. Never send agent-held USDC directly to the HL bridge.

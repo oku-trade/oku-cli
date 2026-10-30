@@ -14,4 +14,5 @@ files:
   - gfxcafe/oku/account/v2/bridge.proto
   - gfxcafe/oku/account/v2/token.proto
   - gfxcafe/oku/account/v2/onchain.proto
+  - gfxcafe/oku/account/v2/portfolio.proto
   - buf/validate/validate.proto

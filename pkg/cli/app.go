@@ -168,6 +168,7 @@ func (a *App) commandTable() map[string]*handler {
 		"swap orders cancel": {summary: "Cancel an active swap exit order (refused once triggered)", flags: swapOrdersCancelFlags, run: a.cmdSwapOrdersCancel},
 		"swap orders watch":  {summary: "Price active swap exit orders and sell when one fires (--once, --dry-run)", flags: swapOrdersWatchFlags, run: a.cmdSwapOrdersWatch},
 		"swap pnl":           {summary: "Realized and unrealized PnL per token from the agent's journaled swaps (average cost, net of swap gas; read-only)", flags: swapPnLFlags, run: a.cmdSwapPnL},
+		"pnl":                {summary: "Combined PnL: perps, launchpad and agent swaps, plus net worth change; each source reports its own status (read-only)", flags: pnlFlags, run: a.cmdPnL},
 		"bridge quote":       {summary: "Quote EVM-to-EVM bridge routes", flags: func() []urfave.Flag { return routeFlags(true) }, run: a.cmdBridgeQuote},
 		"bridge prepare":     {summary: "Prepare a backend-built transaction bridge", flags: func() []urfave.Flag { return routePrepareFlags(true) }, run: a.cmdBridgePrepare},
 		"bridge submit":      {summary: "Submit a backend-built EVM bridge", flags: func() []urfave.Flag { return submitFlagsFor("bridge") }, run: a.cmdBridgeSubmit},

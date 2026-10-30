@@ -1,0 +1,258 @@
+syntax = "proto3";
+
+package gfxcafe.oku.account.v2;
+
+import "buf/validate/validate.proto";
+import "gfxcafe/oku/account/v1/validate.proto";
+import "gfxcafe/oku/account/v2/token.proto";
+import "gfxcafe/oku/account/v2/validate.proto";
+
+option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v2;accountv2";
+
+// PortfolioService serves wallet portfolio data. Requests are proxied on demand
+// to the upstream provider; nothing is persisted.
+service PortfolioService {
+  // GetHoldingsAndPositions returns a wallet's fungible token holdings and its
+  // DeFi protocol positions, grouped by chain. Tokens the upstream classifies
+  // as spam are always excluded.
+  rpc GetHoldingsAndPositions(GetHoldingsAndPositionsRequest) returns (GetHoldingsAndPositionsResponse);
+
+  // GetNetWorthChart returns a wallet's total USD value over time.
+  rpc GetNetWorthChart(GetNetWorthChartRequest) returns (GetNetWorthChartResponse);
+}
+
+message GetHoldingsAndPositionsRequest {
+  // Wallet address to fetch data for.
+  string wallet_address = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Restrict results to these chains, as CAIP-2 identifiers (e.g. "eip155:1").
+  // Empty means every chain the upstream supports.
+  repeated string chains = 2 [
+    (buf.validate.field).repeated.max_items = 100,
+    (buf.validate.field).repeated.items.string.(gfxcafe.oku.account.v2.caip2) = true
+  ];
+
+  // Discard any cached data for this wallet and refetch from upstream.
+  //
+  // Upstream latency reaches several seconds on large wallets and the provider
+  // rate-limits aggressively, so this should be reserved for an explicit user
+  // action such as a pull-to-refresh, not used on every page load.
+  bool refresh = 3;
+}
+
+message GetHoldingsAndPositionsResponse {
+  // Per-chain holdings and positions.
+  repeated ChainPortfolio chains = 1;
+
+  // Wallet address the data is for.
+  string wallet_address = 2;
+
+  // Combined USD value of every chain.
+  double total_value_usd = 3;
+
+  // Time the upstream data was fetched.
+  int64 fetched_at_unix = 4;
+}
+
+// ChainPortfolio groups a wallet's assets on a single chain.
+message ChainPortfolio {
+  // CAIP-2 chain identifier (e.g. "eip155:1").
+  string chain = 1;
+
+  // Plain wallet token balances.
+  repeated Holding holdings = 2;
+
+  // DeFi protocol positions.
+  repeated Position positions = 3;
+
+  // Combined USD value of this chain's holdings and positions.
+  double value_usd = 4;
+}
+
+// Holding is a plain wallet token balance.
+message Holding {
+  TokenInfo token = 1;
+
+  // Balance in base units (e.g. wei) as a decimal string.
+  string raw_balance = 2;
+
+  // Human-readable balance as a decimal string.
+  string balance = 3;
+
+  // Unit price in USD. Unset when the asset is unpriced.
+  optional double price_usd = 4;
+
+  // Total value in USD. Unset when the asset is unpriced.
+  optional double value_usd = 5;
+
+  // Deprecated: read `is_rwa` and `pnl` instead. Still set, and only on RWAs.
+  RwaHolding rwa = 6 [deprecated = true];
+
+  // Unset when upstream reports no PnL for the token.
+  HoldingPnl pnl = 7;
+
+  // True when the token is a tokenized real-world asset. Independent of `pnl`.
+  bool is_rwa = 8;
+}
+
+// Deprecated: use HoldingPnl, which covers every token rather than only RWAs.
+message RwaHolding {
+  double average_entry_price = 1;
+  double unrealized_pnl_usd = 2;
+}
+
+// HoldingPnl is a holding's cost basis and unrealized gain. Cost basis is FIFO
+// across every acquisition, not only trades made on Oku.
+message HoldingPnl {
+  // Average price paid per unit. Zero when the wallet has no buy history.
+  double average_entry_price = 1;
+
+  // Gain on the units still held.
+  double unrealized_pnl_usd = 2;
+}
+
+// PositionType distinguishes what a position leg represents.
+enum PositionType {
+  POSITION_TYPE_UNSPECIFIED = 0;
+
+  // Principal supplied to the protocol.
+  POSITION_TYPE_DEPOSIT = 1;
+
+  // Earnings accrued but not yet claimed, such as uncollected trading fees or
+  // pending farm rewards. Can exceed the deposit on a long-held position.
+  POSITION_TYPE_REWARD = 2;
+
+  // Principal that cannot currently be withdrawn.
+  POSITION_TYPE_LOCKED = 3;
+
+  // Principal staked with the protocol.
+  POSITION_TYPE_STAKED = 4;
+
+  // Debt owed to the protocol.
+  POSITION_TYPE_BORROWED = 5;
+}
+
+// PositionToken is one leg of a DeFi position.
+message PositionToken {
+  TokenInfo token = 1;
+
+  // Amount in base units as a decimal string.
+  string raw_amount = 2;
+
+  // Human-readable amount as a decimal string.
+  string amount = 3;
+
+  // Value of this leg in USD. Unset when the asset is unpriced.
+  optional double value_usd = 4;
+
+  // What this leg represents. A single token can appear as more than one leg
+  // of the same position, for example a deposit and its accrued reward.
+  PositionType position_type = 5;
+}
+
+// Position is a DeFi protocol position, e.g. a liquidity pool deposit.
+message Position {
+  // Upstream identifier grouping the legs of this position.
+  string id = 1;
+
+  // Human-readable pool/position name, e.g. "Uniswap V3 DOGE/WETH Pool (#1256577)".
+  string pool = 2;
+
+  // Pool contract address. Empty for non-pool positions such as lending
+  // deposits or staking.
+  string pool_id = 3;
+
+  // Protocol backing the position, e.g. "Uniswap V3".
+  string protocol = 4;
+
+  // Protocol icon URL.
+  string protocol_icon_url = 5;
+
+  // Kind of position, e.g. "liquidity_pool", "lending", "staking".
+  string protocol_module = 6;
+
+  // Position legs, one per upstream row. A token can appear more than once
+  // under different position types, for example a deposit and its accrued
+  // reward, so a two-token pool with uncollected fees returns four legs.
+  repeated PositionToken tokens = 7;
+
+  // Combined USD value of every leg. Unpriced legs contribute zero.
+  double value_usd = 8;
+
+  // ERC-721 token id of the position NFT rewards are claimed against, e.g. a
+  // Uniswap V3/V4 liquidity position. Empty for protocols that mint no position
+  // NFT, such as Merkl, where rewards are claimed from a single distributor
+  // keyed by wallet rather than per position.
+  string reward_id = 9;
+}
+
+// NetWorthChartPeriod is the window a chart covers. The upstream picks the
+// point spacing, from 5 minutes for a day to a day for a year.
+enum NetWorthChartPeriod {
+  NET_WORTH_CHART_PERIOD_UNSPECIFIED = 0;
+  NET_WORTH_CHART_PERIOD_DAY = 1;
+  NET_WORTH_CHART_PERIOD_WEEK = 2;
+  NET_WORTH_CHART_PERIOD_MONTH = 3;
+  NET_WORTH_CHART_PERIOD_YEAR = 4;
+
+  // Everything the upstream holds for the wallet.
+  NET_WORTH_CHART_PERIOD_MAX = 5;
+}
+
+message GetNetWorthChartRequest {
+  // Wallet address to fetch data for.
+  string wallet_address = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Defaults to NET_WORTH_CHART_PERIOD_DAY.
+  NetWorthChartPeriod period = 2 [(buf.validate.field).enum.defined_only = true];
+
+  // Discard cached data for this wallet and refetch from upstream.
+  bool refresh = 3;
+}
+
+// NetWorthChartPoint is the wallet's total value at one instant.
+message NetWorthChartPoint {
+  int64 timestamp_unix = 1;
+  double value_usd = 2;
+}
+
+message GetNetWorthChartResponse {
+  // Wallet address the data is for.
+  string wallet_address = 1;
+
+  // Period the points cover.
+  NetWorthChartPeriod period = 2;
+
+  // Oldest first.
+  repeated NetWorthChartPoint points = 3;
+
+  // Value at the most recent point.
+  double value_usd = 4;
+
+  // Change in net worth from the first point to the last. Deposits and
+  // withdrawals move this, so it is not a measure of performance.
+  double change_usd = 5;
+
+  // change_usd relative to the first point. Zero when the wallet started the
+  // period empty.
+  double change_percent = 6;
+
+  // True when DeFi positions could not be charted and the points cover wallet
+  // token balances only. The values then read below the portfolio total.
+  bool excludes_defi = 7;
+
+  // True when the wallet's EVM chain data could not be loaded, so the points
+  // cover perps only. Both this and excludes_perps are never set together;
+  // losing every source fails the request instead.
+  bool excludes_evm = 8;
+
+  // True when the wallet's perps data could not be loaded, so the points cover
+  // EVM chains only.
+  bool excludes_perps = 9;
+}
