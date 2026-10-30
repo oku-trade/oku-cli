@@ -60,13 +60,9 @@ sha256() {
   else die "need sha256sum or shasum"; fi
 }
 
-api_get() { # url [accept] -> stdout
-  if [ -n "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ]; then
-    curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN:-${GH_TOKEN:-}}" \
-      -H "Accept: ${2:-application/vnd.github+json}" "$1"
-  else
-    curl -fsSL -H "Accept: ${2:-application/vnd.github+json}" "$1"
-  fi
+api_get() { # url -> stdout
+  curl -fsSL --connect-timeout 10 --max-time 60 \
+    -H "Accept: application/vnd.github+json" "$1"
 }
 
 # Resolve the release JSON via the API (curl path only).
@@ -94,7 +90,8 @@ elif command -v curl >/dev/null 2>&1; then
   asset="oku_${VERSION}_${os}_${arch}.tar.gz"
   echo "downloading $asset from public GitHub release" >&2
   for name in "$asset" SHA256SUMS; do
-    curl -fsSL "https://github.com/${REPO}/releases/download/${VERSION}/${name}" -o "$tmp/$name" || die "download of $name failed"
+    curl -fsSL --connect-timeout 10 --max-time 600 \
+      "https://github.com/${REPO}/releases/download/${VERSION}/${name}" -o "$tmp/$name" || die "download of $name failed"
   done
 else
   die "curl is required to download a public release"
