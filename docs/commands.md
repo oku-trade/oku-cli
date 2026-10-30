@@ -486,7 +486,7 @@ Upgrade this binary from the latest GitHub release (--check to only compare)
 | --- | --- | --- |
 | `--check` | only report the current and latest version; download nothing | `false` |
 | `--version` | install this release tag (vX.Y.Z) instead of the latest; allows downgrades | `` |
-| `--force` | reinstall even if already on that version (does not override mise/nix/Homebrew refusal) | `false` |
+| `--force` | reinstall even if already on that version (does not override package-manager refusal) | `false` |
 
 ## `oku send prepare`
 
