@@ -36,7 +36,7 @@ This asks Oku for the authoritative state of each unresolved intent and records 
 ## Outcomes
 
 - **Submitted or completed:** done. Report the effect, such as a fill or a resting oid. A `submitted` local record can remain stale after a later fill or cancel, so confirm with fresh `orders list`, `positions list` and `fills list` before treating it as proof the order is still resting.
-- **Rejected:** nothing executed. The intent is closed. A retry requires a new prepare and preview review; confirm inferred values and any differences from the user's authorized action. An unknown outcome is never retried: reconcile first.
+- **Rejected:** nothing executed. The intent is closed. A retry requires a new prepare and preview review; confirm ambiguities, guesses and deviations from the authorized action, not deterministic size conversions that match the request. An unknown outcome is never retried: reconcile first.
 - **Still unknown:** stop, report it, and run reconcile again later. New exposure stays blocked while an intent is unknown. That is intentional.
 - **Never signed (prepared or created):** `oku orders abandon --intent <id>` makes sure it can never execute.
 

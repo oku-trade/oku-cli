@@ -16,7 +16,7 @@ oku positions list --profile <p> --json
 oku orders list --profile <p> --json    # resting orders that could change exposure
 ```
 
-A positive size is long, so close it with `sell`. A negative size is short, so close it with `buy`. Use the absolute size for a full close ("close", "flatten", "exit" all mean full), or the size or fraction the user specified for a partial one. For a fraction, compute it and round **down** to `szDecimals`. Show and confirm derived sizes before submit.
+A positive size is long, so close it with `sell`. A negative size is short, so close it with `buy`. Use the absolute size for a full close ("close", "flatten", "exit" all mean full), or the size or fraction the user specified for a partial one. For a fraction such as "close half my ETH", compute it and round **down** to `szDecimals`. State the computed base size in the preview; this deterministic conversion needs no separate confirmation unless rounding materially changes the requested fraction.
 
 To **flip** a position instead of just closing it, use open-hyperliquid-position: one non-reduce-only market order on the opposite side for twice the absolute size.
 
@@ -33,7 +33,7 @@ oku orders prepare --profile <p> --market BTC --side sell --type limit --size <a
 
 ## 3. Validate, submit
 
-Show the preview. A request identifying the concrete market, side and size authorizes submit after reviewing a matching preview. Validate reduce-only, market, side, size, price, leverage and slippage against the request. If any value is ambiguous, inferred or differs from the request, show it and confirm before submit. Submit the exact digest: `oku orders submit --profile <p> --intent <id> --digest <digest> --json`. A bounded standing instruction authorizes only its stated scope. On an unknown outcome, reconcile first (reconcile-hyperliquid-actions) without resubmitting.
+Show the preview. A clear request to close a named position in full or by a stated fraction authorizes submit after reviewing a matching preview. The closing side and rounded base size follow deterministically from the current position; state them in the preview. Validate reduce-only, market, side, size, price, leverage, margin mode and slippage against the request. Confirm only ambiguity, a guess, or a deviation such as material rounding, a different instrument, margin mode, price beyond tolerance, slippage or leverage side effects. Submit the exact digest: `oku orders submit --profile <p> --intent <id> --digest <digest> --json`. A bounded standing instruction authorizes only its stated scope. On an unknown outcome, reconcile first (reconcile-hyperliquid-actions) without resubmitting.
 
 ## 4. Check what is left
 

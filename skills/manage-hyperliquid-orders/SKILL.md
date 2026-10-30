@@ -32,7 +32,7 @@ This build has no amend command (confirm with `oku docs commands`). To change th
 
 1. Cancel the order.
 2. Confirm the cancel took effect.
-3. Prepare and review the new order. A request naming a concrete market, side and size authorizes submit only if the preview matches, including price, leverage and slippage. Show and confirm any inferred or changed value before submit.
+3. Prepare and review the new order. A clear request to replace a named order with a specified price or size authorizes submit if the preview matches. USD-to-base and position-fraction conversions rounded down to `szDecimals` are deterministic: state the computed size in the preview without requiring another confirmation. Confirm ambiguity, guesses or deviations, including a different market, margin mode, price beyond tolerance, slippage, leverage side effects or materially changed size after rounding.
 
 Tell the user these steps are not atomic, so the original order may fill in between.
 

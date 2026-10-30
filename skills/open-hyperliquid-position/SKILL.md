@@ -15,9 +15,9 @@ You need the market, the side, the size in base units and the order type. Do not
 
 - **Type:** default to a market order unless the user gives a price or asks for a limit order.
 - **Slippage:** omit `--slippage-bps` to use the CLI default (50 bps = 0.5%), unless the user names a tolerance. The preview shows the worst price; validate it against that tolerance before submitting.
-- **Size:** use the size the user states. When derived from USD or a fraction, compute and round **down** to the market's `szDecimals`, then show the derived size and confirm it before submit. For "flip" requests, see below.
-- **Flip** ("flip my short to long"): a market order on the opposite side for twice the current absolute position size may close and reopen in one fill. This derives a size from current state: show and confirm the proposed size before submit.
-- **Market:** pass the symbol the user says (`RKLB`, `AVAX`). The CLI resolves stock and other HIP-3 markets (`xyz:RKLB`) itself. If the resulting market or margin mode differs from the user's request, confirm it.
+- **Size:** use the size the user states. A USD amount or fraction of the current position is a concrete size instruction: convert using current market data, round **down** to the market's `szDecimals`, and state the computed base size in the preview. No separate confirmation is needed if it matches the instruction and rounding is not material.
+- **Flip** ("flip my AVAX short"): use the opposite side and twice the current absolute position size for a market order, then show the computed size in the preview. This deterministic conversion does not require another confirmation if the preview matches the request.
+- **Market:** pass the symbol the user says (`RKLB`, `AVAX`). The CLI may resolve an unambiguous stock symbol to its HIP-3 identifier (`xyz:RKLB`). Confirm if the resolved instrument is not the one requested or if the margin mode differs.
 
 Ask when the size or side is ambiguous (for example "buy some BTC" with no amount). Never change leverage as a side effect. A leverage or margin-mode change is a separate action (manage-hyperliquid-risk) and is not atomic with the order. If margin looks insufficient, say so in the preview rather than refusing.
 
@@ -55,7 +55,7 @@ If the order arrives as a messy JSON draft, `oku drafts repair --stdin` returns 
 
 Go straight from the request to a prepared preview in one turn. Show the account, network, market, side, size, price or worst price, reduce-only, builder fee, expiry and any notes (for example, builder fee not approved). The digest binds these exact fields.
 
-Review the preview against what the user authorized: market, side, size, order type, price or worst price, slippage, leverage and margin mode. If a field differs or was inferred, show the preview and obtain confirmation before submit. Fix invalid orders by preparing again.
+Review the preview against the request: market, side, computed base size, order type, price or worst price, slippage, leverage and margin mode. A clear request such as "buy $500 of RKLB" or "flip my AVAX short" authorizes submit after reviewing a matching preview. Confirm only if the request is ambiguous, the agent had to guess, or the preview differs (including market resolution, margin mode, price beyond tolerance, slippage, leverage side effects or materially different size after rounding). Fix invalid orders by preparing again.
 
 ## 5. Submit within the authorized scope
 
@@ -63,11 +63,11 @@ Review the preview against what the user authorized: market, side, size, order t
 oku orders submit --profile <p> --intent <intent_id> --digest <digest> --json
 ```
 
-A request specifying action, concrete market, side and size authorizes submit after reviewing a matching preview. A derived size (including a USD-to-base conversion or a flip) must be shown and confirmed first. A bounded standing instruction authorizes only the concrete actions and limits it names.
+A clear request identifying the market, side and size, including a USD amount, a fraction of a current position, or a flip, authorizes submit after reviewing a matching preview. State any deterministic base-size calculation and rounding in that preview. A bounded standing instruction authorizes only the concrete actions and limits it names.
 
 Submit the exact digest from the prepare; never alter the payload or digest. Intents expire after 5 minutes by default. If an intent expires or the market moves past the user's price or slippage bound, prepare again and submit only within the original authorized bounds. Anything new or broader (a different market, side, size or order type, a worse tolerated price, more risk) needs new permission.
 
-Confirm any ambiguous or inferred value and any difference in size, price, leverage, slippage, side or market. On an unknown outcome, follow reconcile-hyperliquid-actions without resubmitting.
+Confirm ambiguity, guesses, or a preview that differs from the request in size (including material rounding), price or tolerance, leverage, margin mode, slippage, side or market. On an unknown outcome, follow reconcile-hyperliquid-actions without resubmitting.
 
 ## 6. After submitting
 
