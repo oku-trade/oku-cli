@@ -111,7 +111,21 @@ func (a *App) cmdConfigShow(e *env) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeConfigError, err, "loading config")
 	}
-	return &result{data: f, human: func(w io.Writer) { printProfiles(w, f) }}, nil
+	return &result{data: redactedConfig(f), human: func(w io.Writer) { printProfiles(w, f) }}, nil
+}
+
+// redactedConfig returns a shallow copy of f whose Telegram token reads
+// "<set>" when present, so config show never prints it.
+func redactedConfig(f *config.File) *config.File {
+	out := *f
+	if f.Telegram != nil {
+		t := *f.Telegram
+		if t.Token != "" {
+			t.Token = "<set>"
+		}
+		out.Telegram = &t
+	}
+	return &out
 }
 
 func (a *App) cmdProfilesList(e *env) (*result, error) {

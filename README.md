@@ -6,6 +6,7 @@ Swap and bridge across 30+ chains and trade perps on Oku, from your terminal or 
 - **Bridge** between supported EVM chains.
 - **Trade perps** on Hyperliquid with orders, positions and risk controls.
 - **Work with agents** using JSON output, offline docs, skills and MCP. Review every prepared action before submitting.
+- **Telegram bot.** `oku telegram serve` runs a private bot for allowlisted Telegram user IDs, with menus for wallet, perps, swap, send, bridge and exit orders, and a Confirm step before every action (see [usage](docs/usage.md#telegram-bot)).
 
 **Status:** Public alpha. Commands may change.
 
