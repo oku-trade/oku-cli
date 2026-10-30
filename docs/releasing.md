@@ -147,8 +147,23 @@ downloaded through a browser is quarantined and Gatekeeper blocks it; fix with:
 xattr -d com.apple.quarantine ~/.local/bin/oku
 ```
 
-or right-click the binary in Finder and choose Open once. Developer ID signing and
-notarization remain a separate decision (needs an Apple Developer account and CI secrets).
+or right-click the binary in Finder and choose Open once.
+
+### Developer ID signing and notarization
+
+The darwin release job signs with Developer ID (hardened runtime, secure timestamp,
+identifier `com.oku-trade.oku`) when `MACOS_DEVELOPER_ID_P12` is set, and notarizes when
+`APPLE_NOTARY_API_KEY_P8` is also set. Without them it falls back to ad-hoc signing.
+
+| Secret | Value |
+|---|---|
+| `MACOS_DEVELOPER_ID_P12` | base64 of the exported "Developer ID Application" cert + private key (.p12) |
+| `MACOS_DEVELOPER_ID_P12_PASSWORD` | the .p12 export password |
+| `APPLE_NOTARY_API_KEY_P8` | App Store Connect API key file contents (.p8) |
+| `APPLE_NOTARY_KEY_ID` | that key's ID |
+| `APPLE_NOTARY_ISSUER_ID` | the App Store Connect issuer ID |
+
+Bare binaries cannot be stapled, so Gatekeeper checks the notarization ticket online on first run.
 
 ### npm publishing (disabled)
 

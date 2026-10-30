@@ -99,9 +99,45 @@ jobs:
       - name: test (darwin/arm64, disposable keychain; never the login keychain)
         env: { OKU_KEYCHAIN_TEST_ACK: disposable-runner }
         run: ./mise-tasks/macos-keychain-test.sh make test
+      - name: import Developer ID certificate (skipped without secrets; builds stay ad-hoc signed)
+        id: signing
+        env:
+          CERT_P12: ${{ secrets.MACOS_DEVELOPER_ID_P12 }}
+          CERT_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_P12_PASSWORD }}
+          NOTARY_KEY: ${{ secrets.APPLE_NOTARY_API_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CERT_P12" ]; then echo "no signing secrets: ad-hoc signing only"; exit 0; fi
+          kc="$RUNNER_TEMP/oku-signing.keychain-db"; kcpw="$(openssl rand -hex 24)"
+          security create-keychain -p "$kcpw" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$kcpw" "$kc"
+          printf '%s' "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$kcpw" "$kc" >/dev/null
+          security list-keychains -d user -s "$kc" "$HOME/Library/Keychains/login.keychain-db"
+          id="$(security find-identity -v -p codesigning "$kc" | awk -F'"' '/Developer ID Application/ {print $2; exit}')"
+          test -n "$id" || { echo "no Developer ID Application identity in the p12" >&2; exit 1; }
+          echo "identity=$id" >> "$GITHUB_OUTPUT"
+          echo "keychain=$kc" >> "$GITHUB_OUTPUT"
+          if [ -n "$NOTARY_KEY" ]; then
+            printf '%s' "$NOTARY_KEY" > "$RUNNER_TEMP/notary.p8"
+            echo "notary_key=$RUNNER_TEMP/notary.p8" >> "$GITHUB_OUTPUT"
+          fi
       - name: build archives (version stamped from tag)
-        env: { OKU_DARWIN_CROSS: "1" }
+        env:
+          OKU_DARWIN_CROSS: "1"
+          OKU_CODESIGN_IDENTITY: ${{ steps.signing.outputs.identity }}
+          OKU_NOTARY_KEY_PATH: ${{ steps.signing.outputs.notary_key }}
+          OKU_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          OKU_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
         run: VERSION="$TAG" PLATFORMS="darwin/arm64 darwin/amd64" ./mise-tasks/dist.sh
+      - name: remove signing keychain
+        if: always() && steps.signing.outputs.keychain != ''
+        run: |
+          security delete-keychain "${{ steps.signing.outputs.keychain }}" || true
+          rm -f "$RUNNER_TEMP/notary.p8"
       - name: smoke packaged binaries
         run: |
           set -euo pipefail
