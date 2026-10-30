@@ -3,12 +3,18 @@
 package auth
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/oku-trade/oku-cli/pkg/config"
+	"github.com/oku-trade/oku-cli/pkg/output"
 )
 
 // Only the CI wrapper may enable this test after creating a disposable
@@ -28,6 +34,19 @@ func TestDedicatedNativeKeychain(t *testing.T) {
 	}
 	t.Setenv("OKU_CONFIG_DIR", t.TempDir())
 	profile := "oku-ci-native-test"
+	if err := (&config.File{Version: 1, DefaultProfile: profile, Profiles: map[string]*config.Profile{
+		profile: {Network: config.NetworkMainnet, APIURL: config.DefaultAPIURL, Account: "0x1111111111111111111111111111111111111111"},
+	}}).Save(); err != nil {
+		t.Fatalf("save disposable profile: %v", err)
+	}
+	buildCtx, buildCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer buildCancel()
+	binary := filepath.Join(t.TempDir(), "oku")
+	build := exec.CommandContext(buildCtx, "go", "build", "-o", binary, "./cmd/oku")
+	build.Dir = filepath.Join("..", "..")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build test CLI: %v: %s", err, out)
+	}
 	md := Metadata{Profile: profile, Network: "testnet", APIURL: "https://api.example", AccountAddress: "0x111"}
 	sec := Secrets{RefreshToken: "test-only-token"}
 	if err := SavePrivy(profile, md, sec); err != nil {
@@ -49,5 +68,18 @@ func TestDedicatedNativeKeychain(t *testing.T) {
 	}
 	if _, err := LoadPrivyMetadata(profile); !errors.Is(err, ErrKeychainLocked) {
 		t.Fatalf("locked Keychain should report locked without prompting: %v", err)
+	}
+	callCtx, callCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer callCancel()
+	call := exec.CommandContext(callCtx, binary, "auth", "status", "--profile", profile, "--json")
+	call.Stdin = strings.NewReader("")
+	stdout, err := call.Output()
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) || exit.ExitCode() != 3 {
+		t.Fatalf("locked JSON status exit: %v", err)
+	}
+	var envelope output.Envelope
+	if err := json.Unmarshal(stdout, &envelope); err != nil || envelope.Error == nil || envelope.Error.Code != output.CodeKeychainLocked {
+		t.Fatalf("locked JSON status should report KEYCHAIN_LOCKED: %v: %s", err, stdout)
 	}
 }
