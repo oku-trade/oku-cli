@@ -6,10 +6,10 @@ const { spawn } = require('node:child_process');
 const path = require('node:path');
 
 const PLATFORMS = {
-  'linux-x64': '@oku-trade/cli-linux-x64',
-  'linux-arm64': '@oku-trade/cli-linux-arm64',
-  'darwin-x64': '@oku-trade/cli-darwin-x64',
-  'darwin-arm64': '@oku-trade/cli-darwin-arm64',
+  'linux-x64': '@gfxlabs/oku-cli-linux-x64',
+  'linux-arm64': '@gfxlabs/oku-cli-linux-arm64',
+  'darwin-x64': '@gfxlabs/oku-cli-darwin-x64',
+  'darwin-arm64': '@gfxlabs/oku-cli-darwin-arm64',
 };
 
 function resolveBinary() {

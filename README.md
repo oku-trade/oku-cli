@@ -13,7 +13,7 @@ Perps trading supports Hyperliquid **mainnet** only. Agent-wallet EVM commands (
 
 For user-operated authentication, run `oku auth login` in a terminal. Sign on the Oku authorization page with the wallet you want to use as the account. The CLI derives that account from Hyperliquid's approved agent and creates a `default` profile if none exists; no account flag is needed. The default API is production (`https://accounts.icarus.tools`). Existing profiles keep the API URL they were created with; `--api-url` remains available for custom deployments.
 
-> **Status: pre-release.** Commands may change. Prebuilt binaries are distributed as GitHub Releases. npm publishing is a separate decision. Automatic updates are opt-in and disabled by default. Transaction-based bridges support prepare, submit, status, claim and reconcile; destination claims require native gas on the destination chain.
+> **Status: pre-release.** Commands may change. Prebuilt binaries are distributed as GitHub Releases. npm packages are staged for maintainer approval when configured. Automatic updates are opt-in and disabled by default. Transaction-based bridges support prepare, submit, status, claim and reconcile; destination claims require native gas on the destination chain.
 
 ## Agent wallet funds
 
@@ -65,6 +65,58 @@ brew untap oku-trade/tap          # optional, removes the tap
 
 The tap formula installs the prebuilt release archive for your platform and checks its SHA-256. It tracks the latest release only: to pin an older version, use the install script with `--version`. Homebrew owns the binary, so `oku self-update` and opt-in auto-update refuse to replace it; upgrade with `brew upgrade oku` instead.
 
+## Install (npm)
+
+Once the five staged packages have been approved on npmjs.com, install the thin launcher and its exact-version native platform dependency. There are no postinstall scripts or binary downloads outside npm's ordinary package fetches.
+
+```sh
+npm install -g @gfxlabs/oku-cli
+npx @gfxlabs/oku-cli version
+npm update -g @gfxlabs/oku-cli  # upgrade
+```
+
+`oku self-update` and auto-update refuse npm-managed binaries. Upgrade with npm instead.
+
+## Install (AUR)
+
+On Arch Linux, use `yay -S oku-bin` or `paru -S oku-bin`. Without a helper:
+
+```sh
+git clone https://aur.archlinux.org/oku-bin.git && cd oku-bin && makepkg -si
+```
+
+Upgrade with the AUR helper or rebuild the updated PKGBUILD. `oku self-update` and auto-update refuse system package binaries.
+
+## Install (Debian/Ubuntu and Fedora/RHEL)
+
+Download the package matching your architecture and `SHA256SUMS` from the [latest release](https://github.com/oku-trade/oku-cli/releases/latest). Example for amd64 Debian and x86_64 Fedora, with `V` set to the release tag such as `v0.1.0`:
+
+```sh
+V=v0.1.0
+curl -fsSLO "https://github.com/oku-trade/oku-cli/releases/download/$V/SHA256SUMS"
+curl -fsSLO "https://github.com/oku-trade/oku-cli/releases/download/$V/oku_${V#v}_linux_amd64.deb"
+curl -fsSLO "https://github.com/oku-trade/oku-cli/releases/download/$V/oku-${V#v}-1.x86_64.rpm"
+sha256sum -c --ignore-missing SHA256SUMS
+sudo apt install "./oku_${V#v}_linux_amd64.deb"
+# Fedora/RHEL instead:
+sudo dnf install "./oku-${V#v}-1.x86_64.rpm"
+```
+
+Arm64 packages use `linux_arm64.deb` and `aarch64.rpm`. There is no apt/dnf repository yet. Install the newer package to upgrade. `oku self-update` and auto-update refuse system package binaries.
+
+Homebrew, AUR, deb and rpm installs include Bash, Zsh and Fish completions automatically.
+
+## Install (Go)
+
+Go 1.27.1 or newer is required by `go.mod`. macOS builds need CGO, enabled by default on a native macOS host.
+
+```sh
+go install github.com/oku-trade/oku-cli/cmd/oku@latest
+"$(go env GOPATH)/bin/oku" version
+```
+
+The binary lands in `$(go env GOPATH)/bin` (or `GOBIN` when set). Upgrade by rerunning `go install ...@latest`. `self-update` does not identify Go-installed binaries as managed, but source builds without a release version are refused. Leave auto-update off and use Go for upgrades.
+
 ## Install (prebuilt binary)
 
 Public releases carry `oku_<version>_<os>_<arch>.tar.gz` for linux/darwin amd64/arm64 plus `SHA256SUMS`. No GitHub token is needed for ordinary downloads.
@@ -97,7 +149,7 @@ oku self-update           # download, verify SHA256SUMS and replace this binary 
 oku self-update --version v0.1.0   # install a specific release (downgrades allowed)
 ```
 
-`self-update` uses public release downloads anonymously by default; `GITHUB_TOKEN`/`GH_TOKEN` are optional for API rate limits. It never needs sudo. It refuses mise, Nix, Homebrew and source builds. By default it never runs on its own.
+`self-update` uses public release downloads anonymously by default; `GITHUB_TOKEN`/`GH_TOKEN` are optional for API rate limits. It never needs sudo. It refuses mise, Nix, Homebrew, npm, system package installs and source builds. By default it never runs on its own.
 
 `SHA256SUMS` checks the archive against the manifest published in the same GitHub release. It is not an independent signature: update trust depends on the repository's release permissions and the integrity of GitHub's release delivery. `--version` can install an older release; check the tag before using it.
 
@@ -174,14 +226,6 @@ inputs.oku-cli.url = "github:oku-trade/oku-cli/master";
 # then: environment.systemPackages = [ inputs.oku-cli.packages.${system}.default ];
 ```
 
-
-## npm (not published)
-
-The release tooling packs a thin launcher `@oku-trade/cli` plus four exact-version platform packages `@oku-trade/cli-{linux,darwin}-{x64,arm64}`. There are no postinstall scripts or downloads.
-
-- Publishing requires confirmation of package scope ownership and trusted-publisher configuration. The packages are configured for public access under AGPL-3.0-only.
-- Publishing is manual and gated. See [docs/releasing.md](docs/releasing.md).
-- Check the publishing workflow and registry metadata for provenance before making a provenance claim.
 
 ## Uninstall
 

@@ -3,7 +3,7 @@ name: github-release
 # darwin/amd64 cross-compiled on one Namespace mac), smoke-tests them, and publishes a GitHub Release with
 # oku_<tag>_<os>_<arch>.tar.gz archives plus a combined SHA256SUMS.
 # Trigger: push a semver tag (git tag v0.1.0 && git push origin v0.1.0), or re-run for an
-# existing tag via workflow_dispatch. The npm path lives separately in release.yml (disabled).
+# existing tag via workflow_dispatch.
 on:
   push:
     tags: ["v*"]
@@ -12,6 +12,10 @@ on:
       tag:
         description: "existing tag to (re)build and publish, e.g. v0.1.0"
         required: true
+      npm_dry_run:
+        description: "pack npm packages without staging them"
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -188,8 +192,53 @@ jobs:
           name: gh-release-darwin-amd64
           path: dist/oku_${{ env.TAG }}_darwin_amd64.tar.gz
           if-no-files-found: error
+  package-linux:
+    needs: [build-linux, build-darwin]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "refs/tags/${{ env.TAG }}" }
+      - uses: actions/download-artifact@v4
+        with: { path: release, pattern: gh-release-linux-*, merge-multiple: true }
+      - uses: actions/setup-go@v5
+        with: { go-version: "1.27.x", check-latest: true }
+      - name: install pinned nfpm
+        run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.48.0
+      - name: package and smoke Linux deb/rpm
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          amd64_archive="oku_${TAG}_linux_amd64"
+          tar -xzf "release/$amd64_archive.tar.gz" -C release
+          mkdir -p packaging/completions
+          "release/$amd64_archive/oku" completion bash > packaging/completions/oku
+          "release/$amd64_archive/oku" completion zsh > packaging/completions/_oku
+          "release/$amd64_archive/oku" completion fish > packaging/completions/oku.fish
+          grep -q '^#compdef oku' packaging/completions/_oku
+          for arch in amd64 arm64; do
+            archive="oku_${TAG}_linux_${arch}"
+            if [ "$arch" != amd64 ]; then tar -xzf "release/$archive.tar.gz" -C release; fi
+            mkdir -p packaging/binary
+            install -m755 "release/$archive/oku" packaging/binary/oku
+            export OKU_ARCH="$arch" OKU_VERSION="$version"
+            nfpm pkg -f packaging/nfpm.yaml -p deb -t "release/oku_${version}_linux_${arch}.deb"
+            rpmarch=x86_64; [ "$arch" = arm64 ] && rpmarch=aarch64
+            nfpm pkg -f packaging/nfpm.yaml -p rpm -t "release/oku-${version}-1.${rpmarch}.rpm"
+          done
+          test_completions='test -s /usr/share/bash-completion/completions/oku && test -s /usr/share/zsh/site-functions/_oku && test -s /usr/share/fish/vendor_completions.d/oku.fish'
+          docker run --rm -v "$PWD/release:/release:ro" debian:stable-slim sh -ec \
+            "apt install -y /release/oku_${version}_linux_amd64.deb && oku version | grep -F '$TAG' && $test_completions"
+          docker run --rm -v "$PWD/release:/release:ro" fedora:latest sh -ec \
+            "dnf install -y /release/oku-${version}-1.x86_64.rpm && oku version | grep -F '$TAG' && $test_completions"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gh-release-packages
+          path: |
+            release/*.deb
+            release/*.rpm
+          if-no-files-found: error
   publish:
-    needs: [build-linux, build-darwin]   # only after all four builds and smoke tests pass
+    needs: [build-linux, build-darwin, package-linux]
     runs-on: ubicloud-standard-2
     permissions:
       contents: write   # create the release and upload assets
@@ -206,9 +255,9 @@ jobs:
           for t in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64; do
             test -s "oku_${TAG}_${t}.tar.gz" || { echo "missing oku_${TAG}_${t}.tar.gz" >&2; exit 1; }
           done
-          set -- ./*.tar.gz
-          test "$#" = 4 || { ls -l; echo "expected exactly 4 archives" >&2; exit 1; }
-          sha256sum -- *.tar.gz > SHA256SUMS
+          set -- ./*.tar.gz ./*.deb ./*.rpm
+          test "$#" = 8 || { ls -l; echo "expected four archives and four OS packages" >&2; exit 1; }
+          sha256sum -- *.tar.gz *.deb *.rpm > SHA256SUMS
           sha256sum -c SHA256SUMS
           cat SHA256SUMS
       - name: create or update GitHub Release
@@ -219,10 +268,10 @@ jobs:
           case "$TAG" in *-*) pre=(--prerelease) ;; esac
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "release $TAG exists; replacing assets"
-            gh release upload "$TAG" --clobber -- *.tar.gz SHA256SUMS
+            gh release upload "$TAG" --clobber -- *.tar.gz *.deb *.rpm SHA256SUMS
           else
             gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes "${pre[@]}" \
-              -- *.tar.gz SHA256SUMS
+              -- *.tar.gz *.deb *.rpm SHA256SUMS
           fi
       - uses: actions/upload-artifact@v4
         with: { name: sha256sums, path: release/SHA256SUMS, if-no-files-found: error }
@@ -271,3 +320,126 @@ jobs:
           git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
             commit -m "oku ${TAG#v}"
           git push
+  npm:
+    needs: publish
+    environment: release
+    if: ${{ !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NPM_ENABLED: ${{ vars.NPM_PUBLISH_ENABLED }}
+    steps:
+      - name: check npm publishing configuration
+        id: gate
+        run: |
+          if [ "$NPM_ENABLED" != true ]; then
+            echo 'NPM_PUBLISH_ENABLED is not true; skipping npm staging'
+            echo 'run=false' >> "$GITHUB_OUTPUT"
+          else echo 'run=true' >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+        with: { ref: "refs/tags/${{ env.TAG }}" }
+      - uses: actions/download-artifact@v4
+        if: steps.gate.outputs.run == 'true'
+        with: { path: release, pattern: gh-release-*, merge-multiple: true }
+      - uses: actions/download-artifact@v4
+        if: steps.gate.outputs.run == 'true'
+        with: { name: sha256sums, path: release }
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.run == 'true'
+        with: { node-version: '24', registry-url: 'https://registry.npmjs.org' }
+      - name: pack and smoke signed release binaries
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          (cd release && sha256sum -c SHA256SUMS)
+          mkdir -p extracted
+          args=()
+          for os in linux darwin; do
+            for arch in amd64 arm64; do
+              archive="oku_${TAG}_${os}_${arch}"
+              tar -xzf "release/$archive.tar.gz" -C extracted
+              args+=("$os/$arch=extracted/$archive/oku")
+            done
+          done
+          ./mise-tasks/npm-pack.sh "${TAG#v}" npm-dist "${args[@]}"
+          ./mise-tasks/npm-smoke.sh npm-dist "${TAG#v}"
+      - name: stage platform packages, then launcher
+        if: steps.gate.outputs.run == 'true'
+        env:
+          DRY_RUN: ${{ inputs.npm_dry_run || 'false' }}
+        run: |
+          set -euo pipefail
+          npm install -g 'npm@^11.19'
+          npm --version
+          version="${TAG#v}"
+          stage_package() {
+            local name="$1" tarball="$2"
+            if [ "$DRY_RUN" = true ]; then
+              npm stage publish "$tarball" --dry-run --access public --tag latest
+              return
+            fi
+            if npm view "$name@$version" version --json > "$RUNNER_TEMP/npm-view.out" 2> "$RUNNER_TEMP/npm-view.err"; then
+              echo "$name@$version already published; skipping"
+              return
+            fi
+            if ! grep -Eq 'E404|404 Not Found' "$RUNNER_TEMP/npm-view.err"; then
+              echo "registry lookup failed for $name@$version" >&2
+              return 1
+            fi
+            npm stage publish "$tarball" --provenance --access public --tag latest
+          }
+          for os in linux darwin; do
+            for arch in x64 arm64; do
+              name="@gfxlabs/oku-cli-$os-$arch"
+              tarball="./npm-dist/gfxlabs-oku-cli-$os-$arch-$version.tgz"
+              stage_package "$name" "$tarball"
+            done
+          done
+          stage_package '@gfxlabs/oku-cli' "./npm-dist/gfxlabs-oku-cli-$version.tgz"
+          echo 'Approve all four platform packages before the launcher on npmjs.com.'
+  aur:
+    needs: publish
+    environment: release
+    if: ${{ !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') }}
+    runs-on: ubuntu-24.04
+    env:
+      HAS_AUR_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY != '' }}
+    steps:
+      - name: check AUR credentials
+        id: gate
+        run: |
+          if [ "$HAS_AUR_KEY" != true ]; then
+            echo 'AUR_SSH_PRIVATE_KEY absent; skipping AUR update'
+            echo 'run=false' >> "$GITHUB_OUTPUT"
+          else echo 'run=true' >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+        with: { ref: "refs/tags/${{ env.TAG }}", path: src }
+      - uses: actions/download-artifact@v4
+        if: steps.gate.outputs.run == 'true'
+        with: { name: sha256sums, path: sums }
+      - name: render and push AUR metadata
+        if: steps.gate.outputs.run == 'true'
+        env:
+          AUR_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          AUR_GIT_NAME: ${{ vars.AUR_GIT_NAME || 'oku release bot' }}
+          AUR_GIT_EMAIL: ${{ vars.AUR_GIT_EMAIL || 'oku-release-bot@users.noreply.github.com' }}
+        run: |
+          set -euo pipefail
+          umask 077
+          key="$RUNNER_TEMP/aur_key"
+          printf '%s\n' "$AUR_KEY" > "$key"
+          chmod 600 "$key"
+          trap 'rm -f "$key"' EXIT
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$PWD/src/packaging/aur_known_hosts"
+          git clone ssh://aur@aur.archlinux.org/oku-bin.git aur-repo
+          bash src/mise-tasks/aur-pkgbuild.sh "$TAG" sums/SHA256SUMS aur-repo
+          bash src/mise-tasks/aur-check.sh aur-repo/PKGBUILD aur-repo/.SRCINFO
+          cd aur-repo
+          git add PKGBUILD .SRCINFO
+          if git diff --cached --quiet; then echo 'AUR metadata unchanged'; exit 0; fi
+          git -c user.name="$AUR_GIT_NAME" -c user.email="$AUR_GIT_EMAIL" commit -m "oku-bin ${TAG#v}"
+          git push origin HEAD:master   # AUR accepts only master; a first clone of an empty repo may default to another branch

@@ -6,8 +6,8 @@
 set -euo pipefail
 DIR="$(cd "${1:?tarball dir}" && pwd)"; VERSION="${2:?version}"; VERSION="${VERSION#v}"
 os="$(node -p process.platform)"; cpu="$(node -p process.arch)"
-launcher="$DIR/oku-trade-cli-$VERSION.tgz"
-plat="$DIR/oku-trade-cli-$os-$cpu-$VERSION.tgz"
+launcher="$DIR/gfxlabs-oku-cli-$VERSION.tgz"
+plat="$DIR/gfxlabs-oku-cli-$os-$cpu-$VERSION.tgz"
 [[ -f "$launcher" && -f "$plat" ]] || { echo "missing $launcher or $plat" >&2; exit 1; }
 t="$(mktemp -d)"; trap 'rm -rf "$t"' EXIT
 export npm_config_cache="$t/cache" npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false
@@ -18,8 +18,8 @@ mkdir "$t/app"; (cd "$t/app" && npm init -y >/dev/null && npm install --offline 
 oku="$t/app/node_modules/.bin/oku"
 [[ -x "$oku" ]] || fail "bin link missing"
 # other platform packages must not be installed
-got_pkgs="$(cd "$t/app/node_modules/@oku-trade" && ls | LC_ALL=C sort | tr '\n' ' ')"
-[[ "$got_pkgs" == "cli cli-$os-$cpu " ]] || fail "unexpected packages: $got_pkgs (want cli cli-$os-$cpu)"
+got_pkgs="$(cd "$t/app/node_modules/@gfxlabs" && ls | LC_ALL=C sort | tr '\n' ' ')"
+[[ "$got_pkgs" == "oku-cli oku-cli-$os-$cpu " ]] || fail "unexpected packages: $got_pkgs (want oku-cli oku-cli-$os-$cpu)"
 "$(dirname "$0")/binary-smoke.sh" "$oku" || fail "binary smoke through launcher"
 (cd "$t/app" && npx --offline --no-install oku --help >/dev/null) || fail "npx"
 

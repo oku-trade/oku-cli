@@ -1,18 +1,21 @@
 {
-  "name": "@oku-trade/cli",
+  "name": "@gfxlabs/oku-cli",
   "version": "0.0.0-dev",
   "description": "Oku Agent: swap and bridge across 30+ chains and trade perps on Oku from the command line (launcher for the native binary)",
   "license": "AGPL-3.0-only",
+  "repository": { "type": "git", "url": "git+https://github.com/oku-trade/oku-cli.git" },
+  "homepage": "https://github.com/oku-trade/oku-cli",
+  "bugs": "https://github.com/oku-trade/oku-cli/issues",
   "bin": { "oku": "bin/oku.js" },
   "files": ["bin/oku.js", "README.md", "LICENSE"],
   "engines": { "node": ">=18" },
   "os": ["linux", "darwin"],
   "cpu": ["x64", "arm64"],
   "optionalDependencies": {
-    "@oku-trade/cli-linux-x64": "0.0.0-dev",
-    "@oku-trade/cli-linux-arm64": "0.0.0-dev",
-    "@oku-trade/cli-darwin-x64": "0.0.0-dev",
-    "@oku-trade/cli-darwin-arm64": "0.0.0-dev"
+    "@gfxlabs/oku-cli-linux-x64": "0.0.0-dev",
+    "@gfxlabs/oku-cli-linux-arm64": "0.0.0-dev",
+    "@gfxlabs/oku-cli-darwin-x64": "0.0.0-dev",
+    "@gfxlabs/oku-cli-darwin-arm64": "0.0.0-dev"
   },
   "publishConfig": { "access": "public" }
 }

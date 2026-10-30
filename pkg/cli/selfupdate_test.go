@@ -23,6 +23,40 @@ type tarEntry struct {
 	mode int64
 }
 
+func TestManagedByDistribution(t *testing.T) {
+	for _, tc := range []struct {
+		path, manager string
+	}{
+		{"/usr/local/lib/node_modules/@gfxlabs/oku-cli-linux-x64/bin/oku", "npm"},
+		{"/home/user/project/node_modules/@gfxlabs/oku-cli-darwin-arm64/bin/oku", "npm"},
+		{"/home/user/go/bin/oku", ""},
+		{"/home/user/.local/bin/oku", ""},
+	} {
+		got, _ := managedBy(tc.path)
+		if got != tc.manager {
+			t.Errorf("managedBy(%q) = %q, want %q", tc.path, got, tc.manager)
+		}
+	}
+	if runtime.GOOS == "linux" {
+		got, _ := managedBy("/usr/bin/oku")
+		if got != "system package" {
+			t.Errorf("managedBy(/usr/bin/oku) = %q", got)
+		}
+	}
+}
+
+func TestReleaseChecksumSelectsArchive(t *testing.T) {
+	name := "oku_v1.2.3_linux_amd64.tar.gz"
+	sums := []byte("aaa  oku_1.2.3_linux_amd64.deb\nbbb  oku-1.2.3-1.x86_64.rpm\nccc  " + name + "\n")
+	if got := sumFor(sums, name); got != "ccc" {
+		t.Fatalf("sumFor archive = %q, want ccc", got)
+	}
+	assets := ghRelease{Assets: []ghAsset{{Name: "oku_1.2.3_linux_amd64.deb"}, {Name: name}}}
+	if asset := assets.asset(name); asset == nil || asset.Name != name {
+		t.Fatalf("release asset selection did not choose %s", name)
+	}
+}
+
 func makeTarGz(t *testing.T, entries []tarEntry) []byte {
 	t.Helper()
 	var buf bytes.Buffer
