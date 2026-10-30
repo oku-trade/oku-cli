@@ -48,6 +48,9 @@ service PerpsService {
   // fetch once per session and invalidate after ApproveBuilderFee.
   rpc GetBuilderFeeStatus(GetBuilderFeeStatusRequest) returns (GetBuilderFeeStatusResponse);
 
+  // Read cumulative perps-only PnL for the account over each supported window.
+  rpc GetPerpsPnlSummary(GetPerpsPnlSummaryRequest) returns (GetPerpsPnlSummaryResponse);
+
   // ---- Trading (auth required) ----
   // Flow: CreateAction -> (optionally UpdateAction to change params) -> ConfirmAction with signature.
   // Each action is a Temporal workflow session. The workflow builds the HL action payload,
@@ -380,6 +383,19 @@ message GetAccountBalancesResponse {
 // ----------------------------------------------------------------------------
 // GetBuilderFeeStatus
 // ----------------------------------------------------------------------------
+
+message GetPerpsPnlSummaryRequest {
+  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
+  bool skip_cache = 2;
+}
+
+message GetPerpsPnlSummaryResponse {
+  string day_pnl = 1;
+  string week_pnl = 2;
+  string month_pnl = 3;
+  string all_time_pnl = 4;
+  int64 as_of_ms = 5;
+}
 
 message GetBuilderFeeStatusRequest {
   string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];

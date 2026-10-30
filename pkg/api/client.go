@@ -20,6 +20,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
+	accountv2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
 	"github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2/accountv2connect"
 )
 
@@ -76,6 +77,21 @@ func (c *Client) Perps(ctx context.Context, method string, req, resp any, authed
 	return c.call(ctx, h, req, resp, authed, false)
 }
 
+// Portfolio calls an allowlisted PortfolioService read through the generated Connect client.
+func (c *Client) Portfolio(ctx context.Context, method string, req, resp any, authed bool) error {
+	h, ok := portfolioMethods[method]
+	if !ok {
+		return &Error{Code: "unimplemented", Message: "PortfolioService/" + method + " is not supported by this CLI"}
+	}
+	return c.call(ctx, h, req, resp, authed, false)
+}
+
+var portfolioMethods = map[string]handler{
+	"GetNetWorthChart": fundsRPC[accountv2.GetNetWorthChartRequest, accountv2.GetNetWorthChartResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.GetNetWorthChartRequest]) (*connect.Response[accountv2.GetNetWorthChartResponse], error) {
+		return f.portfolio.GetNetWorthChart
+	}),
+}
+
 // Auth calls an allowlisted AuthService method without exposing sensitive server errors.
 func (c *Client) Auth(ctx context.Context, method string, req, resp any, authed bool) error {
 	h, ok := authMethods[method]
@@ -120,11 +136,12 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 		accountv2connect.NewPerpsServiceClient(doer, base, opts...),
 		accountv1connect.NewAuthServiceClient(doer, base, opts...),
 		fundsClients{
-			history: accountv1connect.NewOrderHistoryServiceClient(doer, base, opts...),
-			swap:    accountv2connect.NewSimpleSwapServiceV2Client(doer, base, opts...),
-			bridge:  accountv2connect.NewBridgeServiceClient(doer, base, opts...),
-			onchain: accountv2connect.NewOnchainServiceClient(doer, base, opts...),
-			token:   accountv2connect.NewTokenServiceClient(doer, base, opts...),
+			history:   accountv1connect.NewOrderHistoryServiceClient(doer, base, opts...),
+			swap:      accountv2connect.NewSimpleSwapServiceV2Client(doer, base, opts...),
+			bridge:    accountv2connect.NewBridgeServiceClient(doer, base, opts...),
+			onchain:   accountv2connect.NewOnchainServiceClient(doer, base, opts...),
+			token:     accountv2connect.NewTokenServiceClient(doer, base, opts...),
+			portfolio: accountv2connect.NewPortfolioServiceClient(doer, base, opts...),
 		},
 		body, hdr)
 	if err != nil {

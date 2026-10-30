@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package gfxcafe.oku.account.v2;
+
+import "buf/validate/validate.proto";
+import "gfxcafe/oku/account/v1/validate.proto";
+
+option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v2;accountv2";
+
+// CLI-used portfolio read. Names and field numbers match the upstream wire contract.
+service PortfolioService {
+  rpc GetNetWorthChart(GetNetWorthChartRequest) returns (GetNetWorthChartResponse);
+}
+
+enum NetWorthChartPeriod {
+  NET_WORTH_CHART_PERIOD_UNSPECIFIED = 0;
+  NET_WORTH_CHART_PERIOD_DAY = 1;
+  NET_WORTH_CHART_PERIOD_WEEK = 2;
+  NET_WORTH_CHART_PERIOD_MONTH = 3;
+  NET_WORTH_CHART_PERIOD_YEAR = 4;
+  NET_WORTH_CHART_PERIOD_MAX = 5;
+}
+
+message GetNetWorthChartRequest {
+  string wallet_address = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+  NetWorthChartPeriod period = 2 [(buf.validate.field).enum.defined_only = true];
+  bool refresh = 3;
+}
+
+message NetWorthChartPoint {
+  int64 timestamp_unix = 1;
+  double value_usd = 2;
+}
+
+message GetNetWorthChartResponse {
+  string wallet_address = 1;
+  NetWorthChartPeriod period = 2;
+  repeated NetWorthChartPoint points = 3;
+  double value_usd = 4;
+  double change_usd = 5;
+  double change_percent = 6;
+  bool excludes_defi = 7;
+  bool excludes_evm = 8;
+  bool excludes_perps = 9;
+}

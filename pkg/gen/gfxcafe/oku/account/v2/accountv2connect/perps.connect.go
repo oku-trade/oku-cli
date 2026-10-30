@@ -53,6 +53,9 @@ const (
 	// PerpsServiceGetBuilderFeeStatusProcedure is the fully-qualified name of the PerpsService's
 	// GetBuilderFeeStatus RPC.
 	PerpsServiceGetBuilderFeeStatusProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetBuilderFeeStatus"
+	// PerpsServiceGetPerpsPnlSummaryProcedure is the fully-qualified name of the PerpsService's
+	// GetPerpsPnlSummary RPC.
+	PerpsServiceGetPerpsPnlSummaryProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetPerpsPnlSummary"
 	// PerpsServiceCreateActionProcedure is the fully-qualified name of the PerpsService's CreateAction
 	// RPC.
 	PerpsServiceCreateActionProcedure = "/gfxcafe.oku.account.v2.PerpsService/CreateAction"
@@ -108,6 +111,8 @@ type PerpsServiceClient interface {
 	// Oku's builder fee configuration. Approval flips at most once per account --
 	// fetch once per session and invalidate after ApproveBuilderFee.
 	GetBuilderFeeStatus(context.Context, *connect.Request[v2.GetBuilderFeeStatusRequest]) (*connect.Response[v2.GetBuilderFeeStatusResponse], error)
+	// Read cumulative perps-only PnL for the account over each supported window.
+	GetPerpsPnlSummary(context.Context, *connect.Request[v2.GetPerpsPnlSummaryRequest]) (*connect.Response[v2.GetPerpsPnlSummaryResponse], error)
 	// CreateAction starts an action workflow session and builds the HL action payload.
 	// The action is NOT submitted to HL yet -- call ConfirmAction with the signed payload.
 	CreateAction(context.Context, *connect.Request[v2.CreateActionRequest]) (*connect.Response[v2.ActionPayloadResponse], error)
@@ -192,6 +197,12 @@ func NewPerpsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(perpsServiceMethods.ByName("GetBuilderFeeStatus")),
 			connect.WithClientOptions(opts...),
 		),
+		getPerpsPnlSummary: connect.NewClient[v2.GetPerpsPnlSummaryRequest, v2.GetPerpsPnlSummaryResponse](
+			httpClient,
+			baseURL+PerpsServiceGetPerpsPnlSummaryProcedure,
+			connect.WithSchema(perpsServiceMethods.ByName("GetPerpsPnlSummary")),
+			connect.WithClientOptions(opts...),
+		),
 		createAction: connect.NewClient[v2.CreateActionRequest, v2.ActionPayloadResponse](
 			httpClient,
 			baseURL+PerpsServiceCreateActionProcedure,
@@ -258,6 +269,7 @@ type perpsServiceClient struct {
 	getOpenOrders           *connect.Client[v2.GetOpenOrdersRequest, v2.GetOpenOrdersResponse]
 	getAccountBalances      *connect.Client[v2.GetAccountBalancesRequest, v2.GetAccountBalancesResponse]
 	getBuilderFeeStatus     *connect.Client[v2.GetBuilderFeeStatusRequest, v2.GetBuilderFeeStatusResponse]
+	getPerpsPnlSummary      *connect.Client[v2.GetPerpsPnlSummaryRequest, v2.GetPerpsPnlSummaryResponse]
 	createAction            *connect.Client[v2.CreateActionRequest, v2.ActionPayloadResponse]
 	confirmAction           *connect.Client[v2.ConfirmActionRequest, v2.ConfirmActionResponse]
 	cancelAction            *connect.Client[v2.CancelActionRequest, v2.CancelActionResponse]
@@ -302,6 +314,11 @@ func (c *perpsServiceClient) GetAccountBalances(ctx context.Context, req *connec
 // GetBuilderFeeStatus calls gfxcafe.oku.account.v2.PerpsService.GetBuilderFeeStatus.
 func (c *perpsServiceClient) GetBuilderFeeStatus(ctx context.Context, req *connect.Request[v2.GetBuilderFeeStatusRequest]) (*connect.Response[v2.GetBuilderFeeStatusResponse], error) {
 	return c.getBuilderFeeStatus.CallUnary(ctx, req)
+}
+
+// GetPerpsPnlSummary calls gfxcafe.oku.account.v2.PerpsService.GetPerpsPnlSummary.
+func (c *perpsServiceClient) GetPerpsPnlSummary(ctx context.Context, req *connect.Request[v2.GetPerpsPnlSummaryRequest]) (*connect.Response[v2.GetPerpsPnlSummaryResponse], error) {
+	return c.getPerpsPnlSummary.CallUnary(ctx, req)
 }
 
 // CreateAction calls gfxcafe.oku.account.v2.PerpsService.CreateAction.
@@ -376,6 +393,8 @@ type PerpsServiceHandler interface {
 	// Oku's builder fee configuration. Approval flips at most once per account --
 	// fetch once per session and invalidate after ApproveBuilderFee.
 	GetBuilderFeeStatus(context.Context, *connect.Request[v2.GetBuilderFeeStatusRequest]) (*connect.Response[v2.GetBuilderFeeStatusResponse], error)
+	// Read cumulative perps-only PnL for the account over each supported window.
+	GetPerpsPnlSummary(context.Context, *connect.Request[v2.GetPerpsPnlSummaryRequest]) (*connect.Response[v2.GetPerpsPnlSummaryResponse], error)
 	// CreateAction starts an action workflow session and builds the HL action payload.
 	// The action is NOT submitted to HL yet -- call ConfirmAction with the signed payload.
 	CreateAction(context.Context, *connect.Request[v2.CreateActionRequest]) (*connect.Response[v2.ActionPayloadResponse], error)
@@ -456,6 +475,12 @@ func NewPerpsServiceHandler(svc PerpsServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(perpsServiceMethods.ByName("GetBuilderFeeStatus")),
 		connect.WithHandlerOptions(opts...),
 	)
+	perpsServiceGetPerpsPnlSummaryHandler := connect.NewUnaryHandler(
+		PerpsServiceGetPerpsPnlSummaryProcedure,
+		svc.GetPerpsPnlSummary,
+		connect.WithSchema(perpsServiceMethods.ByName("GetPerpsPnlSummary")),
+		connect.WithHandlerOptions(opts...),
+	)
 	perpsServiceCreateActionHandler := connect.NewUnaryHandler(
 		PerpsServiceCreateActionProcedure,
 		svc.CreateAction,
@@ -526,6 +551,8 @@ func NewPerpsServiceHandler(svc PerpsServiceHandler, opts ...connect.HandlerOpti
 			perpsServiceGetAccountBalancesHandler.ServeHTTP(w, r)
 		case PerpsServiceGetBuilderFeeStatusProcedure:
 			perpsServiceGetBuilderFeeStatusHandler.ServeHTTP(w, r)
+		case PerpsServiceGetPerpsPnlSummaryProcedure:
+			perpsServiceGetPerpsPnlSummaryHandler.ServeHTTP(w, r)
 		case PerpsServiceCreateActionProcedure:
 			perpsServiceCreateActionHandler.ServeHTTP(w, r)
 		case PerpsServiceConfirmActionProcedure:
@@ -579,6 +606,10 @@ func (UnimplementedPerpsServiceHandler) GetAccountBalances(context.Context, *con
 
 func (UnimplementedPerpsServiceHandler) GetBuilderFeeStatus(context.Context, *connect.Request[v2.GetBuilderFeeStatusRequest]) (*connect.Response[v2.GetBuilderFeeStatusResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetBuilderFeeStatus is not implemented"))
+}
+
+func (UnimplementedPerpsServiceHandler) GetPerpsPnlSummary(context.Context, *connect.Request[v2.GetPerpsPnlSummaryRequest]) (*connect.Response[v2.GetPerpsPnlSummaryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetPerpsPnlSummary is not implemented"))
 }
 
 func (UnimplementedPerpsServiceHandler) CreateAction(context.Context, *connect.Request[v2.CreateActionRequest]) (*connect.Response[v2.ActionPayloadResponse], error) {

@@ -13,6 +13,7 @@ var flagEnums = map[string]map[string][]string{
 	"auth login":         {"credential-store": {"file", "keyring"}},
 	"auth migrate":       {"to": {"file", "keyring"}},
 	"swap orders list":   {"state": {"active", "triggered", "executing", "filled", "failed", "cancelled"}},
+	"pnl":                {"range": {"1d", "7d", "30d", "all"}},
 }
 
 var requiredFlags = map[string][]string{
