@@ -27,7 +27,7 @@ func (a *App) cmdWalletFund(e *env) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	chain, err := strconv.ParseUint(strings.TrimPrefix(e.cmd.String("chain"), "eip155:"), 10, 64)
+	chain, err := strconv.ParseUint(strings.TrimPrefix(e.cmd.String("chain"), "eip155:"), 10, 31)
 	if err != nil || !onchain.Allowed(chain) {
 		return nil, output.Errorf(output.CodeInvalidArgument, "unsupported EVM chain %q", e.cmd.String("chain"))
 	}
