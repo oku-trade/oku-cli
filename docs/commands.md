@@ -410,6 +410,17 @@ Sign and submit a prepared intent: orders submit --intent ID --digest SHA
 | `--intent` | intent id from 'orders prepare' (required) | `` |
 | `--digest` | intent digest from 'orders prepare' (required) | `` |
 
+## `oku pnl`
+
+Combined PnL: perps, launchpad and agent swaps, plus net worth change; each source reports its own status (read-only)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--range` | window: 1d, 7d, 30d or all (launchpad and agent swaps are always all-time) | `all` |
+| `--chain` | EVM chain ID for agent swaps and launchpad only (net worth and perps are unaffected) | `` |
+
 ## `oku positions leverage`
 
 Prepare a leverage/margin-mode change (no submission): --market COIN --leverage N --mode cross|isolated

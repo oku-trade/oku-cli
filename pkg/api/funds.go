@@ -13,11 +13,12 @@ import (
 )
 
 type fundsClients struct {
-	history accountv1connect.OrderHistoryServiceClient
-	swap    accountv2connect.SimpleSwapServiceV2Client
-	bridge  accountv2connect.BridgeServiceClient
-	onchain accountv2connect.OnchainServiceClient
-	token   accountv2connect.TokenServiceClient
+	history   accountv1connect.OrderHistoryServiceClient
+	swap      accountv2connect.SimpleSwapServiceV2Client
+	bridge    accountv2connect.BridgeServiceClient
+	onchain   accountv2connect.OnchainServiceClient
+	token     accountv2connect.TokenServiceClient
+	portfolio accountv2connect.PortfolioServiceClient
 }
 
 func (c *Client) History(ctx context.Context, req *accountv1.OrderHistoryRequest, resp *accountv1.OrderHistoryResponse) error {

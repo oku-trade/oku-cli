@@ -130,6 +130,9 @@ var perpsMethods = map[string]handler{
 	"GetBuilderFeeStatus": perps[accountv2.GetBuilderFeeStatusRequest, accountv2.GetBuilderFeeStatusResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetBuilderFeeStatusRequest]) (*connect.Response[accountv2.GetBuilderFeeStatusResponse], error) {
 		return c.GetBuilderFeeStatus
 	}),
+	"GetPerpsPnlSummary": perps[accountv2.GetPerpsPnlSummaryRequest, accountv2.GetPerpsPnlSummaryResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetPerpsPnlSummaryRequest]) (*connect.Response[accountv2.GetPerpsPnlSummaryResponse], error) {
+		return c.GetPerpsPnlSummary
+	}),
 	"GetUserFills": perps[accountv2.GetUserFillsRequest, accountv2.GetUserFillsResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetUserFillsRequest]) (*connect.Response[accountv2.GetUserFillsResponse], error) {
 		return c.GetUserFills
 	}),
