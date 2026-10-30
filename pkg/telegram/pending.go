@@ -129,10 +129,12 @@ func (b *bot) confirm(ctx context.Context, user, chat, msg int64, id string) {
 		}
 		res, err := b.call(ctx, timeout, c.path, c.flags)
 		if err != nil {
-			// An exit order call that timed out may still have been
-			// stored by the backend, so it must not be retried blindly.
-			if isOutcomeUnknown(err) || (exitOrder && isUpstreamTimeout(err)) {
-				b.edit(ctx, chat, msg, view{text: outcomeUnknownText(p, c), kb: mainOnly()})
+			// The pending action is already consumed. An exit order call
+			// that timed out may still have been stored, and an onchain
+			// submit may have broadcast before failing, so only errors that
+			// prove nothing was sent may suggest trying again.
+			if isOutcomeUnknown(err) || (exitOrder && isUpstreamTimeout(err)) || (onchainKind(p.kind) && !isProvablyNoop(err)) {
+				b.edit(ctx, chat, msg, view{text: strings.Join(append(lines, outcomeUnknownText(p, c)), "\n\n"), kb: mainOnly()})
 				return
 			}
 			if len(p.calls) > 1 {
@@ -145,6 +147,16 @@ func (b *bot) confirm(ctx context.Context, user, chat, msg int64, id string) {
 		lines = append(lines, renderSubmit(p, c, res))
 	}
 	b.edit(ctx, chat, msg, view{text: strings.Join(lines, "\n\n"), kb: mainOnly()})
+}
+
+// onchainKind reports whether a submit of kind may have broadcast or
+// relayed something before failing, so a retry could spend twice.
+func onchainKind(kind string) bool {
+	switch kind {
+	case kindSwap, kindSend, kindBridge, kindClaim, kindPerpCancel:
+		return true
+	}
+	return false
 }
 
 func outcomeUnknownText(p *pendingAction, c submitCall) string {

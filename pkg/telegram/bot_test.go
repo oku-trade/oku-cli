@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -677,6 +678,53 @@ func TestOutcomeUnknownHasNoRetry(t *testing.T) {
 	}
 	if b := buttons(e.body); len(b) != 1 || b[0] != "m:main" {
 		t.Fatalf("buttons: %v", b)
+	}
+}
+
+func TestSwapSubmitUpstreamErrorsHaveNoRetry(t *testing.T) {
+	for _, code := range []output.Code{output.CodeUpstream, output.CodeUpstreamTimeout} {
+		t.Run(string(code), func(t *testing.T) {
+			h := newHarness(t)
+			h.stubSwapPrepare(false)
+			h.be.handlers["swap submit"] = func(map[string]any) (any, error) {
+				return nil, output.Errorf(code, "transaction hash persisted")
+			}
+			msg, id := h.startSwap()
+			h.bot.onCallback(context.Background(), tap(alice, msg, "c:"+id))
+			e := h.tg.last("editMessageText")
+			if strings.Contains(text(e), "Try again") || !strings.Contains(text(e), "oku swap status --intent "+preparedIntent) {
+				t.Fatalf("text: %q", text(e))
+			}
+			if b := buttons(e.body); len(b) != 1 || b[0] != "m:main" {
+				t.Fatalf("buttons: %v", b)
+			}
+		})
+	}
+}
+
+func TestSwapSubmitNonOutputErrorHasNoRetry(t *testing.T) {
+	h := newHarness(t)
+	h.stubSwapPrepare(false)
+	h.be.handlers["swap submit"] = func(map[string]any) (any, error) {
+		return nil, errors.New("boom")
+	}
+	msg, id := h.startSwap()
+	h.bot.onCallback(context.Background(), tap(alice, msg, "c:"+id))
+	if got := text(h.tg.last("editMessageText")); !strings.Contains(got, "oku swap status --intent "+preparedIntent) {
+		t.Fatalf("text: %q", got)
+	}
+}
+
+func TestSwapSubmitNoopErrorKeepsHint(t *testing.T) {
+	h := newHarness(t)
+	h.stubSwapPrepare(false)
+	h.be.handlers["swap submit"] = func(map[string]any) (any, error) {
+		return nil, output.Errorf(output.CodeInsufficientGas, "need gas")
+	}
+	msg, id := h.startSwap()
+	h.bot.onCallback(context.Background(), tap(alice, msg, "c:"+id))
+	if got := text(h.tg.last("editMessageText")); got != userError(output.Errorf(output.CodeInsufficientGas, "")) {
+		t.Fatalf("text: %q", got)
 	}
 }
 
