@@ -182,25 +182,34 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: sha256sums, path: release/SHA256SUMS, if-no-files-found: error }
   homebrew-tap:
-    # Updates Formula/oku.rb in oku-trade/homebrew-tap. Stable tags only; skipped until the
-    # HOMEBREW_TAP_TOKEN secret (fine-grained PAT, contents:write on the tap repo) exists.
+    # Updates Formula/oku.rb in oku-trade/homebrew-tap. Stable tags only. Authenticates as the org
+    # GitHub App (APP_ID / APP_PRIVATE_KEY, as in account/retail CI) with a token scoped to the tap
+    # repo; the app needs Contents read/write and access to homebrew-tap. Skipped if the secrets are absent.
     needs: publish
     if: ${{ !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') }}
     runs-on: ubicloud-standard-2
     env:
-      TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      HAS_APP: ${{ secrets.APP_ID != '' && secrets.APP_PRIVATE_KEY != '' }}
     steps:
-      - name: require tap token
+      - name: require app credentials
         id: gate
         run: |
-          if [ -z "$TAP_TOKEN" ]; then echo "HOMEBREW_TAP_TOKEN not set; skipping tap update"; echo "run=false" >> "$GITHUB_OUTPUT"
+          if [ "$HAS_APP" != true ]; then echo "APP_ID/APP_PRIVATE_KEY not available; skipping tap update"; echo "run=false" >> "$GITHUB_OUTPUT"
           else echo "run=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/create-github-app-token@v2
+        id: app
+        if: steps.gate.outputs.run == 'true'
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: oku-trade
+          repositories: homebrew-tap
       - uses: actions/checkout@v4
         if: steps.gate.outputs.run == 'true'
         with: { ref: "refs/tags/${{ env.TAG }}", path: src }
       - uses: actions/checkout@v4
         if: steps.gate.outputs.run == 'true'
-        with: { repository: oku-trade/homebrew-tap, token: "${{ secrets.HOMEBREW_TAP_TOKEN }}", path: tap }
+        with: { repository: oku-trade/homebrew-tap, token: "${{ steps.app.outputs.token }}", path: tap }
       - uses: actions/download-artifact@v4
         if: steps.gate.outputs.run == 'true'
         with: { name: sha256sums, path: sums }
