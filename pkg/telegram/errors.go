@@ -82,3 +82,8 @@ func isOutcomeUnknown(err error) bool {
 	var oe *output.Error
 	return errors.As(err, &oe) && oe.Code == output.CodeOutcomeUnknown
 }
+
+func isUpstreamTimeout(err error) bool {
+	var oe *output.Error
+	return errors.As(err, &oe) && oe.Code == output.CodeUpstreamTimeout
+}

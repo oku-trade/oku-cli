@@ -217,6 +217,40 @@ func TestTelegramBackendPathAllowlist(t *testing.T) {
 	if !be.Has("swap pnl") || be.Has("pnl") {
 		t.Fatal("Has does not reflect the command table")
 	}
+	for _, p := range TelegramOptionalReads {
+		if telegramPaths[p] {
+			t.Errorf("optional read %s is also always allowed", p)
+		}
+		if _, err := be.Call(context.Background(), p, map[string]any{}, nil); output.As(err).Code != output.CodeUsage || reached[p] {
+			t.Errorf("optional read %s reachable without the command: %v", p, err)
+		}
+	}
+}
+
+func TestTelegramBackendOptionalReadWhenCommandExists(t *testing.T) {
+	writeTGConfig(t, nil)
+	ServiceReads["pnl"] = true
+	t.Cleanup(func() { delete(ServiceReads, "pnl") })
+	svc := NewService("test", &bytes.Buffer{}, func(string) string { return "" })
+	var got globals
+	svc.app.wrapHandlers = func(m map[string]*handler) {
+		m["pnl"] = &handler{summary: "pnl", run: func(e *env) (*result, error) { got = e.g; return &result{data: map[string]any{"ok": true}}, nil }}
+	}
+	acct := "0x1111111111111111111111111111111111111111"
+	be := TelegramBackend{S: svc, Launch: Globals{Profile: "main", Account: acct}}
+	if !be.Has("pnl") {
+		t.Fatal("Has(pnl) false with the command present")
+	}
+	if _, err := be.Call(context.Background(), "pnl", map[string]any{}, nil); err != nil {
+		t.Fatalf("pnl refused with the command present: %v", err)
+	}
+	if got.profile != "main" || got.account != acct {
+		t.Fatalf("launch globals not passed through: %+v", got)
+	}
+	delete(ServiceReads, "pnl")
+	if _, err := be.Call(context.Background(), "pnl", map[string]any{}, nil); output.As(err).Code != output.CodeUsage {
+		t.Fatalf("pnl allowed although it is not a Service read: %v", err)
+	}
 }
 
 func TestConfigShowRedactsTelegramToken(t *testing.T) {
