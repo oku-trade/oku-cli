@@ -11,13 +11,72 @@ Swap and bridge across 30+ chains and trade perps on Oku, from your terminal or 
 
 ## Install
 
+Pick one method. Upgrades, uninstall and more options are in [all install methods](docs/install.md).
+
+### Homebrew (macOS and Linux)
+
 ```sh
-brew install oku-trade/tap/oku    # Homebrew
-npm install -g @gfxlabs/oku-cli   # npm, or: npx @gfxlabs/oku-cli
-yay -S oku-bin                    # Arch Linux AUR
+brew install oku-trade/tap/oku
 ```
 
-For Debian/Ubuntu, Fedora/RHEL, the install script, Go, mise, Nix or source builds, see [all install methods](docs/install.md).
+### npm
+
+```sh
+npm install -g @gfxlabs/oku-cli
+```
+
+### Arch Linux (AUR)
+
+```sh
+yay -S oku-bin
+```
+
+### Debian/Ubuntu
+
+```sh
+V=$(curl -fsSLo /dev/null -w '%{url_effective}' https://github.com/oku-trade/oku-cli/releases/latest); V=${V##*/v}
+curl -fsSLO "https://github.com/oku-trade/oku-cli/releases/download/v$V/oku_${V}_linux_amd64.deb" # linux_arm64 on arm64
+sudo apt install "./oku_${V}_linux_amd64.deb"
+```
+
+### Fedora/RHEL
+
+```sh
+V=$(curl -fsSLo /dev/null -w '%{url_effective}' https://github.com/oku-trade/oku-cli/releases/latest); V=${V##*/v}
+sudo dnf install "https://github.com/oku-trade/oku-cli/releases/download/v$V/oku-$V-1.x86_64.rpm" # aarch64 on arm64
+```
+
+### Install script (macOS and Linux, no sudo)
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/oku-trade/oku-cli/master/scripts/install.sh
+sh install.sh # installs to ~/.local/bin
+```
+
+### Go
+
+```sh
+go install github.com/oku-trade/oku-cli/cmd/oku@latest
+```
+
+### mise
+
+```sh
+mise use -g github:oku-trade/oku-cli
+```
+
+### Nix
+
+```sh
+nix profile add github:oku-trade/oku-cli
+```
+
+### From source
+
+```sh
+git clone https://github.com/oku-trade/oku-cli.git && cd oku-cli
+make install # $HOME/.local/bin/oku
+```
 
 ## Quick start
 
