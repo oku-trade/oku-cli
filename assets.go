@@ -10,7 +10,7 @@ import (
 // Runtime documentation shipped in binaries. Keep this user-facing allowlist
 // explicit so maintainer notes are not bundled accidentally.
 //
-//go:embed docs/architecture.md docs/commands.md docs/security.md docs/telemetry.md docs/usage.md
+//go:embed docs/agents.md docs/architecture.md docs/commands.md docs/install.md docs/security.md docs/telemetry.md docs/usage.md
 var docsFS embed.FS
 
 //go:embed all:skills

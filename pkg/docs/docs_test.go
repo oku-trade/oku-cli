@@ -47,7 +47,7 @@ func TestBundledDocsExcludeInternalNotes(t *testing.T) {
 		t.Fatal("maintainer release notes are embedded in the binary")
 	}
 	l, _ := Bundled().List()
-	if len(l) != 5 {
+	if len(l) != 7 {
 		t.Fatalf("unexpected bundled docs %+v", l)
 	}
 }
