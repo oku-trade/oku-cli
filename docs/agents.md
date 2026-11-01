@@ -2,6 +2,17 @@
 
 Install `oku` first using the [install guide](install.md). Log in from your own terminal with `oku auth login`. Agents can then use bundled skills and an MCP server without a source checkout.
 
+## Bootstrap
+
+For an agent setting up `oku` for a user. Follow these steps in order. Don't skip any.
+
+1. Install with one method from the [install guide](install.md). The release archive is flat (`oku`, `LICENSE`, `README.md`, `THIRD_PARTY_NOTICES`). For a manual tarball, check it against `SHA256SUMS` and list it with `tar -tzf` before extracting.
+2. Read `oku auth login --help`. Login needs an interactive terminal and refuses to run from a non-TTY shell or MCP. Its `--timeout` defaults to 10 minutes and allows at most 15.
+3. Do not create a profile first. The first `oku auth login` creates it.
+4. Ask the user to run `oku auth login` in their own terminal. If their browser is on another machine, they add `--no-open` and open the printed verification URL there. If your shell does have a TTY and the user is remote, you may run `oku auth login --no-open` and send them the URL.
+5. Install the bundled skills: `oku skills install --target claude`, `codex` or `jcode`, or `--dir PATH` for another client.
+6. Verify with `oku auth status --verify`.
+
 ## Skills
 
 Skills are task instructions for your agent. They explain commands, preview review, authorization and recovery. Install them for your client:

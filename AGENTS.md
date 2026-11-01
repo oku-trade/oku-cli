@@ -1,12 +1,9 @@
 # Agents
 
-To install or use `oku`, read [docs/agents.md](docs/agents.md) first, before you install or authenticate. Bootstrap checklist:
+## Installing or using oku (not developing it)
 
-1. Install with a method from [docs/install.md](docs/install.md). For a manual tarball, list the archive with `tar -tzf` before extracting, then verify it against `SHA256SUMS`.
-2. Read `oku auth login --help` before logging in. Login needs an interactive terminal (it refuses to run through MCP or a non-TTY stdin) and accepts a `--timeout` of at most 15 minutes.
-3. Do not create a profile first. The first `oku auth login` creates it.
-4. If the user is remote, run `oku auth login --no-open` and send them the printed verification URL.
-5. Install the bundled skills into your skill directory: `oku skills install --target claude|codex|jcode`, or `--dir PATH`.
-6. Confirm with `oku auth status --verify`.
+If a user gave you this repository so you can install or use `oku`, do not build it from source. Follow [Bootstrap in docs/agents.md](docs/agents.md#bootstrap) before you run any install or login command.
 
-To develop this repository, run `make test` before committing.
+## Developing this repository
+
+Only when you are changing this codebase: run `make test` before committing.

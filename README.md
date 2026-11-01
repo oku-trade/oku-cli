@@ -9,7 +9,7 @@ Swap and bridge across 30+ chains and trade perps on Oku, from your terminal or 
 
 **Status:** Public alpha. Commands may change.
 
-**Agents: start here.** Read [AGENTS.md](AGENTS.md) and [agent setup](docs/agents.md) before you install or authenticate.
+> **AI agents: start here.** If a user gave you this repository so you can install or use `oku` (not develop it), stop. Read and follow [Bootstrap in docs/agents.md](docs/agents.md#bootstrap) before you run any install or login command. Login needs the user's interactive terminal.
 
 ## Install
 
