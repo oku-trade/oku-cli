@@ -1,7 +1,7 @@
 name: github-release
 # Builds all four targets (linux natively on Ubicloud x86/arm, darwin arm64 natively and
 # darwin/amd64 cross-compiled on one Namespace mac), smoke-tests them, and publishes a GitHub Release with
-# oku_<tag>_<os>_<arch>.tar.gz archives plus a combined SHA256SUMS.
+# oku_<tag>_<os>_<arch>.tar.gz archives (oku at the archive root) plus a combined SHA256SUMS.
 # Trigger: push a semver tag (git tag v0.1.0 && git push origin v0.1.0), or re-run for an
 # existing tag via workflow_dispatch.
 on:
@@ -63,9 +63,10 @@ jobs:
           set -euo pipefail
           n="oku_${TAG}_linux_${{ matrix.goarch }}"
           mkdir -p smoke
-          tar -xzf "dist/$n.tar.gz" -C smoke
+          mkdir -p "smoke/$n"
+          tar -xzf "dist/$n.tar.gz" -C "smoke/$n"
           bin="smoke/$n/oku"
-          tar -tzf "dist/$n.tar.gz" | grep >/dev/null '/THIRD_PARTY_NOTICES$'
+          tar -tzf "dist/$n.tar.gz" | grep -x >/dev/null 'THIRD_PARTY_NOTICES'
           ./mise-tasks/binary-smoke.sh "$bin"
           "$bin" version | tee version.txt
           grep -qF "$TAG" version.txt || { echo "oku version does not report $TAG" >&2; exit 1; }
@@ -159,9 +160,10 @@ jobs:
           for arch in arm64 amd64; do
             n="oku_${TAG}_darwin_${arch}"
             mkdir -p smoke
-            tar -xzf "dist/$n.tar.gz" -C smoke
+            mkdir -p "smoke/$n"
+            tar -xzf "dist/$n.tar.gz" -C "smoke/$n"
             bin="smoke/$n/oku"
-            tar -tzf "dist/$n.tar.gz" | grep >/dev/null '/THIRD_PARTY_NOTICES$'
+            tar -tzf "dist/$n.tar.gz" | grep -x >/dev/null 'THIRD_PARTY_NOTICES'
             file "$bin"
             want=$arch; [ "$arch" = amd64 ] && want=x86_64
             test "$(lipo -archs "$bin")" = "$want" || { echo "$bin: expected arch $want, got $(lipo -archs "$bin")" >&2; exit 1; }
@@ -209,7 +211,7 @@ jobs:
           set -euo pipefail
           version="${TAG#v}"
           amd64_archive="oku_${TAG}_linux_amd64"
-          tar -xzf "release/$amd64_archive.tar.gz" -C release
+          mkdir -p "release/$amd64_archive" && tar -xzf "release/$amd64_archive.tar.gz" -C "release/$amd64_archive"
           mkdir -p packaging/completions
           "release/$amd64_archive/oku" completion bash > packaging/completions/oku
           "release/$amd64_archive/oku" completion zsh > packaging/completions/_oku
@@ -217,7 +219,7 @@ jobs:
           grep -q '^#compdef oku' packaging/completions/_oku
           for arch in amd64 arm64; do
             archive="oku_${TAG}_linux_${arch}"
-            if [ "$arch" != amd64 ]; then tar -xzf "release/$archive.tar.gz" -C release; fi
+            if [ "$arch" != amd64 ]; then mkdir -p "release/$archive" && tar -xzf "release/$archive.tar.gz" -C "release/$archive"; fi
             mkdir -p packaging/binary
             install -m755 "release/$archive/oku" packaging/binary/oku
             install -m644 "release/$archive/THIRD_PARTY_NOTICES" packaging/binary/THIRD_PARTY_NOTICES
@@ -363,7 +365,7 @@ jobs:
           for os in linux darwin; do
             for arch in amd64 arm64; do
               archive="oku_${TAG}_${os}_${arch}"
-              tar -xzf "release/$archive.tar.gz" -C extracted
+              mkdir -p "extracted/$archive" && tar -xzf "release/$archive.tar.gz" -C "extracted/$archive"
               args+=("$os/$arch=extracted/$archive/oku")
             done
           done

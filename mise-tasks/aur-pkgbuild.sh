@@ -36,9 +36,7 @@ sha256sums_x86_64=('${x64}')
 sha256sums_aarch64=('${arm}')
 
 package() {
-  local cpu=amd64
-  [[ "\$CARCH" == aarch64 ]] && cpu=arm64
-  local dir="\$srcdir/oku_${tag}_linux_\$cpu"
+  local dir="\$srcdir"
   install -Dm755 "\$dir/oku" "\$pkgdir/usr/bin/oku"
   install -Dm644 "\$dir/LICENSE" "\$pkgdir/usr/share/licenses/oku-bin/LICENSE"
   install -Dm644 "\$dir/THIRD_PARTY_NOTICES" "\$pkgdir/usr/share/doc/oku-bin/THIRD_PARTY_NOTICES"

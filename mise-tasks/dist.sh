@@ -61,12 +61,14 @@ for p in $PLATFORMS; do
   cp LICENSE "$OUT/$name/LICENSE"
   # Required: license notices for bundled deps of this exact target (fails if incomplete).
   CGO_ENABLED=$cgo GOOS="$os" GOARCH="$arch" "$(dirname "$0")/third-party-notices.sh" "$OUT/$name/THIRD_PARTY_NOTICES"
+  # Flat archive: oku and its notices sit at the archive root.
+  files=(); for f in LICENSE README.md THIRD_PARTY_NOTICES oku; do [[ -e "$OUT/$name/$f" ]] && files+=("$f"); done
   # GNU tar flags for determinism; bsdtar on macOS lacks --sort, so fall back.
   if tar --version 2>/dev/null | grep -q GNU; then
     tar --sort=name --mtime="@${SOURCE_DATE_EPOCH}" --owner=0 --group=0 --numeric-owner \
-      -C "$OUT" -cf - "$name" | gzip -n > "$OUT/$name.tar.gz"
+      -C "$OUT/$name" -cf - "${files[@]}" | gzip -n > "$OUT/$name.tar.gz"
   else
-    tar --uid 0 --gid 0 -C "$OUT" -cf - "$name" | gzip -n > "$OUT/$name.tar.gz"
+    tar --uid 0 --gid 0 -C "$OUT/$name" -cf - "${files[@]}" | gzip -n > "$OUT/$name.tar.gz"
   fi
   rm -rf "${OUT:?}/$name"
 done

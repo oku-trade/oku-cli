@@ -103,9 +103,12 @@ got="$(sha256 "$tmp/$asset")"
 [ "$want" = "$got" ] || die "checksum mismatch for $asset (want $want, got $got)"
 echo "sha256 ok: $asset" >&2
 
-tar -xzf "$tmp/$asset" -C "$tmp"
-src="$tmp/oku_${VERSION}_${os}_${arch}/oku"
-[ -f "$src" ] || die "archive does not contain oku_${VERSION}_${os}_${arch}/oku"
+mkdir -p "$tmp/x"
+tar -xzf "$tmp/$asset" -C "$tmp/x"
+# Releases before the flat layout nest oku under oku_<version>_<os>_<arch>/.
+src="$tmp/x/oku"
+[ -f "$src" ] || src="$tmp/x/oku_${VERSION}_${os}_${arch}/oku"
+[ -f "$src" ] || die "archive $asset does not contain oku"
 
 mkdir -p "$DIR"
 cp "$src" "$DIR/oku.tmp.$$"

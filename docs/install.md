@@ -73,7 +73,7 @@ curl -fsSLO "https://github.com/oku-trade/oku-cli/releases/download/${V}/oku_${V
 curl -fsSLO "https://github.com/oku-trade/oku-cli/releases/download/${V}/SHA256SUMS"
 shasum -a 256 -c --ignore-missing SHA256SUMS
 tar -xzf "oku_${V}_darwin_arm64.tar.gz"
-mkdir -p ~/.local/bin && mv "oku_${V}_darwin_arm64/oku" ~/.local/bin/oku
+mkdir -p ~/.local/bin && mv oku ~/.local/bin/oku
 oku version
 ```
 
