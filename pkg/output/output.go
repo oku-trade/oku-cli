@@ -126,9 +126,11 @@ type Envelope struct {
 	SchemaVersion string `json:"schema_version"`
 	RequestID     string `json:"request_id"`
 	Command       string `json:"command"`
-	OK            bool   `json:"ok"`
-	Data          any    `json:"data"`
-	Error         *Error `json:"error"`
+	// Event is set only by commands that stream newline-delimited envelopes.
+	Event string `json:"event,omitempty"`
+	OK    bool   `json:"ok"`
+	Data  any    `json:"data"`
+	Error *Error `json:"error"`
 }
 
 // NewRequestID returns a random 128-bit hex id.
@@ -146,6 +148,20 @@ func Write(w io.Writer, env Envelope) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(env)
+}
+
+// WriteLine encodes the envelope as one compact line and flushes w when it can,
+// so a waiting reader sees each event before the command exits.
+func WriteLine(w io.Writer, env Envelope) error {
+	env.SchemaVersion = SchemaVersion
+	if err := json.NewEncoder(w).Encode(env); err != nil {
+		return err
+	}
+	// os.Stdout is unbuffered; flush only writers that buffer.
+	if f, ok := w.(interface{ Flush() error }); ok {
+		return f.Flush()
+	}
+	return nil
 }
 
 // WithRetry marks the error retryable.

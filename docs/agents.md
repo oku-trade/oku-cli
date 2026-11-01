@@ -1,15 +1,15 @@
 # Use oku with your AI agent
 
-Install `oku` first using the [install guide](install.md). Log in from your own terminal with `oku auth login`. Agents can then use bundled skills and an MCP server without a source checkout.
+Install `oku` first using the [install guide](install.md). Log in with `oku auth login`, from the user's terminal or headless with `--no-open --json` (see Bootstrap). Agents can then use bundled skills and an MCP server without a source checkout.
 
 ## Bootstrap
 
 For an agent setting up `oku` for a user. Follow these steps in order. Don't skip any.
 
 1. Install with one method from the [install guide](install.md). The release archive is flat (`oku`, `LICENSE`, `README.md`, `THIRD_PARTY_NOTICES`). For a manual tarball, check it against `SHA256SUMS` and list it with `tar -tzf` before extracting.
-2. Read `oku auth login --help`. Login needs an interactive terminal and refuses to run from a non-TTY shell or MCP. Its `--timeout` defaults to 10 minutes and allows at most 15.
+2. Read `oku auth login --help`. Its `--timeout` defaults to 10 minutes and allows at most 15.
 3. Do not create a profile first. The first `oku auth login` creates it.
-4. Ask the user to run `oku auth login` in their own terminal. If their browser is on another machine, they add `--no-open` and open the printed verification URL there. If your shell does have a TTY and the user is remote, you may run `oku auth login --no-open` and send them the URL.
+4. Log in headless from your shell: run `oku auth login --no-open --json` in the background and read stdout line by line. The first line is an `authorization_required` event with `verification_uri_complete`, `user_code` and `expires_at`. Send that URL to the user and ask them to approve in their browser. The process exits with one final line: `authenticated` (exit 0), `expired` or `error`. Without a terminal, login requires `--no-open`. It never runs through MCP. Alternatively, the user can run `oku auth login` in their own terminal.
 5. Install the bundled skills: `oku skills install --target claude`, `codex` or `jcode`, or `--dir PATH` for another client.
 6. Verify with `oku auth status --verify`.
 
@@ -66,7 +66,7 @@ The server runs over stdio. Use `oku mcp serve` for read-only tools, or `oku mcp
 
 Resources are available as `oku://docs/...` and `oku://skills/...`, including `oku://docs/usage`. The server also provides a local `drafts_repair` tool. Logs go to stderr, not MCP stdout.
 
-Run `oku auth login` in a terminal first. The server never prompts. For a specific profile, launch `oku --profile NAME mcp serve`; a tool call specifying another profile is refused. Without a launch profile, calls use their specified profile, then `$OKU_PROFILE`, then the default. Start a separate server for another pinned profile. Older passphrase-protected credentials require `oku auth unlock` in your terminal.
+Log in with `oku auth login` first (see Bootstrap). The server never prompts and never logs in. For a specific profile, launch `oku --profile NAME mcp serve`; a tool call specifying another profile is refused. Without a launch profile, calls use their specified profile, then `$OKU_PROFILE`, then the default. Start a separate server for another pinned profile. Older passphrase-protected credentials require `oku auth unlock` in your terminal.
 
 ### Authorization and recovery
 

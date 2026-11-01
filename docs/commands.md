@@ -26,7 +26,7 @@ Authorize a Privy embedded-wallet agent on the Oku website
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--api-url` | Oku API origin for the profile created when none exists | `` |
-| `--no-open` | print verification URL without opening browser | `false` |
+| `--no-open` | print verification URL without opening browser; required without a terminal. With --json, stdout is newline-delimited events: authorization_required, then authenticated, expired or error | `false` |
 | `--timeout` | maximum time to wait for authorization | `10m0s` |
 | `--credential-store` | Linux: where to keep the credential, file (0600 file, default) or keyring (desktop Secret Service); default $OKU_CREDENTIAL_STORE, else the profile's current store. Ignored on macOS (Keychain) | `` |
 

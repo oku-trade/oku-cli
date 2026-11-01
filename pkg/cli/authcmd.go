@@ -17,7 +17,7 @@ import (
 )
 
 func authLoginFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "api-url", Usage: "Oku API origin for the profile created when none exists"}, &urfave.BoolFlag{Name: "no-open", Usage: "print verification URL without opening browser"}, &urfave.DurationFlag{Name: "timeout", Value: 10 * time.Minute, Usage: "maximum time to wait for authorization"}, &urfave.StringFlag{Name: "credential-store", Usage: "Linux: where to keep the credential, file (0600 file, default) or keyring (desktop Secret Service); default $OKU_CREDENTIAL_STORE, else the profile's current store. Ignored on macOS (Keychain)"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "api-url", Usage: "Oku API origin for the profile created when none exists"}, &urfave.BoolFlag{Name: "no-open", Usage: "print verification URL without opening browser; required without a terminal. With --json, stdout is newline-delimited events: authorization_required, then authenticated, expired or error"}, &urfave.DurationFlag{Name: "timeout", Value: 10 * time.Minute, Usage: "maximum time to wait for authorization"}, &urfave.StringFlag{Name: "credential-store", Usage: "Linux: where to keep the credential, file (0600 file, default) or keyring (desktop Secret Service); default $OKU_CREDENTIAL_STORE, else the profile's current store. Ignored on macOS (Keychain)"}}
 }
 func authStatusFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.BoolFlag{Name: "verify", Usage: "refresh the credential and check Hyperliquid agent approval"}}
@@ -154,8 +154,14 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 		}
 		p.APIURL = config.NormalizeAPIURL(u)
 	}
-	if !e.app.StdinIsTTY {
-		return nil, output.Errorf(output.CodeUsage, "auth login requires an interactive terminal; never run it through MCP or Service")
+	// Headless login is allowed only when the caller asks for the URL instead of a
+	// browser. The user still approves in their own browser on the Oku page, and
+	// the MCP/Service path never logs in.
+	if e.g.inProcess {
+		return nil, output.Errorf(output.CodeUsage, "auth login never runs through MCP or Service; run it in a shell")
+	}
+	if !e.app.StdinIsTTY && !e.cmd.Bool("no-open") {
+		return nil, output.Errorf(output.CodeUsage, "auth login without an interactive terminal requires --no-open; send the printed verification URL to the user")
 	}
 	pc, err := e.privyClient(p)
 	if err != nil {
@@ -187,6 +193,7 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	}
 	e.diag("Open %s and enter code %s", url, da.UserCode)
 	e.diag("The code expires in %s (at %s).", expires.Sub(e.app.Now()).Round(time.Second), expires.Local().Format("15:04:05"))
+	e.emit("authorization_required", map[string]any{"profile": p.Name, "verification_uri": da.VerificationURI, "verification_uri_complete": da.VerificationURIComplete, "user_code": da.UserCode, "expires_at": expires.UTC().Format(time.RFC3339)})
 	if !e.cmd.Bool("no-open") && e.app.OpenURL != nil {
 		if openErr := e.app.OpenURL(url); openErr != nil {
 			e.diag("Browser did not open: %v", openErr)
@@ -196,6 +203,9 @@ func (a *App) cmdAuthLogin(e *env) (*result, error) {
 	// always printed, including in JSON mode, without leaking any access token.
 	tok, err := pc.PollDeviceToken(ctx, da, e.app.Sleep)
 	if err != nil {
+		if errors.Is(err, privy.ErrExpiredToken) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, output.Wrap(output.CodeAuthRequired, err, "the login code expired before it was approved; run oku auth login again").WithDetail("expired", true)
+		}
 		return nil, output.Wrap(output.CodeAuthRequired, err, "Privy authorization was not approved")
 	}
 	// From here on the device grant (and later the Oku session) exist remotely.
