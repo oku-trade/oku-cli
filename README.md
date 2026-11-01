@@ -9,6 +9,8 @@ Swap and bridge across 30+ chains and trade perps on Oku, from your terminal or 
 
 **Status:** Public alpha. Commands may change.
 
+**Agents: start here.** Read [AGENTS.md](AGENTS.md) and [agent setup](docs/agents.md) before you install or authenticate.
+
 ## Install
 
 Pick one method. Upgrades, uninstall and more options are in [all install methods](docs/install.md).
