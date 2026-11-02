@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Render the Homebrew formula (Formula/oku.rb) for a release tag from its SHA256SUMS"
 # Usage: mise run brew-formula <tag> <SHA256SUMS> > Formula/oku.rb
-# Points at the GitHub Release archives oku_<tag>_<os>_<arch>.tar.gz (each holds oku_<tag>_<os>_<arch>/oku).
+# Points at the GitHub Release archives oku_<tag>_<os>_<arch>.tar.gz (oku at the archive root).
 set -euo pipefail
 tag="${1:?tag, e.g. v0.1.0}"
 sums="${2:?path to SHA256SUMS}"

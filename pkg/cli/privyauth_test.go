@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/hpke"
@@ -33,6 +34,7 @@ type fakePrivy struct {
 	signer                                       *signing.KeySigner
 	authorizations, pending, refreshes, rpcCalls int
 	failSign                                     bool
+	expireDevice                                 bool
 	wrongSigner                                  bool
 	grantCalls                                   int
 	batches                                      [][]map[string]string
@@ -78,6 +80,11 @@ func (f *fakePrivy) serve(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			reply(map[string]any{"access_token": fmt.Sprintf("access-%d", f.refreshes), "refresh_token": fmt.Sprintf("refresh-%d", f.refreshes), "expires_in": 900})
+			return
+		}
+		if f.expireDevice {
+			w.WriteHeader(400)
+			reply(map[string]string{"error": "expired_token"})
 			return
 		}
 		if f.pending == 0 {
@@ -291,7 +298,7 @@ func TestPrivySessionReexchangeDropsExpiredHeaders(t *testing.T) {
 	}
 }
 
-func TestPrivyLoginRequiresTerminalBeforeDeviceGrant(t *testing.T) {
+func TestPrivyLoginWithoutTerminalNeedsNoOpen(t *testing.T) {
 	h := newHarness(t)
 	if r := h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code != 0 {
 		t.Fatal(r.stdout)
@@ -306,11 +313,99 @@ func TestPrivyLoginRequiresTerminalBeforeDeviceGrant(t *testing.T) {
 		}
 		return ""
 	}
-	if code := a.Run([]string{"auth", "login", "--no-open", "--json"}); code == 0 {
-		t.Fatal("noninteractive login accepted")
+	if code := a.Run([]string{"auth", "login", "--json"}); code == 0 {
+		t.Fatal("noninteractive login accepted without --no-open")
 	}
 	if h.privy.authorizations != 0 {
 		t.Fatal("noninteractive login initiated device grant")
+	}
+	var ev map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &ev); err != nil || ev["event"] != "error" || strings.Count(stdout.String(), "\n") != 1 {
+		t.Fatalf("want one error event line, got %q", stdout.String())
+	}
+}
+
+// lockedBuffer lets the test read stdout while the login goroutine writes it.
+type lockedBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (l *lockedBuffer) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.Write(p)
+}
+func (l *lockedBuffer) String() string { l.mu.Lock(); defer l.mu.Unlock(); return l.b.String() }
+
+func TestPrivyLoginHeadlessJSONEvents(t *testing.T) {
+	h := newHarness(t)
+	if r := h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code != 0 {
+		t.Fatal(r.stdout)
+	}
+	var stdout lockedBuffer
+	approve := make(chan struct{})
+	a := NewApp("test")
+	a.Stdout, a.Stderr, a.StdinIsTTY = &stdout, io.Discard, false
+	a.Getenv = func(k string) string {
+		switch k {
+		case "OKU_PRIVY_AUTH_URL":
+			return h.privy.server.URL
+		case "OKU_HYPERLIQUID_INFO_URL":
+			return h.srv.URL + "/info"
+		}
+		return ""
+	}
+	// The first poll sleep blocks until the test has seen the authorization_required line,
+	// proving it is written before the command waits for approval.
+	a.Sleep = func(ctx context.Context, _ time.Duration) error {
+		select {
+		case <-approve:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	done := make(chan int)
+	go func() { done <- a.Run([]string{"auth", "login", "--no-open", "--json"}) }()
+	deadline := time.Now().Add(5 * time.Second)
+	for !strings.Contains(stdout.String(), "\n") {
+		if time.Now().After(deadline) {
+			t.Fatal("no event before approval")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	var first map[string]any
+	if err := json.Unmarshal([]byte(stdout.String()), &first); err != nil || first["event"] != "authorization_required" {
+		t.Fatalf("first event: %q", stdout.String())
+	}
+	d := first["data"].(map[string]any)
+	if d["verification_uri_complete"] != "https://oku.trade/agent/authorize?user_code=WV225-WZBZM" || d["user_code"] != "WV225-WZBZM" || d["expires_at"] == "" {
+		t.Fatalf("first event data: %v", d)
+	}
+	close(approve)
+	if code := <-done; code != 0 {
+		t.Fatalf("login failed: %s", stdout.String())
+	}
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	var last map[string]any
+	if len(lines) != 2 || json.Unmarshal([]byte(lines[1]), &last) != nil || last["event"] != "authenticated" || last["ok"] != true || last["request_id"] != first["request_id"] {
+		t.Fatalf("events: %q", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "device-secret") || strings.Contains(stdout.String(), "access-0") {
+		t.Fatal("secret in output")
+	}
+}
+
+func TestPrivyLoginExpiredEvent(t *testing.T) {
+	h := newHarness(t)
+	if r := h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code != 0 {
+		t.Fatal(r.stdout)
+	}
+	h.privy.expireDevice = true
+	r := h.run("auth", "login", "--no-open", "--json")
+	if r.env["event"] != "expired" || r.errCode() != "AUTH_REQUIRED" || !strings.Contains(r.stdout, `"event":"authorization_required"`) {
+		t.Fatalf("expired login: %s", r.stdout)
 	}
 }
 

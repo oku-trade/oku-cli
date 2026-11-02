@@ -110,6 +110,17 @@ type env struct {
 	cmd  flagSource
 	args []string // positional arguments after the command path
 	ctx  context.Context
+	// stream is set for --json on a streaming handler: output is newline-delimited event envelopes.
+	stream bool
+	reqID  string
+	name   string
+}
+
+// emit writes one progress event line. No-op unless e.stream is set.
+func (e *env) emit(event string, data any) {
+	if e.stream {
+		_ = output.WriteLine(e.app.Stdout, output.Envelope{RequestID: e.reqID, Command: e.name, Event: event, OK: true, Data: data})
+	}
 }
 
 // flagSource is the flag view handlers read. *urfave.Command satisfies it
@@ -135,6 +146,10 @@ type handler struct {
 	run      func(e *env) (*result, error)
 	required map[string]bool
 	enums    map[string][]string
+	// stream marks a command whose --json output is newline-delimited events,
+	// ending in doneEvent on success or an "error"/"expired" event on failure.
+	stream    bool
+	doneEvent string
 }
 
 func (a *App) commands() map[string]*handler {
@@ -188,7 +203,7 @@ func (a *App) commandTable() map[string]*handler {
 		"profiles add":       {summary: "Add a profile: profiles add NAME --account 0x.. [--api-url URL] [--default]", flags: profilesAddFlags, run: a.cmdProfilesAdd},
 		"profiles use":       {summary: "Set the default profile: profiles use NAME", run: a.cmdProfilesUse},
 		"profiles remove":    {summary: "Remove a profile without credentials: profiles remove NAME", run: a.cmdProfilesRemove},
-		"auth login":         {summary: "Authorize a Privy embedded-wallet agent on the Oku website", flags: authLoginFlags, run: a.cmdAuthLogin},
+		"auth login":         {summary: "Authorize a Privy embedded-wallet agent on the Oku website", flags: authLoginFlags, run: a.cmdAuthLogin, stream: true, doneEvent: "authenticated"},
 		"auth status":        {summary: "Show Privy agent credential (--verify checks approval)", flags: authStatusFlags, run: a.cmdAuthStatus},
 		"auth unlock":        {summary: "Convert a passphrase-protected credential from an older release to the current format (one time, Linux)", run: a.cmdAuthUnlock},
 		"auth migrate":       {summary: "Move the credential between the file and desktop keyring stores (Linux): auth migrate --to file|keyring", flags: authMigrateFlags, run: a.cmdAuthMigrate},
@@ -255,7 +270,7 @@ func (a *App) run(args []string) int {
 	eachGroup(root, func(group *urfave.Command) { group.CommandNotFound = unknownCommand })
 	err := root.Run(context.Background(), append([]string{"oku"}, args...))
 	if unknown != "" {
-		return a.fail(jsonOut, reqID, strings.ReplaceAll(unknown, " ", "."), output.Errorf(output.CodeUsage, "unknown command %q; run 'oku help'", unknown))
+		return a.fail(jsonOut, reqID, strings.ReplaceAll(unknown, " ", "."), output.Errorf(output.CodeUsage, "unknown command %q; run 'oku help'", unknown), false)
 	}
 	if err == nil {
 		return 0
@@ -265,15 +280,16 @@ func (a *App) run(args []string) int {
 		if failure.name == "oku" {
 			failure.name = a.commandName(args)
 		}
-		return a.fail(failure.json, reqID, failure.name, failure.err)
+		return a.fail(failure.json, reqID, failure.name, failure.err, failure.stream)
 	}
-	return a.fail(jsonOut, reqID, a.commandName(args), output.Errorf(output.CodeUsage, "%v", err))
+	return a.fail(jsonOut, reqID, a.commandName(args), output.Errorf(output.CodeUsage, "%v", err), false)
 }
 
 type commandFailure struct {
-	name string
-	json bool
-	err  error
+	name   string
+	json   bool
+	err    error
+	stream bool
 }
 
 func (f *commandFailure) Error() string { return f.err.Error() }
@@ -326,10 +342,11 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 			if a.tel != nil {
 				a.tel.command = path
 			}
-			e := &env{app: a, cmd: newCheckedFlags(cmd, leaf.Flags), args: cmd.Args().Slice(), ctx: ctx}
+			e := &env{app: a, cmd: newCheckedFlags(cmd, leaf.Flags), args: cmd.Args().Slice(), ctx: ctx, reqID: reqID, name: name}
 			e.g = globals{profile: cmd.String("profile"), network: cmd.String("network"), account: cmd.String("account"), json: cmd.Bool("json") || jsonOut, timeout: cmd.Duration("timeout")}
+			e.stream = h.stream && e.g.json
 			if cmd.IsSet("input") {
-				fail := func(err error) error { return &commandFailure{name, e.g.json, err} }
+				fail := func(err error) error { return &commandFailure{name, e.g.json, err, e.stream} }
 				if h.flags == nil || path == "auth login" || path == "auth logout" || path == "auth migrate" {
 					return fail(output.Errorf(output.CodeUsage, "--input is not available for %s", path))
 				}
@@ -393,7 +410,7 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 							}
 						}
 						if !valid {
-							return &commandFailure{name, e.g.json, output.Errorf(output.CodeInvalidArgument, "--%s must be one of %s", f.Names()[0], strings.Join(vals, ", "))}
+							return &commandFailure{name, e.g.json, output.Errorf(output.CodeInvalidArgument, "--%s must be one of %s", f.Names()[0], strings.Join(vals, ", ")), e.stream}
 						}
 					}
 				}
@@ -409,10 +426,10 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 				}
 			}
 			if e.g.timeout <= 0 || e.g.timeout > limit {
-				return &commandFailure{name, e.g.json, output.Errorf(output.CodeUsage, "--timeout must be between 1ns and %s", limit)}
+				return &commandFailure{name, e.g.json, output.Errorf(output.CodeUsage, "--timeout must be between 1ns and %s", limit), e.stream}
 			}
 			if e.g.network != "" && e.g.network != "mainnet" {
-				return &commandFailure{name, e.g.json, output.Errorf(output.CodeNetworkUnsupported, "network %q is not supported: the Oku API currently serves Hyperliquid mainnet only", e.g.network)}
+				return &commandFailure{name, e.g.json, output.Errorf(output.CodeNetworkUnsupported, "network %q is not supported: the Oku API currently serves Hyperliquid mainnet only", e.g.network), e.stream}
 			}
 			res, err := runChecked(h, e)
 			if a.tel != nil {
@@ -423,7 +440,10 @@ func (a *App) commandTree(reqID string, jsonOut bool) *urfave.Command {
 				a.tel.collectCommand(path, e, declared)
 			}
 			if err != nil {
-				return &commandFailure{name, e.g.json, err}
+				return &commandFailure{name, e.g.json, err, e.stream}
+			}
+			if e.stream {
+				return output.WriteLine(a.Stdout, output.Envelope{RequestID: reqID, Command: name, Event: h.doneEvent, OK: true, Data: res.data})
 			}
 			if e.g.json {
 				return output.Write(a.Stdout, output.Envelope{RequestID: reqID, Command: name, OK: true, Data: res.data})
@@ -500,12 +520,18 @@ func (a *App) commandName(args []string) string {
 	return "oku"
 }
 
-func (a *App) fail(jsonOut bool, reqID, name string, err error) int {
+func (a *App) fail(jsonOut bool, reqID, name string, err error, stream bool) int {
 	oe := output.As(err)
 	if a.tel != nil {
 		a.tel.errCode, a.tel.retry, a.tel.details = oe.Code, oe.Retryable, oe.Details
 	}
-	if jsonOut {
+	if jsonOut && stream {
+		event := "error"
+		if oe.Details["expired"] == true {
+			event = "expired"
+		}
+		_ = output.WriteLine(a.Stdout, output.Envelope{RequestID: reqID, Command: name, Event: event, OK: false, Error: oe})
+	} else if jsonOut {
 		_ = output.Write(a.Stdout, output.Envelope{RequestID: reqID, Command: name, OK: false, Error: oe})
 	} else {
 		fmt.Fprintf(a.Stderr, "error: %s: %s\n", oe.Code, oe.Message)

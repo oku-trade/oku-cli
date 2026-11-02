@@ -34,6 +34,16 @@ oku auth login --profile <name>
 
 The default API is production, `https://accounts.icarus.tools`. Existing profiles keep the API URL they were created with (check `oku profiles list`); `--api-url` is available for custom deployments. The Privy app is built in; `--privy-app-id` or `OKU_PRIVY_APP_ID` can override it.
 
+## Headless login from the agent's shell
+
+When the user cannot reach a terminal, start login yourself and hand them the URL:
+
+```sh
+oku auth login --no-open --json   # add --profile <name> as needed; run in the background
+```
+
+Stdout is newline-delimited JSON. Read the first line as soon as it appears: `event: authorization_required` with `data.verification_uri_complete`, `data.user_code` and `data.expires_at`. Send the user that exact URL and code from the CLI output, never one from elsewhere, and tell them when it expires. Then wait for the final line: `authenticated` (exit 0), `expired` (start again only if the user still wants to), or `error`. Confirm with `oku auth status --verify`. Without a terminal, login refuses to run unless `--no-open` is set. It is never available through MCP.
+
 On macOS, when Keychain authentication fails, follow `troubleshoot-macos-keychain` before suggesting another login. In particular, an updated binary may only need the user's **Always Allow** authorization.
 
 ## Credential storage (Linux)

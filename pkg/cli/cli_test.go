@@ -327,7 +327,11 @@ func (h *harness) run(args ...string) run {
 	}
 	code := a.Run(args)
 	r := run{code: code, stdout: out.String(), stderr: errb.String()}
-	_ = json.Unmarshal(out.Bytes(), &r.env)
+	if json.Unmarshal(out.Bytes(), &r.env) != nil {
+		// Streaming commands (auth login --json) emit one envelope per line; the last is the result.
+		lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+		_ = json.Unmarshal([]byte(lines[len(lines)-1]), &r.env)
+	}
 	return r
 }
 

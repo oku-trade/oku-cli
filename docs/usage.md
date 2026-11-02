@@ -1,5 +1,23 @@
 # Usage
 
+## Agent wallet funds
+
+The agent wallet has its own balances and native gas. Set `OKU_RPC_URL_<CHAINID>` to an RPC you trust before transacting on that chain. Review each prepared digest before submitting:
+
+```sh
+oku wallet balances --chain 42161
+oku wallet fund --chain 42161 --token native --amount 0.01 # payment link, no signing
+oku swap quote --chain 42161 --from USDC --to WETH --amount 1
+oku swap prepare --chain 42161 --from USDC --to WETH --amount 1
+oku swap submit --intent ID --digest SHA
+oku swap status --intent ID
+oku swap orders create --chain 42161 --token TOKEN --all --stop-loss-pct 20
+oku swap orders watch # exits only fire while the watcher runs
+oku swap pnl
+```
+
+Swap and bridge routes may use a transaction or a solver intent. `submitted` is not a fill. Check `swap status` or `bridge status` for execution, expiry or refund. Transaction swap approvals may use an atomic batch on supported chains or sequential transactions elsewhere. An approval can confirm without the trade on a sequential chain. `send` moves agent funds to the master by default. `deposit prepare` moves Arbitrum USDC to the master, which then deposits to Hyperliquid itself. Never send agent USDC directly to the Hyperliquid bridge. For `OUTCOME_UNKNOWN`, use `status` or `reconcile`, never resubmit. See [security](security.md).
+
 ### Multi-step source execution
 
 Approve plus trade uses an atomic EIP-7702 `wallet_sendCalls` batch only when the chain supports 7702 and Privy's Kernel delegate has code on that chain. Otherwise it uses ordinary sequential transactions: exact-amount approve, wait for confirmations, recheck allowance, then trade. **An approve can confirm without the trade** on a sequential chain. Submit JSON reports `execution_mode: batch|sequential`. `swap status --intent ID` or `bridge status --intent ID` reports `next_step` when the approve is confirmed but the trade was not sent. Submit the sealed execution digest again to resume only the trade; never retry an ambiguous broadcast. The Privy Kernel implementation address used for authorization is `0xd6CEDDe84be40893d153Be9d467CD6aD37875b28`.
@@ -46,7 +64,7 @@ A timeout or ambiguous Privy broadcast becomes `OUTCOME_UNKNOWN`. Never repeat `
 
   If the login Keychain is locked, an interactive command can invoke `security unlock-keychain` to ask for the password in the user's own terminal, then retry once. After a binary update, macOS may ask whether the new binary can use the credential. Choose **Always Allow** to trust that binary. For headless, `--json`, MCP and Service calls there is no prompt: `KEYCHAIN_LOCKED`, `KEYCHAIN_ACCESS_DENIED` and `KEYCHAIN_CANCELED` are distinct JSON errors (exit 3). Run `oku auth status --verify` in a graphical terminal to approve an updated binary, or unlock in the user's terminal with `security unlock-keychain ~/Library/Keychains/login.keychain-db`. `oku doctor` diagnoses access without prompting. In SSH without a GUI, approve the new binary in a local graphical session first. macOS cannot migrate credentials to the Linux file store.
 - **Upgrading from a passphrase-protected credential:** older releases encrypted the Linux file with a passphrase. Commands now refuse that file with `AUTH_REQUIRED` and ask you to run `oku auth unlock` once in your own terminal. It asks for the old passphrase (or reads `OKU_PASSPHRASE_FILE`), converts the file in place and never asks again. Afterwards you can delete the passphrase file. `oku auth logout` also works on an unconverted file but cannot revoke its session or grant.
-- See [security](security.md#credential-storage-by-platform).
+- See [security](security.md#credential-storage).
 
 ## Global flags
 
@@ -80,7 +98,7 @@ Global flags work before or after a command. Use `--` to end flag parsing.
 These documents are embedded in the binary. Commands and docs need no network access, credentials or config:
 
 ```sh
-oku docs list                       # names: architecture, commands, deployment, local-testing, releasing, security, usage
+oku docs list                       # names include agents, architecture, commands, install, security, telemetry, usage
 oku docs show security
 oku docs search leverage [--limit N]  # default 50, 0 = unlimited
 oku docs commands                   # one line per command of this binary
@@ -300,43 +318,9 @@ JSON `data` fields: `range`, `agent`, `chain` (when set), `chain_scope`, `read_o
 
 `oku deposit prepare --amount N` prepares an Arbitrum USDC transfer **from agent to master EOA**, not a deposit to Hyperliquid. The master then deposits from its own wallet. `oku deposit address --asset ... --source-chain ...` reads a HyperUnit address explicitly bound to the master for external funding. Never send agent-held USDC directly to the HL bridge.
 
-## Agent skills
+## Agent skills and MCP server
 
-Twelve skills are bundled:
-
-- `learn-oku`
-- `ensure-hyperliquid-authentication`
-- `inspect-hyperliquid-account`
-- `open-hyperliquid-position`
-- `manage-hyperliquid-orders`
-- `close-hyperliquid-position`
-- `manage-hyperliquid-risk`
-- `move-agent-funds`
-- `consolidate-agent-funds`: consolidate agent-wallet balances from optional CSV, supplied list or live discovery into user-chosen chain/token targets
-- `coinbase-deposit-targets`: native USDC targets when the user wants to end on or send to a Coinbase deposit
-- `reconcile-hyperliquid-actions`
-- `troubleshoot-macos-keychain`
-
-Their source is the repository's `skills/` directory.
-
-- **Install locations:** jcode `~/.jcode/skills`, Claude Code `~/.claude/skills`, Codex `~/.agents/skills`, or any `--dir`.
-- `install` never overwrites files that differ unless you pass `--force`. `uninstall` only removes files that match the bundled version unless you pass `--force`.
-- `oku skills install` works from the installed binary without accessing the source repository.
-
-## MCP server
-
-```sh
-oku mcp serve                     # read tools only
-oku mcp serve --allow-mutations   # also prepare/submit/cancel/reconcile/abandon and positions leverage/margin
-```
-
-The server runs over stdio. Stdout carries only MCP protocol frames, and logs go to stderr. `--json` is refused.
-
-- **Tools:** read-only by default. Mutation tools are exposed only with `--allow-mutations`. Login, logout and profile edits are never exposed.
-- **Resources:** bundled docs and skills are available as `oku://docs/...` and `oku://skills/...`. There is also a local `drafts_repair` tool.
-- **Profile:** `oku --profile NAME mcp serve` pins the server to that profile. Tools use it, and a tool call naming a different profile is refused. Start a separate server for another profile. Without a launch profile, tools use a per-call `profile`, then `$OKU_PROFILE`, then the config default.
-- **Login:** the server never prompts. Run `oku auth login` in a terminal first; the server can use the credential from then on. A credential from an older passphrase-protected release returns an auth error until the user runs `oku auth unlock` once.
-- **Authorization:** a digest proves payload integrity, not user authorization. A clear user instruction to trade, close, cancel or change risk, or a standing instruction for a defined batch, authorizes the corresponding submits within that scope. Clients must prepare and validate each payload against the authorized account, market, side, size, price/slippage and risk bounds, but need not ask for another confirmation of every preview. Ask when required inputs are missing or an action would exceed the authorized scope. Re-preparing an expired or definitively rejected action does not require another confirmation if all original bounds still hold. Agent EVM fund movements under the `consolidate-agent-funds` skill follow its standing authorization and guardrails. Unknown outcomes follow the same reconcile-never-resend rules as the CLI.
+See [agent setup](agents.md) for the 12 skills, installation, MCP client configuration and authorization rules.
 
 ## Local journal
 
