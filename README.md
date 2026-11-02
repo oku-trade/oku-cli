@@ -13,6 +13,8 @@ Perps trading supports Hyperliquid **mainnet** only. Agent-wallet EVM commands (
 
 For user-operated authentication, run `oku auth login` in a terminal. Sign on the Oku authorization page with the wallet you want to use as the account. The CLI derives that account from Hyperliquid's approved agent and creates a `default` profile if none exists; no account flag is needed. The default API is production (`https://accounts.icarus.tools`). Existing profiles keep the API URL they were created with; `--api-url` remains available for custom deployments.
 
+With the linked authorization flow deployed, first sign in to your existing Oku frontend account on that page. Setup proves ownership of the embedded agent wallet and links its Privy identity to that same Oku user before approving terminal access, so Accounts fee resolution uses your existing user. The agent wallet still has separate funds and gas. Linking does not merge old accounts or historical orders. Existing CLI sessions need `oku auth logout` followed by `oku auth login` to pick up a new link.
+
 > **Status: pre-release.** Commands may change. Prebuilt binaries are distributed as GitHub Releases. npm packages are staged for maintainer approval when configured. Automatic updates are opt-in and disabled by default. Transaction-based bridges support prepare, submit, status, claim and reconcile; destination claims require native gas on the destination chain.
 
 ## Agent wallet funds
