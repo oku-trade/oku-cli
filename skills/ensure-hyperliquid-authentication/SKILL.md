@@ -1,6 +1,6 @@
 ---
 name: ensure-hyperliquid-authentication
-description: Check or establish Oku Agent Privy authorization, including account binding, embedded-wallet approval, session expiry and logout. Use before authenticated reads, swaps, bridges or trades, or when Oku reports an auth error.
+description: Check or establish Oku Agent Privy authorization, including independent agent sessions, scoped fee association, embedded-wallet approval, session expiry and logout. Use before authenticated reads, swaps, bridges or trades, or when Oku reports an auth error.
 ---
 
 # Ensure Oku Agent authentication
@@ -15,7 +15,7 @@ oku auth status --profile <name> --json
 oku auth status --profile <name> --verify --json
 ```
 
-The account is the external Hyperliquid master wallet. The agent is a separate Privy embedded Ethereum wallet approved by that master. Plain status reads only local metadata and reports `verified: false`. `status: active` alongside a past `access_expires_at` is normal and proves nothing about live approval. `--verify` refreshes credentials as needed, may renew the Oku session and save updated credentials, and then checks the agent approval. Do not run it when told to stay read-only. If missing or expired, ask the user to complete the authorization page rather than retrying trades.
+The account shown by the CLI is the external Hyperliquid master wallet, not a primary Oku site login. The agent is a separate Privy embedded Ethereum wallet approved by that master. The CLI's Privy exchange and saved Oku session belong to the independent agent identity, even if the user previously authenticated on the site. Once the separate Accounts and Trade changes are deployed, the user may explicitly associate the agent wallet with their primary site account for a fee tier based on both identities' historical volume. This works in both directions, including with existing standalone CLI sessions, and never grants the agent access to primary sessions, settings, balances or order history. There is no account merge or unlink. Agent-wallet funds and Hyperliquid approval remain separate. Plain status reads only local metadata and reports `verified: false`. `status: active` alongside a past `access_expires_at` is normal and proves nothing about live approval. `--verify` refreshes credentials as needed, may renew the Oku session and save updated credentials, and then checks the agent approval. Do not run it when told to stay read-only. If missing or expired, ask the user to complete the authorization page rather than retrying trades.
 
 ## User-operated login
 
