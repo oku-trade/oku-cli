@@ -223,10 +223,10 @@ func loadV4Pool(ctx context.Context, c Caller, d Deployment, key PoolKey) (Pool,
 
 // Position is one liquidity position NFT with its pool and live amounts.
 type Position struct {
-	TokenID   string  `json:"token_id"`
-	Owner     string  `json:"owner"`
-	Pool      Pool    `json:"pool"`
-	Range     Range   `json:"-"`
+	TokenID   string   `json:"token_id"`
+	Owner     string   `json:"owner"`
+	Pool      Pool     `json:"pool"`
+	Range     Range    `json:"-"`
 	Liquidity *big.Int `json:"-"`
 	// Principal is what removing all liquidity returns at the current price.
 	Principal Amounts `json:"-"`
@@ -253,12 +253,12 @@ func feeGrowthInside(tick, lower, upper int, global, outLower, outUpper *big.Int
 }
 
 type v3Raw struct {
-	id                       *big.Int
-	owner                    common.Address
-	token0, token1           common.Address
+	id                        *big.Int
+	owner                     common.Address
+	token0, token1            common.Address
 	fee, tickLower, tickUpper int
-	liquidity, last0, last1  *big.Int
-	owed0, owed1             *big.Int
+	liquidity, last0, last1   *big.Int
+	owed0, owed1              *big.Int
 }
 
 // LoadV3Positions reads v3 positions by token id in a fixed number of batched

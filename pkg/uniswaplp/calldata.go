@@ -150,7 +150,9 @@ func v3Collect(tokenID *big.Int, recipient common.Address) []byte {
 
 // V3Collect encodes collect of everything owed to recipient, like the web
 // app's claimLiquidityFees and removeLiquidity.
-func V3Collect(tokenID *big.Int, recipient common.Address) []byte { return v3Collect(tokenID, recipient) }
+func V3Collect(tokenID *big.Int, recipient common.Address) []byte {
+	return v3Collect(tokenID, recipient)
+}
 
 // V3Decrease encodes multicall([decreaseLiquidity, collect]) as the web app's
 // removeLiquidity does; burn appends burn(tokenId) to close the position. The
