@@ -32,27 +32,36 @@ type TokenMetadata struct {
 	Balance  *big.Int
 }
 
-func (r HTTPRPC) TokenDetails(ctx context.Context, chain uint64, wallet string, tokens []string) ([]TokenMetadata, error) {
-	if len(tokens) == 0 {
-		return []TokenMetadata{}, nil
-	}
-	if !ValidAddress(wallet) {
-		return nil, errors.New("invalid wallet address")
+// RawCall is one Multicall3 aggregate3 entry; failures are allowed and
+// reported per call.
+type RawCall struct {
+	Target string
+	Data   []byte
+}
+
+// RawResult is one aggregate3 result.
+type RawResult struct {
+	Success bool
+	Data    []byte
+}
+
+// Aggregate runs every call in one Multicall3 aggregate3 eth_call at latest.
+func (r HTTPRPC) Aggregate(ctx context.Context, chain uint64, calls []RawCall) ([]RawResult, error) {
+	if len(calls) == 0 {
+		return []RawResult{}, nil
 	}
 	contract, err := abi.JSON(strings.NewReader(aggregateABI))
 	if err != nil {
 		return nil, err
 	}
-	calls := make([]multicallInput, 0, len(tokens)*3)
-	for _, token := range tokens {
-		if !ValidAddress(token) {
-			return nil, fmt.Errorf("invalid token address %q", token)
+	inputs := make([]multicallInput, len(calls))
+	for i, c := range calls {
+		if !ValidAddress(c.Target) {
+			return nil, fmt.Errorf("invalid multicall target %q", c.Target)
 		}
-		target := common.HexToAddress(token)
-		balance, _ := hex.DecodeString("70a08231" + strings.Repeat("0", 24) + strings.ToLower(wallet[2:]))
-		calls = append(calls, multicallInput{target, true, balance}, multicallInput{target, true, []byte{0x95, 0xd8, 0x9b, 0x41}}, multicallInput{target, true, []byte{0x31, 0x3c, 0xe5, 0x67}})
+		inputs[i] = multicallInput{common.HexToAddress(c.Target), true, c.Data}
 	}
-	payload, err := contract.Pack("aggregate3", calls)
+	payload, err := contract.Pack("aggregate3", inputs)
 	if err != nil {
 		return nil, err
 	}
@@ -72,44 +81,77 @@ func (r HTTPRPC) TokenDetails(ctx context.Context, chain uint64, wallet string, 
 	if len(*rows) != len(calls) {
 		return nil, fmt.Errorf("multicall returned %d values for %d calls", len(*rows), len(calls))
 	}
+	out := make([]RawResult, len(calls))
+	for i, row := range *rows {
+		out[i] = RawResult{row.Success, row.ReturnData}
+	}
+	return out, nil
+}
+
+func (r HTTPRPC) TokenDetails(ctx context.Context, chain uint64, wallet string, tokens []string) ([]TokenMetadata, error) {
+	if len(tokens) == 0 {
+		return []TokenMetadata{}, nil
+	}
+	if !ValidAddress(wallet) {
+		return nil, errors.New("invalid wallet address")
+	}
+	calls := make([]RawCall, 0, len(tokens)*3)
+	for _, token := range tokens {
+		if !ValidAddress(token) {
+			return nil, fmt.Errorf("invalid token address %q", token)
+		}
+		balance, _ := hex.DecodeString("70a08231" + strings.Repeat("0", 24) + strings.ToLower(wallet[2:]))
+		calls = append(calls, RawCall{token, balance}, RawCall{token, []byte{0x95, 0xd8, 0x9b, 0x41}}, RawCall{token, []byte{0x31, 0x3c, 0xe5, 0x67}})
+	}
+	rows, err := r.Aggregate(ctx, chain, calls)
+	if err != nil {
+		return nil, err
+	}
 	details := make([]TokenMetadata, 0, len(tokens))
 	for i, token := range tokens {
-		bal, sym, dec := (*rows)[i*3], (*rows)[i*3+1], (*rows)[i*3+2]
-		if !bal.Success || len(bal.ReturnData) != 32 {
+		bal, sym, dec := rows[i*3], rows[i*3+1], rows[i*3+2]
+		if !bal.Success || len(bal.Data) != 32 {
 			return nil, fmt.Errorf("balanceOf failed for %s", token)
 		}
-		if new(big.Int).SetBytes(bal.ReturnData).Sign() == 0 {
+		if new(big.Int).SetBytes(bal.Data).Sign() == 0 {
 			continue
 		}
-		if !dec.Success || len(dec.ReturnData) != 32 {
+		if !dec.Success || len(dec.Data) != 32 {
 			return nil, fmt.Errorf("decimals failed for %s", token)
 		}
-		n := new(big.Int).SetBytes(dec.ReturnData)
+		n := new(big.Int).SetBytes(dec.Data)
 		if !n.IsInt64() || n.Int64() > 36 {
 			return nil, fmt.Errorf("invalid decimals for %s", token)
 		}
 		symbol := ""
 		if sym.Success {
-			data := sym.ReturnData
-			if len(data) == 32 {
-				symbol = strings.TrimRight(string(data), "\x00")
-			} else if len(data) >= 64 {
-				offset := new(big.Int).SetBytes(data[:32])
-				if offset.IsInt64() && offset.Int64() >= 0 && offset.Int64()+32 <= int64(len(data)) {
-					at := int(offset.Int64())
-					length := new(big.Int).SetBytes(data[at : at+32])
-					if length.IsInt64() && length.Int64() >= 0 && length.Int64() <= 128 && at+32+int(length.Int64()) <= len(data) {
-						symbol = string(data[at+32 : at+32+int(length.Int64())])
-					}
-				}
-			}
+			symbol = DecodeSymbol(sym.Data)
 		}
-		if !utf8.ValidString(symbol) {
-			symbol = ""
-		}
-		details = append(details, TokenMetadata{token, symbol, int(n.Int64()), new(big.Int).SetBytes(bal.ReturnData)})
+		details = append(details, TokenMetadata{token, symbol, int(n.Int64()), new(big.Int).SetBytes(bal.Data)})
 	}
 	return details, nil
+}
+
+// DecodeSymbol decodes an ERC-20 symbol() result, string or bytes32, and
+// returns "" for anything malformed.
+func DecodeSymbol(data []byte) string {
+	symbol := ""
+	if len(data) == 32 {
+		symbol = strings.TrimRight(string(data), "\x00")
+	} else if len(data) >= 64 {
+		offset := new(big.Int).SetBytes(data[:32])
+		if offset.IsInt64() && offset.Int64() >= 0 && offset.Int64()+32 <= int64(len(data)) {
+			at := int(offset.Int64())
+			length := new(big.Int).SetBytes(data[at : at+32])
+			if length.IsInt64() && length.Int64() >= 0 && length.Int64() <= 128 && at+32+int(length.Int64()) <= len(data) {
+				symbol = string(data[at+32 : at+32+int(length.Int64())])
+			}
+		}
+	}
+	if !utf8.ValidString(symbol) {
+		return ""
+	}
+	return symbol
 }
 
 func (r HTTPRPC) TokenBalances(ctx context.Context, chain uint64, wallet string, tokens []string) ([]*big.Int, error) {

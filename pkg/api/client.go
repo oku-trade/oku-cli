@@ -142,6 +142,7 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 			onchain:   accountv2connect.NewOnchainServiceClient(doer, base, opts...),
 			token:     accountv2connect.NewTokenServiceClient(doer, base, opts...),
 			portfolio: accountv2connect.NewPortfolioServiceClient(doer, base, opts...),
+			lending:   accountv2connect.NewLendingServiceClient(doer, base, opts...),
 		},
 		body, hdr)
 	if err != nil {
