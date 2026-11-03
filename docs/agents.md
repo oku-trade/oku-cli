@@ -39,6 +39,7 @@ Install locations are `~/.claude/skills` for Claude Code, `~/.agents/skills` for
 - `coinbase-deposit-targets`: choose native USDC targets for Coinbase deposits.
 - `reconcile-hyperliquid-actions`: resolve unknown outcomes without duplicate submissions.
 - `troubleshoot-macos-keychain`: resolve credential access on macOS.
+- `lend-and-loop`: earn in Morpho/Euler vaults, borrow, and open, adjust or unwind leveraged loops.
 
 `install` does not overwrite edited skill files unless you pass `--force`. `uninstall` removes only files matching the bundled version unless you pass `--force`. Back up your edits before forcing either action.
 
