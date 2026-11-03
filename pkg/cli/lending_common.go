@@ -38,7 +38,8 @@ type lendingTarget struct {
 func (t lendingTarget) caip2() string { return fmt.Sprintf("eip155:%d", t.chain) }
 
 func parseLendingTarget(e *env) (lendingTarget, error) {
-	chain, err := strconv.ParseUint(strings.TrimPrefix(str(e, "chain"), "eip155:"), 10, 64)
+	// 31 bits, like the swap routes, so the id fits every int conversion.
+	chain, err := strconv.ParseUint(strings.TrimPrefix(str(e, "chain"), "eip155:"), 10, 31)
 	if err != nil || !onchain.Allowed(chain) {
 		return lendingTarget{}, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
 	}
