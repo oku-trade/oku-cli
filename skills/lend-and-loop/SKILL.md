@@ -48,7 +48,7 @@ Guardrails, applied to the position after the action:
 
 ## 4. Loop
 
-A loop borrows the loan token, swaps it to more collateral through the Oku Router and supplies it, all in one transaction. The CLI builds and verifies it; the swap is quoted like `oku swap`.
+A loop borrows the loan token, swaps it to more collateral through the Oku Router and supplies it, all in one transaction. The CLI builds and verifies it; the swap is quoted the same way as agent-wallet swaps.
 
 ```sh
 oku loop open   --chain <id> --protocol morpho --market <id> --deposit 1 --target-leverage 3 --json
