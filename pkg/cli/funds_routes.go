@@ -112,13 +112,18 @@ func (a *App) resolveRouteToken(ctx context.Context, c *api.Client, chain uint64
 	if name == "" {
 		return "", output.Errorf(output.CodeInvalidArgument, "token required")
 	}
+	// The API carries chain IDs as int32; reject anything that would not fit.
+	if chain > math.MaxInt32 {
+		return "", output.Errorf(output.CodeInvalidArgument, "chain ID %d out of range", chain)
+	}
+	chainID := int32(chain)
 	var res v2.SearchTokensResponse
-	if err := c.TokenRPC(ctx, "SearchTokens", &v2.SearchTokensRequest{Query: name, ChainIds: []int32{int32(chain)}, Limit: 250}, &res, false); err != nil {
+	if err := c.TokenRPC(ctx, "SearchTokens", &v2.SearchTokensRequest{Query: name, ChainIds: []int32{chainID}, Limit: 250}, &res, false); err != nil {
 		return "", apiError(err, "SearchTokens")
 	}
 	candidates := []string{}
 	for _, hit := range res.Results {
-		if hit.Token != nil && hit.Token.ChainId == int32(chain) && strings.EqualFold(hit.Token.Symbol, name) && onchain.ValidAddress(hit.Token.Address) {
+		if hit.Token != nil && hit.Token.ChainId == chainID && strings.EqualFold(hit.Token.Symbol, name) && onchain.ValidAddress(hit.Token.Address) {
 			candidates = append(candidates, hit.Token.Address)
 		}
 	}
