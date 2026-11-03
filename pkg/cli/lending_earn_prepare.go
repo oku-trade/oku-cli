@@ -88,7 +88,7 @@ func (a *App) morphoEarnPrepare(ctx context.Context, e *env, w *resolvedWallet, 
 		if err != nil {
 			return nil, output.Wrap(output.CodeInvalidArgument, err, "deposit is too small for one vault share")
 		}
-		calls = lending.Approve(s.Asset, d.GeneralAdapter1, s.Allowance, amount)
+		calls = want.Allow(s.Asset, d.GeneralAdapter1, s.Allowance, amount)
 		deposit, err := d.VaultDeposit(vault, s.Asset, amount, maxPrice, owner)
 		if err != nil {
 			return nil, output.Wrap(output.CodeInvalidArgument, err, "deposit")
@@ -149,7 +149,7 @@ func eulerVault(ctx context.Context, e *env, w *resolvedWallet, t lendingTarget,
 	}
 	for _, v := range resp.Vaults {
 		if strings.EqualFold(v.Address, vault.Hex()) {
-			if !onchain.ValidAddress(v.AssetAddress) || v.AssetDecimals < 0 || v.AssetDecimals > 36 {
+			if !onchain.ValidAddress(v.AssetAddress) || !validDecimals(int(v.AssetDecimals)) {
 				return nil, output.Errorf(output.CodeUpstream, "Euler vault %s has invalid asset metadata", vault.Hex())
 			}
 			return v, nil
@@ -180,7 +180,7 @@ func (a *App) eulerEarnPrepare(ctx context.Context, e *env, w *resolvedWallet, t
 		if err = c.Lending(ctx, "BuildLendingDeposit", &v2.BuildLendingDepositRequest{Chain: t.caip2(), UserAddress: w.agent, VaultAddress: vault.Hex(), Amount: dep, SubAccountIndex: uint32(sub)}, &resp, false); err != nil {
 			return nil, apiError(err, "BuildLendingDeposit")
 		}
-		if calls, err = eulerSteps(t, resp.NeedsApproval, resp.ApproveTx, resp.DepositTx); err != nil {
+		if calls, err = eulerSteps(t, want, asset, vault, amount, resp.NeedsApproval, resp.ApproveTx, resp.DepositTx); err != nil {
 			return nil, output.Wrap(output.CodePayloadMismatch, err, "BuildLendingDeposit")
 		}
 		want.Vault(vault, "deposit", amount)
@@ -226,14 +226,18 @@ func (a *App) eulerEarnPrepare(ctx context.Context, e *env, w *resolvedWallet, t
 	return a.sealLending(e, w, kindEarn, plan, calls, want, token, amt, preview)
 }
 
-// eulerSteps turns an optional approval plus the main backend transaction
-// into calls, refusing a missing main transaction.
-func eulerSteps(t lendingTarget, needsApproval bool, approve, main *v2.LendingTransaction) ([]lending.Call, error) {
+// eulerSteps turns an optional backend approval plus the main backend
+// transaction into calls, refusing a missing main transaction. The
+// approval must be token to spender for at most limit, and is expected.
+func eulerSteps(t lendingTarget, want lending.Want, token, spender common.Address, limit *big.Int, needsApproval bool, approve, main *v2.LendingTransaction) ([]lending.Call, error) {
 	var calls []lending.Call
 	if needsApproval {
 		c, err := lendingTx(approve, t)
 		if err != nil {
 			return nil, fmt.Errorf("approval: %w", err)
+		}
+		if err = want.ExpectApproval(c, token, spender, limit); err != nil {
+			return nil, err
 		}
 		calls = append(calls, c)
 	}

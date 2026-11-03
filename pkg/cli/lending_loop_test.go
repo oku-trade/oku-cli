@@ -42,20 +42,23 @@ func loopMarket() lending.MarketParams {
 	return lending.MarketParams{LoanToken: loopLoan, CollateralToken: loopColl, Oracle: loopOracle, Irm: loopIrm, Lltv: big.NewInt(860_000_000_000_000_000)}
 }
 
-func e18(v int64) *big.Int { return new(big.Int).Mul(big.NewInt(v), big.NewInt(1_000_000_000_000_000_000)) }
+func e18(v int64) *big.Int {
+	return new(big.Int).Mul(big.NewInt(v), big.NewInt(1_000_000_000_000_000_000))
+}
 
 // morphoLoopRPC fakes chain 1 with one market where collateral trades at
-// 2000 loan per collateral. The agent holds `coll` collateral and owes
-// `debtShares` borrow shares (1e6 shares per loan unit, 1:1 assets).
-func morphoLoopRPC(t *testing.T, coll, debtShares *big.Int, authorized bool) string {
+// *price loan per collateral (the test may move it). The agent holds `coll`
+// collateral and owes `debtShares` borrow shares (1e6 shares per loan unit,
+// 1:1 assets).
+func morphoLoopRPC(t *testing.T, coll, debtShares *big.Int, authorized bool, price *big.Int) string {
 	t.Helper()
 	parsed, err := abi.JSON(strings.NewReader(loopFakeABI))
 	if err != nil {
 		t.Fatal(err)
 	}
 	mp := loopMarket()
-	// price = 2000 * 1e36 * 1e6 / 1e18 (Morpho scales by loan/collateral decimals).
-	price := new(big.Int).Mul(big.NewInt(2000), new(big.Int).Exp(big.NewInt(10), big.NewInt(24), nil))
+	// oracle = price * 1e36 * 1e6 / 1e18 (Morpho scales by loan/collateral decimals).
+	scale := new(big.Int).Exp(big.NewInt(10), big.NewInt(24), nil)
 	total := new(big.Int).Mul(big.NewInt(1_000_000), big.NewInt(1_000_000)) // 1M loan units
 	answer := func(to common.Address, data []byte) []byte {
 		m, err := parsed.MethodById(data[:4])
@@ -90,7 +93,7 @@ func morphoLoopRPC(t *testing.T, coll, debtShares *big.Int, authorized bool) str
 		case "balanceOf":
 			out = []any{e18(100)}
 		case "price":
-			out = []any{price}
+			out = []any{new(big.Int).Mul(price, scale)}
 		case "borrowRateView":
 			out = []any{new(big.Int)}
 		}
@@ -207,14 +210,21 @@ func loopSwapService(t *testing.T, h *harness, sell, buy, hop common.Address, mi
 }
 
 func loopHarness(t *testing.T, coll, debtShares *big.Int, authorized bool) *harness {
+	h, _ := loopHarnessPriced(t, coll, debtShares, authorized)
+	return h
+}
+
+// loopHarnessPriced also returns the fake oracle price to move.
+func loopHarnessPriced(t *testing.T, coll, debtShares *big.Int, authorized bool) (*harness, *big.Int) {
 	t.Helper()
 	h := newHarness(t)
 	h.enroll()
-	h.rpcChain, h.rpcURL = "1", morphoLoopRPC(t, coll, debtShares, authorized)
+	price := big.NewInt(2000)
+	h.rpcChain, h.rpcURL = "1", morphoLoopRPC(t, coll, debtShares, authorized, price)
 	down := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "down", http.StatusServiceUnavailable) }))
 	t.Cleanup(down.Close)
 	h.extraEnv = map[string]string{"OKU_MORPHO_API_URL": down.URL}
-	return h
+	return h, price
 }
 
 func TestLoopOpenMorphoBindsVerifiedBundle(t *testing.T) {
@@ -309,5 +319,22 @@ func TestLoopAdjustRefusesAboveMaxLTV(t *testing.T) {
 	r := h.run("loop", "adjust", "--chain", "1", "--protocol", "morpho", "--market", loopMarket().ID().Hex(), "--target-leverage", "9", "--json")
 	if r.code == 0 || !strings.Contains(r.stdout, "exceeds this market's max") {
 		t.Fatalf("leverage above the market max accepted: %s", r.stdout)
+	}
+}
+
+func TestLoopSubmitRechecksRiskAfterPriceMove(t *testing.T) {
+	h, price := loopHarnessPriced(t, new(big.Int), new(big.Int), false)
+	d, _ := lending.Morpho(1)
+	loopSwapService(t, h, loopLoan, loopColl, d.GeneralAdapter1, "1970000000000000000", nil)
+	r := h.run("loop", "open", "--chain", "1", "--protocol", "morpho", "--market", loopMarket().ID().Hex(), "--deposit", "1", "--target-leverage", "2", "--json")
+	if r.code != 0 {
+		t.Fatalf("loop open: %s %s", r.stdout, r.stderr)
+	}
+	id, dg := r.data()["intent_id"].(string), r.data()["digest"].(string)
+	// Collateral halves in price: the sealed 2x loop would now exceed max LTV.
+	price.SetInt64(1000)
+	s := h.run("loop", "submit", "--intent", id, "--digest", dg, "--json")
+	if s.code == 0 || !strings.Contains(s.stdout, "position changed since prepare") {
+		t.Fatalf("stale loop submitted after the price moved: %s %s", s.stdout, s.stderr)
 	}
 }

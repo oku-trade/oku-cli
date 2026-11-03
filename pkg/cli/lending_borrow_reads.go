@@ -64,7 +64,7 @@ func (a *App) cmdBorrowMarkets(e *env) (*result, error) {
 	defer cancel()
 	var rows []borrowMarket
 	if t.protocol == protoMorpho {
-		rows, err = a.morphoMarkets(ctx, t.chain)
+		rows, err = a.morphoMarkets(ctx, e, t.chain, loan, coll)
 	} else {
 		rows, err = eulerMarkets(ctx, e, t)
 	}
@@ -109,10 +109,15 @@ type tokenInfo struct {
 }
 
 // tokenInfos reads symbol and decimals of every token in one multicall.
-// Without an RPC it returns nothing and callers show N/A.
-func (a *App) tokenInfos(ctx context.Context, chain uint64, tokens []string) map[string]tokenInfo {
+// Without an RPC, or when the read fails, it reports why and returns what
+// it could read; callers show N/A for the rest.
+func (a *App) tokenInfos(ctx context.Context, e *env, chain uint64, tokens []string) map[string]tokenInfo {
 	out := map[string]tokenInfo{}
-	if _, err := onchain.RPCURL(a.Getenv, chain); err != nil || len(tokens) == 0 {
+	if len(tokens) == 0 {
+		return out
+	}
+	if _, err := onchain.RPCURL(a.Getenv, chain); err != nil {
+		e.diag("note: token symbols and decimals unknown on chain %d: %v", chain, err)
 		return out
 	}
 	calls := make([]onchain.Call3, 0, 2*len(tokens))
@@ -121,15 +126,18 @@ func (a *App) tokenInfos(ctx context.Context, chain uint64, tokens []string) map
 	}
 	r, err := onchain.HTTPRPC{Getenv: a.Getenv}.Aggregate(ctx, chain, calls)
 	if err != nil {
+		e.diag("warning: token metadata multicall failed on chain %d (%d tokens): %v", chain, len(tokens), err)
 		return out
 	}
 	for i, tk := range tokens {
 		d, s := r[2*i], r[2*i+1]
 		if !d.Success || len(d.Data) != 32 {
+			e.diag("warning: token %s on chain %d: decimals() failed; its amounts are unknown", tk, chain)
 			continue
 		}
 		n := new(big.Int).SetBytes(d.Data)
-		if !n.IsInt64() || n.Int64() > 36 {
+		if !n.IsInt64() || !validDecimals(int(n.Int64())) {
+			e.diag("warning: token %s on chain %d: decimals %s out of range", tk, chain, n)
 			continue
 		}
 		out[strings.ToLower(tk)] = tokenInfo{onchain.DecodeSymbol(s.Data), int(n.Int64())}
@@ -137,16 +145,30 @@ func (a *App) tokenInfos(ctx context.Context, chain uint64, tokens []string) map
 	return out
 }
 
-func (a *App) morphoMarkets(ctx context.Context, chain uint64) ([]borrowMarket, error) {
+// morphoMarkets lists borrowable markets, keeping only those matching the
+// optional loan and collateral token filters before any metadata is read.
+func (a *App) morphoMarkets(ctx context.Context, e *env, chain uint64, loan, coll string) ([]borrowMarket, error) {
 	sap, err := a.morphoIndexer(ctx)
 	if err != nil {
 		return nil, err
 	}
-	markets, err := sap.Markets(ctx, chain)
+	all, err := sap.Markets(ctx, chain)
 	if err != nil {
 		return nil, output.Wrap(output.CodeUpstream, err, "morpho markets")
 	}
+	var markets []lending.SAPMarket
+	for _, m := range all {
+		if m.Snapshot.CollateralToken == "" || strings.EqualFold(m.Snapshot.CollateralToken, common.Address{}.Hex()) {
+			continue // idle market: no collateral, not borrowable
+		}
+		if (loan == "" || strings.EqualFold(m.Snapshot.LoanToken, loan)) && (coll == "" || strings.EqualFold(m.Snapshot.CollateralToken, coll)) {
+			markets = append(markets, m)
+		}
+	}
 	campaigns, campErr := sap.LiveCampaigns(ctx)
+	if campErr != nil {
+		e.diag("warning: morpho reward campaigns unavailable on chain %d; borrow rewards and net borrow APY are unknown: %v", chain, campErr)
+	}
 	seen := map[string]bool{}
 	var tokens []string
 	for _, m := range markets {
@@ -157,13 +179,10 @@ func (a *App) morphoMarkets(ctx context.Context, chain uint64) ([]borrowMarket, 
 			}
 		}
 	}
-	info := a.tokenInfos(ctx, chain, tokens)
+	info := a.tokenInfos(ctx, e, chain, tokens)
 	now := a.Now().Unix()
 	out := make([]borrowMarket, 0, len(markets))
 	for _, m := range markets {
-		if m.Snapshot.CollateralToken == "" || strings.EqualFold(m.Snapshot.CollateralToken, common.Address{}.Hex()) {
-			continue // idle market: no collateral, not borrowable
-		}
 		r := borrowMarket{Protocol: protoMorpho, Chain: chain, MarketID: m.Snapshot.MarketID, LoanToken: m.Snapshot.LoanToken, CollateralToken: m.Snapshot.CollateralToken}
 		li, lok := info[strings.ToLower(m.Snapshot.LoanToken)]
 		ci, cok := info[strings.ToLower(m.Snapshot.CollateralToken)]
@@ -181,10 +200,12 @@ func (a *App) morphoMarkets(ctx context.Context, chain uint64) ([]borrowMarket, 
 		if campErr == nil {
 			c = campaigns
 		}
-		if br, err := lending.MarketBorrowRate(m, c, now); err == nil {
-			r.BorrowAPY, r.NetBorrowAPY = some(br.Borrow), some(br.Net)
+		if br, err := lending.MarketBorrowRate(m, c, now); err != nil {
+			e.diag("warning: morpho market %s on chain %d: borrow APY unknown: %v", m.Snapshot.MarketID, chain, err)
+		} else {
+			r.BorrowAPY = some(br.Borrow)
 			if campErr == nil {
-				r.BorrowRewards = some(br.Rewards)
+				r.NetBorrowAPY, r.BorrowRewards = some(br.Net), some(br.Rewards)
 			}
 		}
 		supply, sok := new(big.Int).SetString(m.Snapshot.TotalSupplyAssets, 10)
@@ -369,7 +390,7 @@ func (a *App) morphoBorrowPositions(ctx context.Context, chain uint64, agent str
 
 func eulerBorrowPositions(ctx context.Context, e *env, w *resolvedWallet, t lendingTarget) ([]borrowPosition, error) {
 	var resp v2.GetLendingUserPositionsResponse
-	if err := e.client(w.profile).Lending(ctx, "GetLendingUserPositions", &v2.GetLendingUserPositionsRequest{Chain: t.caip2(), UserAddress: w.agent}, &resp, false); err != nil {
+	if err := e.client(w.profile).Lending(ctx, "GetLendingUserPositions", &v2.GetLendingUserPositionsRequest{Chain: t.caip2(), UserAddress: w.agent, MaxSubAccounts: eulerSubAccounts}, &resp, false); err != nil {
 		return nil, apiError(err, "GetLendingUserPositions")
 	}
 	markets, err := eulerMarketList(ctx, e, t)
@@ -403,8 +424,12 @@ func eulerPosition(chain uint64, pos *v2.LendingUserPosition, collRaw string, m 
 	cd, ld := int(m.CollateralAssetDecimals), int(m.BorrowAssetDecimals)
 	sub := int(pos.SubAccountIndex)
 	p := borrowPosition{Protocol: protoEuler, Chain: chain, CollateralVault: m.CollateralVaultAddress, BorrowVault: m.BorrowVaultAddress, SubAccount: &sub, CollateralSymbol: m.CollateralAssetSymbol, LoanSymbol: m.BorrowAssetSymbol, Collateral: rawToUnits(collRaw, cd), Debt: rawToUnits(pos.DebtAssets, ld)}
-	coll, _ := new(big.Int).SetString(collRaw, 10)
-	debt, _ := new(big.Int).SetString(pos.DebtAssets, 10)
+	coll, okc := new(big.Int).SetString(collRaw, 10)
+	debt, okd := new(big.Int).SetString(pos.DebtAssets, 10)
+	if !okc || !okd || !validDecimals(cd) || !validDecimals(ld) {
+		p.Risk = "unknown: position amounts or decimals unavailable"
+		return p
+	}
 	lp := lending.Position{Collateral: lending.Float(coll, cd), Debt: lending.Float(debt, ld), Price: parseOpt(m.OraclePrice).v, LLTV: parseOpt(m.LiquidationLtv).v}
 	riskFields(&p, lp)
 	return p

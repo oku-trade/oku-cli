@@ -57,7 +57,7 @@ func (a *App) cmdEarnVaults(e *env) (*result, error) {
 	defer cancel()
 	var rows []earnVault
 	if t.protocol == protoMorpho {
-		rows, err = a.morphoVaults(ctx, t.chain)
+		rows, err = a.morphoVaults(ctx, e, t.chain)
 	} else {
 		rows, err = eulerVaults(ctx, e, t)
 	}
@@ -84,7 +84,7 @@ func (a *App) cmdEarnVaults(e *env) (*result, error) {
 	}}, nil
 }
 
-func (a *App) morphoVaults(ctx context.Context, chain uint64) ([]earnVault, error) {
+func (a *App) morphoVaults(ctx context.Context, e *env, chain uint64) ([]earnVault, error) {
 	sap, err := a.morphoIndexer(ctx)
 	if err != nil {
 		return nil, err
@@ -94,8 +94,12 @@ func (a *App) morphoVaults(ctx context.Context, chain uint64) ([]earnVault, erro
 		return nil, output.Wrap(output.CodeUpstream, err, "morpho vaults")
 	}
 	// Rewards are additive. Without them the base APY is still exact, so a
-	// rewards outage reports rewards as unknown instead of failing the list.
+	// rewards outage reports rewards and net APY as unknown instead of
+	// failing the list.
 	campaigns, campErr := sap.LiveCampaigns(ctx)
+	if campErr != nil {
+		e.diag("warning: morpho reward campaigns unavailable on chain %d; rewards and net APY are unknown: %v", chain, campErr)
+	}
 	now := a.Now().Unix()
 	out := make([]earnVault, 0, len(vaults))
 	for _, v := range vaults {
@@ -111,10 +115,12 @@ func (a *App) morphoVaults(ctx context.Context, chain uint64) ([]earnVault, erro
 		if campErr == nil {
 			c = campaigns
 		}
-		if y, err := lending.VaultYield(v, c, now); err == nil {
-			row.GrossAPY, row.BaseAPY, row.NetAPY, row.Rewards = some(y.Gross), some(y.Base), some(y.Net), y.Sources
+		if y, err := lending.VaultYield(v, c, now); err != nil {
+			e.diag("warning: morpho vault %s on chain %d: APY unknown: %v", v.Snapshot.Address, chain, err)
+		} else {
+			row.GrossAPY, row.BaseAPY = some(y.Gross), some(y.Base)
 			if campErr == nil {
-				row.RewardsAPY = some(y.Rewards)
+				row.NetAPY, row.RewardsAPY, row.Rewards = some(y.Net), some(y.Rewards), y.Sources
 			}
 		}
 		out = append(out, row)
@@ -245,7 +251,7 @@ func (a *App) morphoEarnPositions(ctx context.Context, chain uint64, agent strin
 func eulerEarnPositions(ctx context.Context, e *env, w *resolvedWallet, t lendingTarget) ([]earnPosition, error) {
 	c := e.client(w.profile)
 	var resp v2.GetLendingUserPositionsResponse
-	if err := c.Lending(ctx, "GetLendingUserPositions", &v2.GetLendingUserPositionsRequest{Chain: t.caip2(), UserAddress: w.agent, IncludeVaultScan: true}, &resp, false); err != nil {
+	if err := c.Lending(ctx, "GetLendingUserPositions", &v2.GetLendingUserPositionsRequest{Chain: t.caip2(), UserAddress: w.agent, MaxSubAccounts: eulerSubAccounts, IncludeVaultScan: true}, &resp, false); err != nil {
 		return nil, apiError(err, "GetLendingUserPositions")
 	}
 	var vaults v2.GetLendingVaultsResponse

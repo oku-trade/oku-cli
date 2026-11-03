@@ -252,7 +252,7 @@ func VaultYield(v SAPVault, c *Campaigns, now int64) (*VaultAPY, error) {
 		}
 	}
 	for _, m := range c.Merkl {
-		if m.Status == "LIVE" && strings.EqualFold(m.Identifier, v.Snapshot.Address) {
+		if m.ChainID == v.Snapshot.ChainID && m.Status == "LIVE" && strings.EqualFold(m.Identifier, v.Snapshot.Address) {
 			apr := m.APR
 			if target, fixed := fixAPRTarget(m, now); fixed {
 				apr = max((target-base)*100, 0)

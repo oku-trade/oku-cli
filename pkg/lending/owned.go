@@ -1,7 +1,6 @@
 package lending
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -14,6 +13,9 @@ import (
 // Scope is everything a lending transaction may touch for one owner.
 type Scope struct {
 	Owner common.Address
+	// Account is the exact position account: the owner, or for Euler the
+	// plan's sub-account. No other sub-account of the owner is accepted.
+	Account common.Address
 	// Allowed holds the contracts the owner may call or approve: Morpho,
 	// Bundler3, GeneralAdapter1, the EVC, and the vaults and tokens in play.
 	Allowed map[common.Address]bool
@@ -81,8 +83,8 @@ func add(m map[common.Hash]*big.Int, k common.Hash, v *big.Int) {
 }
 
 func (s Scope) owned(a common.Address) bool {
-	// The owner or one of its EVC sub-accounts (same first 19 bytes).
-	return a == s.Owner || bytes.Equal(a[:19], s.Owner[:19])
+	// The owner or the one EVC sub-account the plan selected.
+	return a == s.Owner || a == s.Account
 }
 
 // CheckCalls re-verifies lending calldata before it is sealed or sent:
@@ -102,6 +104,23 @@ func CheckCalls(calls []Call, s Scope) (*Effects, error) {
 		if err := s.check(c.To, c.Data, 0, fx); err != nil {
 			return nil, err
 		}
+	}
+	// A router approval inside a bundle must cover exactly what the swap
+	// sells; it is then accounted for by the sell effect.
+	for k, v := range fx.Approved {
+		if s.Router == (common.Address{}) || k[1] != s.Router {
+			continue
+		}
+		sold := new(big.Int)
+		for pair, amt := range fx.Sold {
+			if pair[0] == k[0] {
+				sold.Add(sold, amt)
+			}
+		}
+		if v.Cmp(sold) != 0 {
+			return nil, fmt.Errorf("router approval %s differs from the %s sold", v, sold)
+		}
+		delete(fx.Approved, k)
 	}
 	return fx, nil
 }
@@ -236,7 +255,8 @@ func (s Scope) check(to common.Address, data []byte, depth int, fx *Effects) err
 		if !s.Allowed[addr(0)] && !(depth > 0 && addr(0) == s.Router && s.Router != (common.Address{})) {
 			return fmt.Errorf("approval spender %s is not part of this action", addr(0).Hex())
 		}
-		if depth == 0 {
+		if amt(1).Sign() > 0 {
+			// Zero resets (for USDT-style tokens) grant nothing.
 			fx.Approved[[2]common.Address{to, addr(0)}] = amt(1)
 		}
 	case "setAuthorization":

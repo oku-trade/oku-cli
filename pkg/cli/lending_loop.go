@@ -153,7 +153,7 @@ func (a *App) readLoop(ctx context.Context, e *env, w *resolvedWallet, t lending
 		now := a.Now().Unix()
 		s := loopState{protocol: protoMorpho, chain: t.chain, owner: owner, collToken: snap.Params.CollateralToken, loanToken: snap.Params.LoanToken, collSymbol: snap.CollateralSymbol, loanSymbol: snap.LoanSymbol, collDecimals: snap.CollateralDecimals, loanDecimals: snap.LoanDecimals, collateral: snap.Position.Collateral, debt: snap.Debt(now), price: lending.MorphoPrice(snap.OraclePrice, snap.CollateralDecimals, snap.LoanDecimals), lltv: lending.Float(snap.Params.Lltv, 18), morpho: snap, deploy: d, accrued: snap.Market.AccrueBorrow(snap.BorrowRate, lending.AccrualHorizon(now))}
 		s.debtExists = snap.Position.BorrowShares.Sign() > 0
-		a.morphoLoopRates(ctx, &s, id)
+		a.morphoLoopRates(ctx, e, &s, id)
 		return s, nil
 	}
 	cv, bv := str(e, "collateral-vault"), str(e, "borrow-vault")
@@ -202,25 +202,53 @@ func (a *App) readLoop(ctx context.Context, e *env, w *resolvedWallet, t lending
 }
 
 // morphoLoopRates fills the collateral yield (when the collateral is a
-// vault the indexer knows) and the net borrow rate; missing data stays N/A.
-func (a *App) morphoLoopRates(ctx context.Context, s *loopState, id string) {
+// vault the indexer knows) and the net borrow rate. Rates only inform the
+// preview, so a missing one is reported and left N/A.
+func (a *App) morphoLoopRates(ctx context.Context, e *env, s *loopState, id string) {
+	warn := func(what string, err error) {
+		e.diag("warning: morpho market %s on chain %d: %s unknown, net APY N/A: %v", id, s.chain, what, err)
+	}
 	sap, err := a.morphoIndexer(ctx)
 	if err != nil {
+		warn("rates", err)
 		return
 	}
+	campaigns, err := sap.LiveCampaigns(ctx)
+	if err != nil {
+		warn("reward campaigns", err)
+		return
+	}
+	now := a.Now().Unix()
 	markets, err := sap.Markets(ctx, s.chain)
 	if err != nil {
-		return
-	}
-	campaigns, cerr := sap.LiveCampaigns(ctx)
-	if cerr != nil {
-		campaigns = nil
-	}
-	for _, m := range markets {
-		if strings.EqualFold(m.Snapshot.MarketID, id) {
-			if br, err := lending.MarketBorrowRate(m, campaigns, a.Now().Unix()); err == nil {
+		warn("borrow rate", err)
+	} else {
+		for _, m := range markets {
+			if !strings.EqualFold(m.Snapshot.MarketID, id) {
+				continue
+			}
+			if br, err := lending.MarketBorrowRate(m, campaigns, now); err != nil {
+				warn("borrow rate", err)
+			} else {
 				s.borrowAPY = some(br.Net)
 			}
+		}
+	}
+	// Yield-bearing collateral (an ERC-4626 vault the indexer lists); plain
+	// tokens have no indexed yield and leave net APY N/A.
+	vaults, err := sap.Vaults(ctx, s.chain)
+	if err != nil {
+		warn("collateral yield", err)
+		return
+	}
+	for _, v := range vaults {
+		if addr(v.Snapshot.Address) != s.collToken {
+			continue
+		}
+		if y, err := lending.VaultYield(v, campaigns, now); err != nil {
+			warn("collateral yield", err)
+		} else {
+			s.collAPY = some(y.Net)
 		}
 	}
 }
@@ -413,7 +441,7 @@ func (a *App) loopIncrease(ctx context.Context, e *env, w *resolvedWallet, s loo
 			if snap.CollateralBalance.Cmp(deposit) < 0 {
 				return nil, output.Errorf(output.CodeInsufficientBalance, "agent holds %s %s%s", formatUnits(snap.CollateralBalance, s.collDecimals), s.collSymbol, fundingHint(s.chain, s.collToken.Hex()))
 			}
-			calls = append(calls, lending.Approve(s.collToken, d.GeneralAdapter1, snap.CollateralAllow, deposit)...)
+			calls = append(calls, want.Allow(s.collToken, d.GeneralAdapter1, snap.CollateralAllow, deposit)...)
 			want.Pull(s.collToken, deposit)
 		}
 		if !snap.Authorized {
@@ -439,7 +467,7 @@ func (a *App) loopIncrease(ctx context.Context, e *env, w *resolvedWallet, s loo
 			if bal.Cmp(deposit) < 0 {
 				return nil, output.Errorf(output.CodeInsufficientBalance, "agent holds %s %s%s", formatUnits(bal, s.collDecimals), s.collSymbol, fundingHint(s.chain, s.collToken.Hex()))
 			}
-			calls = append(calls, lending.Approve(s.collToken, s.cvAddr, allow, deposit)...)
+			calls = append(calls, want.Allow(s.collToken, s.cvAddr, allow, deposit)...)
 			want.Vault(s.cvAddr, "deposit", deposit)
 		}
 		call, err := s.euler.Increase(deposit, borrow, q.Swap)
@@ -450,6 +478,7 @@ func (a *App) loopIncrease(ctx context.Context, e *env, w *resolvedWallet, s loo
 		want.Vault(s.bvAddr, "borrow", borrow).Bound("skim_min", s.cvAddr, q.MinOut)
 	}
 	plan.Risk = &after
+	plan.Guard = lending.NewGuard(s.collateral, s.debt, coll, debt, e.cmd.Bool("accept-high-risk"))
 	preview := s.loopPreview(coll, debt, q, lev)
 	preview["borrow"] = formatUnits(borrow, s.loanDecimals) + " " + s.loanSymbol
 	if deposit.Sign() > 0 {
@@ -553,6 +582,7 @@ func (a *App) loopDecrease(ctx context.Context, e *env, w *resolvedWallet, s loo
 		want.Bound("debt_max", s.bvAddr, debtMax)
 	}
 	plan.Risk = &after
+	plan.Guard = lending.NewGuard(s.collateral, s.debt, coll, debt, e.cmd.Bool("accept-high-risk"))
 	preview := s.loopPreview(coll, debt, q, leverageOf(s.value(coll, true), s.value(debt, false)))
 	preview["sell_collateral"] = formatUnits(sell, s.collDecimals) + " " + s.collSymbol
 	switch {

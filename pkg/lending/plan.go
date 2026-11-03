@@ -27,14 +27,42 @@ type Plan struct {
 	// SwapPeriphery enables the Euler Swapper and SwapVerifier for loops.
 	SwapPeriphery bool `json:"swap_periphery,omitempty"`
 	Expect        Want `json:"expect"`
-	// Risk is the projected post-action position shown at prepare. It is
-	// informational and re-derived on chain at submit for borrow actions.
+	// Risk is the projected post-action position shown at prepare.
 	Risk *Risk `json:"risk,omitempty"`
+	// Guard is the position change prepare authorized. Submit re-reads the
+	// position and oracle, applies it and re-runs the guardrails.
+	Guard *Guard `json:"guard,omitempty"`
+}
+
+// Guard is a signed raw change to collateral and debt plus the user's
+// high-risk override. Debt-free results carry no guard.
+type Guard struct {
+	CollateralDelta *big.Int `json:"collateral_delta"`
+	DebtDelta       *big.Int `json:"debt_delta"`
+	AcceptHighRisk  bool     `json:"accept_high_risk"`
+}
+
+// NewGuard binds the change from (coll, debt) to (newColl, newDebt), or
+// returns nil when the result has no debt and so cannot be unsafe.
+func NewGuard(coll, debt, newColl, newDebt *big.Int, acceptHighRisk bool) *Guard {
+	if newDebt.Sign() <= 0 {
+		return nil
+	}
+	return &Guard{CollateralDelta: new(big.Int).Sub(newColl, coll), DebtDelta: new(big.Int).Sub(newDebt, debt), AcceptHighRisk: acceptHighRisk}
+}
+
+// Apply projects the guarded change onto a freshly read position.
+func (g Guard) Apply(coll, debt *big.Int) (*big.Int, *big.Int) {
+	c := new(big.Int).Add(coll, g.CollateralDelta)
+	if c.Sign() < 0 {
+		c.SetInt64(0)
+	}
+	return c, new(big.Int).Add(debt, g.DebtDelta)
 }
 
 // Scope is every contract this plan may touch.
 func (p Plan) Scope() (Scope, error) {
-	s := Scope{Owner: p.Owner, Allowed: map[common.Address]bool{}, Hops: map[common.Address]bool{}}
+	s := Scope{Owner: p.Owner, Account: p.Owner, Allowed: map[common.Address]bool{}, Hops: map[common.Address]bool{}}
 	switch p.Protocol {
 	case "morpho":
 		d, err := Morpho(p.Chain)
@@ -49,6 +77,7 @@ func (p Plan) Scope() (Scope, error) {
 			return s, err
 		}
 		s.Allowed[evc] = true
+		s.Account = SubAccount(p.Owner, p.SubAccount)
 		if p.SwapPeriphery {
 			sw, err := EulerSwapFor(p.Chain)
 			if err != nil {
@@ -81,14 +110,17 @@ func (p Plan) Scope() (Scope, error) {
 }
 
 // Summary flattens effects into a canonical map: amounts are decimal raw
-// units, keys name the token, market or vault. Approvals are excluded:
-// their spender is constrained by the Scope and their amount by the pull.
+// units, keys name the token, market or vault. Every nonzero approval is
+// included, so an unexpected spender or amount fails the comparison.
 func (fx *Effects) Summary() map[string]string {
 	out := map[string]string{}
 	put := func(k string, v *big.Int) {
 		if v != nil && v.Sign() > 0 {
 			out[k] = v.String()
 		}
+	}
+	for k, v := range fx.Approved {
+		put(approveKey(k[0], k[1]), v)
 	}
 	for t, v := range fx.Pulled {
 		put("pull:"+strings.ToLower(t.Hex()), v)
@@ -164,6 +196,43 @@ func (w Want) set(k string, v *big.Int) Want {
 // Pull expects amount of token transferred from the owner into a bundle.
 func (w Want) Pull(token common.Address, amount *big.Int) Want {
 	return w.set("pull:"+strings.ToLower(token.Hex()), amount)
+}
+
+// Approve expects token approved to spender for exactly amount.
+func (w Want) Approve(token, spender common.Address, amount *big.Int) Want {
+	return w.set(approveKey(token, spender), amount)
+}
+
+// Allow builds the approvals that raise allowance to amount (see Approve)
+// and expects them, so the calls and the expectation cannot drift.
+func (w Want) Allow(token, spender common.Address, allowance, amount *big.Int) []Call {
+	calls := Approve(token, spender, allowance, amount)
+	if len(calls) > 0 {
+		w.Approve(token, spender, amount)
+	}
+	return calls
+}
+
+// ExpectApproval checks a backend-built approval: token approved to
+// spender for a nonzero amount at most limit, which it then expects.
+func (w Want) ExpectApproval(c Call, token, spender common.Address, limit *big.Int) error {
+	d, err := Decode(c.To, c.Data)
+	if err != nil {
+		return err
+	}
+	if c.To != token || d.Method != "approve" || d.Args[0].(common.Address) != spender {
+		return fmt.Errorf("approval is not %s to %s", token.Hex(), spender.Hex())
+	}
+	amt := d.Args[1].(*big.Int)
+	if amt.Sign() <= 0 || amt.Cmp(limit) > 0 {
+		return fmt.Errorf("approval of %s exceeds the %s this action needs", amt, limit)
+	}
+	w.Approve(token, spender, amt)
+	return nil
+}
+
+func approveKey(token, spender common.Address) string {
+	return "approve:" + strings.ToLower(token.Hex()) + ">" + strings.ToLower(spender.Hex())
 }
 
 // Vault expects method on an ERC-4626 vault or EVault with amount.

@@ -170,9 +170,6 @@ func (a *App) cmdLendingSubmit(e *env, kind string, after func(context.Context, 
 	if err != nil {
 		return nil, output.Wrap(output.CodePayloadMismatch, err, "refusing unverified lending calldata")
 	}
-	if expires, perr := time.Parse(time.RFC3339Nano, r.ExpiresAt); r.State == "prepared" && (perr != nil || !a.Now().Before(expires)) {
-		return nil, output.Errorf(output.CodeIntentState, "prepared %s expired; prepare a new intent", kind)
-	}
 	unlock, err := j.LockChain(w.agent, r.ChainID)
 	if err != nil {
 		return nil, err
@@ -184,6 +181,22 @@ func (a *App) cmdLendingSubmit(e *env, kind string, after func(context.Context, 
 	resume := resumable(r)
 	if r.Digest != str(e, "digest") || r.State != "prepared" && !resume {
 		return nil, output.Errorf(output.CodeIntentState, "intent changed while waiting for chain lock")
+	}
+	// Expiry is checked under the lock and also before resuming: share-price
+	// bounds and swap minimums in the remaining calls go stale either way.
+	if expires, perr := time.Parse(time.RFC3339Nano, r.ExpiresAt); perr != nil || !a.Now().Before(expires) {
+		if resume {
+			// Close it so it no longer blocks the chain; the confirmed
+			// steps stay recorded.
+			if cerr := j.AdvanceOnchain(r.ID, "sending", "failed", ""); cerr != nil {
+				return nil, output.Wrap(output.CodeIntentState, cerr, "closing the expired intent")
+			}
+			return nil, output.Errorf(output.CodeIntentState, "%s intent expired after step %d; the remaining steps were not sent and the intent is closed, prepare a new one", kind, r.StepIndex)
+		}
+		return nil, output.Errorf(output.CodeIntentState, "prepared %s expired; prepare a new intent", kind)
+	}
+	if err = a.recheckRisk(e.ctx, e, w, plan); err != nil {
+		return nil, err
 	}
 	ps, walletID, err := a.agentSigner(e, w)
 	if err != nil {

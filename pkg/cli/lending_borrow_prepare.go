@@ -163,7 +163,7 @@ func (a *App) morphoBorrowPrepare(ctx context.Context, e *env, w *resolvedWallet
 				return nil, output.Errorf(output.CodeInsufficientBalance, "agent holds %s %s%s", formatUnits(s.CollateralBalance, s.CollateralDecimals), s.CollateralSymbol, fundingHint(t.chain, mp.CollateralToken.Hex()))
 			}
 			coll.Add(coll, supply)
-			calls = append(calls, lending.Approve(mp.CollateralToken, d.GeneralAdapter1, s.CollateralAllow, supply)...)
+			calls = append(calls, want.Allow(mp.CollateralToken, d.GeneralAdapter1, s.CollateralAllow, supply)...)
 			want.Pull(mp.CollateralToken, supply).Supply(id, supply)
 			preview["supply_collateral"] = formatUnits(supply, s.CollateralDecimals)
 		}
@@ -241,7 +241,7 @@ func (a *App) morphoBorrowPrepare(ctx context.Context, e *env, w *resolvedWallet
 			if s.LoanBalance.Cmp(repay.Transfer) < 0 {
 				return nil, output.Errorf(output.CodeInsufficientBalance, "agent holds %s %s, repay needs %s%s", formatUnits(s.LoanBalance, s.LoanDecimals), s.LoanSymbol, formatUnits(repay.Transfer, s.LoanDecimals), fundingHint(t.chain, mp.LoanToken.Hex()))
 			}
-			calls = append(calls, lending.Approve(mp.LoanToken, d.GeneralAdapter1, s.LoanAllowance, repay.Transfer)...)
+			calls = append(calls, want.Allow(mp.LoanToken, d.GeneralAdapter1, s.LoanAllowance, repay.Transfer)...)
 			want.Pull(mp.LoanToken, repay.Transfer).Repaid(id)
 		}
 		if req.withdraw != "" {
@@ -283,6 +283,7 @@ func (a *App) morphoBorrowPrepare(ctx context.Context, e *env, w *resolvedWallet
 		return nil, err
 	}
 	plan.Risk = &after
+	plan.Guard = lending.NewGuard(s.Position.Collateral, debt, coll, newDebt, e.cmd.Bool("accept-high-risk"))
 	preview["risk"] = riskPreview(before, after)
 	return a.sealLending(e, w, kindBorrow, plan, calls, want, mp.LoanToken.Hex(), req.action(), preview)
 }
@@ -294,7 +295,7 @@ func eulerMarket(ctx context.Context, e *env, t lendingTarget, cv, bv common.Add
 	}
 	for _, m := range markets {
 		if strings.EqualFold(m.CollateralVaultAddress, cv.Hex()) && strings.EqualFold(m.BorrowVaultAddress, bv.Hex()) {
-			if !onchain.ValidAddress(m.CollateralAssetAddress) || !onchain.ValidAddress(m.BorrowAssetAddress) {
+			if !onchain.ValidAddress(m.CollateralAssetAddress) || !onchain.ValidAddress(m.BorrowAssetAddress) || !validDecimals(int(m.CollateralAssetDecimals)) || !validDecimals(int(m.BorrowAssetDecimals)) {
 				return nil, output.Errorf(output.CodeUpstream, "Euler market has invalid asset metadata")
 			}
 			return m, nil
@@ -369,77 +370,78 @@ func (a *App) eulerBorrowPrepare(ctx context.Context, e *env, w *resolvedWallet,
 			if !strings.EqualFold(resp.SubAccountAddress, lending.SubAccount(owner, sub).Hex()) {
 				return nil, output.Errorf(output.CodePayloadMismatch, "backend sub-account differs from the requested index")
 			}
-			calls, err = eulerSteps(t, resp.NeedsApproval, resp.ApproveTx, resp.BorrowTx)
+			calls, err = eulerSteps(t, want, addr(m.CollateralAssetAddress), cv, supply, resp.NeedsApproval, resp.ApproveTx, resp.BorrowTx)
 		} else {
 			// Collateral only: deposit into the sub-account and enable it.
 			var resp v2.BuildLendingDepositResponse
 			if err = c.Lending(ctx, "BuildLendingDeposit", &v2.BuildLendingDepositRequest{Chain: t.caip2(), UserAddress: w.agent, VaultAddress: cv.Hex(), Amount: supplyText, SubAccountIndex: uint32(sub), EnableAsCollateral: true}, &resp, false); err != nil {
 				return nil, apiError(err, "BuildLendingDeposit")
 			}
-			calls, err = eulerSteps(t, resp.NeedsApproval, resp.ApproveTx, resp.DepositTx)
+			calls, err = eulerSteps(t, want, addr(m.CollateralAssetAddress), cv, supply, resp.NeedsApproval, resp.ApproveTx, resp.DepositTx)
 		}
 		if err != nil {
 			return nil, output.Wrap(output.CodePayloadMismatch, err, "Euler borrow transaction")
 		}
 	} else {
 		repReq := &v2.BuildLendingRepayRequest{Chain: t.caip2(), UserAddress: w.agent, BorrowVaultAddress: bv.Hex(), SubAccountIndex: uint32(sub)}
-		if req.repay == "" {
-			return nil, output.Errorf(output.CodeUsage, "Euler collateral withdrawal is part of a repay; pass --repay (or --close)")
-		}
-		if debt.Sign() == 0 {
+		var approveCap *big.Int
+		if req.repay != "" && debt.Sign() == 0 {
 			return nil, output.Errorf(output.CodeInvalidArgument, "position has no debt to repay")
 		}
-		if isMaxAmount(req.repay) {
-			repReq.RepayAmount = "max"
-			newDebt.SetInt64(0)
-			want.Vault(bv, "repay", gmath.MaxBig256).Flag("vault:" + strings.ToLower(bv.Hex()) + ":disableController")
-			preview["repay"] = rawToUnits(pos.DebtAssets, ld) + " (max)"
+		if req.repay == "" {
+			// Collateral only (e.g. after a separate full repay).
+			amountText, err := eulerCollateralWithdraw(want, preview, &pos, cv, cd, coll, newColl, req.withdraw)
+			if err != nil {
+				return nil, err
+			}
+			var resp v2.BuildLendingWithdrawResponse
+			if err = c.Lending(ctx, "BuildLendingWithdraw", &v2.BuildLendingWithdrawRequest{Chain: t.caip2(), UserAddress: w.agent, VaultAddress: cv.Hex(), Amount: amountText, SubAccountIndex: uint32(sub)}, &resp, false); err != nil {
+				return nil, apiError(err, "BuildLendingWithdraw")
+			}
+			call, err := lendingTx(resp.WithdrawTx, t)
+			if err != nil {
+				return nil, output.Wrap(output.CodePayloadMismatch, err, "BuildLendingWithdraw")
+			}
+			calls = []lending.Call{call}
 		} else {
-			amt, aerr := lendingAmount(req.repay, ld, "--repay")
-			if aerr != nil {
-				return nil, aerr
-			}
-			if amt.Cmp(debt) >= 0 {
-				return nil, output.Errorf(output.CodeInvalidArgument, "repay %s covers the whole debt; use --repay max", req.repay)
-			}
-			repReq.RepayAmount = req.repay
-			newDebt.Sub(newDebt, amt)
-			want.Vault(bv, "repay", amt)
-			preview["repay"] = req.repay
-		}
-		if req.withdraw != "" {
-			cvHex := cv.Hex()
-			repReq.CollateralVaultAddress = &cvHex
-			var withdrawText string
-			if isMaxAmount(req.withdraw) {
-				withdrawText = "max"
-				shares, okS := new(big.Int).SetString(pos.CollateralShares, 10)
-				if !okS || shares.Sign() == 0 {
-					return nil, output.Errorf(output.CodeInvalidArgument, "position has no collateral to withdraw")
-				}
-				newColl.SetInt64(0)
-				want.Vault(cv, "redeem", shares)
+			if isMaxAmount(req.repay) {
+				repReq.RepayAmount = "max"
+				// The backend approves the debt plus a 2% accrual margin.
+				approveCap = new(big.Int).Add(debt, new(big.Int).Div(debt, big.NewInt(50)))
+				approveCap.Add(approveCap, big.NewInt(2))
+				newDebt.SetInt64(0)
+				want.Vault(bv, "repay", gmath.MaxBig256).Flag("vault:" + strings.ToLower(bv.Hex()) + ":disableController")
+				preview["repay"] = rawToUnits(pos.DebtAssets, ld) + " (max)"
 			} else {
-				amt, aerr := lendingAmount(req.withdraw, cd, "--withdraw-collateral")
+				amt, aerr := lendingAmount(req.repay, ld, "--repay")
 				if aerr != nil {
 					return nil, aerr
 				}
-				if amt.Cmp(coll) > 0 {
-					return nil, output.Errorf(output.CodeInvalidArgument, "withdraw exceeds the collateral (%s)", rawToUnits(pos.CollateralAssets, cd))
+				if amt.Cmp(debt) >= 0 {
+					return nil, output.Errorf(output.CodeInvalidArgument, "repay %s covers the whole debt; use --repay max", req.repay)
 				}
-				withdrawText = req.withdraw
-				newColl.Sub(newColl, amt)
-				want.Vault(cv, "withdraw", amt)
+				repReq.RepayAmount = req.repay
+				approveCap = amt
+				newDebt.Sub(newDebt, amt)
+				want.Vault(bv, "repay", amt)
+				preview["repay"] = req.repay
 			}
-			repReq.WithdrawCollateralAmount = &withdrawText
-			preview["withdraw_collateral"] = withdrawText
-		}
-		var resp v2.BuildLendingRepayResponse
-		if err = c.Lending(ctx, "BuildLendingRepay", repReq, &resp, false); err != nil {
-			return nil, apiError(err, "BuildLendingRepay")
-		}
-		if calls, err = eulerSteps(t, resp.NeedsApproval, resp.ApproveTx, resp.RepayTx); err != nil {
-			return nil, output.Wrap(output.CodePayloadMismatch, err, "BuildLendingRepay")
+			if req.withdraw != "" {
+				cvHex := cv.Hex()
+				repReq.CollateralVaultAddress = &cvHex
+				withdrawText, err := eulerCollateralWithdraw(want, preview, &pos, cv, cd, coll, newColl, req.withdraw)
+				if err != nil {
+					return nil, err
+				}
+				repReq.WithdrawCollateralAmount = &withdrawText
+			}
+			var resp v2.BuildLendingRepayResponse
+			if err = c.Lending(ctx, "BuildLendingRepay", repReq, &resp, false); err != nil {
+				return nil, apiError(err, "BuildLendingRepay")
+			}
+			if calls, err = eulerSteps(t, want, addr(m.BorrowAssetAddress), bv, approveCap, resp.NeedsApproval, resp.ApproveTx, resp.RepayTx); err != nil {
+				return nil, output.Wrap(output.CodePayloadMismatch, err, "BuildLendingRepay")
+			}
 		}
 	}
 	after, err := lending.Assess(position(newColl, newDebt))
@@ -455,8 +457,34 @@ func (a *App) eulerBorrowPrepare(ctx context.Context, e *env, w *resolvedWallet,
 		return nil, err
 	}
 	plan.Risk = &after
+	plan.Guard = lending.NewGuard(coll, debt, newColl, newDebt, e.cmd.Bool("accept-high-risk"))
 	preview["risk"] = riskPreview(before, after)
 	return a.sealLending(e, w, kindBorrow, plan, calls, want, m.BorrowAssetAddress, req.action(), preview)
+}
+
+// eulerCollateralWithdraw validates a collateral withdrawal against the
+// position, records its expected effect and returns the backend amount.
+func eulerCollateralWithdraw(want lending.Want, preview map[string]any, pos *v2.GetLendingPositionResponse, cv common.Address, cd int, coll, newColl *big.Int, withdraw string) (string, error) {
+	preview["withdraw_collateral"] = withdraw
+	if isMaxAmount(withdraw) {
+		shares, ok := new(big.Int).SetString(pos.CollateralShares, 10)
+		if !ok || shares.Sign() == 0 {
+			return "", output.Errorf(output.CodeInvalidArgument, "position has no collateral to withdraw")
+		}
+		newColl.SetInt64(0)
+		want.Vault(cv, "redeem", shares)
+		return "max", nil
+	}
+	amt, err := lendingAmount(withdraw, cd, "--withdraw-collateral")
+	if err != nil {
+		return "", err
+	}
+	if amt.Cmp(coll) > 0 {
+		return "", output.Errorf(output.CodeInvalidArgument, "withdraw exceeds the collateral (%s)", rawToUnits(pos.CollateralAssets, cd))
+	}
+	newColl.Sub(newColl, amt)
+	want.Vault(cv, "withdraw", amt)
+	return withdraw, nil
 }
 
 func (a *App) cmdBorrowSubmit(e *env) (*result, error) {

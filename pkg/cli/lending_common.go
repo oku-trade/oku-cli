@@ -2,18 +2,18 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/oku-trade/oku-cli/pkg/config"
 	"github.com/oku-trade/oku-cli/pkg/lending"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
@@ -71,25 +71,19 @@ func lendingTargetFlags() []urfave.Flag {
 
 // The Morpho indexer endpoint is the one the Oku web app is configured
 // with. It is discovered from the web app's public runtime config (the same
-// origin `wallet fund` links to, OKU_WEB_URL), or set with OKU_MORPHO_API_URL.
+// origin `wallet fund` links to), unless config overrides it.
 var sapURLPattern = regexp.MustCompile(`SapRpc\s*:\s*\{[^}]*?url\s*:\s*["']([^"']+)["']`)
 
 func (a *App) morphoIndexer(ctx context.Context) (lending.SAP, error) {
 	ua := "oku-cli/" + a.Version
-	if v := strings.TrimSpace(a.Getenv("OKU_MORPHO_API_URL")); v != "" {
-		if err := httpsOrigin(v); err != nil {
-			return lending.SAP{}, output.Wrap(output.CodeConfigError, err, "OKU_MORPHO_API_URL")
-		}
-		return lending.SAP{URL: v, UserAgent: ua}, nil
+	cfg, err := config.LoadLendingEndpoints(a.Getenv)
+	if err != nil {
+		return lending.SAP{}, output.Wrap(output.CodeConfigError, err, "lending endpoints")
 	}
-	base := strings.TrimRight(a.Getenv("OKU_WEB_URL"), "/")
-	if base == "" {
-		base = "https://oku.trade"
+	if cfg.MorphoIndexer != nil {
+		return lending.SAP{URL: cfg.MorphoIndexer.String(), UserAgent: ua}, nil
 	}
-	if err := httpsOrigin(base); err != nil {
-		return lending.SAP{}, output.Wrap(output.CodeConfigError, err, "OKU_WEB_URL")
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/config.js", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cfg.WebOrigin.JoinPath("config.js").String(), nil)
 	if err != nil {
 		return lending.SAP{}, err
 	}
@@ -108,18 +102,10 @@ func (a *App) morphoIndexer(ctx context.Context) (lending.SAP, error) {
 	if m == nil {
 		return lending.SAP{}, output.Errorf(output.CodeUpstream, "Oku web config has no Morpho indexer; set OKU_MORPHO_API_URL")
 	}
-	if err = httpsOrigin(string(m[1])); err != nil {
+	if _, err = config.ParseHTTPSURL(string(m[1])); err != nil {
 		return lending.SAP{}, output.Wrap(output.CodeUpstream, err, "Morpho indexer URL in the Oku web config")
 	}
 	return lending.SAP{URL: string(m[1]), UserAgent: ua}, nil
-}
-
-func httpsOrigin(raw string) error {
-	u, err := url.Parse(raw)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return errors.New("must be an HTTPS URL")
-	}
-	return nil
 }
 
 // lendingAmount parses a positive decimal amount in token units.
@@ -170,10 +156,18 @@ func optPtr(p *float64) optFloat {
 
 func parseOpt(s string) optFloat {
 	v, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
-	if err != nil {
+	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
 		return optFloat{}
 	}
 	return some(v)
 }
+
+// eulerSubAccounts is every EVC sub-account index (0-255) the CLI accepts,
+// so discovery never misses a position prepare can act on.
+const eulerSubAccounts = 256
+
+// validDecimals bounds token decimals from upstream metadata before they
+// size amounts.
+func validDecimals(d int) bool { return d >= 0 && d <= 36 }
 
 func addr(s string) common.Address { return common.HexToAddress(s) }

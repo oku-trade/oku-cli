@@ -255,6 +255,25 @@ func TestEulerLoopIncrease(t *testing.T) {
 	if err := plan.Check([]Call{o}, w.Vault(l.CollateralVault, "deposit", big.NewInt(7))); err != nil {
 		t.Fatal(err)
 	}
+	w = w.Vault(l.CollateralVault, "deposit", big.NewInt(7))
+	// The same batch for another sub-account of the owner is refused.
+	plan.SubAccount = 3
+	if plan.Check([]Call{o}, w) == nil {
+		t.Fatal("batch for sub-account 2 verified under a plan for sub-account 3")
+	}
+	plan.SubAccount = 2
+	// An approval is an effect: an unexpected or unlimited one is refused.
+	appr := Approve(collTok, l.CollateralVault, new(big.Int), big.NewInt(7))
+	if plan.Check(append(appr, o), w) == nil {
+		t.Fatal("unexpected approval verified")
+	}
+	unlimited := Approve(collTok, l.CollateralVault, new(big.Int), maxUint256)
+	if plan.Check(append(unlimited, o), w.Approve(collTok, l.CollateralVault, big.NewInt(7))) == nil {
+		t.Fatal("unlimited approval verified")
+	}
+	if err := plan.Check(append(appr, o), w); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestEulerLoopDecreaseAndUnwind(t *testing.T) {
