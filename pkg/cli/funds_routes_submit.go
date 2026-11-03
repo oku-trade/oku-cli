@@ -347,38 +347,11 @@ func (a *App) cmdRouteStatus(e *env, kind string) (*result, error) {
 			}
 			return a.intentRouteStatus(e, w, r)
 		}
-		hashesBeforeStep := r.StepIndex
-		if r.ApprovalSkipped {
-			hashesBeforeStep--
-		}
-		if r.ExecutionMode == "sequential" && (r.State == "sent" || r.State == "unknown") && len(r.Hashes) > hashesBeforeStep {
-			ctx, cancel := e.requestCtx()
-			rpc := onchain.HTTPRPC{Getenv: a.Getenv}
-			status, receiptErr := rpc.Receipt(ctx, r.ChainID, r.Hashes[len(r.Hashes)-1])
-			cancel()
-			if receiptErr != nil {
-				return nil, output.Wrap(output.CodeUpstream, receiptErr, "sequential receipt")
-			}
-			if status != nil {
-				next := "failed"
-				if *status {
-					if r.StepIndex+1 < len(r.Templates) {
-						next = "sending"
-					} else {
-						next = "confirmed"
-					}
-				}
-				if err := j.AdvanceOnchain(r.ID, r.State, next, ""); err != nil {
-					return nil, err
-				}
-				r, err = j.GetOnchain(r.ID)
-				if err != nil {
-					return nil, err
-				}
-				r = a.recordSwapFill(e, j, r)
-			}
-			if r.State == "sending" {
-				return fundsResult(r), nil
+		if advanced, err := a.advanceRecordStep(e, j, r); err != nil {
+			return nil, err
+		} else if advanced != nil {
+			if advanced = a.recordSwapFill(e, j, advanced); advanced.State == "sending" {
+				return fundsResult(advanced), nil
 			}
 		}
 	}

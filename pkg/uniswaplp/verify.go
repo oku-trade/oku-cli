@@ -113,8 +113,8 @@ func verifyApproval(d Deployment, required map[common.Address]*big.Int, to commo
 	}
 	switch d.Version {
 	case V3:
-		if spender != d.Manager || amount.Cmp(need) != 0 {
-			return errors.New("v3 approval must be the exact deposit to the position manager")
+		if spender != d.Manager || amount.Sign() != 0 && amount.Cmp(need) != 0 {
+			return errors.New("v3 approval must reset or be the exact deposit to the position manager")
 		}
 	case V4:
 		if spender != d.Permit2 || amount.Sign() != 0 && amount.Cmp(maxUint256) != 0 {

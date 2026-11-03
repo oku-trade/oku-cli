@@ -13,7 +13,9 @@ func reconcileFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.StringFlag{Name: "intent", Usage: "unresolved intent ID"}, &urfave.StringFlag{Name: "tx-hash", Usage: "recovered onchain transaction hash"}}
 }
 
-func (a *App) cmdFundsReconcile(e *env, kind string) (*result, error) {
+// cmdFundsReconcile attaches a verified recovered hash, then reports through
+// the kind's own status command.
+func (a *App) cmdFundsReconcile(e *env, kind string, status func(*env) (*result, error)) (*result, error) {
 	hash := str(e, "tx-hash")
 	if len(hash) != 66 || !strings.HasPrefix(hash, "0x") {
 		return nil, output.Errorf(output.CodeInvalidArgument, "valid --tx-hash required")
@@ -68,14 +70,17 @@ func (a *App) cmdFundsReconcile(e *env, kind string) (*result, error) {
 	}
 	unlock()
 	locked = false
-	if kind == "swap" {
-		return a.cmdSwapStatus(e)
-	}
-	return a.cmdSendStatus(e)
+	return status(e)
 }
-func (a *App) cmdSendReconcile(e *env) (*result, error)   { return a.cmdFundsReconcile(e, "send") }
-func (a *App) cmdSwapReconcile(e *env) (*result, error)   { return a.cmdFundsReconcile(e, "swap") }
-func (a *App) cmdBridgeReconcile(e *env) (*result, error) { return a.cmdFundsReconcile(e, "bridge") }
+func (a *App) cmdSendReconcile(e *env) (*result, error) {
+	return a.cmdFundsReconcile(e, "send", a.cmdSendStatus)
+}
+func (a *App) cmdSwapReconcile(e *env) (*result, error) {
+	return a.cmdFundsReconcile(e, "swap", a.cmdSwapStatus)
+}
+func (a *App) cmdBridgeReconcile(e *env) (*result, error) {
+	return a.cmdFundsReconcile(e, "bridge", a.cmdBridgeStatus)
+}
 
 // reconcileTemplateIndex returns which template a recovered hash must match
 // and how many hashes the intent needs. A sequential route whose approval was

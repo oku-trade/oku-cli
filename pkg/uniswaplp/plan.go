@@ -285,6 +285,10 @@ func Approvals(d Deployment, now int64, legs []Allowances) []Call {
 		switch d.Version {
 		case V3:
 			if l.ERC20.Cmp(l.Required) < 0 {
+				// Some tokens (USDT) revert when changing a nonzero allowance.
+				if l.ERC20.Sign() > 0 {
+					out = append(out, Call{To: token.Hex(), Data: hexData(ERC20Approve(d.Manager, new(big.Int))), Value: new(big.Int)})
+				}
 				out = append(out, Call{To: token.Hex(), Data: hexData(ERC20Approve(d.Manager, l.Required)), Value: new(big.Int)})
 			}
 		case V4:

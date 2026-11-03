@@ -144,14 +144,10 @@ func V3Increase(tokenID *big.Int, desired, min Amounts, deadline Deadline) []byt
 	return pack(v3Manager, "increaseLiquidity", v3IncreaseParams{tokenID, desired.Amount0, desired.Amount1, min.Amount0, min.Amount1, deadline.big()})
 }
 
-func v3Collect(tokenID *big.Int, recipient common.Address) []byte {
-	return pack(v3Manager, "collect", v3CollectParams{tokenID, recipient, MaxUint128, MaxUint128})
-}
-
 // V3Collect encodes collect of everything owed to recipient, like the web
 // app's claimLiquidityFees and removeLiquidity.
 func V3Collect(tokenID *big.Int, recipient common.Address) []byte {
-	return v3Collect(tokenID, recipient)
+	return pack(v3Manager, "collect", v3CollectParams{tokenID, recipient, MaxUint128, MaxUint128})
 }
 
 // V3Decrease encodes multicall([decreaseLiquidity, collect]) as the web app's
@@ -163,7 +159,7 @@ func V3Decrease(tokenID, liquidity *big.Int, min Amounts, deadline Deadline, rec
 	if liquidity.Sign() > 0 {
 		calls = append(calls, pack(v3Manager, "decreaseLiquidity", v3DecreaseParams{tokenID, liquidity, min.Amount0, min.Amount1, deadline.big()}))
 	}
-	calls = append(calls, v3Collect(tokenID, recipient))
+	calls = append(calls, V3Collect(tokenID, recipient))
 	if burn {
 		calls = append(calls, pack(v3Manager, "burn", tokenID))
 	}

@@ -194,9 +194,17 @@ func NewRange(lower, upper, spacing int) (Range, error) {
 	return Range{lower, upper}, nil
 }
 
+// sqrtBounds requires a range built by NewRange (every loader and planner
+// path validates ticks there), so a conversion failure is a broken invariant.
 func (r Range) sqrtBounds() (*big.Int, *big.Int) {
-	a, _ := SqrtRatioAtTick(r.Lower)
-	b, _ := SqrtRatioAtTick(r.Upper)
+	a, err := SqrtRatioAtTick(r.Lower)
+	if err != nil {
+		panic(fmt.Sprintf("unvalidated range lower tick: %v", err))
+	}
+	b, err := SqrtRatioAtTick(r.Upper)
+	if err != nil {
+		panic(fmt.Sprintf("unvalidated range upper tick: %v", err))
+	}
 	return a, b
 }
 

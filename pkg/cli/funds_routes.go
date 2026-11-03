@@ -392,7 +392,7 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 	amountSource := ""
 	if isMaxAmount(amountText) {
 		amountSource = "max"
-		amountText, _, err = a.resolveMaxAmount(e, chain, from, w.agent, int(decimals.Int64()), recipient)
+		amountText, _, err = a.resolveMaxAmount(e, chain, from, w.agent, int(decimals.Int64()), true, recipient)
 		if err != nil {
 			return nil, nil, routeQuote{}, err
 		}

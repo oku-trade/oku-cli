@@ -89,8 +89,8 @@ func lpRange(e *env, pool uniswaplp.Pool) (uniswaplp.Range, error) {
 			return uniswaplp.Range{}, output.Errorf(output.CodeInvalidArgument, "--range-percent must be a positive number")
 		}
 		bps := new(big.Rat).Mul(r, big.NewRat(100, 1))
-		if !bps.IsInt() {
-			return uniswaplp.Range{}, output.Errorf(output.CodeInvalidArgument, "--range-percent supports at most 2 decimals")
+		if !bps.IsInt() || bps.Cmp(big.NewRat(10000, 1)) >= 0 {
+			return uniswaplp.Range{}, output.Errorf(output.CodeInvalidArgument, "--range-percent must be below 100 with at most 2 decimals")
 		}
 		rg, err := uniswaplp.PercentRange(pool.SqrtPriceX96, int(bps.Num().Int64()), pool.TickSpacing)
 		if err != nil {
@@ -133,11 +133,32 @@ func lpRange(e *env, pool uniswaplp.Pool) (uniswaplp.Range, error) {
 // lpDepositSide resolves --amount-token to a pool side.
 func (a *App) lpDepositSide(ctx context.Context, e *env, t lpTarget, pool uniswaplp.Pool) (uniswaplp.Side, bool, error) {
 	name := strings.TrimSpace(str(e, "amount-token"))
+	var side uniswaplp.Side
 	switch strings.ToLower(name) {
-	case "token0":
-		return uniswaplp.Side0, false, nil
-	case "token1":
-		return uniswaplp.Side1, false, nil
+	case "token0", "token1":
+		side = uniswaplp.Side0
+		if strings.EqualFold(name, "token1") {
+			side = uniswaplp.Side1
+		}
+		// The pool arguments may name native for this side: honor that
+		// payment choice like naming the side's token directly.
+		addr := common.HexToAddress(pool.Token0.Address)
+		if side == uniswaplp.Side1 {
+			addr = common.HexToAddress(pool.Token1.Address)
+		}
+		for _, arg := range []string{str(e, "token0"), str(e, "token1")} {
+			if arg == "" {
+				continue
+			}
+			tok, err := a.resolveLPToken(ctx, e, t, arg)
+			if err != nil {
+				return 0, false, err
+			}
+			if tok.native && tok.addr == addr {
+				return side, t.d.Version == uniswaplp.V3, nil
+			}
+		}
+		return side, false, nil
 	case "":
 		return 0, false, output.Errorf(output.CodeInvalidArgument, "--amount-token is required: token0, token1, or a pool token")
 	}
@@ -172,7 +193,9 @@ func (a *App) lpDeposit(ctx context.Context, e *env, t lpTarget, pool uniswaplp.
 		if useNative || tok.IsNative() {
 			balanceToken = "native"
 		}
-		if text, _, err = a.resolveMaxAmount(e, t.chain, balanceToken, agent, tok.Decimals, t.d.Manager.Hex()); err != nil {
+		// The reserve is a route-sized gas floor: an LP action costs far more
+		// than a transfer, and the managers reject plain native transfers.
+		if text, _, err = a.resolveMaxAmount(e, t.chain, balanceToken, agent, tok.Decimals, true); err != nil {
 			return uniswaplp.DepositInput{}, "", err
 		}
 		source = "max"
@@ -192,19 +215,19 @@ func (a *App) lpOwnedPosition(ctx context.Context, e *env, t lpTarget, agent str
 	if err != nil {
 		return uniswaplp.Position{}, err
 	}
-	ps, err := lpLoadPositions(ctx, t, []*big.Int{id})
+	pos, err := lpLoadPosition(ctx, t, id)
 	if err != nil {
 		return uniswaplp.Position{}, err
 	}
-	if !strings.EqualFold(ps[0].Owner, agent) {
-		return uniswaplp.Position{}, output.Errorf(output.CodeInvalidArgument, "position %s is not owned by the agent", ps[0].TokenID)
+	if !strings.EqualFold(pos.Owner, agent) {
+		return uniswaplp.Position{}, output.Errorf(output.CodeInvalidArgument, "position %s is not owned by the agent", pos.TokenID)
 	}
-	return ps[0], nil
+	return pos, nil
 }
 
 func (a *App) cmdLPOpenPrepare(e *env) (*result, error) {
 	return a.lpPrepare(e, func(ctx context.Context, t lpTarget, w *resolvedWallet) (uniswaplp.Plan, string, error) {
-		pool, _, err := a.lpLoadPool(ctx, e, t)
+		pool, err := a.lpLoadPool(ctx, e, t)
 		if err != nil {
 			return uniswaplp.Plan{}, "", err
 		}
@@ -323,6 +346,9 @@ func (a *App) lpPrepare(e *env, build func(context.Context, lpTarget, *resolvedW
 	}
 	if err = uniswaplp.ReadAllowances(ctx, t.rpc, t.d, common.HexToAddress(w.agent), legs); err != nil {
 		return nil, lpReadError(err, "allowances")
+	}
+	if err = lpCheckFunds(ctx, t, w.agent, legs, action.Value); err != nil {
+		return nil, err
 	}
 	approvals := uniswaplp.Approvals(t.d, a.Now().Unix(), legs)
 	templates := make([]journal.OnchainTemplate, 0, len(approvals)+1)
@@ -519,9 +545,6 @@ func (a *App) cmdLPSubmit(e *env) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodePayloadMismatch, err, "refusing unverified liquidity transactions")
 	}
-	if r.State == "prepared" && !a.Now().Before(time.Unix(plan.Deadline, 0)) {
-		return nil, output.Errorf(output.CodeIntentState, "deadline passed; prepare a new intent")
-	}
 	unlock, err := j.LockChain(w.agent, r.ChainID)
 	if err != nil {
 		return nil, err
@@ -533,6 +556,17 @@ func (a *App) cmdLPSubmit(e *env) (*result, error) {
 	resume = r.State == "sending" && r.ExecutionMode == "sequential" && r.StepIndex > 0 && !r.StepInFlight
 	if r.Digest != str(e, "digest") || r.State != "prepared" && !resume {
 		return nil, output.Errorf(output.CodeIntentState, "intent changed while waiting for chain lock")
+	}
+	if !a.Now().Before(time.Unix(plan.Deadline, 0)) {
+		// A resume sits at a recorded boundary with nothing in flight, so
+		// closing it cannot orphan a transaction. Earlier confirmed approvals
+		// stay on chain and are reused by the next prepare.
+		if resume {
+			if err = j.AdvanceOnchain(r.ID, "sending", "failed", ""); err != nil {
+				return nil, err
+			}
+		}
+		return nil, output.Errorf(output.CodeIntentState, "deadline passed; prepare a new intent")
 	}
 	ps, walletID, err := a.agentSigner(e, w)
 	if err != nil {
@@ -603,6 +637,9 @@ func (a *App) lpExecute(ctx context.Context, j *journal.Journal, x onchain.Execu
 }
 
 func (a *App) cmdLPStatus(e *env) (*result, error) {
+	if err := a.advanceSequentialStep(e, lpKind); err != nil {
+		return nil, err
+	}
 	res, err := a.cmdFundsStatus(e, lpKind)
 	if err != nil {
 		return nil, err
@@ -619,8 +656,35 @@ func (a *App) cmdLPStatus(e *env) (*result, error) {
 }
 
 func (a *App) cmdLPReconcile(e *env) (*result, error) {
-	if _, err := a.cmdFundsReconcile(e, lpKind); err != nil {
-		return nil, err
+	return a.cmdFundsReconcile(e, lpKind, a.cmdLPStatus)
+}
+
+// lpCheckFunds refuses a deposit the agent cannot pay before anything is
+// journaled, so sequential approvals never spend gas on an unfundable action.
+func lpCheckFunds(ctx context.Context, t lpTarget, agent string, legs []uniswaplp.Allowances, value *big.Int) error {
+	tokens := make([]string, len(legs))
+	for i, l := range legs {
+		tokens[i] = l.Token
 	}
-	return a.cmdLPStatus(e)
+	if len(tokens) > 0 {
+		balances, err := t.rpc.TokenBalances(ctx, t.chain, agent, tokens)
+		if err != nil {
+			return lpReadError(err, "token balances")
+		}
+		for i, l := range legs {
+			if balances[i].Cmp(l.Required) < 0 {
+				return output.Errorf(output.CodeInsufficientBalance, "agent holds %s of %s, the deposit needs %s; nothing was journaled", balances[i], l.Token, l.Required)
+			}
+		}
+	}
+	if value.Sign() > 0 {
+		bal, err := t.rpc.Balance(ctx, t.chain, agent)
+		if err != nil {
+			return lpReadError(err, "native balance")
+		}
+		if bal.Cmp(value) < 0 {
+			return output.Errorf(output.CodeInsufficientBalance, "agent native balance %s is below the deposit value %s; nothing was journaled", bal, value)
+		}
+	}
+	return nil
 }

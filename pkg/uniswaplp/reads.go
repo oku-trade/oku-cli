@@ -312,7 +312,7 @@ func LoadV3Positions(ctx context.Context, c Caller, d Deployment, ids []*big.Int
 	for i := range poolKeys {
 		addrs[i] = addrRes[i][0].(common.Address)
 		a := addrs[i]
-		stateReads = append(stateReads, read{a, v3Pool, "slot0", nil}, read{a, v3Pool, "tickSpacing", nil}, read{a, v3Pool, "feeGrowthGlobal0X128", nil}, read{a, v3Pool, "feeGrowthGlobal1X128", nil})
+		stateReads = append(stateReads, read{a, v3Pool, "slot0", nil}, read{a, v3Pool, "tickSpacing", nil}, read{a, v3Pool, "feeGrowthGlobal0X128", nil}, read{a, v3Pool, "feeGrowthGlobal1X128", nil}, read{a, v3Pool, "liquidity", nil})
 	}
 	tickBase := len(stateReads)
 	for _, r := range raws {
@@ -326,7 +326,7 @@ func LoadV3Positions(ctx context.Context, c Caller, d Deployment, ids []*big.Int
 	out := make([]Position, len(raws))
 	for i, r := range raws {
 		pi := poolIndex[poolID{r.token0, r.token1, r.fee}]
-		slot, spacingRaw, g0, g1 := st[pi*4], st[pi*4+1], asBig(st[pi*4+2][0]), asBig(st[pi*4+3][0])
+		slot, spacingRaw, g0, g1, poolLiq := st[pi*5], st[pi*5+1], asBig(st[pi*5+2][0]), asBig(st[pi*5+3][0]), asBig(st[pi*5+4][0])
 		tick, err := asInt(slot[1])
 		if err != nil {
 			return nil, err
@@ -335,14 +335,17 @@ func LoadV3Positions(ctx context.Context, c Caller, d Deployment, ids []*big.Int
 		if err != nil {
 			return nil, err
 		}
+		rg, err := NewRange(r.tickLower, r.tickUpper, spacing)
+		if err != nil {
+			return nil, fmt.Errorf("position %s: %w", r.id, err)
+		}
 		lo, hi := st[tickBase+i*2], st[tickBase+i*2+1]
 		in0 := feeGrowthInside(tick, r.tickLower, r.tickUpper, g0, asBig(lo[2]), asBig(hi[2]))
 		in1 := feeGrowthInside(tick, r.tickLower, r.tickUpper, g1, asBig(lo[3]), asBig(hi[3]))
 		fees := UncollectedFees(r.liquidity, in0, in1, r.last0, r.last1)
 		fees.Amount0.Add(fees.Amount0, r.owed0)
 		fees.Amount1.Add(fees.Amount1, r.owed1)
-		pool := Pool{Version: V3, ChainID: d.ChainID, Address: addrs[pi].Hex(), Token0: Token{Address: r.token0.Hex()}, Token1: Token{Address: r.token1.Hex()}, Fee: r.fee, TickSpacing: spacing, SqrtPriceX96: asBig(slot[0]), Tick: tick}
-		rg := Range{r.tickLower, r.tickUpper}
+		pool := Pool{Version: V3, ChainID: d.ChainID, Address: addrs[pi].Hex(), Token0: Token{Address: r.token0.Hex()}, Token1: Token{Address: r.token1.Hex()}, Fee: r.fee, TickSpacing: spacing, SqrtPriceX96: asBig(slot[0]), Tick: tick, Liquidity: poolLiq}
 		out[i] = Position{TokenID: r.id.String(), Owner: r.owner.Hex(), Pool: pool, Range: rg, Liquidity: r.liquidity, Principal: PositionAmounts(pool.State(), rg, r.liquidity), Fees: fees}
 	}
 	return out, nil
@@ -387,17 +390,39 @@ func int24At(info *big.Int, shift uint) int {
 }
 
 // LoadV4Positions reads v4 positions by token id in a fixed number of rounds.
-func LoadV4Positions(ctx context.Context, c Caller, d Deployment, ids []*big.Int) ([]Position, error) {
+// IDs whose NFT does not exist (never minted or burned) are returned in
+// missing instead of failing the batch.
+func LoadV4Positions(ctx context.Context, c Caller, d Deployment, ids []*big.Int) (positions []Position, missing []*big.Int, err error) {
 	if len(ids) == 0 {
-		return []Position{}, nil
+		return []Position{}, nil, nil
 	}
+	owners := make([]read, len(ids))
+	for i, id := range ids {
+		owners[i] = read{d.Manager, v4, "ownerOf", []any{id}}
+	}
+	exists, err := probe(ctx, c, d.ChainID, owners)
+	if err != nil {
+		return nil, nil, err
+	}
+	var live []*big.Int
+	for i, id := range ids {
+		if exists[i] {
+			live = append(live, id)
+		} else {
+			missing = append(missing, id)
+		}
+	}
+	if len(live) == 0 {
+		return []Position{}, missing, nil
+	}
+	ids = live
 	reads := make([]read, 0, len(ids)*3)
 	for _, id := range ids {
 		reads = append(reads, read{d.Manager, v4, "getPoolAndPositionInfo", []any{id}}, read{d.Manager, v4, "getPositionLiquidity", []any{id}}, read{d.Manager, v4, "ownerOf", []any{id}})
 	}
 	res, err := batch(ctx, c, d.ChainID, reads)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	type raw struct {
 		key       PoolKey
@@ -406,35 +431,40 @@ func LoadV4Positions(ctx context.Context, c Caller, d Deployment, ids []*big.Int
 		owner     common.Address
 	}
 	raws := make([]raw, len(ids))
-	state := make([]read, 0, len(ids)*3)
+	state := make([]read, 0, len(ids)*4)
 	for i, id := range ids {
 		var key PoolKey
 		if err := abiCopy(res[i*3][0], &key); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		info := asBig(res[i*3][1])
 		if info == nil {
-			return nil, errors.New("invalid v4 position info")
+			return nil, nil, errors.New("invalid v4 position info")
 		}
-		r := raw{key: key, rg: Range{int24At(info, 8), int24At(info, 32)}, liquidity: asBig(res[i*3+1][0]), owner: res[i*3+2][0].(common.Address)}
+		rg, err := NewRange(int24At(info, 8), int24At(info, 32), int(key.TickSpacing.Int64()))
+		if err != nil {
+			return nil, nil, fmt.Errorf("position %s: %w", id, err)
+		}
+		r := raw{key: key, rg: rg, liquidity: asBig(res[i*3+1][0]), owner: res[i*3+2][0].(common.Address)}
 		raws[i] = r
 		pid := key.PoolID()
 		salt := common.BigToHash(id)
 		state = append(state,
 			read{d.StateView, v4, "getSlot0", []any{pid}},
 			read{d.StateView, v4, "getFeeGrowthInside", []any{pid, big.NewInt(int64(r.rg.Lower)), big.NewInt(int64(r.rg.Upper))}},
-			read{d.StateView, v4, "getPositionInfo", []any{pid, d.Manager, big.NewInt(int64(r.rg.Lower)), big.NewInt(int64(r.rg.Upper)), salt}})
+			read{d.StateView, v4, "getPositionInfo", []any{pid, d.Manager, big.NewInt(int64(r.rg.Lower)), big.NewInt(int64(r.rg.Upper)), salt}},
+			read{d.StateView, v4, "getLiquidity", []any{pid}})
 	}
 	st, err := batch(ctx, c, d.ChainID, state)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	out := make([]Position, len(ids))
 	for i, r := range raws {
-		slot, inside, info := st[i*3], st[i*3+1], st[i*3+2]
+		slot, inside, info, poolLiq := st[i*4], st[i*4+1], st[i*4+2], asBig(st[i*4+3][0])
 		tick, err := asInt(slot[1])
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		fees := UncollectedFees(asBig(info[0]), asBig(inside[0]), asBig(inside[1]), asBig(info[1]), asBig(info[2]))
 		hooks := ""
@@ -442,10 +472,31 @@ func LoadV4Positions(ctx context.Context, c Caller, d Deployment, ids []*big.Int
 			hooks = r.key.Hooks.Hex()
 		}
 		pool := Pool{Version: V4, ChainID: d.ChainID, PoolID: r.key.PoolID().Hex(), Token0: Token{Address: r.key.Currency0.Hex()}, Token1: Token{Address: r.key.Currency1.Hex()},
-			Fee: int(r.key.Fee.Int64()), TickSpacing: int(r.key.TickSpacing.Int64()), Hooks: hooks, SqrtPriceX96: asBig(slot[0]), Tick: tick}
+			Fee: int(r.key.Fee.Int64()), TickSpacing: int(r.key.TickSpacing.Int64()), Hooks: hooks, SqrtPriceX96: asBig(slot[0]), Tick: tick, Liquidity: poolLiq}
 		out[i] = Position{TokenID: ids[i].String(), Owner: r.owner.Hex(), Pool: pool, Range: r.rg, Liquidity: r.liquidity, Principal: PositionAmounts(pool.State(), r.rg, r.liquidity), Fees: fees}
 	}
-	return out, nil
+	return out, missing, nil
+}
+
+// probe runs reads in one round and reports which succeeded, for existence
+// checks where a revert is an expected answer rather than a failure.
+func probe(ctx context.Context, c Caller, chain uint64, reads []read) ([]bool, error) {
+	calls := make([]onchain.Call3, len(reads))
+	for i, r := range reads {
+		calls[i] = r.call()
+	}
+	res, err := c.Aggregate(ctx, chain, calls)
+	if err != nil {
+		return nil, err
+	}
+	if len(res) != len(reads) {
+		return nil, fmt.Errorf("multicall returned %d results for %d reads", len(res), len(reads))
+	}
+	ok := make([]bool, len(res))
+	for i, r := range res {
+		ok[i] = r.Success
+	}
+	return ok, nil
 }
 
 func abiCopy(v any, dst *PoolKey) error {
@@ -457,12 +508,14 @@ func abiCopy(v any, dst *PoolKey) error {
 	return nil
 }
 
-// LoadPositions dispatches on the deployment version.
-func LoadPositions(ctx context.Context, c Caller, d Deployment, ids []*big.Int) ([]Position, error) {
+// LoadPositions dispatches on the deployment version. missing lists v4 IDs
+// with no NFT; v3 reverts for a missing ID fail the read.
+func LoadPositions(ctx context.Context, c Caller, d Deployment, ids []*big.Int) ([]Position, []*big.Int, error) {
 	if d.Version == V4 {
 		return LoadV4Positions(ctx, c, d, ids)
 	}
-	return LoadV3Positions(ctx, c, d, ids)
+	ps, err := LoadV3Positions(ctx, c, d, ids)
+	return ps, nil, err
 }
 
 // TokenMeta reads symbol and decimals for every distinct non-native token in

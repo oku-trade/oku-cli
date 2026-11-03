@@ -17,7 +17,9 @@ func isMaxAmount(s string) bool { return strings.EqualFold(s, "max") || strings.
 
 // resolveMaxAmount reads the latest chain state, not indexed holdings. A native
 // reserve covers ordinary gas but cannot guarantee future fees or L2 data fees.
-func (a *App) resolveMaxAmount(e *env, chain uint64, token, wallet string, decimals int, destinations ...string) (string, *big.Int, error) {
+// contractCall floors the reserve at a route-sized gas limit for actions whose
+// calldata a plain transfer estimate badly undersizes (swaps, bridges, LP).
+func (a *App) resolveMaxAmount(e *env, chain uint64, token, wallet string, decimals int, contractCall bool, destinations ...string) (string, *big.Int, error) {
 	ctx, cancel := e.requestCtx()
 	defer cancel()
 	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
@@ -53,7 +55,7 @@ func (a *App) resolveMaxAmount(e *env, chain uint64, token, wallet string, decim
 			// Swap and bridge calldata is unknown before the quote, so a transfer
 			// estimate badly undersizes them. Floor the reserve at a route-sized
 			// gas limit priced at the current gas price.
-			if e.cmd.String("from") != "" {
+			if contractCall {
 				price, perr := rpc.GasPrice(ctx, chain)
 				if perr != nil {
 					return "", nil, output.Wrap(output.CodeUpstream, perr, "reading gas price")

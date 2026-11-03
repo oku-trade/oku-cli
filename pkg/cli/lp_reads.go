@@ -105,41 +105,41 @@ func (a *App) resolveLPToken(ctx context.Context, e *env, t lpTarget, name strin
 	return lpToken{addr: common.Address{}, native: true}, nil
 }
 
-func (a *App) lpLoadPool(ctx context.Context, e *env, t lpTarget) (uniswaplp.Pool, [2]lpToken, error) {
+func (a *App) lpLoadPool(ctx context.Context, e *env, t lpTarget) (uniswaplp.Pool, error) {
 	var toks [2]lpToken
 	for i, name := range []string{str(e, "token0"), str(e, "token1")} {
 		tok, err := a.resolveLPToken(ctx, e, t, name)
 		if err != nil {
-			return uniswaplp.Pool{}, toks, err
+			return uniswaplp.Pool{}, err
 		}
 		toks[i] = tok
 	}
 	hooks := common.Address{}
 	if h := str(e, "hooks"); h != "" {
 		if t.d.Version != uniswaplp.V4 || !onchain.ValidAddress(h) {
-			return uniswaplp.Pool{}, toks, output.Errorf(output.CodeInvalidArgument, "--hooks must be a v4 hooks contract address")
+			return uniswaplp.Pool{}, output.Errorf(output.CodeInvalidArgument, "--hooks must be a v4 hooks contract address")
 		}
 		hooks = common.HexToAddress(h)
 	}
 	spacing := e.cmd.Int("tick-spacing")
 	if spacing != 0 && t.d.Version != uniswaplp.V4 {
-		return uniswaplp.Pool{}, toks, output.Errorf(output.CodeInvalidArgument, "--tick-spacing applies to v4 only; v3 spacing follows the fee tier")
+		return uniswaplp.Pool{}, output.Errorf(output.CodeInvalidArgument, "--tick-spacing applies to v4 only; v3 spacing follows the fee tier")
 	}
 	pool, err := uniswaplp.LoadPool(ctx, t.rpc, t.d, uniswaplp.PoolQuery{Token0: toks[0].addr, Token1: toks[1].addr, Fee: e.cmd.Int("fee"), TickSpacing: spacing, Hooks: hooks})
 	if errors.Is(err, uniswaplp.ErrPoolNotFound) {
-		return pool, toks, output.Wrap(output.CodeNotFound, err, "pool")
+		return pool, output.Wrap(output.CodeNotFound, err, "pool")
 	}
 	if err != nil {
-		return pool, toks, lpReadError(err, "pool")
+		return pool, lpReadError(err, "pool")
 	}
 	meta, err := uniswaplp.TokenMeta(ctx, t.rpc, t.chain, t.d.NativeSymbol, []string{pool.Token0.Address, pool.Token1.Address})
 	if err != nil {
-		return pool, toks, lpReadError(err, "token metadata")
+		return pool, lpReadError(err, "token metadata")
 	}
 	if err = pool.Fill(meta); err != nil {
-		return pool, toks, lpReadError(err, "token metadata")
+		return pool, lpReadError(err, "token metadata")
 	}
-	return pool, toks, nil
+	return pool, nil
 }
 
 // lpReadError classifies a chain read failure. Input validation errors are
@@ -212,7 +212,7 @@ func (a *App) cmdLPPool(e *env) (*result, error) {
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
-	pool, _, err := a.lpLoadPool(ctx, e, t)
+	pool, err := a.lpLoadPool(ctx, e, t)
 	if err != nil {
 		return nil, err
 	}
@@ -271,10 +271,11 @@ func positionView(p uniswaplp.Position) lpPositionView {
 }
 
 // lpLoadPositions reads positions and fills token metadata in two rounds.
-func lpLoadPositions(ctx context.Context, t lpTarget, ids []*big.Int) ([]uniswaplp.Position, error) {
-	ps, err := uniswaplp.LoadPositions(ctx, t.rpc, t.d, ids)
+// missing lists v4 IDs that have no NFT.
+func lpLoadPositions(ctx context.Context, t lpTarget, ids []*big.Int) ([]uniswaplp.Position, []*big.Int, error) {
+	ps, missing, err := uniswaplp.LoadPositions(ctx, t.rpc, t.d, ids)
 	if err != nil {
-		return nil, lpReadError(err, "positions")
+		return nil, nil, lpReadError(err, "positions")
 	}
 	addrs := make([]string, 0, len(ps)*2)
 	for _, p := range ps {
@@ -282,14 +283,26 @@ func lpLoadPositions(ctx context.Context, t lpTarget, ids []*big.Int) ([]uniswap
 	}
 	meta, err := uniswaplp.TokenMeta(ctx, t.rpc, t.chain, t.d.NativeSymbol, addrs)
 	if err != nil {
-		return nil, lpReadError(err, "token metadata")
+		return nil, nil, lpReadError(err, "token metadata")
 	}
 	for i := range ps {
 		if err := ps[i].Pool.Fill(meta); err != nil {
-			return nil, lpReadError(err, "token metadata")
+			return nil, nil, lpReadError(err, "token metadata")
 		}
 	}
-	return ps, nil
+	return ps, missing, nil
+}
+
+// lpLoadPosition reads one position, reporting a nonexistent NFT as not found.
+func lpLoadPosition(ctx context.Context, t lpTarget, id *big.Int) (uniswaplp.Position, error) {
+	ps, missing, err := lpLoadPositions(ctx, t, []*big.Int{id})
+	if err != nil {
+		return uniswaplp.Position{}, err
+	}
+	if len(missing) > 0 || len(ps) == 0 {
+		return uniswaplp.Position{}, output.Errorf(output.CodeNotFound, "position %s does not exist", id)
+	}
+	return ps[0], nil
 }
 
 func parseTokenID(s string) (*big.Int, error) {
@@ -311,11 +324,11 @@ func (a *App) cmdLPPosition(e *env) (*result, error) {
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
-	ps, err := lpLoadPositions(ctx, t, []*big.Int{id})
+	p, err := lpLoadPosition(ctx, t, id)
 	if err != nil {
 		return nil, err
 	}
-	v := positionView(ps[0])
+	v := positionView(p)
 	return &result{data: v, human: func(w io.Writer) { printPositions(w, []lpPositionView{v}) }}, nil
 }
 
@@ -433,9 +446,12 @@ func (a *App) cmdLPList(e *env) (*result, error) {
 				}
 			}
 		}
-		ps, err := lpLoadPositions(ctx, t, ids)
+		ps, missing, err := lpLoadPositions(ctx, t, ids)
 		if err != nil {
 			return nil, err
+		}
+		for _, id := range missing {
+			warnings = append(warnings, "skipped v4 token "+id.String()+": no such position (burned or never minted)")
 		}
 		for _, p := range ps {
 			if !strings.EqualFold(p.Owner, w.agent) {

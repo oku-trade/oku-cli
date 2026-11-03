@@ -82,6 +82,31 @@ func (p *Plan) setDeposit(d Deployment, pool Pool, r Range, in DepositInput) err
 		if err != nil {
 			return err
 		}
+		// The slippage maximum is what v4 can pull, so size liquidity until
+		// the input side's maximum fits the amount offered (for native this is
+		// the value sent, which must not exceed the spendable balance).
+		for range 8 {
+			maxIn := maxes.Amount0
+			if in.Side == Side1 {
+				maxIn = maxes.Amount1
+			}
+			if maxIn.Cmp(in.Amount) <= 0 {
+				break
+			}
+			liquidity = new(big.Int).Div(new(big.Int).Mul(liquidity, in.Amount), maxIn)
+			if liquidity.Sign() <= 0 {
+				return errors.New("deposit amount too small for this range")
+			}
+			if maxes, err = V4MintMaximums(state, r, liquidity, p.SlippageBps); err != nil {
+				return err
+			}
+		}
+		if in.Side == Side0 && maxes.Amount0.Cmp(in.Amount) > 0 || in.Side == Side1 && maxes.Amount1.Cmp(in.Amount) > 0 {
+			return errors.New("could not fit the slippage maximum within the deposit amount")
+		}
+		desired = MintAmounts(state, r, liquidity)
+		p.Liquidity = liquidity.String()
+		p.Amount0, p.Amount1 = desired.Amount0.String(), desired.Amount1.String()
 		p.Limit0, p.Limit1, p.LimitKind = maxes.Amount0.String(), maxes.Amount1.String(), "max"
 		key := pool.Key()
 		if key.Currency0 == (common.Address{}) {
@@ -155,6 +180,10 @@ func PlanDecrease(d Deployment, owner common.Address, pos Position, bps int, clo
 	expected := PositionAmounts(pos.Pool.State(), pos.Range, liquidity)
 	mins := BurnMinimums(pos.Pool.SqrtPriceX96, pos.Range, liquidity, slippageBps)
 	p.Liquidity = liquidity.String()
+	// The removal also collects every uncollected fee, so expected receipts
+	// include them. Minimums stay principal-only, like the web app.
+	expected.Amount0.Add(expected.Amount0, pos.Fees.Amount0)
+	expected.Amount1.Add(expected.Amount1, pos.Fees.Amount1)
 	p.Amount0, p.Amount1 = expected.Amount0.String(), expected.Amount1.String()
 	p.Limit0, p.Limit1 = mins.Amount0.String(), mins.Amount1.String()
 	return p, nil

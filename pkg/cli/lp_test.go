@@ -23,6 +23,7 @@ const lpFakeABI = `[
 {"name":"getPool","type":"function","inputs":[{"name":"","type":"address"},{"name":"","type":"address"},{"name":"","type":"uint24"}],"outputs":[{"name":"","type":"address"}]},
 {"name":"slot0","type":"function","inputs":[],"outputs":[{"name":"sqrtPriceX96","type":"uint160"},{"name":"tick","type":"int24"},{"name":"a","type":"uint16"},{"name":"b","type":"uint16"},{"name":"c","type":"uint16"},{"name":"d","type":"uint8"},{"name":"e","type":"bool"}]},
 {"name":"tickSpacing","type":"function","inputs":[],"outputs":[{"name":"","type":"int24"}]},
+{"name":"liquidity","type":"function","inputs":[],"outputs":[{"name":"","type":"uint128"}]},
 {"name":"feeGrowthGlobal0X128","type":"function","inputs":[],"outputs":[{"name":"","type":"uint256"}]},
 {"name":"feeGrowthGlobal1X128","type":"function","inputs":[],"outputs":[{"name":"","type":"uint256"}]},
 {"name":"ticks","type":"function","inputs":[{"name":"tick","type":"int24"}],"outputs":[{"name":"a","type":"uint128"},{"name":"b","type":"int128"},{"name":"f0","type":"uint256"},{"name":"f1","type":"uint256"},{"name":"c","type":"int56"},{"name":"d","type":"uint160"},{"name":"e","type":"uint32"},{"name":"g","type":"bool"}]},
@@ -69,6 +70,8 @@ func lpChainRPC(t *testing.T, owner string, estimates *[]map[string]any) string 
 			out = []any{big.NewInt(60)}
 		case "feeGrowthGlobal0X128", "feeGrowthGlobal1X128":
 			out = []any{zero}
+		case "liquidity":
+			out = []any{big.NewInt(1000000000000000000)}
 		case "ticks":
 			out = []any{zero, zero, zero, zero, big.NewInt(0), zero, uint32(0), true}
 		case "decimals":
@@ -91,7 +94,11 @@ func lpChainRPC(t *testing.T, owner string, estimates *[]map[string]any) string 
 			Method string `json:"method"`
 			Params []any  `json:"params"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("fake RPC: decoding request: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		switch req.Method {
 		case "eth_chainId":
 			fmt.Fprint(w, `{"result":"0x1"}`)
@@ -105,7 +112,12 @@ func lpChainRPC(t *testing.T, owner string, estimates *[]map[string]any) string 
 			fmt.Fprint(w, `{"result":"0x30000"}`)
 		case "eth_call":
 			call, _ := req.Params[0].(map[string]any)
-			data, _ := hex.DecodeString(strings.TrimPrefix(call["data"].(string), "0x"))
+			data, err := hex.DecodeString(strings.TrimPrefix(call["data"].(string), "0x"))
+			if err != nil || len(data) < 4 {
+				t.Errorf("fake RPC: eth_call data %v: %v", call["data"], err)
+				http.Error(w, "bad calldata", http.StatusBadRequest)
+				return
+			}
 			args, err := parsed.Methods["aggregate3"].Inputs.Unpack(data[4:])
 			if err != nil {
 				t.Errorf("non-multicall eth_call: %v", err)
