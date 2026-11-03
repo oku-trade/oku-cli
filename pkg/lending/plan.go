@@ -24,7 +24,9 @@ type Plan struct {
 	SubAccount      uint8            `json:"sub_account,omitempty"`
 	Tokens          []common.Address `json:"tokens"`
 	Router          *common.Address  `json:"router,omitempty"` // loop swap target
-	Expect          Want             `json:"expect"`
+	// SwapPeriphery enables the Euler Swapper and SwapVerifier for loops.
+	SwapPeriphery bool `json:"swap_periphery,omitempty"`
+	Expect        Want `json:"expect"`
 	// Risk is the projected post-action position shown at prepare. It is
 	// informational and re-derived on chain at submit for borrow actions.
 	Risk *Risk `json:"risk,omitempty"`
@@ -32,7 +34,7 @@ type Plan struct {
 
 // Scope is every contract this plan may touch.
 func (p Plan) Scope() (Scope, error) {
-	s := Scope{Owner: p.Owner, Allowed: map[common.Address]bool{}}
+	s := Scope{Owner: p.Owner, Allowed: map[common.Address]bool{}, Hops: map[common.Address]bool{}}
 	switch p.Protocol {
 	case "morpho":
 		d, err := Morpho(p.Chain)
@@ -40,12 +42,22 @@ func (p Plan) Scope() (Scope, error) {
 			return s, err
 		}
 		s.Allowed[d.Morpho], s.Allowed[d.Bundler3], s.Allowed[d.GeneralAdapter1] = true, true, true
+		s.Hops[d.Bundler3], s.Hops[d.GeneralAdapter1] = true, true
 	case "euler":
 		evc, err := Euler(p.Chain)
 		if err != nil {
 			return s, err
 		}
 		s.Allowed[evc] = true
+		if p.SwapPeriphery {
+			sw, err := EulerSwapFor(p.Chain)
+			if err != nil {
+				return s, err
+			}
+			s.Swapper, s.SwapVerifier = sw.Swapper, sw.SwapVerifier
+			s.Allowed[sw.Swapper], s.Allowed[sw.SwapVerifier] = true, true
+			s.Hops[sw.Swapper] = true
+		}
 	default:
 		return s, fmt.Errorf("unknown protocol %q", p.Protocol)
 	}
@@ -58,7 +70,12 @@ func (p Plan) Scope() (Scope, error) {
 		s.Allowed[t] = true
 	}
 	if p.Router != nil {
-		s.Router = *p.Router
+		// The router is reached only through the swap legs, never directly.
+		r, err := OkuRouter(p.Chain)
+		if err != nil || r != *p.Router {
+			return s, errors.New("plan router is not the chain's Oku Router")
+		}
+		s.Router = r
 	}
 	return s, nil
 }
@@ -102,6 +119,12 @@ func (fx *Effects) Summary() map[string]string {
 	}
 	if fx.Swaps > 0 {
 		out["swaps"] = fmt.Sprint(fx.Swaps)
+	}
+	for k, v := range fx.Sold {
+		put("sell:"+strings.ToLower(k[0].Hex())+">"+strings.ToLower(k[1].Hex()), v)
+	}
+	for k, v := range fx.Bounds {
+		out[k] = v
 	}
 	if fx.FlashLoans > 0 {
 		out["flash_loans"] = fmt.Sprint(fx.FlashLoans)
@@ -158,6 +181,24 @@ func (w Want) Withdraw(id common.Hash, v *big.Int) Want { return w.set("withdraw
 
 // Repaid expects a Morpho Blue repay on the market.
 func (w Want) Repaid(id common.Hash) Want { return w.Flag("repay:" + id.Hex()) }
+
+// Sell expects router fills selling amount of sell for buy.
+func (w Want) Sell(sell, buy common.Address, amount *big.Int) Want {
+	w["swaps"] = "1"
+	return w.set("sell:"+strings.ToLower(sell.Hex())+">"+strings.ToLower(buy.Hex()), amount)
+}
+
+// Bound expects an on-chain swap bound (see Effects.Bounds).
+func (w Want) Bound(kind string, at common.Address, v *big.Int) Want {
+	w[kind+":"+strings.ToLower(at.Hex())] = v.String()
+	return w
+}
+
+// Flash expects one Morpho flash loan.
+func (w Want) Flash() Want { w["flash_loans"] = "1"; return w }
+
+// SupplyRest expects the swap surplus to be supplied as collateral.
+func (w Want) SupplyRest(id common.Hash) Want { return w.Flag("supply_rest:" + id.Hex()) }
 
 // Check derives the effects of calls under the plan's scope and requires
 // them to equal want. Prepare uses it before sealing.

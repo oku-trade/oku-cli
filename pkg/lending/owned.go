@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,6 +20,11 @@ type Scope struct {
 	// Router is the swap target a loop bundle may call with opaque calldata
 	// (the chain's Oku router). Zero disallows any swap.
 	Router common.Address
+	// Hops are bundle intermediaries that may receive tokens mid-bundle
+	// (GeneralAdapter1, Bundler3, the Euler Swapper). Swapper and
+	// SwapVerifier enable the Euler swap periphery calls.
+	Hops                  map[common.Address]bool
+	Swapper, SwapVerifier common.Address
 }
 
 // Effects sums what verified calldata does, per token or market, in raw
@@ -37,10 +43,15 @@ type Effects struct {
 	Swaps        int
 	FlashLoans   int
 	Authorizes   bool
+	// Sold sums router fills by sell and buy token; Bounds records the
+	// on-chain swap bounds (skim minimum, debt maximum, supply of the swap
+	// remainder) keyed like Summary.
+	Sold   map[[2]common.Address]*big.Int
+	Bounds map[string]string
 }
 
 func newEffects() *Effects {
-	return &Effects{Pulled: map[common.Address]*big.Int{}, Approved: map[[2]common.Address]*big.Int{}, Borrowed: map[common.Hash]*big.Int{}, Supplied: map[common.Hash]*big.Int{}, Withdrawn: map[common.Hash]*big.Int{}, Repaid: map[common.Hash]bool{}, VaultCalls: map[common.Address][]string{}, VaultAmounts: map[common.Address]map[string]*big.Int{}}
+	return &Effects{Pulled: map[common.Address]*big.Int{}, Approved: map[[2]common.Address]*big.Int{}, Borrowed: map[common.Hash]*big.Int{}, Supplied: map[common.Hash]*big.Int{}, Withdrawn: map[common.Hash]*big.Int{}, Repaid: map[common.Hash]bool{}, VaultCalls: map[common.Address][]string{}, VaultAmounts: map[common.Address]map[string]*big.Int{}, Sold: map[[2]common.Address]*big.Int{}, Bounds: map[string]string{}}
 }
 
 func (fx *Effects) vault(v common.Address, method string, amount *big.Int) {
@@ -118,7 +129,7 @@ func (s Scope) check(to common.Address, data []byte, depth int, fx *Effects) err
 	}
 	addr := func(i int) common.Address { return d.Args[i].(common.Address) }
 	amt := func(i int) *big.Int { return d.Args[i].(*big.Int) }
-	internal := func(a common.Address) bool { return s.owned(a) || depth > 0 && s.Allowed[a] }
+	internal := func(a common.Address) bool { return s.owned(a) || depth > 0 && s.Hops[a] }
 	switch d.Method {
 	case "multicall":
 		var entries []bundleEntry
@@ -128,7 +139,9 @@ func (s Scope) check(to common.Address, data []byte, depth int, fx *Effects) err
 				return errors.New("bundle entry carries native value")
 			}
 			if s.Router != (common.Address{}) && e.To == s.Router && depth > 0 {
-				fx.Swaps++ // opaque swap, bounded by the collateral supply that follows
+				if err := s.routerFill(e.Data, fx); err != nil {
+					return err
+				}
 				continue
 			}
 			if !s.Allowed[e.To] {
@@ -177,6 +190,11 @@ func (s Scope) check(to common.Address, data []byte, depth int, fx *Effects) err
 		if !s.owned(addr(2)) {
 			return errors.New("collateral is not supplied for the owner")
 		}
+		if amt(1).Cmp(maxUint256) == 0 {
+			// Supply whatever the swap delivered beyond its minimum.
+			fx.Bounds["supply_rest:"+marketID(d.Args[0]).Hex()] = "true"
+			break
+		}
 		add(fx.Supplied, marketID(d.Args[0]), amt(1))
 	case "morphoRepay":
 		if !s.owned(addr(4)) {
@@ -189,7 +207,7 @@ func (s Scope) check(to common.Address, data []byte, depth int, fx *Effects) err
 		}
 		add(fx.Borrowed, marketID(d.Args[0]), amt(1))
 	case "morphoWithdrawCollateral":
-		if !s.owned(addr(2)) {
+		if !internal(addr(2)) {
 			return errors.New("collateral receiver is not the owner")
 		}
 		add(fx.Withdrawn, marketID(d.Args[0]), amt(1))
@@ -199,11 +217,16 @@ func (s Scope) check(to common.Address, data []byte, depth int, fx *Effects) err
 		}
 		add(fx.Withdrawn, marketID(d.Args[0]), amt(1))
 	case "withdraw", "redeem":
-		if !s.owned(addr(1)) || !s.owned(addr(2)) {
+		if !internal(addr(1)) || !s.owned(addr(2)) {
 			return fmt.Errorf("%s receiver or owner is not the owner", d.Method)
 		}
 		fx.vault(to, d.Method, amt(0))
-	case "repay", "deposit", "borrow":
+	case "borrow":
+		if !internal(addr(1)) {
+			return errors.New("borrow receiver is not the owner")
+		}
+		fx.vault(to, d.Method, amt(0))
+	case "repay", "deposit":
 		// EVault calls: (amount, receiver); for repay the receiver is the debtor.
 		if !s.owned(addr(1)) {
 			return fmt.Errorf("%s account is not the owner", d.Method)
@@ -227,6 +250,90 @@ func (s Scope) check(to common.Address, data []byte, depth int, fx *Effects) err
 		}
 	case "disableController":
 		fx.vault(to, d.Method, nil)
+	default:
+		if depth > 0 && to == s.Swapper && s.Swapper != (common.Address{}) || to == s.SwapVerifier && s.SwapVerifier != (common.Address{}) {
+			return s.eulerSwap(to, d, depth, fx)
+		}
+		return fmt.Errorf("%s is not allowed in a lending transaction", d.Method)
+	}
+	return nil
+}
+
+// routerFill checks an Oku Router fill inside a bundle: it must pay a
+// bundle hop (GeneralAdapter1 or the Euler Swapper), never anyone else.
+func (s Scope) routerFill(data []byte, fx *Effects) error {
+	t, err := DecodeRouterTrade(data)
+	if err != nil {
+		return err
+	}
+	if !s.Hops[t.Recipient] || !s.Allowed[t.Sell] || !s.Allowed[t.Buy] {
+		return fmt.Errorf("router fill pays %s or trades a token outside this action", t.Recipient.Hex())
+	}
+	fx.Swaps++
+	k := [2]common.Address{t.Sell, t.Buy}
+	if fx.Sold[k] == nil {
+		fx.Sold[k] = new(big.Int)
+	}
+	fx.Sold[k].Add(fx.Sold[k], t.Amount)
+	return nil
+}
+
+// eulerSwap checks Euler Swapper and SwapVerifier calls (evk-periphery):
+// the generic handler may only call the Oku Router, and every account,
+// receiver and vault is the owner's or part of this action.
+func (s Scope) eulerSwap(to common.Address, d Decoded, depth int, fx *Effects) error {
+	addr := func(i int) common.Address { return d.Args[i].(common.Address) }
+	amt := func(i int) *big.Int { return d.Args[i].(*big.Int) }
+	vault := func(a common.Address) bool { return s.Allowed[a] && !s.Hops[a] }
+	swapper := to == s.Swapper
+	switch {
+	case swapper && d.Method == "loop:multicall":
+		for _, c := range d.Args[0].([][]byte) {
+			if err := s.check(to, c, depth+1, fx); err != nil {
+				return err
+			}
+		}
+	case swapper && d.Method == "loop:swap":
+		p := *abi.ConvertType(d.Args[0], new(swapParams)).(*swapParams)
+		if p.Handler != genericHandler || p.Mode.Sign() != 0 || !s.owned(p.Account) || !s.owned(p.AccountIn) || !vault(p.VaultIn) || !vault(p.Receiver) || !s.Allowed[p.TokenIn] || !s.Allowed[p.TokenOut] {
+			return errors.New("euler swap is not an exact-in swap for the owner")
+		}
+		args, err := genericArgs.Unpack(p.Data)
+		if err != nil {
+			return err
+		}
+		if args[0].(common.Address) != s.Router || s.Router == (common.Address{}) {
+			return errors.New("euler swap target is not the Oku Router")
+		}
+		data := args[1].([]byte)
+		t, err := DecodeRouterTrade(data)
+		if err != nil || t.Sell != p.TokenIn || t.Buy != p.TokenOut {
+			return errors.New("euler swap router fill differs from the swap")
+		}
+		return s.routerFill(data, fx)
+	case swapper && d.Method == "loop:sweep":
+		if !s.owned(addr(2)) && !vault(addr(2)) {
+			return errors.New("swapper sweep pays outside this action")
+		}
+	case swapper && d.Method == "loop:deposit":
+		if !vault(addr(1)) || !s.owned(addr(3)) {
+			return errors.New("swapper deposit is not for the owner")
+		}
+	case swapper && d.Method == "loop:repay":
+		if !vault(addr(1)) || !s.owned(addr(3)) {
+			return errors.New("swapper repay is not for the owner")
+		}
+		fx.vault(addr(1), "swap_repay", amt(2))
+	case !swapper && d.Method == "loop:verifyAmountMinAndSkim":
+		if !vault(addr(0)) || !s.owned(addr(1)) {
+			return errors.New("skim is not for the owner")
+		}
+		fx.Bounds["skim_min:"+strings.ToLower(addr(0).Hex())] = amt(2).String()
+	case !swapper && d.Method == "loop:verifyDebtMax":
+		if !vault(addr(0)) || !s.owned(addr(1)) {
+			return errors.New("debt check is not for the owner")
+		}
+		fx.Bounds["debt_max:"+strings.ToLower(addr(0).Hex())] = amt(2).String()
 	default:
 		return fmt.Errorf("%s is not allowed in a lending transaction", d.Method)
 	}

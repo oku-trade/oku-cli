@@ -23,8 +23,12 @@ func Decode(to common.Address, data []byte) (Decoded, error) {
 		return Decoded{}, errors.New("calldata too short")
 	}
 	m, err := morphoABI.MethodById(data[:4])
+	prefix := ""
 	if err != nil {
-		return Decoded{}, fmt.Errorf("unknown call 0x%x to %s", data[:4], to.Hex())
+		if m, err = loopABI.MethodById(data[:4]); err != nil {
+			return Decoded{}, fmt.Errorf("unknown call 0x%x to %s", data[:4], to.Hex())
+		}
+		prefix = "loop:"
 	}
 	args, err := m.Inputs.Unpack(data[4:])
 	if err != nil {
@@ -35,7 +39,7 @@ func Decode(to common.Address, data []byte) (Decoded, error) {
 	if err != nil || !bytes.Equal(again, data[4:]) {
 		return Decoded{}, fmt.Errorf("%s: non-canonical calldata", m.Name)
 	}
-	return Decoded{To: to, Method: m.Name, Args: args}, nil
+	return Decoded{To: to, Method: prefix + m.Name, Args: args}, nil
 }
 
 // EVCItem is one decoded EVC batch item.
