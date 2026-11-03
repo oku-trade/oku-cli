@@ -50,16 +50,21 @@ func (d MorphoDeployment) direct(to common.Address, data []byte) bundleCall {
 	return bundleCall{To: to, Data: data, Value: new(big.Int)}
 }
 
-// LoopIncrease raises leverage on an existing (or empty) position: flash
-// borrow `borrow` loan token, swap it to collateral through the router
-// (delivered to GeneralAdapter1), supply at least the swap minimum plus any
-// surplus, then borrow `borrow` to repay the flash. The owner sends nothing.
-func (d MorphoDeployment) LoopIncrease(mp MarketParams, borrow, minBorrowSharePrice *big.Int, s Swap, owner common.Address) (Call, error) {
+// LoopIncrease raises leverage on an existing (or empty) position: pull an
+// optional deposit of collateral from the owner, flash borrow `borrow`
+// loan token, swap it to collateral through the router (delivered to
+// GeneralAdapter1), supply the deposit plus the swap minimum and then any
+// surplus, and borrow `borrow` to repay the flash. This is the backend loop
+// open when deposit > 0 and a pure leverage increase when it is zero.
+func (d MorphoDeployment) LoopIncrease(mp MarketParams, deposit, borrow, minBorrowSharePrice *big.Int, s Swap, owner common.Address) (Call, error) {
 	if borrow == nil || borrow.Sign() <= 0 || s.Trade.Amount.Cmp(borrow) != 0 {
 		return Call{}, errors.New("swap must sell exactly the borrowed amount")
 	}
 	if err := s.valid(mp.LoanToken, mp.CollateralToken, d.GeneralAdapter1); err != nil {
 		return Call{}, err
+	}
+	if deposit == nil {
+		deposit = new(big.Int)
 	}
 	surplus := d.adapter(pack("morphoSupplyCollateral", mp, maxUint256, owner, []byte{}))
 	surplus.SkipRevert = true
@@ -67,15 +72,19 @@ func (d MorphoDeployment) LoopIncrease(mp MarketParams, borrow, minBorrowSharePr
 		d.adapter(pack("erc20Transfer", mp.LoanToken, d.Bundler3, borrow)),
 		d.direct(mp.LoanToken, pack("approve", s.Router, borrow)),
 		d.direct(s.Router, s.Trade.Data),
-		d.adapter(pack("morphoSupplyCollateral", mp, s.MinOut, owner, []byte{})),
+		d.adapter(pack("morphoSupplyCollateral", mp, new(big.Int).Add(deposit, s.MinOut), owner, []byte{})),
 		surplus,
 		d.adapter(pack("morphoBorrow", mp, borrow, new(big.Int), minBorrowSharePrice, d.GeneralAdapter1)),
 	}
-	return d.bundle(
+	var outer []bundleCall
+	if deposit.Sign() > 0 {
+		outer = append(outer, d.adapter(pack("erc20TransferFrom", mp.CollateralToken, d.GeneralAdapter1, deposit)))
+	}
+	return d.bundle(append(outer,
 		d.flash(mp.LoanToken, borrow, inner),
 		d.adapter(pack("erc20Transfer", mp.LoanToken, owner, maxUint256)),
 		d.adapter(pack("erc20Transfer", mp.CollateralToken, owner, maxUint256)),
-	), nil
+	)...), nil
 }
 
 // LoopDecrease lowers leverage or closes: flash borrow r.Transfer of the
@@ -181,11 +190,12 @@ func item(to, onBehalf common.Address, data []byte) evcItem {
 	return evcItem{TargetContract: to, OnBehalfOfAccount: onBehalf, Value: new(big.Int), Data: data}
 }
 
-// Increase mirrors the backend's Transaction-scheme loop (MultiplyWithSwap)
-// without a fresh deposit: borrow to the Swapper, swap to collateral,
-// deposit it for the sub-account and skim-verify the minimum. Account and
-// vault status checks are deferred to the end of the EVC batch.
-func (l EulerLoop) Increase(borrow *big.Int, s Swap) (Call, error) {
+// Increase mirrors the backend's Transaction-scheme loop (MultiplyWithSwap):
+// deposit an optional amount from the owner into the sub-account, borrow
+// to the Swapper, swap to collateral, deposit it for the sub-account and
+// skim-verify the minimum. Account and vault status checks are deferred to
+// the end of the EVC batch.
+func (l EulerLoop) Increase(deposit, borrow *big.Int, s Swap) (Call, error) {
 	if err := l.valid(); err != nil {
 		return Call{}, err
 	}
@@ -202,13 +212,16 @@ func (l EulerLoop) Increase(borrow *big.Int, s Swap) (Call, error) {
 		packLoop("deposit", l.BorrowAsset, l.BorrowVault, swapDustMin, l.Sub),
 		packLoop("deposit", l.CollateralAsset, l.CollateralVault, swapDustMin, l.Owner),
 	})
-	return l.batch([]evcItem{
-		item(l.Swap.EVC, common.Address{}, pack("enableCollateral", l.Sub, l.CollateralVault)),
+	items := []evcItem{item(l.Swap.EVC, common.Address{}, pack("enableCollateral", l.Sub, l.CollateralVault))}
+	if deposit != nil && deposit.Sign() > 0 {
+		items = append(items, item(l.CollateralVault, l.Owner, pack("deposit", deposit, l.Sub)))
+	}
+	return l.batch(append(items,
 		item(l.Swap.EVC, common.Address{}, pack("enableController", l.Sub, l.BorrowVault)),
 		item(l.BorrowVault, l.Sub, pack("borrow", borrow, l.Swap.Swapper)),
 		item(l.Swap.Swapper, l.Sub, multi),
 		item(l.Swap.SwapVerifier, l.Sub, packLoop("verifyAmountMinAndSkim", l.CollateralVault, l.Sub, s.MinOut, new(big.Int).SetUint64(l.Deadline))),
-	}), nil
+	)), nil
 }
 
 // Decrease sells collateral to repay debt in one EVC batch with deferred

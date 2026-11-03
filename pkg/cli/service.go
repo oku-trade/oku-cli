@@ -43,6 +43,9 @@ var ServiceReads = map[string]bool{
 	"orders status": true, "orders intents": true, "fills list": true,
 	"docs list": true, "docs show": true, "docs search": true, "docs commands": true,
 	"swap orders list": true, "pnl": true,
+	"earn vaults": true, "earn positions": true, "earn prepare": true, "earn status": true,
+	"borrow markets": true, "borrow positions": true, "borrow prepare": true, "borrow status": true,
+	"loop open": true, "loop adjust": true, "loop unwind": true, "loop status": true,
 }
 
 // ServiceMutations are journal/exchange mutations a Service runs only when
@@ -54,6 +57,7 @@ var ServiceMutations = map[string]bool{
 	"send submit": true, "deposit submit": true, "swap submit": true, "send reconcile": true, "swap reconcile": true,
 	"bridge submit": true, "bridge reconcile": true, "bridge claim": true, "deposit reconcile": true,
 	"swap orders create": true, "swap orders cancel": true, "swap orders watch": true,
+	"earn submit": true, "earn reconcile": true, "borrow submit": true, "borrow reconcile": true, "loop submit": true, "loop reconcile": true,
 }
 
 // AllowMutations enables the ServiceMutations commands.

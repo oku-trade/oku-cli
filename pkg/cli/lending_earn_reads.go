@@ -155,8 +155,6 @@ func rawToUnits(raw string, decimals int) string {
 	return formatUnits(v, decimals)
 }
 
-func earnPositionsFlags() []urfave.Flag { return lendingTargetFlags() }
-
 type earnPosition struct {
 	Protocol    string `json:"protocol"`
 	Chain       uint64 `json:"chain_id"`

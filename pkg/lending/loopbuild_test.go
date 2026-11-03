@@ -95,7 +95,7 @@ func TestMorphoLoopIncrease(t *testing.T) {
 	d, mp, router, plan := morphoLoop(t)
 	borrow := big.NewInt(1_000_000_000)
 	s := Swap{Router: router, Trade: fill(t, loanTok, collTok, d.GeneralAdapter1, borrow), MinOut: big.NewInt(300_000_000_000_000_000)}
-	c, err := d.LoopIncrease(mp, borrow, big.NewInt(1), s, loopOwner)
+	c, err := d.LoopIncrease(mp, nil, borrow, big.NewInt(1), s, loopOwner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,8 +112,21 @@ func TestMorphoLoopIncrease(t *testing.T) {
 	// A fill paying anyone but the adapter is refused at build and verify.
 	bad := s
 	bad.Trade = fill(t, loanTok, collTok, common.Address{0xba, 0xd}, borrow)
-	if _, err := d.LoopIncrease(mp, borrow, big.NewInt(1), bad, loopOwner); err == nil {
+	if _, err := d.LoopIncrease(mp, nil, borrow, big.NewInt(1), bad, loopOwner); err == nil {
 		t.Fatal("built a loop paying a stranger")
+	}
+	// Open: the deposit is pulled first and supplied with the swap minimum.
+	dep := big.NewInt(1_000_000_000_000_000_000)
+	o, err := d.LoopIncrease(mp, dep, borrow, big.NewInt(1), s, loopOwner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(outline(t, o), " "); got != "erc20TransferFrom "+want {
+		t.Fatalf("open bundle %s", got)
+	}
+	ow := Want{}.Pull(collTok, dep).Borrow(id, borrow).Supply(id, new(big.Int).Add(dep, s.MinOut)).SupplyRest(id).Sell(loanTok, collTok, borrow).Flash()
+	if err := plan.Check([]Call{o}, ow); err != nil {
+		t.Fatal(err)
 	}
 	// A plan without the router cannot carry the swap.
 	plan.Router = nil
@@ -212,7 +225,7 @@ func TestEulerLoopIncrease(t *testing.T) {
 	l, plan, router := eulerLoop(t)
 	borrow := big.NewInt(1_000_000)
 	s := Swap{Router: router, Trade: fill(t, loanTok, collTok, l.Swap.Swapper, borrow), MinOut: big.NewInt(42)}
-	c, err := l.Increase(borrow, s)
+	c, err := l.Increase(nil, borrow, s)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,6 +242,18 @@ func TestEulerLoopIncrease(t *testing.T) {
 	plan.SwapPeriphery = false
 	if plan.Check([]Call{c}, w) == nil {
 		t.Fatal("swapper verified without the periphery in scope")
+	}
+	plan.SwapPeriphery = true
+	// Open with a deposit from the owner into the sub-account.
+	o, err := l.Increase(big.NewInt(7), borrow, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(evcOutline(t, o, l.Swap.EVC), " "); got != "enableCollateral deposit enableController borrow loop:multicall { loop:swap loop:sweep loop:deposit loop:deposit } loop:verifyAmountMinAndSkim" {
+		t.Fatalf("open batch %s", got)
+	}
+	if err := plan.Check([]Call{o}, w.Vault(l.CollateralVault, "deposit", big.NewInt(7))); err != nil {
+		t.Fatal(err)
 	}
 }
 

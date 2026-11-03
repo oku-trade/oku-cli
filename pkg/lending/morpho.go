@@ -355,10 +355,16 @@ func MinBorrowSharePrice(borrow *big.Int, m MarketState, slippage *big.Int) (*bi
 }
 
 // MaxRepaySharePrice mirrors computeMaxRepaySharePrice on an accrued market.
+// Pass repayShares > 0 for shares mode (repayAssets is then ignored).
 func MaxRepaySharePrice(repayAssets, repayShares *big.Int, m MarketState, slippage *big.Int) (*big.Int, error) {
-	assets, shares := repayAssets, toSharesDown(repayAssets, m.TotalBorrowAssets, m.TotalBorrowShares)
-	if repayShares != nil && repayShares.Sign() > 0 {
+	var assets, shares *big.Int
+	switch {
+	case repayShares != nil && repayShares.Sign() > 0:
 		assets, shares = m.ToBorrowAssetsUp(repayShares), repayShares
+	case repayAssets != nil && repayAssets.Sign() > 0:
+		assets, shares = repayAssets, toSharesDown(repayAssets, m.TotalBorrowAssets, m.TotalBorrowShares)
+	default:
+		return nil, errNonPositive
 	}
 	if shares.Sign() == 0 {
 		return nil, errZeroShares

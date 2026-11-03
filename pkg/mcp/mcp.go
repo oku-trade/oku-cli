@@ -74,6 +74,10 @@ var (
 		"send prepare": true, "send status": true,
 		"deposit prepare": true, "deposit status": true,
 		"swap orders list": true, "swap pnl": true, "pnl": true,
+		// Lending reads and prepares: prepare only journals a verified intent.
+		"earn vaults": true, "earn positions": true, "earn prepare": true, "earn status": true,
+		"borrow markets": true, "borrow positions": true, "borrow prepare": true, "borrow status": true,
+		"loop open": true, "loop adjust": true, "loop unwind": true, "loop status": true,
 	}
 	// docs are served as resources; tool exposure of docs commands is
 	// intentionally omitted.
@@ -87,6 +91,8 @@ var (
 		"deposit submit": true,
 		// Client-side swap exits: watch sells through swap prepare and submit.
 		"swap orders create": true, "swap orders cancel": true, "swap orders watch": true,
+		// Lending: these sign and broadcast with Privy.
+		"earn submit": true, "earn reconcile": true, "borrow submit": true, "borrow reconcile": true, "loop submit": true, "loop reconcile": true,
 	}
 	// positional names commands take as arguments instead of options.
 	positional = map[string][]Option{
