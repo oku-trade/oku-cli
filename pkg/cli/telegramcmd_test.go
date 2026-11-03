@@ -41,9 +41,9 @@ func writeTGConfig(t *testing.T, f *config.File) {
 
 func tgProfiles() map[string]*config.Profile {
 	return map[string]*config.Profile{
-		"main":  {Network: config.NetworkMainnet, APIURL: config.StagingAPIURL, Account: "0x1111111111111111111111111111111111111111"},
-		"other": {Network: config.NetworkMainnet, APIURL: config.StagingAPIURL, Account: "0x2222222222222222222222222222222222222222"},
-		"bare":  {Network: config.NetworkMainnet, APIURL: config.StagingAPIURL},
+		"main":  {Network: config.NetworkMainnet, APIURL: config.DefaultAPIURL, Account: "0x1111111111111111111111111111111111111111"},
+		"other": {Network: config.NetworkMainnet, APIURL: config.DefaultAPIURL, Account: "0x2222222222222222222222222222222222222222"},
+		"bare":  {Network: config.NetworkMainnet, APIURL: config.DefaultAPIURL},
 	}
 }
 
@@ -214,15 +214,15 @@ func TestTelegramBackendPathAllowlist(t *testing.T) {
 			t.Errorf("telegram read %s is not a Service read", p)
 		}
 	}
-	if !be.Has("swap pnl") || be.Has("pnl") {
+	// The optional "pnl" read is offered because this build has the command (OKU-8613).
+	if !be.Has("swap pnl") || !be.Has("pnl") || be.Has("no such command") {
 		t.Fatal("Has does not reflect the command table")
 	}
+	// Optional reads are never in the always-allowed set. Whether one is callable depends on the command
+	// existing in this build, which TestTelegramBackendOptionalReadWhenCommandExists covers.
 	for _, p := range TelegramOptionalReads {
 		if telegramPaths[p] {
 			t.Errorf("optional read %s is also always allowed", p)
-		}
-		if _, err := be.Call(context.Background(), p, map[string]any{}, nil); output.As(err).Code != output.CodeUsage || reached[p] {
-			t.Errorf("optional read %s reachable without the command: %v", p, err)
 		}
 	}
 }
