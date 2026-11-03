@@ -96,7 +96,8 @@ const marketParamsJSON = `{"name":"marketParams","type":"tuple","components":[{"
 const marketJSON = `{"name":"market","type":"tuple","components":[{"name":"totalSupplyAssets","type":"uint128"},{"name":"totalSupplyShares","type":"uint128"},{"name":"totalBorrowAssets","type":"uint128"},{"name":"totalBorrowShares","type":"uint128"},{"name":"lastUpdate","type":"uint128"},{"name":"fee","type":"uint128"}]}`
 
 // morphoABI covers Bundler3, GeneralAdapter1, Morpho Blue, ERC-4626 vaults,
-// ERC-20 and the IRM view the builders and readers use.
+// ERC-20, the IRM view, and the Euler EVC and EVault calls the backend
+// builds, so one decoder checks every lending call (check.go).
 var morphoABI = func() abi.ABI {
 	a, err := abi.JSON(strings.NewReader(`[
 {"type":"function","name":"multicall","inputs":[{"name":"bundle","type":"tuple[]","components":[{"name":"to","type":"address"},{"name":"data","type":"bytes"},{"name":"value","type":"uint256"},{"name":"skipRevert","type":"bool"},{"name":"callbackHash","type":"bytes32"}]}],"outputs":[]},
@@ -122,7 +123,16 @@ var morphoABI = func() abi.ABI {
 {"type":"function","name":"asset","inputs":[],"outputs":[{"type":"address"}]},
 {"type":"function","name":"balanceOf","inputs":[{"type":"address"}],"outputs":[{"type":"uint256"}]},
 {"type":"function","name":"allowance","inputs":[{"type":"address"},{"type":"address"}],"outputs":[{"type":"uint256"}]},
-{"type":"function","name":"approve","inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[{"type":"bool"}]}
+{"type":"function","name":"approve","inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[{"type":"bool"}]},
+{"type":"function","name":"morphoFlashLoan","inputs":[{"name":"token","type":"address"},{"name":"assets","type":"uint256"},{"name":"data","type":"bytes"}],"outputs":[]},
+{"type":"function","name":"batch","inputs":[{"name":"items","type":"tuple[]","components":[{"name":"targetContract","type":"address"},{"name":"onBehalfOfAccount","type":"address"},{"name":"value","type":"uint256"},{"name":"data","type":"bytes"}]}],"outputs":[]},
+{"type":"function","name":"enableCollateral","inputs":[{"name":"account","type":"address"},{"name":"vault","type":"address"}],"outputs":[]},
+{"type":"function","name":"enableController","inputs":[{"name":"account","type":"address"},{"name":"vault","type":"address"}],"outputs":[]},
+{"type":"function","name":"disableController","inputs":[],"outputs":[]},
+{"type":"function","name":"deposit","inputs":[{"name":"assets","type":"uint256"},{"name":"receiver","type":"address"}],"outputs":[{"type":"uint256"}]},
+{"type":"function","name":"borrow","inputs":[{"name":"assets","type":"uint256"},{"name":"receiver","type":"address"}],"outputs":[{"type":"uint256"}]},
+{"type":"function","name":"repay","inputs":[{"name":"assets","type":"uint256"},{"name":"receiver","type":"address"}],"outputs":[{"type":"uint256"}]},
+{"type":"function","name":"debtOf","inputs":[{"type":"address"}],"outputs":[{"type":"uint256"}]}
 ]`))
 	if err != nil {
 		panic(err)

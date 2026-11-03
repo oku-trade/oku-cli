@@ -27,6 +27,7 @@ type OnchainIntent struct {
 	ResolvedAmount string            `json:"resolved_amount,omitempty"`
 	AmountSource   string            `json:"amount_source,omitempty"`
 	Templates      []OnchainTemplate `json:"templates"`
+	Lending        json.RawMessage   `json:"lending,omitempty"` // earn/borrow/loop plan, digest-bound
 	OrderID        string            `json:"order_id,omitempty"`
 	ParentIntent   string            `json:"parent_intent,omitempty"`
 	QuoteID        string            `json:"quote_id,omitempty"`

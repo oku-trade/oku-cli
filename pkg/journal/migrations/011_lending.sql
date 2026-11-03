@@ -1,9 +1,10 @@
 -- +goose Up
 -- Lending intents: earn (vault deposit/withdraw), borrow (Morpho Blue and
 -- Euler collateral/debt actions) and loop (leveraged open via the backend).
+-- 'lp' is listed so this applies the same whether or not 010_lp ran first.
 CREATE TABLE onchain_intents_new (
  profile TEXT NOT NULL, intent_id TEXT NOT NULL, agent TEXT NOT NULL,
- kind TEXT NOT NULL CHECK(kind IN ('send','deposit','swap','bridge','claim','earn','borrow','loop')),
+ kind TEXT NOT NULL CHECK(kind IN ('send','deposit','swap','bridge','claim','lp','earn','borrow','loop')),
  chain_id INTEGER NOT NULL, sender TEXT NOT NULL, recipient TEXT NOT NULL,
  token TEXT NOT NULL, amount TEXT NOT NULL, digest TEXT NOT NULL,
  intent_json TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('prepared','sending','sent','confirmed','failed','unknown','submitted')),
@@ -23,7 +24,7 @@ CREATE UNIQUE INDEX onchain_claim_parent ON onchain_intents(profile,json_extract
 -- +goose Down
 CREATE TABLE onchain_intents_old (
  profile TEXT NOT NULL, intent_id TEXT NOT NULL, agent TEXT NOT NULL,
- kind TEXT NOT NULL CHECK(kind IN ('send','deposit','swap','bridge','claim')),
+ kind TEXT NOT NULL CHECK(kind IN ('send','deposit','swap','bridge','claim','lp')),
  chain_id INTEGER NOT NULL, sender TEXT NOT NULL, recipient TEXT NOT NULL,
  token TEXT NOT NULL, amount TEXT NOT NULL, digest TEXT NOT NULL,
  intent_json TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('prepared','sending','sent','confirmed','failed','unknown','submitted')),

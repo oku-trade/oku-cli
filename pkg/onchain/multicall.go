@@ -32,27 +32,24 @@ type TokenMetadata struct {
 	Balance  *big.Int
 }
 
-// RawCall is one Multicall3 aggregate3 entry; failures are allowed and
-// reported per call.
-type RawCall struct {
+// Call3 is one read in an Aggregate batch. A failed call is reported in its
+// result rather than failing the batch.
+type Call3 struct {
 	Target string
 	Data   []byte
 }
 
-// RawResult is one aggregate3 result.
-type RawResult struct {
+// Result3 is the outcome of one Call3.
+type Result3 struct {
 	Success bool
 	Data    []byte
 }
 
-// Aggregate runs every call in one Multicall3 aggregate3 eth_call at latest.
-func (r HTTPRPC) Aggregate(ctx context.Context, chain uint64, calls []RawCall) ([]RawResult, error) {
+// Aggregate runs calls in one Multicall3 aggregate3 eth_call at the latest
+// block, so a batch of reads costs one RPC round trip.
+func (r HTTPRPC) Aggregate(ctx context.Context, chain uint64, calls []Call3) ([]Result3, error) {
 	if len(calls) == 0 {
-		return []RawResult{}, nil
-	}
-	contract, err := abi.JSON(strings.NewReader(aggregateABI))
-	if err != nil {
-		return nil, err
+		return []Result3{}, nil
 	}
 	inputs := make([]multicallInput, len(calls))
 	for i, c := range calls {
@@ -61,7 +58,23 @@ func (r HTTPRPC) Aggregate(ctx context.Context, chain uint64, calls []RawCall) (
 		}
 		inputs[i] = multicallInput{common.HexToAddress(c.Target), true, c.Data}
 	}
-	payload, err := contract.Pack("aggregate3", inputs)
+	rows, err := r.aggregate(ctx, chain, inputs)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Result3, len(rows))
+	for i, row := range rows {
+		out[i] = Result3{row.Success, row.ReturnData}
+	}
+	return out, nil
+}
+
+func (r HTTPRPC) aggregate(ctx context.Context, chain uint64, calls []multicallInput) ([]multicallOutput, error) {
+	contract, err := abi.JSON(strings.NewReader(aggregateABI))
+	if err != nil {
+		return nil, err
+	}
+	payload, err := contract.Pack("aggregate3", calls)
 	if err != nil {
 		return nil, err
 	}
@@ -81,11 +94,7 @@ func (r HTTPRPC) Aggregate(ctx context.Context, chain uint64, calls []RawCall) (
 	if len(*rows) != len(calls) {
 		return nil, fmt.Errorf("multicall returned %d values for %d calls", len(*rows), len(calls))
 	}
-	out := make([]RawResult, len(calls))
-	for i, row := range *rows {
-		out[i] = RawResult{row.Success, row.ReturnData}
-	}
-	return out, nil
+	return *rows, nil
 }
 
 func (r HTTPRPC) TokenDetails(ctx context.Context, chain uint64, wallet string, tokens []string) ([]TokenMetadata, error) {
@@ -95,45 +104,46 @@ func (r HTTPRPC) TokenDetails(ctx context.Context, chain uint64, wallet string, 
 	if !ValidAddress(wallet) {
 		return nil, errors.New("invalid wallet address")
 	}
-	calls := make([]RawCall, 0, len(tokens)*3)
+	calls := make([]multicallInput, 0, len(tokens)*3)
 	for _, token := range tokens {
 		if !ValidAddress(token) {
 			return nil, fmt.Errorf("invalid token address %q", token)
 		}
+		target := common.HexToAddress(token)
 		balance, _ := hex.DecodeString("70a08231" + strings.Repeat("0", 24) + strings.ToLower(wallet[2:]))
-		calls = append(calls, RawCall{token, balance}, RawCall{token, []byte{0x95, 0xd8, 0x9b, 0x41}}, RawCall{token, []byte{0x31, 0x3c, 0xe5, 0x67}})
+		calls = append(calls, multicallInput{target, true, balance}, multicallInput{target, true, []byte{0x95, 0xd8, 0x9b, 0x41}}, multicallInput{target, true, []byte{0x31, 0x3c, 0xe5, 0x67}})
 	}
-	rows, err := r.Aggregate(ctx, chain, calls)
+	rows, err := r.aggregate(ctx, chain, calls)
 	if err != nil {
 		return nil, err
 	}
 	details := make([]TokenMetadata, 0, len(tokens))
 	for i, token := range tokens {
 		bal, sym, dec := rows[i*3], rows[i*3+1], rows[i*3+2]
-		if !bal.Success || len(bal.Data) != 32 {
+		if !bal.Success || len(bal.ReturnData) != 32 {
 			return nil, fmt.Errorf("balanceOf failed for %s", token)
 		}
-		if new(big.Int).SetBytes(bal.Data).Sign() == 0 {
+		if new(big.Int).SetBytes(bal.ReturnData).Sign() == 0 {
 			continue
 		}
-		if !dec.Success || len(dec.Data) != 32 {
+		if !dec.Success || len(dec.ReturnData) != 32 {
 			return nil, fmt.Errorf("decimals failed for %s", token)
 		}
-		n := new(big.Int).SetBytes(dec.Data)
+		n := new(big.Int).SetBytes(dec.ReturnData)
 		if !n.IsInt64() || n.Int64() > 36 {
 			return nil, fmt.Errorf("invalid decimals for %s", token)
 		}
 		symbol := ""
 		if sym.Success {
-			symbol = DecodeSymbol(sym.Data)
+			symbol = DecodeSymbol(sym.ReturnData)
 		}
-		details = append(details, TokenMetadata{token, symbol, int(n.Int64()), new(big.Int).SetBytes(bal.Data)})
+		details = append(details, TokenMetadata{token, symbol, int(n.Int64()), new(big.Int).SetBytes(bal.ReturnData)})
 	}
 	return details, nil
 }
 
-// DecodeSymbol decodes an ERC-20 symbol() result, string or bytes32, and
-// returns "" for anything malformed.
+// DecodeSymbol reads an ERC-20 symbol() result, accepting both the string
+// and the legacy bytes32 encodings. Anything else decodes to "".
 func DecodeSymbol(data []byte) string {
 	symbol := ""
 	if len(data) == 32 {
