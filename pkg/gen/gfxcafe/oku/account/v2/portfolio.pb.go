@@ -23,6 +23,64 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type PositionType int32
+
+const (
+	PositionType_POSITION_TYPE_UNSPECIFIED PositionType = 0
+	PositionType_POSITION_TYPE_DEPOSIT     PositionType = 1
+	PositionType_POSITION_TYPE_REWARD      PositionType = 2
+	PositionType_POSITION_TYPE_LOCKED      PositionType = 3
+	PositionType_POSITION_TYPE_STAKED      PositionType = 4
+	PositionType_POSITION_TYPE_BORROWED    PositionType = 5
+)
+
+// Enum value maps for PositionType.
+var (
+	PositionType_name = map[int32]string{
+		0: "POSITION_TYPE_UNSPECIFIED",
+		1: "POSITION_TYPE_DEPOSIT",
+		2: "POSITION_TYPE_REWARD",
+		3: "POSITION_TYPE_LOCKED",
+		4: "POSITION_TYPE_STAKED",
+		5: "POSITION_TYPE_BORROWED",
+	}
+	PositionType_value = map[string]int32{
+		"POSITION_TYPE_UNSPECIFIED": 0,
+		"POSITION_TYPE_DEPOSIT":     1,
+		"POSITION_TYPE_REWARD":      2,
+		"POSITION_TYPE_LOCKED":      3,
+		"POSITION_TYPE_STAKED":      4,
+		"POSITION_TYPE_BORROWED":    5,
+	}
+)
+
+func (x PositionType) Enum() *PositionType {
+	p := new(PositionType)
+	*p = x
+	return p
+}
+
+func (x PositionType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PositionType) Descriptor() protoreflect.EnumDescriptor {
+	return file_gfxcafe_oku_account_v2_portfolio_proto_enumTypes[0].Descriptor()
+}
+
+func (PositionType) Type() protoreflect.EnumType {
+	return &file_gfxcafe_oku_account_v2_portfolio_proto_enumTypes[0]
+}
+
+func (x PositionType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PositionType.Descriptor instead.
+func (PositionType) EnumDescriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_portfolio_proto_rawDescGZIP(), []int{0}
+}
+
 type NetWorthChartPeriod int32
 
 const (
@@ -65,11 +123,11 @@ func (x NetWorthChartPeriod) String() string {
 }
 
 func (NetWorthChartPeriod) Descriptor() protoreflect.EnumDescriptor {
-	return file_gfxcafe_oku_account_v2_portfolio_proto_enumTypes[0].Descriptor()
+	return file_gfxcafe_oku_account_v2_portfolio_proto_enumTypes[1].Descriptor()
 }
 
 func (NetWorthChartPeriod) Type() protoreflect.EnumType {
-	return &file_gfxcafe_oku_account_v2_portfolio_proto_enumTypes[0]
+	return &file_gfxcafe_oku_account_v2_portfolio_proto_enumTypes[1]
 }
 
 func (x NetWorthChartPeriod) Number() protoreflect.EnumNumber {
@@ -78,7 +136,382 @@ func (x NetWorthChartPeriod) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use NetWorthChartPeriod.Descriptor instead.
 func (NetWorthChartPeriod) EnumDescriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_portfolio_proto_rawDescGZIP(), []int{1}
+}
+
+type GetHoldingsAndPositionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WalletAddress string                 `protobuf:"bytes,1,opt,name=wallet_address,json=walletAddress,proto3" json:"wallet_address,omitempty"`
+	Chains        []string               `protobuf:"bytes,2,rep,name=chains,proto3" json:"chains,omitempty"`
+	Refresh       bool                   `protobuf:"varint,3,opt,name=refresh,proto3" json:"refresh,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetHoldingsAndPositionsRequest) Reset() {
+	*x = GetHoldingsAndPositionsRequest{}
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetHoldingsAndPositionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetHoldingsAndPositionsRequest) ProtoMessage() {}
+
+func (x *GetHoldingsAndPositionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetHoldingsAndPositionsRequest.ProtoReflect.Descriptor instead.
+func (*GetHoldingsAndPositionsRequest) Descriptor() ([]byte, []int) {
 	return file_gfxcafe_oku_account_v2_portfolio_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *GetHoldingsAndPositionsRequest) GetWalletAddress() string {
+	if x != nil {
+		return x.WalletAddress
+	}
+	return ""
+}
+
+func (x *GetHoldingsAndPositionsRequest) GetChains() []string {
+	if x != nil {
+		return x.Chains
+	}
+	return nil
+}
+
+func (x *GetHoldingsAndPositionsRequest) GetRefresh() bool {
+	if x != nil {
+		return x.Refresh
+	}
+	return false
+}
+
+type GetHoldingsAndPositionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Chains        []*ChainPortfolio      `protobuf:"bytes,1,rep,name=chains,proto3" json:"chains,omitempty"`
+	WalletAddress string                 `protobuf:"bytes,2,opt,name=wallet_address,json=walletAddress,proto3" json:"wallet_address,omitempty"`
+	TotalValueUsd float64                `protobuf:"fixed64,3,opt,name=total_value_usd,json=totalValueUsd,proto3" json:"total_value_usd,omitempty"`
+	FetchedAtUnix int64                  `protobuf:"varint,4,opt,name=fetched_at_unix,json=fetchedAtUnix,proto3" json:"fetched_at_unix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetHoldingsAndPositionsResponse) Reset() {
+	*x = GetHoldingsAndPositionsResponse{}
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetHoldingsAndPositionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetHoldingsAndPositionsResponse) ProtoMessage() {}
+
+func (x *GetHoldingsAndPositionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetHoldingsAndPositionsResponse.ProtoReflect.Descriptor instead.
+func (*GetHoldingsAndPositionsResponse) Descriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_portfolio_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *GetHoldingsAndPositionsResponse) GetChains() []*ChainPortfolio {
+	if x != nil {
+		return x.Chains
+	}
+	return nil
+}
+
+func (x *GetHoldingsAndPositionsResponse) GetWalletAddress() string {
+	if x != nil {
+		return x.WalletAddress
+	}
+	return ""
+}
+
+func (x *GetHoldingsAndPositionsResponse) GetTotalValueUsd() float64 {
+	if x != nil {
+		return x.TotalValueUsd
+	}
+	return 0
+}
+
+func (x *GetHoldingsAndPositionsResponse) GetFetchedAtUnix() int64 {
+	if x != nil {
+		return x.FetchedAtUnix
+	}
+	return 0
+}
+
+// Holdings (field 2) are not read by the CLI and are omitted; protojson
+// discards them as unknown fields.
+type ChainPortfolio struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Chain         string                 `protobuf:"bytes,1,opt,name=chain,proto3" json:"chain,omitempty"`
+	Positions     []*Position            `protobuf:"bytes,3,rep,name=positions,proto3" json:"positions,omitempty"`
+	ValueUsd      float64                `protobuf:"fixed64,4,opt,name=value_usd,json=valueUsd,proto3" json:"value_usd,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChainPortfolio) Reset() {
+	*x = ChainPortfolio{}
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChainPortfolio) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChainPortfolio) ProtoMessage() {}
+
+func (x *ChainPortfolio) ProtoReflect() protoreflect.Message {
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChainPortfolio.ProtoReflect.Descriptor instead.
+func (*ChainPortfolio) Descriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_portfolio_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ChainPortfolio) GetChain() string {
+	if x != nil {
+		return x.Chain
+	}
+	return ""
+}
+
+func (x *ChainPortfolio) GetPositions() []*Position {
+	if x != nil {
+		return x.Positions
+	}
+	return nil
+}
+
+func (x *ChainPortfolio) GetValueUsd() float64 {
+	if x != nil {
+		return x.ValueUsd
+	}
+	return 0
+}
+
+type PositionToken struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         *TokenInfo             `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	RawAmount     string                 `protobuf:"bytes,2,opt,name=raw_amount,json=rawAmount,proto3" json:"raw_amount,omitempty"`
+	Amount        string                 `protobuf:"bytes,3,opt,name=amount,proto3" json:"amount,omitempty"`
+	ValueUsd      *float64               `protobuf:"fixed64,4,opt,name=value_usd,json=valueUsd,proto3,oneof" json:"value_usd,omitempty"`
+	PositionType  PositionType           `protobuf:"varint,5,opt,name=position_type,json=positionType,proto3,enum=gfxcafe.oku.account.v2.PositionType" json:"position_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PositionToken) Reset() {
+	*x = PositionToken{}
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PositionToken) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PositionToken) ProtoMessage() {}
+
+func (x *PositionToken) ProtoReflect() protoreflect.Message {
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PositionToken.ProtoReflect.Descriptor instead.
+func (*PositionToken) Descriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_portfolio_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *PositionToken) GetToken() *TokenInfo {
+	if x != nil {
+		return x.Token
+	}
+	return nil
+}
+
+func (x *PositionToken) GetRawAmount() string {
+	if x != nil {
+		return x.RawAmount
+	}
+	return ""
+}
+
+func (x *PositionToken) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *PositionToken) GetValueUsd() float64 {
+	if x != nil && x.ValueUsd != nil {
+		return *x.ValueUsd
+	}
+	return 0
+}
+
+func (x *PositionToken) GetPositionType() PositionType {
+	if x != nil {
+		return x.PositionType
+	}
+	return PositionType_POSITION_TYPE_UNSPECIFIED
+}
+
+type Position struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Pool            string                 `protobuf:"bytes,2,opt,name=pool,proto3" json:"pool,omitempty"`
+	PoolId          string                 `protobuf:"bytes,3,opt,name=pool_id,json=poolId,proto3" json:"pool_id,omitempty"`
+	Protocol        string                 `protobuf:"bytes,4,opt,name=protocol,proto3" json:"protocol,omitempty"`
+	ProtocolIconUrl string                 `protobuf:"bytes,5,opt,name=protocol_icon_url,json=protocolIconUrl,proto3" json:"protocol_icon_url,omitempty"`
+	ProtocolModule  string                 `protobuf:"bytes,6,opt,name=protocol_module,json=protocolModule,proto3" json:"protocol_module,omitempty"`
+	Tokens          []*PositionToken       `protobuf:"bytes,7,rep,name=tokens,proto3" json:"tokens,omitempty"`
+	ValueUsd        float64                `protobuf:"fixed64,8,opt,name=value_usd,json=valueUsd,proto3" json:"value_usd,omitempty"`
+	// ERC-721 token id of the position NFT, e.g. a Uniswap V3/V4 liquidity position.
+	RewardId      string `protobuf:"bytes,9,opt,name=reward_id,json=rewardId,proto3" json:"reward_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Position) Reset() {
+	*x = Position{}
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Position) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Position) ProtoMessage() {}
+
+func (x *Position) ProtoReflect() protoreflect.Message {
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Position.ProtoReflect.Descriptor instead.
+func (*Position) Descriptor() ([]byte, []int) {
+	return file_gfxcafe_oku_account_v2_portfolio_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Position) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Position) GetPool() string {
+	if x != nil {
+		return x.Pool
+	}
+	return ""
+}
+
+func (x *Position) GetPoolId() string {
+	if x != nil {
+		return x.PoolId
+	}
+	return ""
+}
+
+func (x *Position) GetProtocol() string {
+	if x != nil {
+		return x.Protocol
+	}
+	return ""
+}
+
+func (x *Position) GetProtocolIconUrl() string {
+	if x != nil {
+		return x.ProtocolIconUrl
+	}
+	return ""
+}
+
+func (x *Position) GetProtocolModule() string {
+	if x != nil {
+		return x.ProtocolModule
+	}
+	return ""
+}
+
+func (x *Position) GetTokens() []*PositionToken {
+	if x != nil {
+		return x.Tokens
+	}
+	return nil
+}
+
+func (x *Position) GetValueUsd() float64 {
+	if x != nil {
+		return x.ValueUsd
+	}
+	return 0
+}
+
+func (x *Position) GetRewardId() string {
+	if x != nil {
+		return x.RewardId
+	}
+	return ""
 }
 
 type GetNetWorthChartRequest struct {
@@ -92,7 +525,7 @@ type GetNetWorthChartRequest struct {
 
 func (x *GetNetWorthChartRequest) Reset() {
 	*x = GetNetWorthChartRequest{}
-	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[0]
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -104,7 +537,7 @@ func (x *GetNetWorthChartRequest) String() string {
 func (*GetNetWorthChartRequest) ProtoMessage() {}
 
 func (x *GetNetWorthChartRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[0]
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -117,7 +550,7 @@ func (x *GetNetWorthChartRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNetWorthChartRequest.ProtoReflect.Descriptor instead.
 func (*GetNetWorthChartRequest) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_portfolio_proto_rawDescGZIP(), []int{0}
+	return file_gfxcafe_oku_account_v2_portfolio_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetNetWorthChartRequest) GetWalletAddress() string {
@@ -151,7 +584,7 @@ type NetWorthChartPoint struct {
 
 func (x *NetWorthChartPoint) Reset() {
 	*x = NetWorthChartPoint{}
-	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[1]
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -163,7 +596,7 @@ func (x *NetWorthChartPoint) String() string {
 func (*NetWorthChartPoint) ProtoMessage() {}
 
 func (x *NetWorthChartPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[1]
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -176,7 +609,7 @@ func (x *NetWorthChartPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetWorthChartPoint.ProtoReflect.Descriptor instead.
 func (*NetWorthChartPoint) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_portfolio_proto_rawDescGZIP(), []int{1}
+	return file_gfxcafe_oku_account_v2_portfolio_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *NetWorthChartPoint) GetTimestampUnix() int64 {
@@ -210,7 +643,7 @@ type GetNetWorthChartResponse struct {
 
 func (x *GetNetWorthChartResponse) Reset() {
 	*x = GetNetWorthChartResponse{}
-	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[2]
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -222,7 +655,7 @@ func (x *GetNetWorthChartResponse) String() string {
 func (*GetNetWorthChartResponse) ProtoMessage() {}
 
 func (x *GetNetWorthChartResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[2]
+	mi := &file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -235,7 +668,7 @@ func (x *GetNetWorthChartResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNetWorthChartResponse.ProtoReflect.Descriptor instead.
 func (*GetNetWorthChartResponse) Descriptor() ([]byte, []int) {
-	return file_gfxcafe_oku_account_v2_portfolio_proto_rawDescGZIP(), []int{2}
+	return file_gfxcafe_oku_account_v2_portfolio_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetNetWorthChartResponse) GetWalletAddress() string {
@@ -305,7 +738,39 @@ var File_gfxcafe_oku_account_v2_portfolio_proto protoreflect.FileDescriptor
 
 const file_gfxcafe_oku_account_v2_portfolio_proto_rawDesc = "" +
 	"\n" +
-	"&gfxcafe/oku/account/v2/portfolio.proto\x12\x16gfxcafe.oku.account.v2\x1a\x1bbuf/validate/validate.proto\x1a%gfxcafe/oku/account/v1/validate.proto\"\xb6\x01\n" +
+	"&gfxcafe/oku/account/v2/portfolio.proto\x12\x16gfxcafe.oku.account.v2\x1a\x1bbuf/validate/validate.proto\x1a%gfxcafe/oku/account/v1/validate.proto\x1a\"gfxcafe/oku/account/v2/token.proto\x1a%gfxcafe/oku/account/v2/validate.proto\"\x97\x01\n" +
+	"\x1eGetHoldingsAndPositionsRequest\x122\n" +
+	"\x0ewallet_address\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xd0H\x01R\rwalletAddress\x12'\n" +
+	"\x06chains\x18\x02 \x03(\tB\x0f\xbaH\f\x92\x01\t\x10d\"\x05r\x03\xb0}\x01R\x06chains\x12\x18\n" +
+	"\arefresh\x18\x03 \x01(\bR\arefresh\"\xd8\x01\n" +
+	"\x1fGetHoldingsAndPositionsResponse\x12>\n" +
+	"\x06chains\x18\x01 \x03(\v2&.gfxcafe.oku.account.v2.ChainPortfolioR\x06chains\x12%\n" +
+	"\x0ewallet_address\x18\x02 \x01(\tR\rwalletAddress\x12&\n" +
+	"\x0ftotal_value_usd\x18\x03 \x01(\x01R\rtotalValueUsd\x12&\n" +
+	"\x0ffetched_at_unix\x18\x04 \x01(\x03R\rfetchedAtUnix\"\x83\x01\n" +
+	"\x0eChainPortfolio\x12\x14\n" +
+	"\x05chain\x18\x01 \x01(\tR\x05chain\x12>\n" +
+	"\tpositions\x18\x03 \x03(\v2 .gfxcafe.oku.account.v2.PositionR\tpositions\x12\x1b\n" +
+	"\tvalue_usd\x18\x04 \x01(\x01R\bvalueUsd\"\xfa\x01\n" +
+	"\rPositionToken\x127\n" +
+	"\x05token\x18\x01 \x01(\v2!.gfxcafe.oku.account.v2.TokenInfoR\x05token\x12\x1d\n" +
+	"\n" +
+	"raw_amount\x18\x02 \x01(\tR\trawAmount\x12\x16\n" +
+	"\x06amount\x18\x03 \x01(\tR\x06amount\x12 \n" +
+	"\tvalue_usd\x18\x04 \x01(\x01H\x00R\bvalueUsd\x88\x01\x01\x12I\n" +
+	"\rposition_type\x18\x05 \x01(\x0e2$.gfxcafe.oku.account.v2.PositionTypeR\fpositionTypeB\f\n" +
+	"\n" +
+	"_value_usd\"\xb1\x02\n" +
+	"\bPosition\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04pool\x18\x02 \x01(\tR\x04pool\x12\x17\n" +
+	"\apool_id\x18\x03 \x01(\tR\x06poolId\x12\x1a\n" +
+	"\bprotocol\x18\x04 \x01(\tR\bprotocol\x12*\n" +
+	"\x11protocol_icon_url\x18\x05 \x01(\tR\x0fprotocolIconUrl\x12'\n" +
+	"\x0fprotocol_module\x18\x06 \x01(\tR\x0eprotocolModule\x12=\n" +
+	"\x06tokens\x18\a \x03(\v2%.gfxcafe.oku.account.v2.PositionTokenR\x06tokens\x12\x1b\n" +
+	"\tvalue_usd\x18\b \x01(\x01R\bvalueUsd\x12\x1b\n" +
+	"\treward_id\x18\t \x01(\tR\brewardId\"\xb6\x01\n" +
 	"\x17GetNetWorthChartRequest\x122\n" +
 	"\x0ewallet_address\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xd0H\x01R\rwalletAddress\x12M\n" +
 	"\x06period\x18\x02 \x01(\x0e2+.gfxcafe.oku.account.v2.NetWorthChartPeriodB\b\xbaH\x05\x82\x01\x02\x10\x01R\x06period\x12\x18\n" +
@@ -323,15 +788,23 @@ const file_gfxcafe_oku_account_v2_portfolio_proto_rawDesc = "" +
 	"\x0echange_percent\x18\x06 \x01(\x01R\rchangePercent\x12#\n" +
 	"\rexcludes_defi\x18\a \x01(\bR\fexcludesDefi\x12!\n" +
 	"\fexcludes_evm\x18\b \x01(\bR\vexcludesEvm\x12%\n" +
-	"\x0eexcludes_perps\x18\t \x01(\bR\rexcludesPerps*\xe1\x01\n" +
+	"\x0eexcludes_perps\x18\t \x01(\bR\rexcludesPerps*\xb2\x01\n" +
+	"\fPositionType\x12\x1d\n" +
+	"\x19POSITION_TYPE_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15POSITION_TYPE_DEPOSIT\x10\x01\x12\x18\n" +
+	"\x14POSITION_TYPE_REWARD\x10\x02\x12\x18\n" +
+	"\x14POSITION_TYPE_LOCKED\x10\x03\x12\x18\n" +
+	"\x14POSITION_TYPE_STAKED\x10\x04\x12\x1a\n" +
+	"\x16POSITION_TYPE_BORROWED\x10\x05*\xe1\x01\n" +
 	"\x13NetWorthChartPeriod\x12&\n" +
 	"\"NET_WORTH_CHART_PERIOD_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aNET_WORTH_CHART_PERIOD_DAY\x10\x01\x12\x1f\n" +
 	"\x1bNET_WORTH_CHART_PERIOD_WEEK\x10\x02\x12 \n" +
 	"\x1cNET_WORTH_CHART_PERIOD_MONTH\x10\x03\x12\x1f\n" +
 	"\x1bNET_WORTH_CHART_PERIOD_YEAR\x10\x04\x12\x1e\n" +
-	"\x1aNET_WORTH_CHART_PERIOD_MAX\x10\x052\x89\x01\n" +
-	"\x10PortfolioService\x12u\n" +
+	"\x1aNET_WORTH_CHART_PERIOD_MAX\x10\x052\x96\x02\n" +
+	"\x10PortfolioService\x12\x8a\x01\n" +
+	"\x17GetHoldingsAndPositions\x126.gfxcafe.oku.account.v2.GetHoldingsAndPositionsRequest\x1a7.gfxcafe.oku.account.v2.GetHoldingsAndPositionsResponse\x12u\n" +
 	"\x10GetNetWorthChart\x12/.gfxcafe.oku.account.v2.GetNetWorthChartRequest\x1a0.gfxcafe.oku.account.v2.GetNetWorthChartResponseB\xee\x01\n" +
 	"\x1acom.gfxcafe.oku.account.v2B\x0ePortfolioProtoP\x01ZEgithub.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2;accountv2\xa2\x02\x03GOA\xaa\x02\x16Gfxcafe.Oku.Account.V2\xca\x02\x16Gfxcafe\\Oku\\Account\\V2\xe2\x02\"Gfxcafe\\Oku\\Account\\V2\\GPBMetadata\xea\x02\x19Gfxcafe::Oku::Account::V2b\x06proto3"
 
@@ -347,25 +820,39 @@ func file_gfxcafe_oku_account_v2_portfolio_proto_rawDescGZIP() []byte {
 	return file_gfxcafe_oku_account_v2_portfolio_proto_rawDescData
 }
 
-var file_gfxcafe_oku_account_v2_portfolio_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_gfxcafe_oku_account_v2_portfolio_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_gfxcafe_oku_account_v2_portfolio_proto_goTypes = []any{
-	(NetWorthChartPeriod)(0),         // 0: gfxcafe.oku.account.v2.NetWorthChartPeriod
-	(*GetNetWorthChartRequest)(nil),  // 1: gfxcafe.oku.account.v2.GetNetWorthChartRequest
-	(*NetWorthChartPoint)(nil),       // 2: gfxcafe.oku.account.v2.NetWorthChartPoint
-	(*GetNetWorthChartResponse)(nil), // 3: gfxcafe.oku.account.v2.GetNetWorthChartResponse
+	(PositionType)(0),                       // 0: gfxcafe.oku.account.v2.PositionType
+	(NetWorthChartPeriod)(0),                // 1: gfxcafe.oku.account.v2.NetWorthChartPeriod
+	(*GetHoldingsAndPositionsRequest)(nil),  // 2: gfxcafe.oku.account.v2.GetHoldingsAndPositionsRequest
+	(*GetHoldingsAndPositionsResponse)(nil), // 3: gfxcafe.oku.account.v2.GetHoldingsAndPositionsResponse
+	(*ChainPortfolio)(nil),                  // 4: gfxcafe.oku.account.v2.ChainPortfolio
+	(*PositionToken)(nil),                   // 5: gfxcafe.oku.account.v2.PositionToken
+	(*Position)(nil),                        // 6: gfxcafe.oku.account.v2.Position
+	(*GetNetWorthChartRequest)(nil),         // 7: gfxcafe.oku.account.v2.GetNetWorthChartRequest
+	(*NetWorthChartPoint)(nil),              // 8: gfxcafe.oku.account.v2.NetWorthChartPoint
+	(*GetNetWorthChartResponse)(nil),        // 9: gfxcafe.oku.account.v2.GetNetWorthChartResponse
+	(*TokenInfo)(nil),                       // 10: gfxcafe.oku.account.v2.TokenInfo
 }
 var file_gfxcafe_oku_account_v2_portfolio_proto_depIdxs = []int32{
-	0, // 0: gfxcafe.oku.account.v2.GetNetWorthChartRequest.period:type_name -> gfxcafe.oku.account.v2.NetWorthChartPeriod
-	0, // 1: gfxcafe.oku.account.v2.GetNetWorthChartResponse.period:type_name -> gfxcafe.oku.account.v2.NetWorthChartPeriod
-	2, // 2: gfxcafe.oku.account.v2.GetNetWorthChartResponse.points:type_name -> gfxcafe.oku.account.v2.NetWorthChartPoint
-	1, // 3: gfxcafe.oku.account.v2.PortfolioService.GetNetWorthChart:input_type -> gfxcafe.oku.account.v2.GetNetWorthChartRequest
-	3, // 4: gfxcafe.oku.account.v2.PortfolioService.GetNetWorthChart:output_type -> gfxcafe.oku.account.v2.GetNetWorthChartResponse
-	4, // [4:5] is the sub-list for method output_type
-	3, // [3:4] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	4,  // 0: gfxcafe.oku.account.v2.GetHoldingsAndPositionsResponse.chains:type_name -> gfxcafe.oku.account.v2.ChainPortfolio
+	6,  // 1: gfxcafe.oku.account.v2.ChainPortfolio.positions:type_name -> gfxcafe.oku.account.v2.Position
+	10, // 2: gfxcafe.oku.account.v2.PositionToken.token:type_name -> gfxcafe.oku.account.v2.TokenInfo
+	0,  // 3: gfxcafe.oku.account.v2.PositionToken.position_type:type_name -> gfxcafe.oku.account.v2.PositionType
+	5,  // 4: gfxcafe.oku.account.v2.Position.tokens:type_name -> gfxcafe.oku.account.v2.PositionToken
+	1,  // 5: gfxcafe.oku.account.v2.GetNetWorthChartRequest.period:type_name -> gfxcafe.oku.account.v2.NetWorthChartPeriod
+	1,  // 6: gfxcafe.oku.account.v2.GetNetWorthChartResponse.period:type_name -> gfxcafe.oku.account.v2.NetWorthChartPeriod
+	8,  // 7: gfxcafe.oku.account.v2.GetNetWorthChartResponse.points:type_name -> gfxcafe.oku.account.v2.NetWorthChartPoint
+	2,  // 8: gfxcafe.oku.account.v2.PortfolioService.GetHoldingsAndPositions:input_type -> gfxcafe.oku.account.v2.GetHoldingsAndPositionsRequest
+	7,  // 9: gfxcafe.oku.account.v2.PortfolioService.GetNetWorthChart:input_type -> gfxcafe.oku.account.v2.GetNetWorthChartRequest
+	3,  // 10: gfxcafe.oku.account.v2.PortfolioService.GetHoldingsAndPositions:output_type -> gfxcafe.oku.account.v2.GetHoldingsAndPositionsResponse
+	9,  // 11: gfxcafe.oku.account.v2.PortfolioService.GetNetWorthChart:output_type -> gfxcafe.oku.account.v2.GetNetWorthChartResponse
+	10, // [10:12] is the sub-list for method output_type
+	8,  // [8:10] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_gfxcafe_oku_account_v2_portfolio_proto_init() }
@@ -373,13 +860,16 @@ func file_gfxcafe_oku_account_v2_portfolio_proto_init() {
 	if File_gfxcafe_oku_account_v2_portfolio_proto != nil {
 		return
 	}
+	file_gfxcafe_oku_account_v2_token_proto_init()
+	file_gfxcafe_oku_account_v2_validate_proto_init()
+	file_gfxcafe_oku_account_v2_portfolio_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gfxcafe_oku_account_v2_portfolio_proto_rawDesc), len(file_gfxcafe_oku_account_v2_portfolio_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   3,
+			NumEnums:      2,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

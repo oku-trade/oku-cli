@@ -49,6 +49,7 @@ The error object has `code`, `message`, `retryable` and sometimes `execution_sta
 | Agent wallet balances, EVM sends, swaps, bridges (incl. Circle claims) and master-bound deposit steps | move-agent-funds |
 | Unknown Hyperliquid outcomes, recovery | reconcile-hyperliquid-actions |
 | Unknown onchain send/swap/deposit outcomes, recovery | move-agent-funds |
+| Uniswap v3/v4 liquidity positions, ranges, fees, LP intent recovery | provide-uniswap-liquidity |
 
 ## Agent integration
 

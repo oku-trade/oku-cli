@@ -225,7 +225,7 @@ func (x Executor) preflight(in journal.OnchainIntent, from string, err error) er
 // Every failure before a step is handed to Privy closes the intent as failed
 // and is wrapped in ErrNotBroadcast; after a handoff, ambiguity stays unknown.
 func (x Executor) Execute(ctx context.Context, in journal.OnchainIntent) error {
-	return x.executeFrom(ctx, in, 0, false)
+	return x.executeFrom(ctx, in, 0, false, false)
 }
 
 // ExecuteSequential resumes only at a durably recorded boundary. A sending
@@ -265,11 +265,22 @@ func (x Executor) ExecuteSequential(ctx context.Context, in journal.OnchainInten
 			return x.preflight(in, "sending", errors.New("sequential approval must match exact trade amount and spender"))
 		}
 	}
-	return x.executeFrom(ctx, in, start, true)
+	return x.executeFrom(ctx, in, start, true, true)
+}
+
+// ExecuteSteps runs every template in order from start, one transaction per
+// step, with the same durable per-step cursor as ExecuteSequential but no
+// approve-plus-trade shape: callers verified the full list before calling.
+// Like ExecuteSequential it resumes only at a recorded boundary.
+func (x Executor) ExecuteSteps(ctx context.Context, in journal.OnchainIntent, start int) error {
+	if start < 0 || start >= len(in.Templates) {
+		return ErrUnknown
+	}
+	return x.executeFrom(ctx, in, start, true, false)
 }
 func mustDecodeHex(s string) []byte { b, _ := hex.DecodeString(s); return b }
 
-func (x Executor) executeFrom(ctx context.Context, in journal.OnchainIntent, start int, sequential bool) error {
+func (x Executor) executeFrom(ctx context.Context, in journal.OnchainIntent, start int, sequential, skipCoveredApproval bool) error {
 	if !Allowed(in.ChainID) || !ValidAddress(in.Sender) || len(in.Templates) == 0 {
 		return x.preflight(in, "sending", errors.New("unsupported or invalid onchain intent"))
 	}
@@ -300,7 +311,7 @@ func (x Executor) executeFrom(ctx context.Context, in journal.OnchainIntent, sta
 	}
 	for i := start; i < len(in.Templates); i++ {
 		t := in.Templates[i]
-		if sequential && i == 0 && len(in.Templates) > 1 && strings.HasPrefix(strings.ToLower(t.Data), "0x095ea7b3") {
+		if skipCoveredApproval && i == 0 && len(in.Templates) > 1 && strings.HasPrefix(strings.ToLower(t.Data), "0x095ea7b3") {
 			trade := in.Templates[1]
 			allowance, err := x.allowance(ctx, in, trade)
 			if err != nil {

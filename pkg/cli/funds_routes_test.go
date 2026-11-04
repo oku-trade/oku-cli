@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/big"
@@ -238,5 +239,12 @@ func TestMispricedOnlyLossesAndClamp(t *testing.T) {
 	}
 	if lossBps(math.Inf(-1)) != -1_000_000 || lossBps(math.NaN()) != 0 {
 		t.Fatal("clamp")
+	}
+}
+
+func TestResolveRouteTokenRejectsChainOutsideInt32(t *testing.T) {
+	var a App
+	if _, err := a.resolveRouteToken(context.Background(), nil, 1<<32, "USDC"); err == nil {
+		t.Fatal("expected chain ID outside int32 range to be rejected")
 	}
 }
