@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"strings"
 	"time"
 
@@ -374,13 +375,31 @@ func (j *Journal) RelayOnchain(id, from, orderID string) error {
 
 // AdvanceOnchain is a durable transition. Hash append commits before receipt polling.
 func (j *Journal) AdvanceOnchain(id, from, to, hash string) error {
+	return j.advanceOnchain(id, from, to, hash, nil)
+}
+
+// OnchainObservation pins the hashes and step cursor a caller based a
+// decision on, so a stale observation cannot move a newer row.
+type OnchainObservation struct {
+	Hashes []string
+	Step   int
+}
+
+// AdvanceOnchainObserved is AdvanceOnchain that also conflicts unless the
+// stored hashes and step cursor still equal the observation.
+func (j *Journal) AdvanceOnchainObserved(id, from, to, hash string, seen OnchainObservation) error {
+	return j.advanceOnchain(id, from, to, hash, &seen)
+}
+
+func (j *Journal) advanceOnchain(id, from, to, hash string, seen *OnchainObservation) error {
 	tx, err := j.begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 	var raw string
-	err = tx.QueryRow(`SELECT tx_hashes FROM onchain_intents WHERE profile=? AND intent_id=? AND state=?`, j.binding.Profile, id, from).Scan(&raw)
+	var step int
+	err = tx.QueryRow(`SELECT tx_hashes,next_step FROM onchain_intents WHERE profile=? AND intent_id=? AND state=?`, j.binding.Profile, id, from).Scan(&raw, &step)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrConflict
 	}
@@ -390,6 +409,9 @@ func (j *Journal) AdvanceOnchain(id, from, to, hash string) error {
 	var hashes []string
 	if err = json.Unmarshal([]byte(raw), &hashes); err != nil {
 		return err
+	}
+	if seen != nil && (step != seen.Step || !slices.Equal(hashes, seen.Hashes)) {
+		return ErrConflict
 	}
 	if hash != "" {
 		hashes = append(hashes, hash)

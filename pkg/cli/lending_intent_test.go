@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -147,5 +148,45 @@ func TestLendingReconcileReportsLendingStatus(t *testing.T) {
 	}
 	if hashes, _ := r.data()["tx_hashes"].([]any); len(hashes) != 1 || hashes[0] != hash {
 		t.Fatalf("recovered hash not attached: %v", r.data())
+	}
+}
+
+// A receipt checked against an older snapshot must not advance a cursor that
+// submit has since moved, nor clear the newer step's in-flight marker.
+func TestStaleReceiptDoesNotAdvanceNewerCursor(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	h0 := "0x" + strings.Repeat("ab", 32)
+	h1 := "0x" + strings.Repeat("cd", 32)
+	j, id := seedSequentialLending(t, h, h0)
+	defer j.Close()
+	stale, err := j.GetOnchain(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Submit confirms h0 and hands off step 1 while the status call waits.
+	for _, step := range []func() error{
+		func() error { return j.AdvanceOnchain(id, "sent", "sending", "") },
+		func() error { return j.MarkStepHandoff(id, 1) },
+		func() error { return j.AdvanceOnchain(id, "sending", "sent", h1) },
+	} {
+		if err = step(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rpcURL := receiptRPC(t, h.fake.agentAddress, h0, true)
+	a := &App{Getenv: func(key string) string {
+		if strings.HasPrefix(key, "OKU_RPC_URL_") {
+			return rpcURL
+		}
+		return ""
+	}}
+	e := &env{app: a, ctx: context.Background(), g: globals{timeout: time.Second}}
+	got, err := a.resolveReceipt(e, j, stale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.State != "sent" || got.StepIndex != 1 || !got.StepInFlight || len(got.Hashes) != 2 {
+		t.Fatalf("stale receipt moved the newer row: %+v", got)
 	}
 }

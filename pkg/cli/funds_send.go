@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -353,7 +354,7 @@ func (a *App) cmdFundsStatus(e *env, kind string) (*result, error) {
 		rpc := onchain.HTTPRPC{Getenv: a.Getenv}
 		hash, err := onchain.LocateBatch(ctx, r.OnchainIntent, *r.Batch, rpc)
 		if err == nil {
-			if err = j.AdvanceOnchain(r.ID, r.State, "unknown", hash); err != nil {
+			if err = j.AdvanceOnchainObserved(r.ID, r.State, "unknown", hash, observed(r)); err != nil {
 				return nil, err
 			}
 			if r, err = j.GetOnchain(r.ID); err != nil {
@@ -401,10 +402,19 @@ func (a *App) resolveReceipt(e *env, j *journal.Journal, r *journal.OnchainRecor
 		// Otherwise a later transaction may be in flight; absence is not
 		// proof it cannot land, so this stays unresolved until reconciled.
 	}
-	if err = j.AdvanceOnchain(r.ID, r.State, next, ""); err != nil {
+	// Bind the advance to the row the receipt was checked for. If submit
+	// or another resolver moved it meanwhile, this receipt is stale: report
+	// the current row untouched and let the next status call judge it.
+	err = j.AdvanceOnchainObserved(r.ID, r.State, next, "", observed(r))
+	if err != nil && !errors.Is(err, journal.ErrConflict) {
 		return nil, err
 	}
 	return j.GetOnchain(r.ID)
+}
+
+// observed captures the hashes and cursor a decision was based on.
+func observed(r *journal.OnchainRecord) journal.OnchainObservation {
+	return journal.OnchainObservation{Hashes: slices.Clone(r.Hashes), Step: r.StepIndex}
 }
 func (a *App) cmdSendStatus(e *env) (*result, error) { return a.cmdFundsStatus(e, "send") }
 
