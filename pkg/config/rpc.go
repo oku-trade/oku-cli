@@ -88,3 +88,16 @@ func (f *File) UnsetRPCURL(chain uint64) bool {
 	delete(f.RPCURLs, k)
 	return ok
 }
+
+// Redacted returns a copy safe to print: rpc_urls values are reduced with
+// RedactRPCURL. The receiver, and what Save persists, are left unchanged.
+func (f *File) Redacted() *File {
+	c := *f
+	if f.RPCURLs != nil {
+		c.RPCURLs = make(map[string]string, len(f.RPCURLs))
+		for k, v := range f.RPCURLs {
+			c.RPCURLs[k] = RedactRPCURL(v)
+		}
+	}
+	return &c
+}

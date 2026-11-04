@@ -4,8 +4,11 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/oku-trade/oku-cli/pkg/config"
 )
 
 func TestRPCSetListUnsetRoundTripRedacts(t *testing.T) {
@@ -58,5 +61,37 @@ func TestHTTPRPCUsesConfigURL(t *testing.T) {
 	a.rpc = nil
 	if _, err := a.httpRPC().Call(context.Background(), 42161, "0x0000000000000000000000000000000000000001", "0x313ce567"); err != nil && strings.Contains(err.Error(), "no RPC endpoint") {
 		t.Fatalf("config URL not used: %v", err)
+	}
+}
+
+func TestConfigShowRedactsRPCURLsButFilePersistsFull(t *testing.T) {
+	telDirs(t)
+	const full = "https://review-user:FAKE_REVIEW_PASSWORD@rpc.example.invalid/v2/FAKE_REVIEW_KEY?token=FAKE_REVIEW_QUERY"
+	a, _, _ := telApp(t, nil, false)
+	if code := a.Run([]string{"--json", "rpc", "set", "42161", full}); code != 0 {
+		t.Fatalf("set: %d", code)
+	}
+	for _, args := range [][]string{{"--json", "config", "show"}, {"config", "show"}, {"--json", "profiles", "list"}, {"--json", "doctor"}} {
+		a, out, errb := telApp(t, nil, false)
+		a.Run(args)
+		got := out.String() + errb.String()
+		for _, s := range []string{"review-user", "FAKE_REVIEW_PASSWORD", "FAKE_REVIEW_KEY", "FAKE_REVIEW_QUERY"} {
+			if strings.Contains(got, s) {
+				t.Fatalf("%v leaks %q: %s", args, s, got)
+			}
+		}
+	}
+	a, out, _ := telApp(t, nil, false)
+	a.Run([]string{"--json", "config", "show"})
+	if !strings.Contains(out.String(), "rpc.example.invalid") {
+		t.Fatalf("config show should still name the host: %s", out.String())
+	}
+	f, err := config.Load()
+	if err != nil || f.RPCURLs["42161"] != full {
+		t.Fatalf("persisted URL changed: %v %v", f.RPCURLs, err)
+	}
+	p, _ := config.Path()
+	if st, err := os.Stat(p); err != nil || st.Mode().Perm() != 0o600 {
+		t.Fatalf("mode %v %v", st, err)
 	}
 }
