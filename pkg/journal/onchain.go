@@ -40,7 +40,11 @@ type OnchainIntent struct {
 	OutChain       uint64            `json:"out_chain,omitempty"`
 	MinOut         string            `json:"min_out,omitempty"`
 	ExpiresAt      string            `json:"expires_at,omitempty"`
-	CreatedAt      string            `json:"created_at"`
+	// LP is the Uniswap liquidity plan of an "lp" intent, kept as raw JSON so
+	// the journal stays independent of the feature package. Bound into the
+	// digest like every other field.
+	LP        json.RawMessage `json:"lp,omitempty"`
+	CreatedAt string          `json:"created_at"`
 }
 type OnchainTemplate struct {
 	ChainID  uint64 `json:"chain_id"`

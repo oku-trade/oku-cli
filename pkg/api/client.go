@@ -90,6 +90,9 @@ var portfolioMethods = map[string]handler{
 	"GetNetWorthChart": fundsRPC[accountv2.GetNetWorthChartRequest, accountv2.GetNetWorthChartResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.GetNetWorthChartRequest]) (*connect.Response[accountv2.GetNetWorthChartResponse], error) {
 		return f.portfolio.GetNetWorthChart
 	}),
+	"GetHoldingsAndPositions": fundsRPC[accountv2.GetHoldingsAndPositionsRequest, accountv2.GetHoldingsAndPositionsResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.GetHoldingsAndPositionsRequest]) (*connect.Response[accountv2.GetHoldingsAndPositionsResponse], error) {
+		return f.portfolio.GetHoldingsAndPositions
+	}),
 }
 
 // Auth calls an allowlisted AuthService method without exposing sensitive server errors.

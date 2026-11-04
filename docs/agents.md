@@ -37,6 +37,7 @@ Install locations are `~/.claude/skills` for Claude Code, `~/.agents/skills` for
 - `move-agent-funds`: send, swap, bridge and deposit agent-wallet funds.
 - `consolidate-agent-funds`: move agent balances to chosen chain and token targets.
 - `coinbase-deposit-targets`: choose native USDC targets for Coinbase deposits.
+- `provide-uniswap-liquidity`: open, add to, remove from and close Uniswap v3/v4 positions.
 - `reconcile-hyperliquid-actions`: resolve unknown outcomes without duplicate submissions.
 - `troubleshoot-macos-keychain`: resolve credential access on macOS.
 - `lend-and-loop`: earn in Morpho/Euler vaults, borrow, and open, adjust or unwind leveraged loops.

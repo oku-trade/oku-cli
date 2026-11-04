@@ -545,6 +545,164 @@ Prepare closing a loop: repay all debt from collateral sold in the same transact
 | `--to` | unwind: what the agent ends up holding, collateral or loan | `collateral` |
 | `--accept-high-risk` | allow a health factor below 1.333 (never above the max LTV) | `false` |
 
+## `oku lp close prepare`
+
+Prepare removing all liquidity and fees and burning the position NFT (never signs)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--version` | Uniswap version: v3 or v4 | `v3` |
+| `--token-id` | position NFT token ID | `` |
+| `--slippage-bps` | maximum price slippage in basis points, 0-500 (web app default 50) | `50` |
+| `--intent-id` | optional idempotency ID | `` |
+
+## `oku lp collect prepare`
+
+Prepare collecting a position's uncollected fees (never signs)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--version` | Uniswap version: v3 or v4 | `v3` |
+| `--token-id` | position NFT token ID | `` |
+| `--intent-id` | optional idempotency ID | `` |
+
+## `oku lp decrease prepare`
+
+Prepare removing a percent of a position's liquidity, collecting the tokens and fees (never signs)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--version` | Uniswap version: v3 or v4 | `v3` |
+| `--token-id` | position NFT token ID | `` |
+| `--percent` | percent of the position's liquidity to remove, above 0 up to 100 | `` |
+| `--slippage-bps` | maximum price slippage in basis points, 0-500 (web app default 50) | `50` |
+| `--intent-id` | optional idempotency ID | `` |
+
+## `oku lp increase prepare`
+
+Prepare adding liquidity to a position (never signs)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--version` | Uniswap version: v3 or v4 | `v3` |
+| `--token-id` | position NFT token ID | `` |
+| `--amount` | decimal amount of --amount-token to deposit, or max/all; the other side is derived at the current price | `` |
+| `--amount-token` | which pool token --amount is in: token0, token1, or that token's address/symbol/native | `` |
+| `--gas-reserve` | native gas reserve in native units for max/all of a native deposit | `` |
+| `--slippage-bps` | maximum price slippage in basis points, 0-500 (web app default 50) | `50` |
+| `--intent-id` | optional idempotency ID | `` |
+
+## `oku lp list`
+
+List the agent's Uniswap v3/v4 positions on a chain (read-only)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--version` | v3 or v4 (default both) | `` |
+| `--token-id` | comma-separated v4 token IDs to include when Oku portfolio data is unavailable | `` |
+
+## `oku lp open prepare`
+
+Prepare a new Uniswap v3/v4 position (never signs)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--version` | Uniswap version: v3 or v4 | `v3` |
+| `--token0` | pool token address, unambiguous symbol, or native (either order) | `` |
+| `--token1` | the other pool token | `` |
+| `--fee` | fee tier in hundredths of a bip: 100, 500, 3000, 10000 | `0` |
+| `--tick-spacing` | v4 only: tick spacing (default from the fee tier) | `0` |
+| `--hooks` | v4 only: hooks contract address (default none) | `` |
+| `--range-percent` | range of +/- this percent around the current price, e.g. 5 | `` |
+| `--price-lower` | lower range price in token1 per token0 | `` |
+| `--price-upper` | upper range price in token1 per token0 | `` |
+| `--tick-lower` | lower range tick (multiple of the tick spacing) | `` |
+| `--tick-upper` | upper range tick (multiple of the tick spacing) | `` |
+| `--full-range` | use the full price range | `false` |
+| `--amount` | decimal amount of --amount-token to deposit, or max/all; the other side is derived at the current price | `` |
+| `--amount-token` | which pool token --amount is in: token0, token1, or that token's address/symbol/native | `` |
+| `--gas-reserve` | native gas reserve in native units for max/all of a native deposit | `` |
+| `--slippage-bps` | maximum price slippage in basis points, 0-500 (web app default 50) | `50` |
+| `--intent-id` | optional idempotency ID | `` |
+
+## `oku lp pool`
+
+Read a Uniswap v3/v4 pool: price, tick, liquidity (read-only)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--version` | Uniswap version: v3 or v4 | `v3` |
+| `--token0` | pool token address, unambiguous symbol, or native (either order) | `` |
+| `--token1` | the other pool token | `` |
+| `--fee` | fee tier in hundredths of a bip: 100, 500, 3000, 10000 | `0` |
+| `--tick-spacing` | v4 only: tick spacing (default from the fee tier) | `0` |
+| `--hooks` | v4 only: hooks contract address (default none) | `` |
+
+## `oku lp position`
+
+Read one Uniswap v3/v4 position: range, amounts, uncollected fees (read-only)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--version` | Uniswap version: v3 or v4 | `v3` |
+| `--token-id` | position NFT token ID | `` |
+
+## `oku lp reconcile`
+
+Attach and verify a recovered lp transaction hash
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | unresolved intent ID | `` |
+| `--tx-hash` | recovered onchain transaction hash | `` |
+
+## `oku lp status`
+
+Reconcile an lp intent
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id (required) | `` |
+
+## `oku lp submit`
+
+Submit a verified lp intent (approvals and the position action)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id from 'lp <action> prepare' (required) | `` |
+| `--digest` | intent digest from 'lp <action> prepare' (required) | `` |
+
 ## `oku markets funding`
 
 Funding rate history: markets funding COIN [--since 24h]

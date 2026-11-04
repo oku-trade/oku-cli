@@ -152,7 +152,7 @@ func (a *App) cmdFundsPrepare(e *env, kind string) (*result, error) {
 	amountText := str(e, "amount")
 	maxAmount := kind == "send" && isMaxAmount(amountText)
 	if maxAmount {
-		amountText, _, err = a.resolveMaxAmount(e, chain, token, w.agent, decimals, recipient)
+		amountText, _, err = a.resolveMaxAmount(e, chain, token, w.agent, decimals, false, recipient)
 		if err != nil {
 			return nil, err
 		}

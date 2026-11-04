@@ -4,12 +4,72 @@ package gfxcafe.oku.account.v2;
 
 import "buf/validate/validate.proto";
 import "gfxcafe/oku/account/v1/validate.proto";
+import "gfxcafe/oku/account/v2/token.proto";
+import "gfxcafe/oku/account/v2/validate.proto";
 
 option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v2;accountv2";
 
-// CLI-used portfolio read. Names and field numbers match the upstream wire contract.
+// CLI-used portfolio reads. Names and field numbers match the upstream wire contract.
 service PortfolioService {
+  rpc GetHoldingsAndPositions(GetHoldingsAndPositionsRequest) returns (GetHoldingsAndPositionsResponse);
   rpc GetNetWorthChart(GetNetWorthChartRequest) returns (GetNetWorthChartResponse);
+}
+
+message GetHoldingsAndPositionsRequest {
+  string wallet_address = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+  repeated string chains = 2 [
+    (buf.validate.field).repeated.max_items = 100,
+    (buf.validate.field).repeated.items.string.(gfxcafe.oku.account.v2.caip2) = true
+  ];
+  bool refresh = 3;
+}
+
+message GetHoldingsAndPositionsResponse {
+  repeated ChainPortfolio chains = 1;
+  string wallet_address = 2;
+  double total_value_usd = 3;
+  int64 fetched_at_unix = 4;
+}
+
+// Holdings (field 2) are not read by the CLI and are omitted; protojson
+// discards them as unknown fields.
+message ChainPortfolio {
+  string chain = 1;
+  repeated Position positions = 3;
+  double value_usd = 4;
+}
+
+enum PositionType {
+  POSITION_TYPE_UNSPECIFIED = 0;
+  POSITION_TYPE_DEPOSIT = 1;
+  POSITION_TYPE_REWARD = 2;
+  POSITION_TYPE_LOCKED = 3;
+  POSITION_TYPE_STAKED = 4;
+  POSITION_TYPE_BORROWED = 5;
+}
+
+message PositionToken {
+  TokenInfo token = 1;
+  string raw_amount = 2;
+  string amount = 3;
+  optional double value_usd = 4;
+  PositionType position_type = 5;
+}
+
+message Position {
+  string id = 1;
+  string pool = 2;
+  string pool_id = 3;
+  string protocol = 4;
+  string protocol_icon_url = 5;
+  string protocol_module = 6;
+  repeated PositionToken tokens = 7;
+  double value_usd = 8;
+  // ERC-721 token id of the position NFT, e.g. a Uniswap V3/V4 liquidity position.
+  string reward_id = 9;
 }
 
 enum NetWorthChartPeriod {
