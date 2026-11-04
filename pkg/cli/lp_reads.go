@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/oku-trade/oku-cli/pkg/config"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
@@ -58,7 +59,7 @@ type lpTarget struct {
 
 func (a *App) lpTarget(e *env, version string) (lpTarget, error) {
 	chain, err := strconv.ParseUint(str(e, "chain"), 10, 64)
-	if err != nil || !onchain.Allowed(chain) {
+	if err != nil || !config.ValidChainID(chain) {
 		return lpTarget{}, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
 	}
 	v, err := uniswaplp.ParseVersion(version)

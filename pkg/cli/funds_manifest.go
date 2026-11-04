@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gfx-labs/chain-config/dist/networks"
+	"github.com/oku-trade/oku-cli/pkg/config"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
 )
@@ -73,7 +74,7 @@ func parseTokenManifest(reader io.Reader) (map[uint64][]manifestToken, error) {
 			return nil, fmt.Errorf("CSV row %d needs chain_id,token_address", index+1)
 		}
 		id, er := strconv.ParseUint(strings.TrimPrefix(strings.TrimSpace(row[0]), "eip155:"), 10, 64)
-		if er != nil || !onchain.Allowed(id) {
+		if er != nil || !config.ValidChainID(id) {
 			return nil, fmt.Errorf("invalid chain at CSV row %d", index+1)
 		}
 		// The sweep exports native fee rows as the zero address (0xEeee also
@@ -143,7 +144,7 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 	seen := map[uint64]bool{}
 	for _, part := range strings.Split(selected, ",") {
 		id, er := strconv.ParseUint(strings.TrimPrefix(strings.TrimSpace(part), "eip155:"), 10, 64)
-		if er != nil || !onchain.Allowed(id) {
+		if er != nil || !config.ValidChainID(id) {
 			return nil, output.Errorf(output.CodeInvalidArgument, "invalid chain %q", part)
 		}
 		if !seen[id] {

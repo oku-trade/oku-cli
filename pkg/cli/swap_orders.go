@@ -218,7 +218,7 @@ func (a *App) cmdSwapOrdersCreate(e *env) (*result, error) {
 		return nil, err
 	}
 	chain, err := strconv.ParseUint(str(e, "chain"), 10, 64)
-	if err != nil || !onchain.Allowed(chain) {
+	if err != nil || !config.ValidChainID(chain) {
 		return nil, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
 	}
 	token := strings.TrimSpace(str(e, "token"))

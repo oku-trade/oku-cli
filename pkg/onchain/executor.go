@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/gfx-labs/chain-config/dist/networks"
+	"github.com/oku-trade/oku-cli/pkg/config"
 	"github.com/oku-trade/oku-cli/pkg/journal"
 	"github.com/oku-trade/oku-cli/pkg/privy"
 )
@@ -123,11 +124,6 @@ func ReceiptWait(chain uint64, getenv func(string) string) time.Duration {
 
 // ErrNoRPC reports a chain with no configured endpoint.
 var ErrNoRPC = errors.New("no RPC endpoint for chain")
-
-// Allowed reports whether id is a plausible EVM chain ID. Real support is
-// decided by the backend (active swap markets) and by RPCURL; every RPC
-// response is also checked against eth_chainId.
-func Allowed(id uint64) bool { return id > 0 && id < 1<<53 }
 
 func ValidAddress(a string) bool {
 	if len(a) != 42 || !strings.HasPrefix(a, "0x") {
@@ -270,7 +266,7 @@ func (x Executor) ExecuteSteps(ctx context.Context, in journal.OnchainIntent, st
 func mustDecodeHex(s string) []byte { b, _ := hex.DecodeString(s); return b }
 
 func (x Executor) executeFrom(ctx context.Context, in journal.OnchainIntent, start int, sequential, skipCoveredApproval bool) error {
-	if !Allowed(in.ChainID) || !ValidAddress(in.Sender) || len(in.Templates) == 0 {
+	if !config.ValidChainID(in.ChainID) || !ValidAddress(in.Sender) || len(in.Templates) == 0 {
 		return x.preflight(in, "sending", errors.New("unsupported or invalid onchain intent"))
 	}
 	// Reserve for every remaining step before the first broadcast.
@@ -433,7 +429,7 @@ var ErrNonceBeforeBlock = errors.New("nonce used before the batch was submitted"
 // is located by nonce, its calldata is checked to contain every journaled
 // call, and its receipt decides confirmed or failed.
 func (x Executor) ExecuteBatch(ctx context.Context, in journal.OnchainIntent, sender BatchSender, locator BatchLocator) error {
-	if !Allowed(in.ChainID) || !ValidAddress(in.Sender) || len(in.Templates) == 0 {
+	if !config.ValidChainID(in.ChainID) || !ValidAddress(in.Sender) || len(in.Templates) == 0 {
 		return x.preflight(in, "sending", errors.New("unsupported or invalid onchain intent"))
 	}
 	reader, supportsCode := x.RPC.(codeReader)
@@ -776,7 +772,7 @@ func (x Executor) checkBatch(ctx context.Context, in journal.OnchainIntent) erro
 // checkStep runs the pre-broadcast gas, balance and allowance checks for one
 // step. remaining is the step plus everything after it.
 func (x Executor) checkStep(ctx context.Context, in journal.OnchainIntent, t journal.OnchainTemplate, remaining []journal.OnchainTemplate) error {
-	if !Allowed(t.ChainID) || t.ChainID != in.ChainID || !ValidAddress(t.To) {
+	if !config.ValidChainID(t.ChainID) || t.ChainID != in.ChainID || !ValidAddress(t.To) {
 		return errors.New("transaction chain or target mismatch")
 	}
 	value, err := Quantity(t.Value)
@@ -896,7 +892,7 @@ func (r HTTPRPC) call(ctx context.Context, chain uint64, method string, params a
 			return errors.New("RPC chain ID differs from requested chain")
 		}
 	}
-	if !Allowed(chain) {
+	if !config.ValidChainID(chain) {
 		return errors.New("unsupported chain")
 	}
 	resolver := r.Resolver

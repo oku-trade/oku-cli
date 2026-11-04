@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oku-trade/oku-cli/pkg/config"
 	"github.com/oku-trade/oku-cli/pkg/journal"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
@@ -108,7 +109,7 @@ func (a *App) cmdFundsPrepare(e *env, kind string) (*result, error) {
 	chain, token, recipient := uint64(42161), arbitrumUSDC, w.profile.Account
 	if kind == "send" {
 		chain, err = strconv.ParseUint(str(e, "chain"), 10, 64)
-		if err != nil || !onchain.Allowed(chain) {
+		if err != nil || !config.ValidChainID(chain) {
 			return nil, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
 		}
 		if _, rerr := a.rpcResolver().URL(chain); rerr != nil {
@@ -303,7 +304,7 @@ func (a *App) cmdFundsSubmit(e *env, kind string) (*result, error) {
 }
 func verifySendTemplate(in journal.OnchainIntent) bool {
 	t := in.Templates[0]
-	if t.ChainID != in.ChainID || !onchain.Allowed(t.ChainID) || !onchain.ValidAddress(in.Recipient) {
+	if t.ChainID != in.ChainID || !config.ValidChainID(t.ChainID) || !onchain.ValidAddress(in.Recipient) {
 		return false
 	}
 	decimals := 18

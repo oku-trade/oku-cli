@@ -11,8 +11,8 @@ import (
 
 	urfave "github.com/urfave/cli/v3"
 
+	"github.com/oku-trade/oku-cli/pkg/config"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
-	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
 	"github.com/oku-trade/oku-cli/pkg/pnl"
 )
@@ -158,7 +158,7 @@ func (a *App) cmdPnL(e *env) (*result, error) {
 	var chain uint64
 	if raw := strings.TrimSpace(str(e, "chain")); raw != "" {
 		c, err := strconv.ParseUint(raw, 10, 64)
-		if err != nil || !onchain.Allowed(c) {
+		if err != nil || !config.ValidChainID(c) {
 			return nil, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
 		}
 		chain = c

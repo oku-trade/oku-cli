@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/oku-trade/oku-cli/pkg/config"
 	"github.com/oku-trade/oku-cli/pkg/journal"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
@@ -186,7 +187,7 @@ func (a *App) cmdSwapPnL(e *env) (*result, error) {
 	var chains []uint64
 	if raw := strings.TrimSpace(str(e, "chain")); raw != "" {
 		c, perr := strconv.ParseUint(raw, 10, 64)
-		if perr != nil || !onchain.Allowed(c) {
+		if perr != nil || !config.ValidChainID(c) {
 			return nil, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
 		}
 		chains = []uint64{c}
