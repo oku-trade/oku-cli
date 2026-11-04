@@ -129,17 +129,6 @@ var ErrNoRPC = errors.New("no RPC endpoint for chain")
 // response is also checked against eth_chainId.
 func Allowed(id uint64) bool { return id > 0 && id < 1<<53 }
 
-// RPCURL requires OKU_RPC_URL_<CHAINID>. The chain-config networks package
-// does not publish RPC endpoints.
-func RPCURL(getenv func(string) string, chain uint64) (string, error) {
-	if getenv == nil {
-		getenv = os.Getenv
-	}
-	if custom := getenv("OKU_RPC_URL_" + strconv.FormatUint(chain, 10)); custom != "" {
-		return custom, nil
-	}
-	return "", fmt.Errorf("%w %d: set OKU_RPC_URL_%d", ErrNoRPC, chain, chain)
-}
 func ValidAddress(a string) bool {
 	if len(a) != 42 || !strings.HasPrefix(a, "0x") {
 		return false
@@ -888,10 +877,12 @@ func (x Executor) Wait(ctx context.Context, chain uint64, hash string) (bool, er
 	}
 }
 
-// HTTPRPC uses public chain endpoints unless OKU_RPC_URL_<CHAINID> overrides.
+// HTTPRPC calls the endpoint Resolver finds for a chain. Getenv still sizes
+// confirmation depth. A nil Resolver resolves from Getenv alone.
 type HTTPRPC struct {
-	Client *http.Client
-	Getenv func(string) string
+	Client   *http.Client
+	Getenv   func(string) string
+	Resolver *RPCResolver
 }
 
 func (r HTTPRPC) call(ctx context.Context, chain uint64, method string, params any, out any) error {
@@ -908,7 +899,11 @@ func (r HTTPRPC) call(ctx context.Context, chain uint64, method string, params a
 	if !Allowed(chain) {
 		return errors.New("unsupported chain")
 	}
-	url, err := RPCURL(r.Getenv, chain)
+	resolver := r.Resolver
+	if resolver == nil {
+		resolver = NewRPCResolver(r.Getenv, nil)
+	}
+	url, err := resolver.URL(chain)
 	if err != nil {
 		return err
 	}

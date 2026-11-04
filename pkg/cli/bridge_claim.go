@@ -141,7 +141,7 @@ func (a *App) claimBridgeIntent(e *env, id string) (*result, error) {
 	if parseErr != nil || chain != source.OutChain {
 		return nil, output.Errorf(output.CodePayloadMismatch, "destination chain does not match bridge intent")
 	}
-	if _, err = onchain.RPCURL(a.Getenv, chain); err != nil {
+	if _, err = a.rpcResolver().URL(chain); err != nil {
 		return nil, output.Wrap(output.CodeConfigError, err, "destination chain RPC")
 	}
 	if !onchain.ValidAddress(to) || !strings.HasPrefix(data, "0x") {
@@ -190,7 +190,7 @@ func (a *App) claimBridgeIntent(e *env, id string) (*result, error) {
 	}
 	execCtx, execCancel := context.WithTimeout(e.ctx, onchainExecBudget)
 	defer execCancel()
-	executor := onchain.Executor{Getenv: a.Getenv, RPC: onchain.HTTPRPC{Getenv: a.Getenv}, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
+	executor := onchain.Executor{Getenv: a.Getenv, RPC: a.httpRPC(), Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
 	err = executor.Execute(execCtx, in)
 	if err != nil {
 		record, _ = j.GetOnchain(record.ID)

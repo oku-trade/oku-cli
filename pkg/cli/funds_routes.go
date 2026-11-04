@@ -348,7 +348,7 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 		return nil, nil, routeQuote{}, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
 	}
 	// Token decimals, gas and receipts are read from the chain directly.
-	if _, rerr := onchain.RPCURL(a.Getenv, chain); rerr != nil {
+	if _, rerr := a.rpcResolver().URL(chain); rerr != nil {
 		return nil, nil, routeQuote{}, output.Wrap(output.CodeConfigError, rerr, "chain RPC")
 	}
 	dst := chain
@@ -385,7 +385,7 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 	}
 	decimals := big.NewInt(18)
 	if from != "native" {
-		decimals, err = onchain.HTTPRPC{Getenv: a.Getenv}.Call(ctx, chain, from, "0x313ce567")
+		decimals, err = a.httpRPC().Call(ctx, chain, from, "0x313ce567")
 		if err != nil {
 			return nil, nil, routeQuote{}, output.Wrap(output.CodeUpstream, err, "token decimals")
 		}

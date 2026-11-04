@@ -56,7 +56,7 @@ func (a *App) cmdWalletFund(e *env) (*result, error) {
 		if token != "native" {
 			ctx, cancel := e.requestCtx()
 			defer cancel()
-			raw, callErr := (onchain.HTTPRPC{Getenv: a.Getenv}).Call(ctx, chain, address, "0x313ce567")
+			raw, callErr := (a.httpRPC()).Call(ctx, chain, address, "0x313ce567")
 			if callErr != nil {
 				return nil, output.Wrap(output.CodeUpstream, callErr, "reading token decimals")
 			}

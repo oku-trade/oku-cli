@@ -1,5 +1,7 @@
 // Package config manages profiles stored under the XDG config directory.
-// Credentials are stored separately (see pkg/auth) and never here.
+// Credentials are stored separately (see pkg/auth) and never here. The file
+// does hold chain RPC URLs, which may embed provider API keys, so it is always
+// written with 0600 permissions and RPC URLs are redacted in output.
 package config
 
 import (
@@ -48,6 +50,9 @@ type File struct {
 	Telemetry *Telemetry `json:"telemetry,omitempty"`
 	// AutoUpdate is global and off unless explicitly enabled.
 	AutoUpdate *AutoUpdate `json:"auto_update,omitempty"`
+	// RPCURLs maps a decimal chain ID to its JSON-RPC URL. Global, not per
+	// profile. OKU_RPC_URL_<CHAINID> overrides an entry.
+	RPCURLs map[string]string `json:"rpc_urls,omitempty"`
 }
 
 // AutoUpdate holds the opt-in background update preference.
@@ -132,6 +137,9 @@ func Load() (*File, error) {
 		if err := pr.Validate(); err != nil {
 			return nil, fmt.Errorf("profile %q: %w", name, err)
 		}
+	}
+	if err := validateRPCURLs(f.RPCURLs); err != nil {
+		return nil, fmt.Errorf("%s: %w", p, err)
 	}
 	return &f, nil
 }

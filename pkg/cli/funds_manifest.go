@@ -169,7 +169,7 @@ func (a *App) walletBalancesNative(e *env) (*result, error) {
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
-	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	rpc := a.httpRPC()
 	// Each chain is read independently so one unreachable or unconfigured
 	// chain never hides the balances of the others.
 	readChain := func(id uint64) chainResult {

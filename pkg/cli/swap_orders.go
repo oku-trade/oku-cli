@@ -255,12 +255,12 @@ func (a *App) cmdSwapOrdersCreate(e *env) (*result, error) {
 	if !validOrderID(id) {
 		return nil, output.Errorf(output.CodeInvalidArgument, "--id must be 3-48 letters, digits, _ or -")
 	}
-	if _, rerr := onchain.RPCURL(a.Getenv, chain); rerr != nil {
+	if _, rerr := a.rpcResolver().URL(chain); rerr != nil {
 		return nil, output.Wrap(output.CodeConfigError, rerr, "chain RPC")
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
-	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	rpc := a.httpRPC()
 	dec, err := rpc.Call(ctx, chain, token, "0x313ce567")
 	if err != nil {
 		return nil, output.Wrap(output.CodeUpstream, err, "token decimals")

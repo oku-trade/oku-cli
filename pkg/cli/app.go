@@ -15,6 +15,7 @@ import (
 
 	"github.com/cli/browser"
 	"github.com/oku-trade/oku-cli/pkg/api"
+	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
 	urfave "github.com/urfave/cli/v3"
 )
@@ -53,6 +54,10 @@ type App struct {
 	// tel collects opt-in telemetry facts for the current Run (never sent
 	// unless the user enabled telemetry).
 	tel *telemetryRun
+
+	// rpc resolves chain RPC URLs from Getenv and the config file. Built
+	// lazily and reset at the start of each Run or Service call.
+	rpc *onchain.RPCResolver
 }
 
 // NewApp returns an App wired to the real process.
@@ -233,6 +238,9 @@ func (a *App) commandTable() map[string]*handler {
 		"docs schema":        {summary: "Print JSON input schema: docs schema --command 'orders prepare' or --all", flags: docsSchemaFlags, run: a.cmdDocsSchema},
 		"skills list":        {summary: "List bundled agent skills", run: a.cmdSkillsList},
 		"skills install":     {summary: "Install skills: --target jcode|claude|codex or --dir PATH [--force]", flags: skillFlags, run: a.cmdSkillsInstall},
+		"rpc set":            {summary: "Save a chain RPC URL in the config file: rpc set CHAIN_ID URL (OKU_RPC_URL_<CHAINID> still overrides)", run: a.cmdRPCSet},
+		"rpc unset":          {summary: "Remove a saved chain RPC URL: rpc unset CHAIN_ID", run: a.cmdRPCUnset},
+		"rpc list":           {summary: "List configured chain RPCs and their source (env or config), URLs redacted", run: a.cmdRPCList},
 		"telemetry enable":   {summary: "Opt in to anonymous usage telemetry (off by default; DO_NOT_TRACK=1 always wins)", run: a.cmdTelemetryEnable},
 		"telemetry disable":  {summary: "Opt out of usage telemetry and delete the install ID", run: a.cmdTelemetryDisable},
 		"telemetry status":   {summary: "Show whether telemetry is on, why, the install ID and exactly which fields are sent", run: a.cmdTelemetryStatus},
@@ -262,6 +270,7 @@ func (a *App) Run(args []string) int {
 }
 
 func (a *App) run(args []string) int {
+	a.rpc = nil
 	reqID := output.NewRequestID()
 	jsonOut := hasJSONFlag(args)
 	root := a.commandTree(reqID, jsonOut)

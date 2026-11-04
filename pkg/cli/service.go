@@ -103,6 +103,7 @@ func (s *Service) Commands() map[string]string {
 func (s *Service) Call(ctx context.Context, path string, g Globals, flags map[string]any, args []string) (any, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.app.rpc = nil
 	h, ok := s.app.commands()[path]
 	if ok && !s.allowed(path) {
 		if ServiceMutations[path] {
