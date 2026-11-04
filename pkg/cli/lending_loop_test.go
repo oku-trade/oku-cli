@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -120,6 +122,18 @@ func morphoLoopRPC(t *testing.T, coll, debtShares *big.Int, authorized bool, pri
 			fmt.Fprint(w, `{"result":"0x1"}`)
 			return
 		}
+		if req.Method == "eth_simulateV1" {
+			opts, _ := req.Params[0].(map[string]any)
+			states, _ := opts["blockStateCalls"].([]any)
+			sim, _ := states[0].(map[string]any)
+			n := len(sim["calls"].([]any))
+			out := make([]string, n)
+			for i := range out {
+				out[i] = `{"status":"0x1","returnData":"0x"}`
+			}
+			fmt.Fprintf(w, `{"result":[{"calls":[%s]}]}`, strings.Join(out, ","))
+			return
+		}
 		if req.Method != "eth_call" {
 			t.Errorf("prepare must only read: %s", req.Method)
 			return
@@ -149,6 +163,11 @@ func morphoLoopRPC(t *testing.T, coll, debtShares *big.Int, authorized bool, pri
 
 // routerFill encodes an Oku Router token-to-token fill.
 func routerFill(t *testing.T, sell, buy, recipient common.Address, amount *big.Int) string {
+	return routerFillValid(t, sell, buy, recipient, amount, 2_000_000_000)
+}
+
+// routerFillValid is routerFill with the warrant's validBefore set.
+func routerFillValid(t *testing.T, sell, buy, recipient common.Address, amount *big.Int, validBefore int64) string {
 	t.Helper()
 	parsed, err := abi.JSON(strings.NewReader(routerABI))
 	if err != nil {
@@ -161,7 +180,7 @@ func routerFill(t *testing.T, sell, buy, recipient common.Address, amount *big.I
 		VerifyingSigner common.Address `abi:"verifyingSigner"`
 		Signature       []byte         `abi:"signature"`
 	}
-	data, err := parsed.Pack("fillQuoteTokenToToken", sell, buy, common.Address{9}, common.Address{9}, []byte{1}, amount, new(big.Int).Div(amount, big.NewInt(1000)), recipient, warrant{big.NewInt(1), big.NewInt(2_000_000_000), new(big.Int), common.Address{7}, []byte{1}})
+	data, err := parsed.Pack("fillQuoteTokenToToken", sell, buy, common.Address{9}, common.Address{9}, []byte{1}, amount, new(big.Int).Div(amount, big.NewInt(1000)), recipient, warrant{big.NewInt(1), big.NewInt(validBefore), new(big.Int), common.Address{7}, []byte{1}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +189,7 @@ func routerFill(t *testing.T, sell, buy, recipient common.Address, amount *big.I
 
 // loopSwapService answers one exact-in swap: the quote must name the
 // bundle hop as both account and recipient, and the execution fill pays it.
-func loopSwapService(t *testing.T, h *harness, sell, buy, hop common.Address, minOut string, recipient *common.Address) {
+func loopSwapService(t *testing.T, h *harness, sell, buy, payer, hop common.Address, minOut string, recipient *common.Address) {
 	t.Helper()
 	var amount string
 	h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
@@ -179,8 +198,8 @@ func loopSwapService(t *testing.T, h *harness, sell, buy, hop common.Address, mi
 			return map[string]any{"markets": []any{map[string]any{"name": "zeroex", "active": true, "supportedChainIds": []int{1}}}}, true
 		case "Create":
 			p := body["params"].(map[string]any)
-			if !strings.EqualFold(p["account"].(string), hop.Hex()) || !strings.EqualFold(p["dstAddress"].(string), hop.Hex()) || p["skipSimulation"] != true {
-				t.Errorf("loop swap must be paid by and delivered to the bundle hop without simulation: %v", p)
+			if !strings.EqualFold(p["account"].(string), payer.Hex()) || !strings.EqualFold(p["dstAddress"].(string), hop.Hex()) || p["skipSimulation"] != true {
+				t.Errorf("loop swap must be quoted for the router caller and delivered to the bundle hop without simulation: %v", p)
 			}
 			raw, err := parseUnits(p["tokenAmount"].(string), map[bool]int{true: 6, false: 18}[sell == loopLoan])
 			if err != nil {
@@ -232,7 +251,7 @@ func TestLoopOpenMorphoBindsVerifiedBundle(t *testing.T) {
 	d, _ := lending.Morpho(1)
 	// 1 COLL at 2000 USD, 3x at 50 bps: borrow 4000/1.01 = 3960.39 USD for
 	// at least 1.97 COLL.
-	loopSwapService(t, h, loopLoan, loopColl, d.GeneralAdapter1, "1970000000000000000", nil)
+	loopSwapService(t, h, loopLoan, loopColl, d.Bundler3, d.GeneralAdapter1, "1970000000000000000", nil)
 	id := loopMarket().ID().Hex()
 	args := []string{"loop", "open", "--chain", "1", "--protocol", "morpho", "--market", id, "--deposit", "1", "--target-leverage", "3", "--json"}
 	// 3x at 86% LLTV ends near HF 1.29: below 1.333 needs an explicit override.
@@ -266,7 +285,7 @@ func TestLoopSwapPayingStrangerIsRefused(t *testing.T) {
 	h := loopHarness(t, new(big.Int), new(big.Int), true)
 	d, _ := lending.Morpho(1)
 	stranger := common.HexToAddress("0x00000000000000000000000000000000000000bb")
-	loopSwapService(t, h, loopLoan, loopColl, d.GeneralAdapter1, "1990000000000000000", &stranger)
+	loopSwapService(t, h, loopLoan, loopColl, d.Bundler3, d.GeneralAdapter1, "1990000000000000000", &stranger)
 	r := h.run("loop", "open", "--chain", "1", "--protocol", "morpho", "--market", loopMarket().ID().Hex(), "--deposit", "1", "--target-leverage", "3", "--json")
 	if r.code == 0 || r.errCode() != "PAYLOAD_MISMATCH" {
 		t.Fatalf("fill paying a stranger accepted: %s", r.stdout)
@@ -281,7 +300,7 @@ func TestLoopAdjustAndUnwindMorpho(t *testing.T) {
 	id := loopMarket().ID().Hex()
 
 	// Down to 1.5x: sell about 1/3 of value, repaying with the proceeds.
-	loopSwapService(t, h, loopColl, loopLoan, d.GeneralAdapter1, "1990000000", nil)
+	loopSwapService(t, h, loopColl, loopLoan, d.Bundler3, d.GeneralAdapter1, "1990000000", nil)
 	r := h.run("loop", "adjust", "--chain", "1", "--protocol", "morpho", "--market", id, "--target-leverage", "1.5", "--json")
 	if r.code != 0 {
 		t.Fatalf("loop adjust: %s %s", r.stdout, r.stderr)
@@ -292,7 +311,7 @@ func TestLoopAdjustAndUnwindMorpho(t *testing.T) {
 	}
 
 	// Unwind into collateral: the swap must cover the whole debt.
-	loopSwapService(t, h, loopColl, loopLoan, d.GeneralAdapter1, "3100000000", nil)
+	loopSwapService(t, h, loopColl, loopLoan, d.Bundler3, d.GeneralAdapter1, "3100000000", nil)
 	u := h.run("loop", "unwind", "--chain", "1", "--protocol", "morpho", "--market", id, "--json")
 	if u.code != 0 {
 		t.Fatalf("loop unwind: %s %s", u.stdout, u.stderr)
@@ -307,7 +326,7 @@ func TestLoopAdjustAndUnwindMorpho(t *testing.T) {
 	}
 
 	// A swap that cannot cover the debt is refused.
-	loopSwapService(t, h, loopColl, loopLoan, d.GeneralAdapter1, "2000000000", nil)
+	loopSwapService(t, h, loopColl, loopLoan, d.Bundler3, d.GeneralAdapter1, "2000000000", nil)
 	if s := h.run("loop", "unwind", "--chain", "1", "--protocol", "morpho", "--market", id, "--json"); s.code == 0 || !strings.Contains(s.stdout, "does not cover the debt") {
 		t.Fatalf("short unwind accepted: %s", s.stdout)
 	}
@@ -325,7 +344,7 @@ func TestLoopAdjustRefusesAboveMaxLTV(t *testing.T) {
 func TestLoopSubmitRechecksRiskAfterPriceMove(t *testing.T) {
 	h, price := loopHarnessPriced(t, new(big.Int), new(big.Int), false)
 	d, _ := lending.Morpho(1)
-	loopSwapService(t, h, loopLoan, loopColl, d.GeneralAdapter1, "1970000000000000000", nil)
+	loopSwapService(t, h, loopLoan, loopColl, d.Bundler3, d.GeneralAdapter1, "1970000000000000000", nil)
 	r := h.run("loop", "open", "--chain", "1", "--protocol", "morpho", "--market", loopMarket().ID().Hex(), "--deposit", "1", "--target-leverage", "2", "--json")
 	if r.code != 0 {
 		t.Fatalf("loop open: %s %s", r.stdout, r.stderr)
@@ -336,5 +355,58 @@ func TestLoopSubmitRechecksRiskAfterPriceMove(t *testing.T) {
 	s := h.run("loop", "submit", "--intent", id, "--digest", dg, "--json")
 	if s.code == 0 || !strings.Contains(s.stdout, "position changed since prepare") {
 		t.Fatalf("stale loop submitted after the price moved: %s %s", s.stdout, s.stderr)
+	}
+}
+
+// rpcRevertingSimulation forwards every RPC to upstream except
+// eth_simulateV1, whose call at index fails with reason.
+func rpcRevertingSimulation(t *testing.T, upstream string, index int, reason string) string {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var req struct {
+			Method string `json:"method"`
+			Params []any  `json:"params"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if req.Method != "eth_simulateV1" {
+			resp, err := http.Post(upstream, "application/json", bytes.NewReader(body))
+			if err != nil {
+				t.Errorf("forward: %v", err)
+				return
+			}
+			defer resp.Body.Close()
+			_, _ = io.Copy(w, resp.Body)
+			return
+		}
+		sim := req.Params[0].(map[string]any)["blockStateCalls"].([]any)[0].(map[string]any)
+		n := len(sim["calls"].([]any))
+		out := make([]string, n)
+		for i := range out {
+			out[i] = `{"status":"0x1","returnData":"0x"}`
+			if i == index {
+				out[i] = fmt.Sprintf(`{"status":"0x0","returnData":"0x","error":{"code":-32015,"message":"execution reverted: %s"}}`, reason)
+			}
+		}
+		fmt.Fprintf(w, `{"result":[{"calls":[%s]}]}`, strings.Join(out, ","))
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+
+// A revert in the simulated bundle fails prepare with the reason and journals
+// nothing, instead of surfacing at submit.
+func TestLoopOpenPrepareFailsOnSimulatedRevert(t *testing.T) {
+	h := loopHarness(t, new(big.Int), new(big.Int), false)
+	d, _ := lending.Morpho(1)
+	loopSwapService(t, h, loopLoan, loopColl, d.Bundler3, d.GeneralAdapter1, "1970000000000000000", nil)
+	h.rpcURL = rpcRevertingSimulation(t, h.rpcURL, 1, "WARRANT_REQUIRED_FOR_RECIPIENT")
+	id := loopMarket().ID().Hex()
+	r := h.run("loop", "open", "--chain", "1", "--protocol", "morpho", "--market", id, "--deposit", "1", "--target-leverage", "2", "--json")
+	if r.code == 0 || !strings.Contains(r.stdout, "WARRANT_REQUIRED_FOR_RECIPIENT") || !strings.Contains(r.stdout, "REJECTED") {
+		t.Fatalf("simulated revert not reported: %s %s", r.stdout, r.stderr)
 	}
 }

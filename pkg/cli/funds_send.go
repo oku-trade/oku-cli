@@ -346,8 +346,9 @@ func (a *App) cmdFundsStatus(e *env, kind string) (*result, error) {
 		return nil, output.Errorf(output.CodeNotFound, "intent not found")
 	}
 	// A batch whose submit stopped before it was found on chain: locate it by
-	// the reserved nonce. Absence never closes it; only a found, matching
-	// transaction and its receipt resolve the intent.
+	// the reserved nonce. Absence alone never closes it: only a found, matching
+	// transaction and its receipt, or a lending batch that can provably no
+	// longer execute (closeLapsedBatch), resolve the intent.
 	if r.Batch != nil && (r.State == "unknown" || r.State == "sending") && len(r.Hashes) == 0 {
 		ctx, cancel := e.requestCtx()
 		defer cancel()
@@ -362,6 +363,8 @@ func (a *App) cmdFundsStatus(e *env, kind string) (*result, error) {
 			}
 		} else if !onchain.IsBatchNotMined(err) {
 			return nil, output.Wrap(output.CodeUpstream, err, "batch lookup")
+		} else if r, err = a.closeLapsedBatch(ctx, rpc, j, r); err != nil {
+			return nil, err
 		}
 	}
 	if r, err = a.resolveReceipt(e, j, r); err != nil {

@@ -13,9 +13,17 @@ import (
 	"github.com/oku-trade/oku-cli/pkg/output"
 )
 
+// The payer is the router's msg.sender inside the bundle: Bundler3 for Morpho
+// (it calls the router, GeneralAdapter1 only receives) and the Swapper for
+// Euler. The backend quotes the same way (account repo,
+// src/temporal/workflows/orders/lending_loop/morpho.go routerQuote: account
+// Bundler3, DstAddress GeneralAdapter1), and the quote's warrant is only
+// signed for the caller's account, otherwise the router reverts with
+// WARRANT_REQUIRED_FOR_RECIPIENT.
+//
 // loopSwap quotes one exact-in swap leg of a loop bundle through the same
 // swap service and route selection as `oku swap`, with the bundle hop
-// (GeneralAdapter1 or the Euler Swapper) as payer and recipient, then
+// as recipient and the contract that calls the router as payer, then
 // fetches and decodes the router calldata. The fill must sell exactly
 // `amount` of `sell` for `buy` to `hop`; MinOut is the quote's own bound.
 type loopSwapQuote struct {
@@ -23,7 +31,7 @@ type loopSwapQuote struct {
 	Quote routeQuote
 }
 
-func (a *App) loopSwap(ctx context.Context, e *env, w *resolvedWallet, chain uint64, sell, buy, hop common.Address, amount *big.Int, decimals int) (loopSwapQuote, error) {
+func (a *App) loopSwap(ctx context.Context, e *env, w *resolvedWallet, chain uint64, sell, buy, payer, hop common.Address, amount *big.Int, decimals int) (loopSwapQuote, error) {
 	router, err := lending.OkuRouter(chain)
 	if err != nil {
 		return loopSwapQuote{}, output.Wrap(output.CodeRejected, err, "loop swap")
@@ -34,7 +42,7 @@ func (a *App) loopSwap(ctx context.Context, e *env, w *resolvedWallet, chain uin
 		return loopSwapQuote{}, err
 	}
 	s.apply(c)
-	q := routeQuote{Chain: chain, OutChain: chain, InToken: sell.Hex(), OutToken: buy.Hex(), InAmount: amount.String(), Recipient: hop.Hex(), amountText: formatUnits(amount, decimals), payer: hop.Hex()}
+	q := routeQuote{Chain: chain, OutChain: chain, InToken: sell.Hex(), OutToken: buy.Hex(), InAmount: amount.String(), Recipient: hop.Hex(), amountText: formatUnits(amount, decimals), payer: payer.Hex()}
 	q, rej, err := a.fetchRouteAttempt(ctx, e, "swap", true, w, c, q)
 	if err != nil {
 		return loopSwapQuote{}, err

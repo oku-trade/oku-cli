@@ -266,6 +266,15 @@ func (s loopState) plan(action string) lending.Plan {
 	return p
 }
 
+// payer is the contract that calls the router, whose account the quote's
+// warrant is issued for. It differs from the hop only on Morpho.
+func (s loopState) payer() common.Address {
+	if s.protocol == protoMorpho {
+		return s.deploy.Bundler3
+	}
+	return s.euler.Swap.Swapper
+}
+
 // hop is the contract that pays and receives the router swap.
 func (s loopState) hop() common.Address {
 	if s.protocol == protoMorpho {
@@ -414,7 +423,7 @@ func (a *App) loopIncrease(ctx context.Context, e *env, w *resolvedWallet, s loo
 	if deposit == nil {
 		deposit = new(big.Int)
 	}
-	q, err := a.loopSwap(ctx, e, w, s.chain, s.loanToken, s.collToken, s.hop(), borrow, s.loanDecimals)
+	q, err := a.loopSwap(ctx, e, w, s.chain, s.loanToken, s.collToken, s.payer(), s.hop(), borrow, s.loanDecimals)
 	if err != nil {
 		return nil, err
 	}
@@ -495,7 +504,7 @@ func (a *App) loopDecrease(ctx context.Context, e *env, w *resolvedWallet, s loo
 	if sell.Sign() <= 0 || sell.Cmp(s.collateral) > 0 {
 		return nil, output.Errorf(output.CodeInvalidArgument, "computed collateral sale %s is outside the position", formatUnits(sell, s.collDecimals))
 	}
-	q, err := a.loopSwap(ctx, e, w, s.chain, s.collToken, s.loanToken, s.hop(), sell, s.collDecimals)
+	q, err := a.loopSwap(ctx, e, w, s.chain, s.collToken, s.loanToken, s.payer(), s.hop(), sell, s.collDecimals)
 	if err != nil {
 		return nil, err
 	}

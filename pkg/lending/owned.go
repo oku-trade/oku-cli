@@ -43,8 +43,11 @@ type Effects struct {
 	// (deposit, withdraw, borrow, repay assets; redeem shares).
 	VaultAmounts map[common.Address]map[string]*big.Int
 	Swaps        int
-	FlashLoans   int
-	Authorizes   bool
+	// WarrantExpiry is the latest router warrant validBefore (unix seconds)
+	// among the fills, 0 without a fill.
+	WarrantExpiry uint64
+	FlashLoans    int
+	Authorizes    bool
 	// Sold sums router fills by sell and buy token; Bounds records the
 	// on-chain swap bounds (skim minimum, debt maximum, supply of the swap
 	// remainder) keyed like Summary.
@@ -290,6 +293,7 @@ func (s Scope) routerFill(data []byte, fx *Effects) error {
 		return fmt.Errorf("router fill pays %s or trades a token outside this action", t.Recipient.Hex())
 	}
 	fx.Swaps++
+	fx.WarrantExpiry = max(fx.WarrantExpiry, t.ValidBefore)
 	k := [2]common.Address{t.Sell, t.Buy}
 	if fx.Sold[k] == nil {
 		fx.Sold[k] = new(big.Int)

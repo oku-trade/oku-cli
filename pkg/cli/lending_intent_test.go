@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -188,5 +189,146 @@ func TestStaleReceiptDoesNotAdvanceNewerCursor(t *testing.T) {
 	}
 	if got.State != "sent" || got.StepIndex != 1 || !got.StepInFlight || len(got.Hashes) != 2 {
 		t.Fatalf("stale receipt moved the newer row: %+v", got)
+	}
+}
+
+// seedStuckBatch journals the shape a reverted 7702 submit left behind: unknown,
+// batch mode, nonce recorded, no hash. warrantValidBefore sets the router
+// warrant inside the plan's swap (0 for a plan with no swap).
+func seedStuckBatch(t *testing.T, h *harness, expires time.Time, warrantValidBefore int64) (*journal.Journal, string) {
+	t.Helper()
+	agent := h.fake.agentAddress
+	owner := common.HexToAddress(agent)
+	d, _ := lending.Morpho(1)
+	id := loopMarket().ID()
+	router, _ := lending.OkuRouter(1)
+	plan := lending.Plan{Protocol: protoMorpho, Action: "loop-open-up", Chain: 1, Owner: owner, MarketID: &id, Tokens: []common.Address{loopColl, loopLoan}, Router: &router}
+	var templates []journal.OnchainTemplate
+	if warrantValidBefore > 0 {
+		borrow := big.NewInt(1_000_000)
+		trade, err := lending.DecodeRouterTrade(common.FromHex(routerFillValid(t, loopLoan, loopColl, d.GeneralAdapter1, borrow, warrantValidBefore)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		mp := loopMarket()
+		call, err := d.LoopIncrease(mp, nil, borrow, new(big.Int), lending.Swap{Router: router, Trade: trade, MinOut: big.NewInt(1)}, owner)
+		if err != nil {
+			t.Fatal(err)
+		}
+		templates = []journal.OnchainTemplate{{ChainID: 1, To: call.To.Hex(), Data: call.Hex(), Value: "0x0"}}
+		plan.Expect = lending.Want{}.Borrow(id, borrow).Supply(id, big.NewInt(1)).SupplyRest(id).Sell(loopLoan, loopColl, borrow).Flash()
+	} else {
+		plan.Expect = lending.Want{"vault:x:deposit": "1"}
+		templates = []journal.OnchainTemplate{{ChainID: 1, To: lendingVault.Hex(), Data: "0x01", Value: "0x0"}}
+	}
+	raw, err := json.Marshal(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	in := journal.OnchainIntent{ID: "stuck-batch", Kind: kindLoop, ChainID: 1, Sender: agent, Recipient: agent, Token: loopColl.Hex(), Amount: "1", Templates: templates, Lending: raw, CreatedAt: now.Add(-time.Hour).Format(time.RFC3339Nano), ExpiresAt: expires.UTC().Format(time.RFC3339Nano)}
+	j, err := openJournal(&resolved{Name: "main", Network: "mainnet", Account: acct, APIURL: h.srv.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = j.CreateOnchain(in); err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range []func() error{
+		func() error { return j.BeginOnchain(in.ID, in.Digest(), agent) },
+		func() error { return j.SetExecutionMode(in.ID, "batch") },
+		func() error { return j.SetOnchainBatch(in.ID, "sending", journal.Batch{Nonce: 8, FromBlock: 100}) },
+		func() error { return j.AdvanceOnchain(in.ID, "sending", "unknown", "") },
+	} {
+		if err = step(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return j, in.ID
+}
+
+// nonceRPC answers a Base-like chain id 1 RPC with fixed latest and pending
+// nonces and no mined batch.
+func nonceRPC(t *testing.T, latest, pending uint64) string {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Method string `json:"method"`
+			Params []any  `json:"params"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("rpc request: %v", err)
+			return
+		}
+		switch req.Method {
+		case "eth_chainId":
+			fmt.Fprint(w, `{"result":"0x1"}`)
+		case "eth_blockNumber":
+			fmt.Fprint(w, `{"result":"0x64"}`)
+		case "eth_getTransactionCount":
+			n := latest
+			if req.Params[1] == "pending" {
+				n = pending
+			}
+			fmt.Fprintf(w, `{"result":"0x%x"}`, n)
+		default:
+			t.Errorf("unexpected RPC %s", req.Method)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+
+func stuckStatus(t *testing.T, h *harness, j *journal.Journal, id string) string {
+	t.Helper()
+	h.run("loop", "status", "--intent", id, "--json")
+	rec, err := j.GetOnchain(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return rec.State
+}
+
+// The exact stuck shape: unknown, batch, nonce 8 recorded, no hash, nonce
+// still 8, intent expired and the swap warrant lapsed.
+func TestLoopStatusClosesExpiredUnbroadcastBatch(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	h.rpcChain = "1"
+	j, id := seedStuckBatch(t, h, time.Now().Add(-time.Hour), time.Now().Add(-30*time.Minute).Unix())
+	defer j.Close()
+	h.rpcURL = nonceRPC(t, 8, 8)
+	if got := stuckStatus(t, h, j, id); got != "failed" {
+		t.Fatalf("lapsed unbroadcast batch is %s, want failed", got)
+	}
+}
+
+// Every unsafe variant stays unknown: not expired, warrant still valid, no
+// swap warrant to bound a late broadcast, nonce moved or pending.
+func TestLoopStatusKeepsBatchThatMayStillLand(t *testing.T) {
+	past, future := time.Now().Add(-time.Hour), time.Now().Add(time.Hour)
+	for _, tc := range []struct {
+		name            string
+		expires         time.Time
+		warrant         int64
+		latest, pending uint64
+	}{
+		{"not expired", future, past.Unix(), 8, 8},
+		{"warrant still valid", past, future.Unix(), 8, 8},
+		{"no swap warrant", past, 0, 8, 8},
+		{"nonce used", past, past.Unix(), 9, 9},
+		{"pending transaction", past, past.Unix(), 8, 9},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.enroll()
+			h.rpcChain = "1"
+			j, id := seedStuckBatch(t, h, tc.expires, tc.warrant)
+			defer j.Close()
+			h.rpcURL = nonceRPC(t, tc.latest, tc.pending)
+			if got := stuckStatus(t, h, j, id); got != "unknown" {
+				t.Fatalf("batch that may still land became %s", got)
+			}
+		})
 	}
 }

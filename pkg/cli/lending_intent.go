@@ -54,6 +54,11 @@ func (a *App) sealLending(e *env, w *resolvedWallet, kind string, plan lending.P
 		return nil, output.Wrap(output.CodePayloadMismatch, err, "refusing unverified lending calldata")
 	}
 	plan.Expect = want
+	simulated, err := a.simulateLending(e, w, plan.Chain, calls)
+	if err != nil {
+		return nil, err
+	}
+	preview["simulated"] = simulated
 	raw, err := json.Marshal(plan)
 	if err != nil {
 		return nil, err
@@ -80,6 +85,32 @@ func (a *App) sealLending(e *env, w *resolvedWallet, kind string, plan lending.P
 		return nil, output.Wrap(output.CodeIntentConflict, err, "creating "+kind+" intent")
 	}
 	return lendingResult(r, plan, preview, shown), nil
+}
+
+// simulateLending runs the exact calls in order from the agent before
+// anything is journaled, so a revert fails prepare with its reason instead of
+// surfacing at submit. An RPC without eth_simulateV1 cannot check them: that
+// is reported as simulated=false, never as a pass, and submit still verifies
+// each step against the chain before broadcasting.
+func (a *App) simulateLending(e *env, w *resolvedWallet, chain uint64, calls []lending.Call) (bool, error) {
+	templates := make([]journal.OnchainTemplate, len(calls))
+	for i, c := range calls {
+		templates[i] = journal.OnchainTemplate{ChainID: chain, To: c.To.Hex(), Data: c.Hex(), Value: "0x0"}
+	}
+	ctx, cancel := e.requestCtx()
+	defer cancel()
+	err := onchain.HTTPRPC{Getenv: a.Getenv}.SimulateSequence(ctx, chain, w.agent, templates)
+	var revert *onchain.SimulationRevert
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, onchain.ErrSimulationUnsupported):
+		return false, nil
+	case errors.As(err, &revert):
+		return false, output.Wrap(output.CodeRejected, err, "simulation failed, nothing was journaled")
+	default:
+		return false, output.Wrap(output.CodeUpstream, err, "simulating the lending calls")
+	}
 }
 
 func lendingResult(r *journal.OnchainRecord, plan lending.Plan, preview map[string]any, calls []lendingCall) *result {

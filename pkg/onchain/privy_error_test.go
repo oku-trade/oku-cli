@@ -13,7 +13,7 @@ import (
 )
 
 func TestPrivyHandoffErrorsNeverProveNotBroadcast(t *testing.T) {
-	for _, cause := range []string{"nonce too low", "simulation failed", "execution reverted", "insufficient funds", "remote_error", "Unauthorized"} {
+	for _, cause := range []string{"nonce too low", "simulation failed", "insufficient funds", "remote_error", "Unauthorized"} {
 		for _, batch := range []bool{false, true} {
 			t.Run(cause+map[bool]string{false: "/single", true: "/batch"}[batch], func(t *testing.T) {
 				upstream := &privy.Error{Status: http.StatusBadRequest, Code: "transaction_broadcast_failure", Description: cause}
@@ -107,6 +107,28 @@ func TestPrivyCauseSurvivesJournalFailure(t *testing.T) {
 		var recovered *privy.Error
 		if !errors.Is(err, ErrUnknown) || errors.Is(err, ErrNotBroadcast) || !errors.As(err, &recovered) || !strings.Contains(err.Error(), "journal failure") || j.state != "sending" || s.calls+b.sends != 1 {
 			t.Fatalf("err=%v journal=%+v sends=%d", err, j, s.calls+b.sends)
+		}
+	}
+}
+
+// Privy documents transaction_broadcast_failure as "not broadcast", and a 400
+// with an execution-revert cause is a rejected simulation: the intent closes
+// as failed and frees the account instead of staying unknown.
+func TestPrivyExecutionRevertedBroadcastFailureIsNotBroadcast(t *testing.T) {
+	for _, batch := range []bool{false, true} {
+		upstream := &privy.Error{Status: http.StatusBadRequest, Code: "transaction_broadcast_failure", Description: "upstream reports execution reverted; broadcast outcome not determined"}
+		j := &fakeJournal{state: "sending"}
+		s := &fakeSender{send: func() (string, error) { return "", upstream }}
+		b := &fakeBatch{latest: 5, pending: 5, send: s.send}
+		x := Executor{RPC: fakeRPC{gas: big.NewInt(1 << 40)}, Sender: s, Journal: j}
+		var err error
+		if batch {
+			err = x.ExecuteBatch(context.Background(), swapIntent(), b, b)
+		} else {
+			err = x.Execute(context.Background(), intent())
+		}
+		if !errors.Is(err, ErrNotBroadcast) || errors.Is(err, ErrUnknown) || j.state != "failed" || len(j.hashes) != 0 {
+			t.Fatalf("batch=%v err=%v journal=%+v", batch, err, j)
 		}
 	}
 }

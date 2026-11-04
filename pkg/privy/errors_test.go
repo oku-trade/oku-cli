@@ -83,3 +83,21 @@ func TestSafeHTTPErrorFallback(t *testing.T) {
 		}
 	}
 }
+
+func TestNotBroadcastOnlyForExecutionRevertedBroadcastFailure(t *testing.T) {
+	for _, tc := range []struct {
+		body   string
+		status int
+		want   bool
+	}{
+		{`{"code":"transaction_broadcast_failure","error":"execution reverted: x"}`, 400, true},
+		{`{"code":"transaction_broadcast_failure","error":"nonce too low"}`, 400, false},
+		{`{"code":"transaction_broadcast_failure","error":"execution reverted"}`, 500, false},
+		{`{"code":"policy_violation","error":"execution reverted"}`, 400, false},
+	} {
+		code, description := safeErrorMetadata([]byte(tc.body), tc.status)
+		if got := (&Error{Status: tc.status, Code: code, Description: description}).NotBroadcast(); got != tc.want {
+			t.Fatalf("%s (%d): NotBroadcast=%v", tc.body, tc.status, got)
+		}
+	}
+}

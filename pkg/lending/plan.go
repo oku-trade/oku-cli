@@ -183,6 +183,21 @@ func (p Plan) Verify(calls []Call) error {
 	return sameSummary(fx.Summary(), p.Expect)
 }
 
+// WarrantExpiry is the unix time after which no router swap in calls can
+// execute, 0 when they contain none. After it a swap-bearing batch reverts as
+// a whole.
+func (p Plan) WarrantExpiry(calls []Call) (uint64, error) {
+	s, err := p.Scope()
+	if err != nil {
+		return 0, err
+	}
+	fx, err := CheckCalls(calls, s)
+	if err != nil {
+		return 0, err
+	}
+	return fx.WarrantExpiry, nil
+}
+
 // Want builds the effects a request must produce, in Summary's keys.
 type Want map[string]string
 
