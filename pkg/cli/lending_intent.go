@@ -284,10 +284,7 @@ func (a *App) cmdLendingStatus(e *env, kind string) (*result, error) {
 }
 
 func (a *App) cmdLendingReconcile(e *env, kind string) (*result, error) {
-	if _, err := a.cmdFundsReconcile(e, kind); err != nil {
-		return nil, err
-	}
-	return a.cmdLendingStatus(e, kind)
+	return a.cmdFundsReconcile(e, kind, func(e *env) (*result, error) { return a.cmdLendingStatus(e, kind) })
 }
 
 func sortedKeys(m map[string]any) []string {

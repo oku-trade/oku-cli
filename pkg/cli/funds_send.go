@@ -391,15 +391,34 @@ func (a *App) resolveReceipt(e *env, j *journal.Journal, r *journal.OnchainRecor
 		next = "confirmed"
 	}
 	if *status && next != "confirmed" {
-		// Earlier steps confirmed but later ones were never recorded.
-		// Absence of a later transaction is not proof it cannot land, so
-		// this stays unresolved until reconciled with a hash.
 		next = "unknown"
+		if sequentialStepConfirmed(r) {
+			// The confirmed hash is the step at the cursor, and the next
+			// step is only handed off after the cursor moves, so it was
+			// never sent: advance the cursor and leave it resumable.
+			next = "sending"
+		}
+		// Otherwise a later transaction may be in flight; absence is not
+		// proof it cannot land, so this stays unresolved until reconciled.
 	}
 	if err = j.AdvanceOnchain(r.ID, r.State, next, ""); err != nil {
 		return nil, err
 	}
 	return j.GetOnchain(r.ID)
 }
-func (a *App) cmdSendStatus(e *env) (*result, error)    { return a.cmdFundsStatus(e, "send") }
+func (a *App) cmdSendStatus(e *env) (*result, error) { return a.cmdFundsStatus(e, "send") }
+
+// sequentialStepConfirmed reports whether the last recorded hash belongs to
+// the step at the sequential cursor, so no later step has been handed off.
+func sequentialStepConfirmed(r *journal.OnchainRecord) bool {
+	if r.Batch != nil || r.ExecutionMode != "sequential" || len(r.Hashes) == 0 {
+		return false
+	}
+	offset := 0
+	if r.ApprovalSkipped {
+		offset = 1
+	}
+	step := len(r.Hashes) - 1 + offset
+	return step == r.StepIndex && step < len(r.Templates)-1
+}
 func (a *App) cmdDepositStatus(e *env) (*result, error) { return a.cmdFundsStatus(e, "deposit") }
