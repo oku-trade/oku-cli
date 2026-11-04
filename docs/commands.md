@@ -654,7 +654,7 @@ Prepare an agent EVM transfer
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID, e.g. 42161 (needs an RPC: built-in or OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID, e.g. 42161 (needs OKU_RPC_URL_<id>; no built-in RPC) | `` |
 | `--token` | ERC-20 contract address or native (also 0x0 or 0xEeee address) | `` |
 | `--amount` | exact decimal amount or max/all | `` |
 | `--gas-reserve` | override estimated native gas reserve in native units for max/all | `` |
