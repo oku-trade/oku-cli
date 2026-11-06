@@ -410,3 +410,16 @@ func TestLoopOpenPrepareFailsOnSimulatedRevert(t *testing.T) {
 		t.Fatalf("simulated revert not reported: %s %s", r.stdout, r.stderr)
 	}
 }
+
+// A venue borrow cap below the liquidation-derived LTV lowers the leverage
+// ceiling the loop commands enforce.
+func TestLoopMaxLeverageUsesEffectiveBorrowCap(t *testing.T) {
+	s := loopState{lltv: 0.75}
+	if got := s.maxLeverage(); got != 3.9 {
+		t.Fatalf("uncapped max %v", got)
+	}
+	s.maxLTV = 0.65
+	if got := s.maxLeverage(); got != 2.85 {
+		t.Fatalf("capped max %v, want 2.85", got)
+	}
+}

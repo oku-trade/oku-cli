@@ -12,8 +12,11 @@ const (
 
 // MaxLoopLeverage mirrors maxLoopLeverage: 1/(1-maxBorrowLTV), floored to
 // the 0.05 step and capped at 10x.
-func MaxLoopLeverage(lltv float64) float64 {
-	maxLTV := MaxBorrowLTV(lltv)
+func MaxLoopLeverage(lltv float64) float64 { return LoopLeverageAt(MaxBorrowLTV(lltv)) }
+
+// LoopLeverageAt is the stepped leverage ceiling for an effective borrow LTV,
+// which a venue cap (Euler's borrow LTV) can hold below the liquidation-derived one.
+func LoopLeverageAt(maxLTV float64) float64 {
 	if !(maxLTV > 0) || maxLTV >= 1 {
 		return LoopMinLeverage
 	}

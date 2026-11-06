@@ -250,6 +250,7 @@ func eulerMarkets(ctx context.Context, e *env, t lendingTarget) ([]borrowMarket,
 		// Euler caps new borrows at the vault's borrow LTV, below liquidation.
 		if b := parseOpt(m.BorrowLtv); b.ok && r.MaxLTV.ok && b.v < r.MaxLTV.v {
 			r.MaxLTV = b
+			r.MaxLeverage = some(lending.LoopLeverageAt(b.v))
 		}
 		r.BorrowAPY, r.NetBorrowAPY, r.SupplyAPY = parseOpt(m.BorrowApy), parseOpt(m.BorrowApy), parseOpt(m.SupplyApy)
 		if r.BorrowAPY.ok {

@@ -80,6 +80,16 @@ func (s loopState) value(raw *big.Int, collateral bool) float64 {
 	return lending.Float(raw, s.loanDecimals)
 }
 
+// maxLeverage is the leverage ceiling at the effective borrow LTV: the
+// liquidation-derived limit, lowered by the venue's own cap when it has one.
+func (s loopState) maxLeverage() float64 {
+	ltv := lending.MaxBorrowLTV(s.lltv)
+	if s.maxLTV > 0 && s.maxLTV < ltv {
+		ltv = s.maxLTV
+	}
+	return lending.LoopLeverageAt(ltv)
+}
+
 func (s loopState) risk(coll, debt *big.Int) (lending.Risk, error) {
 	r, err := lending.Assess(lending.Position{Collateral: lending.Float(coll, s.collDecimals), Debt: lending.Float(debt, s.loanDecimals), Price: s.price, LLTV: s.lltv})
 	if err == nil && s.maxLTV > 0 && s.maxLTV < r.MaxLTV {
@@ -335,7 +345,7 @@ func (a *App) loopOpen(ctx context.Context, e *env, w *resolvedWallet, s loopSta
 	if !lev.ok || lev.v <= 1 {
 		return nil, output.Errorf(output.CodeInvalidArgument, "--target-leverage must be above 1")
 	}
-	if max := lending.MaxLoopLeverage(s.lltv); lev.v > max {
+	if max := s.maxLeverage(); lev.v > max {
 		return nil, output.Errorf(output.CodeRejected, "leverage %.2fx exceeds this market's max %.2fx", lev.v, max)
 	}
 	if s.protocol == protoEuler && (s.collateral.Sign() > 0 || s.debt.Sign() > 0) {
@@ -374,7 +384,7 @@ func (a *App) loopAdjust(ctx context.Context, e *env, w *resolvedWallet, s loopS
 		return nil, output.Errorf(output.CodeInvalidArgument, "position is already at %.2fx", cur)
 	}
 	if lev.v > cur {
-		if max := lending.MaxLoopLeverage(s.lltv); lev.v > max {
+		if max := s.maxLeverage(); lev.v > max {
 			return nil, output.Errorf(output.CodeRejected, "leverage %.2fx exceeds this market's max %.2fx", lev.v, max)
 		}
 		borrow := rawFromFloat(lending.LoopBorrow(cv, d, lev.v, k), s.loanDecimals)
