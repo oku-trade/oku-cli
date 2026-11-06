@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/oku-trade/oku-cli/pkg/config"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
@@ -22,7 +23,7 @@ const lpListLimit = 50
 
 func lpChainFlags() []urfave.Flag {
 	return []urfave.Flag{
-		&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID (needs OKU_RPC_URL_<id>)"},
+		&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>)"},
 		&urfave.StringFlag{Name: "version", Value: "v3", Usage: "Uniswap version: v3 or v4"},
 	}
 }
@@ -43,7 +44,7 @@ func lpPositionFlags() []urfave.Flag {
 
 func lpListFlags() []urfave.Flag {
 	return []urfave.Flag{
-		&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID (needs OKU_RPC_URL_<id>)"},
+		&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>)"},
 		&urfave.StringFlag{Name: "version", Usage: "v3 or v4 (default both)"},
 		&urfave.StringFlag{Name: "token-id", Usage: "comma-separated v4 token IDs to include when Oku portfolio data is unavailable"},
 	}
@@ -58,7 +59,7 @@ type lpTarget struct {
 
 func (a *App) lpTarget(e *env, version string) (lpTarget, error) {
 	chain, err := strconv.ParseUint(str(e, "chain"), 10, 64)
-	if err != nil || !onchain.Allowed(chain) {
+	if err != nil || !config.ValidChainID(chain) {
 		return lpTarget{}, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
 	}
 	v, err := uniswaplp.ParseVersion(version)
@@ -69,10 +70,10 @@ func (a *App) lpTarget(e *env, version string) (lpTarget, error) {
 	if err != nil {
 		return lpTarget{}, output.Wrap(output.CodeInvalidArgument, err, "uniswap deployment")
 	}
-	if _, err := onchain.RPCURL(a.Getenv, chain); err != nil {
+	if _, err := a.rpcResolver().URL(chain); err != nil {
 		return lpTarget{}, output.Wrap(output.CodeConfigError, err, "chain RPC")
 	}
-	return lpTarget{chain, d, onchain.HTTPRPC{Getenv: a.Getenv}}, nil
+	return lpTarget{chain, d, a.httpRPC()}, nil
 }
 
 // lpToken is a resolved pool-token argument. native is true when the user

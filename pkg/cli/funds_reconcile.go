@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"strings"
 
-	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
 	urfave "github.com/urfave/cli/v3"
 )
@@ -54,7 +53,7 @@ func (a *App) cmdFundsReconcile(e *env, kind string, status func(*env) (*result,
 	if r.Kind != kind || !strings.EqualFold(r.Sender, w.agent) || (r.State != "unknown" && r.State != "sending") || len(r.Hashes) >= need {
 		return nil, output.Errorf(output.CodeIntentState, "only unresolved unknown intents with an unrecorded transaction can attach a hash")
 	}
-	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	rpc := a.httpRPC()
 	ctx, cancel := e.requestCtx()
 	defer cancel()
 	if r.Batch != nil {

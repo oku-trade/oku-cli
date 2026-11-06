@@ -574,7 +574,7 @@ func (a *App) cmdLPSubmit(e *env) (*result, error) {
 	}
 	execCtx, execCancel := context.WithTimeout(e.ctx, onchainExecBudget)
 	defer execCancel()
-	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	rpc := a.httpRPC()
 	executor := onchain.Executor{Getenv: a.Getenv, RPC: rpc, Sender: ps, Journal: j, WalletID: walletID}
 	if resume {
 		err = executor.ExecuteSteps(execCtx, r.OnchainIntent, r.StepIndex)

@@ -22,7 +22,7 @@ func isMaxAmount(s string) bool { return strings.EqualFold(s, "max") || strings.
 func (a *App) resolveMaxAmount(e *env, chain uint64, token, wallet string, decimals int, contractCall bool, destinations ...string) (string, *big.Int, error) {
 	ctx, cancel := e.requestCtx()
 	defer cancel()
-	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	rpc := a.httpRPC()
 	var raw *big.Int
 	var err error
 	if token == "native" {

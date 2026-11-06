@@ -94,7 +94,7 @@ oku orders status --intent ID
 
 Once the companion [Accounts fee-association change](https://github.com/oku-trade/account/pull/715) and [authorization-page change](https://github.com/oku-trade/trade/pull/4246) are deployed, sign in to your existing Oku site account on the authorization page when running `oku auth login`. The page proves control of the embedded agent wallet under a **separate** Privy-based Oku Agent session, then associates that wallet with your site account for fee calculation only. Historical trading volume from both identities, including trades before association, contributes to the fee tier in **both** directions. The CLI session stays the standalone agent identity, not a login to your primary Oku account. It cannot access the primary account's sessions, settings, balances or order history. Agent-wallet funds and Hyperliquid agent approval remain separate. No accounts or order histories are merged, and there is no unlink flow. Existing CLI sessions remain standalone and do not need logout or re-login for fee association. The shared fee tier is applied server-side. This documentation does not imply a live rollout.
 
-Use your own trusted RPC via `OKU_RPC_URL_42161` for wallet transactions. See [usage](docs/usage.md) for agent-wallet funds, JSON input and unknown outcomes.
+Use your own trusted RPC for wallet transactions: save it once with `oku rpc set 42161 URL` (or set `OKU_RPC_URL_42161`, which takes precedence). See [usage](docs/usage.md) for agent-wallet funds, JSON input and unknown outcomes.
 
 ## Use with your AI agent
 

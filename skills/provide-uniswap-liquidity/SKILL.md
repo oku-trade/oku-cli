@@ -5,7 +5,7 @@ description: Open, add to, remove from, collect fees of and close Uniswap v3 and
 
 # Provide Uniswap Liquidity
 
-Use `oku docs commands --json` to confirm the installed commands and flags. Set `OKU_RPC_URL_<CHAINID>` to a trusted RPC on each chain used: every pool and position read goes to that RPC. Positions belong to the enrolled agent wallet. v3 is available on the chains the Oku web app supports for liquidity; v4 is available where Oku has a v4 PositionManager deployment (Ethereum and Unichain at the time of writing). Pass `--version v4` for v4; the default is v3.
+Use `oku docs commands --json` to confirm the installed commands and flags. Run `oku rpc set CHAIN_ID URL` for a trusted RPC on each chain used (`OKU_RPC_URL_<CHAINID>` also works and takes precedence): every pool and position read goes to that RPC. Positions belong to the enrolled agent wallet. v3 is available on the chains the Oku web app supports for liquidity; v4 is available where Oku has a v4 PositionManager deployment (Ethereum and Unichain at the time of writing). Pass `--version v4` for v4; the default is v3.
 
 ## Inspect
 

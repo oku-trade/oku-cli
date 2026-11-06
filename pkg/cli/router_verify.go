@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gfx-labs/chain-config/dist/networks"
+	"github.com/oku-trade/oku-cli/pkg/config"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
 	"github.com/oku-trade/oku-cli/pkg/journal"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
@@ -59,7 +60,7 @@ func verifyExecution(in journal.OnchainIntent, quoteMin string, info *v2.Executi
 		return nil, fmt.Errorf("execution does not match prepared intent: %s", reason)
 	}
 	router := routerFor(in.ChainID)
-	if in.Kind != "swap" || router == "" || !onchain.Allowed(in.ChainID) || in.OutChain != in.ChainID || !safeInfo(info) || !onchain.ValidAddress(in.Recipient) || !strings.EqualFold(in.Target, router) || !strings.EqualFold(info.Trade.To, router) || info.Trade.ChainId != int64(in.ChainID) {
+	if in.Kind != "swap" || router == "" || !config.ValidChainID(in.ChainID) || in.OutChain != in.ChainID || !safeInfo(info) || !onchain.ValidAddress(in.Recipient) || !strings.EqualFold(in.Target, router) || !strings.EqualFold(info.Trade.To, router) || info.Trade.ChainId != int64(in.ChainID) {
 		return fail("router, chain or route differs")
 	}
 	min, e := positiveRaw(in.MinOut)
