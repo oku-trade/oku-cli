@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/oku-trade/oku-cli/pkg/api"
+	"github.com/oku-trade/oku-cli/pkg/config"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
 	"github.com/oku-trade/oku-cli/pkg/journal"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
@@ -344,17 +345,17 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 	}
 	// Chain IDs are bounded to int32 because the API uses int32 chain IDs.
 	chain, err := strconv.ParseUint(str(e, "chain"), 10, 31)
-	if err != nil || !onchain.Allowed(chain) {
+	if err != nil || !config.ValidChainID(chain) {
 		return nil, nil, routeQuote{}, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
 	}
 	// Token decimals, gas and receipts are read from the chain directly.
-	if _, rerr := onchain.RPCURL(a.Getenv, chain); rerr != nil {
+	if _, rerr := a.rpcResolver().URL(chain); rerr != nil {
 		return nil, nil, routeQuote{}, output.Wrap(output.CodeConfigError, rerr, "chain RPC")
 	}
 	dst := chain
 	if kind == "bridge" {
 		dst, err = strconv.ParseUint(str(e, "destination-chain"), 10, 31)
-		if err != nil || !onchain.Allowed(dst) || dst == chain {
+		if err != nil || !config.ValidChainID(dst) || dst == chain {
 			return nil, nil, routeQuote{}, output.Errorf(output.CodeInvalidArgument, "destination must be a different EVM chain ID")
 		}
 	}
@@ -385,7 +386,7 @@ func (a *App) routeInputs(e *env, kind string, prepare bool) (*resolvedWallet, *
 	}
 	decimals := big.NewInt(18)
 	if from != "native" {
-		decimals, err = onchain.HTTPRPC{Getenv: a.Getenv}.Call(ctx, chain, from, "0x313ce567")
+		decimals, err = a.httpRPC().Call(ctx, chain, from, "0x313ce567")
 		if err != nil {
 			return nil, nil, routeQuote{}, output.Wrap(output.CodeUpstream, err, "token decimals")
 		}

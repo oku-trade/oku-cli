@@ -155,7 +155,7 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	}
 	var templates []journal.OnchainTemplate
 	if r.Intent {
-		templates, err = intentApprovals(ctx, onchain.HTTPRPC{Getenv: a.Getenv}, r.ChainID, w.agent, approvals)
+		templates, err = intentApprovals(ctx, a.httpRPC(), r.ChainID, w.agent, approvals)
 	} else if kind == "bridge" {
 		if !bridgeInfo(info.Info) || !onchain.ValidAddress(routeTarget(info.Info)) {
 			return nil, output.Errorf(output.CodePayloadMismatch, "refusing unverified bridge execution target or shape")
@@ -169,7 +169,7 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	}
 	if kind == "swap" && !r.Intent {
 		// Swaps retain their independent deployed OkuRouter check.
-		if hasCode, cerr := (onchain.HTTPRPC{Getenv: a.Getenv}).HasCode(ctx, r.ChainID, r.Target); cerr != nil {
+		if hasCode, cerr := (a.httpRPC()).HasCode(ctx, r.ChainID, r.Target); cerr != nil {
 			return nil, output.Wrap(output.CodeUpstream, cerr, "route target code check")
 		} else if !hasCode {
 			return nil, output.Errorf(output.CodePayloadMismatch, "no OkuRouter contract at %s on chain %d", r.Target, r.ChainID)
@@ -213,7 +213,7 @@ func (a *App) cmdRouteSubmit(e *env, kind string) (*result, error) {
 	// timeout; individual RPC and Privy calls keep their own HTTP timeouts.
 	execCtx, execCancel := context.WithTimeout(e.ctx, onchainExecBudget)
 	defer execCancel()
-	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	rpc := a.httpRPC()
 	executor := onchain.Executor{Getenv: a.Getenv, RPC: rpc, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
 	mode := "sequential"
 	if len(executing.Templates) > 1 {
@@ -296,7 +296,7 @@ func (a *App) resumeRouteSequential(e *env, w *resolvedWallet, j *journal.Journa
 	if !bound {
 		return nil, output.Errorf(output.CodeSignerUnavailable, "authenticated Privy wallet differs from agent")
 	}
-	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	rpc := a.httpRPC()
 	x := onchain.Executor{Getenv: a.Getenv, RPC: rpc, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
 	if err := x.ExecuteSequential(ctx, r.OnchainIntent, r.StepIndex); err != nil {
 		return nil, executionError(err, r.Kind, r.ChainID, r.Token)

@@ -111,7 +111,7 @@ func (a *App) cmdConfigShow(e *env) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeConfigError, err, "loading config")
 	}
-	return &result{data: f, human: func(w io.Writer) { printProfiles(w, f) }}, nil
+	return &result{data: f.Redacted(), human: func(w io.Writer) { printProfiles(w, f) }}, nil
 }
 
 func (a *App) cmdProfilesList(e *env) (*result, error) {

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oku-trade/oku-cli/pkg/config"
 	"github.com/oku-trade/oku-cli/pkg/journal"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
@@ -67,7 +68,7 @@ func executionError(err error, kind string, chain uint64, token string) error {
 const onchainExecBudget = 10 * time.Minute
 
 func sendPrepareFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID, e.g. 42161 (needs OKU_RPC_URL_<id>; no built-in RPC)"}, &urfave.StringFlag{Name: "token", Usage: "ERC-20 contract address or native (also 0x0 or 0xEeee address)"}, &urfave.StringFlag{Name: "amount", Usage: "exact decimal amount or max/all"}, &urfave.StringFlag{Name: "gas-reserve", Usage: "override estimated native gas reserve in native units for max/all"}, &urfave.StringFlag{Name: "to", Usage: "recipient EVM address (defaults to profile master)"}, &urfave.StringFlag{Name: "intent-id", Usage: "optional idempotency ID"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID, e.g. 42161 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>; no built-in RPC)"}, &urfave.StringFlag{Name: "token", Usage: "ERC-20 contract address or native (also 0x0 or 0xEeee address)"}, &urfave.StringFlag{Name: "amount", Usage: "exact decimal amount or max/all"}, &urfave.StringFlag{Name: "gas-reserve", Usage: "override estimated native gas reserve in native units for max/all"}, &urfave.StringFlag{Name: "to", Usage: "recipient EVM address (defaults to profile master)"}, &urfave.StringFlag{Name: "intent-id", Usage: "optional idempotency ID"}}
 }
 func depositPrepareFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.StringFlag{Name: "amount", Usage: "USDC amount on Arbitrum"}, &urfave.StringFlag{Name: "to", Usage: "must equal profile master address if supplied"}, &urfave.StringFlag{Name: "intent-id", Usage: "optional idempotency ID"}}
@@ -108,10 +109,10 @@ func (a *App) cmdFundsPrepare(e *env, kind string) (*result, error) {
 	chain, token, recipient := uint64(42161), arbitrumUSDC, w.profile.Account
 	if kind == "send" {
 		chain, err = strconv.ParseUint(str(e, "chain"), 10, 64)
-		if err != nil || !onchain.Allowed(chain) {
+		if err != nil || !config.ValidChainID(chain) {
 			return nil, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
 		}
-		if _, rerr := onchain.RPCURL(a.Getenv, chain); rerr != nil {
+		if _, rerr := a.rpcResolver().URL(chain); rerr != nil {
 			return nil, output.Wrap(output.CodeConfigError, rerr, "chain RPC")
 		}
 		token = normalizeToken(str(e, "token"))
@@ -135,7 +136,7 @@ func (a *App) cmdFundsPrepare(e *env, kind string) (*result, error) {
 	if token != "native" {
 		decimals = 6
 		if kind == "send" {
-			rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+			rpc := a.httpRPC()
 			ctx, cancel := e.requestCtx()
 			defer cancel()
 			raw, err := rpc.Call(ctx, chain, token, "0x313ce567")
@@ -291,7 +292,7 @@ func (a *App) cmdFundsSubmit(e *env, kind string) (*result, error) {
 	}
 	execCtx, execCancel := context.WithTimeout(e.ctx, onchainExecBudget)
 	defer execCancel()
-	executor := onchain.Executor{Getenv: a.Getenv, RPC: onchain.HTTPRPC{Getenv: a.Getenv}, Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
+	executor := onchain.Executor{Getenv: a.Getenv, RPC: a.httpRPC(), Sender: ps, Journal: j, WalletID: s.md.PrivyWalletID}
 	if err = executor.Execute(execCtx, r.OnchainIntent); err != nil {
 		return nil, executionError(err, "send", r.ChainID, r.Token)
 	}
@@ -303,7 +304,7 @@ func (a *App) cmdFundsSubmit(e *env, kind string) (*result, error) {
 }
 func verifySendTemplate(in journal.OnchainIntent) bool {
 	t := in.Templates[0]
-	if t.ChainID != in.ChainID || !onchain.Allowed(t.ChainID) || !onchain.ValidAddress(in.Recipient) {
+	if t.ChainID != in.ChainID || !config.ValidChainID(t.ChainID) || !onchain.ValidAddress(in.Recipient) {
 		return false
 	}
 	decimals := 18
@@ -350,7 +351,7 @@ func (a *App) cmdFundsStatus(e *env, kind string) (*result, error) {
 	if r.Batch != nil && (r.State == "unknown" || r.State == "sending") && len(r.Hashes) == 0 {
 		ctx, cancel := e.requestCtx()
 		defer cancel()
-		rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+		rpc := a.httpRPC()
 		hash, err := onchain.LocateBatch(ctx, r.OnchainIntent, *r.Batch, rpc)
 		if err == nil {
 			if err = j.AdvanceOnchain(r.ID, r.State, "unknown", hash); err != nil {
@@ -377,7 +378,7 @@ func (a *App) resolveReceipt(e *env, j *journal.Journal, r *journal.OnchainRecor
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
-	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	rpc := a.httpRPC()
 	status, err := rpc.Receipt(ctx, r.ChainID, r.Hashes[len(r.Hashes)-1])
 	if err != nil {
 		return nil, output.Wrap(output.CodeUpstream, err, "receipt lookup")

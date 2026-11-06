@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/mdp/qrterminal/v3"
+	"github.com/oku-trade/oku-cli/pkg/config"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
 	urfave "github.com/urfave/cli/v3"
@@ -28,7 +29,7 @@ func (a *App) cmdWalletFund(e *env) (*result, error) {
 		return nil, err
 	}
 	chain, err := strconv.ParseUint(strings.TrimPrefix(e.cmd.String("chain"), "eip155:"), 10, 31)
-	if err != nil || !onchain.Allowed(chain) {
+	if err != nil || !config.ValidChainID(chain) {
 		return nil, output.Errorf(output.CodeInvalidArgument, "unsupported EVM chain %q", e.cmd.String("chain"))
 	}
 	token := strings.ToLower(strings.TrimSpace(e.cmd.String("token")))
@@ -56,7 +57,7 @@ func (a *App) cmdWalletFund(e *env) (*result, error) {
 		if token != "native" {
 			ctx, cancel := e.requestCtx()
 			defer cancel()
-			raw, callErr := (onchain.HTTPRPC{Getenv: a.Getenv}).Call(ctx, chain, address, "0x313ce567")
+			raw, callErr := (a.httpRPC()).Call(ctx, chain, address, "0x313ce567")
 			if callErr != nil {
 				return nil, output.Wrap(output.CodeUpstream, callErr, "reading token decimals")
 			}

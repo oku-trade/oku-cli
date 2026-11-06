@@ -144,7 +144,7 @@ func TestMinedTransactionAfterPrivy400RemainsUnknownUntilReconciled(t *testing.T
 	}
 	// These are the verification, attachment, and confirmed-receipt steps used
 	// by reconcile. A provider code or consumed nonce is not a substitute.
-	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	rpc := a.httpRPC()
 	if err = rpc.VerifyTransaction(context.Background(), in.ChainID, hash, agent, in.Templates[0]); err != nil {
 		t.Fatal(err)
 	}

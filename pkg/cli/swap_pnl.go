@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/oku-trade/oku-cli/pkg/config"
 	"github.com/oku-trade/oku-cli/pkg/journal"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
@@ -70,7 +71,7 @@ func (a *App) measureSwapFill(e *env, j *journal.Journal, r *journal.OnchainReco
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
-	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	rpc := a.httpRPC()
 	receipts := make([]*onchain.TxReceipt, 0, len(r.Hashes))
 	for _, h := range r.Hashes {
 		t, err := rpc.FullReceipt(ctx, r.ChainID, h)
@@ -103,7 +104,7 @@ func (a *App) inputValue(e *env, r *journal.OnchainRecord) *big.Rat {
 		return nil
 	}
 	ctx, cancel := e.requestCtx()
-	dec, err := onchain.HTTPRPC{Getenv: a.Getenv}.Call(ctx, r.ChainID, r.Token, "0x313ce567")
+	dec, err := a.httpRPC().Call(ctx, r.ChainID, r.Token, "0x313ce567")
 	cancel()
 	if err != nil || !dec.IsInt64() || dec.Int64() < 0 || dec.Int64() > 36 {
 		return nil
@@ -186,7 +187,7 @@ func (a *App) cmdSwapPnL(e *env) (*result, error) {
 	var chains []uint64
 	if raw := strings.TrimSpace(str(e, "chain")); raw != "" {
 		c, perr := strconv.ParseUint(raw, 10, 64)
-		if perr != nil || !onchain.Allowed(c) {
+		if perr != nil || !config.ValidChainID(c) {
 			return nil, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
 		}
 		chains = []uint64{c}
@@ -221,7 +222,7 @@ func (a *App) chainPnL(e *env, j *journal.Journal, agent string, chain uint64, t
 	}
 	meta := map[string]onchain.TokenMetadata{}
 	if len(addrs) > 0 {
-		rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+		rpc := a.httpRPC()
 		ctx, cancel := e.requestCtx()
 		details, merr := rpc.TokenDetails(ctx, chain, agent, addrs)
 		cancel()

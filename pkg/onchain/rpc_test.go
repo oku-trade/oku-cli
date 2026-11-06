@@ -3,7 +3,6 @@ package onchain
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -116,22 +115,6 @@ func TestEstimateReservesDependentStepsThatCannotSimulateYet(t *testing.T) {
 	firstFails = true
 	if _, err := rpc.Estimate(context.Background(), 42161, agent, steps); err == nil {
 		t.Fatal("a reverting first step must fail preflight")
-	}
-}
-
-// Known and unknown chains both require a user-configured endpoint.
-func TestRPCURLResolvesAnyChain(t *testing.T) {
-	env := map[string]string{"OKU_RPC_URL_324": "https://zk.example", "OKU_RPC_URL_10": "https://op.example"}
-	getenv := func(k string) string { return env[k] }
-	for chain, want := range map[uint64]string{10: "https://op.example", 324: "https://zk.example"} {
-		if got, err := RPCURL(getenv, chain); err != nil || got != want {
-			t.Fatalf("chain %d: %q %v", chain, got, err)
-		}
-	}
-	for _, chain := range []uint64{42161, 1101} {
-		if _, err := RPCURL(getenv, chain); !errors.Is(err, ErrNoRPC) || !strings.Contains(err.Error(), fmt.Sprintf("OKU_RPC_URL_%d", chain)) {
-			t.Fatalf("missing RPC for chain %d must name the override: %v", chain, err)
-		}
 	}
 }
 

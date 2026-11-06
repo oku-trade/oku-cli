@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/oku-trade/oku-cli/pkg/journal"
-	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
 )
 
@@ -23,7 +22,7 @@ func (a *App) advanceRecordStep(e *env, j *journal.Journal, r *journal.OnchainRe
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
-	status, err := onchain.HTTPRPC{Getenv: a.Getenv}.Receipt(ctx, r.ChainID, r.Hashes[len(r.Hashes)-1])
+	status, err := a.httpRPC().Receipt(ctx, r.ChainID, r.Hashes[len(r.Hashes)-1])
 	if err != nil {
 		return nil, output.Wrap(output.CodeUpstream, err, "sequential receipt")
 	}

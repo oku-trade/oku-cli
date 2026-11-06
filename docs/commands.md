@@ -296,7 +296,7 @@ Prepare removing all liquidity and fees and burning the position NFT (never sign
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--version` | Uniswap version: v3 or v4 | `v3` |
 | `--token-id` | position NFT token ID | `` |
 | `--slippage-bps` | maximum price slippage in basis points, 0-500 (web app default 50) | `50` |
@@ -310,7 +310,7 @@ Prepare collecting a position's uncollected fees (never signs)
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--version` | Uniswap version: v3 or v4 | `v3` |
 | `--token-id` | position NFT token ID | `` |
 | `--intent-id` | optional idempotency ID | `` |
@@ -323,7 +323,7 @@ Prepare removing a percent of a position's liquidity, collecting the tokens and 
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--version` | Uniswap version: v3 or v4 | `v3` |
 | `--token-id` | position NFT token ID | `` |
 | `--percent` | percent of the position's liquidity to remove, above 0 up to 100 | `` |
@@ -338,7 +338,7 @@ Prepare adding liquidity to a position (never signs)
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--version` | Uniswap version: v3 or v4 | `v3` |
 | `--token-id` | position NFT token ID | `` |
 | `--amount` | decimal amount of --amount-token to deposit, or max/all; the other side is derived at the current price | `` |
@@ -355,7 +355,7 @@ List the agent's Uniswap v3/v4 positions on a chain (read-only)
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--version` | v3 or v4 (default both) | `` |
 | `--token-id` | comma-separated v4 token IDs to include when Oku portfolio data is unavailable | `` |
 
@@ -367,7 +367,7 @@ Prepare a new Uniswap v3/v4 position (never signs)
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--version` | Uniswap version: v3 or v4 | `v3` |
 | `--token0` | pool token address, unambiguous symbol, or native (either order) | `` |
 | `--token1` | the other pool token | `` |
@@ -394,7 +394,7 @@ Read a Uniswap v3/v4 pool: price, tick, liquidity (read-only)
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--version` | Uniswap version: v3 or v4 | `v3` |
 | `--token0` | pool token address, unambiguous symbol, or native (either order) | `` |
 | `--token1` | the other pool token | `` |
@@ -410,7 +410,7 @@ Read one Uniswap v3/v4 position: range, amounts, uncollected fees (read-only)
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--version` | Uniswap version: v3 or v4 | `v3` |
 | `--token-id` | position NFT token ID | `` |
 
@@ -634,6 +634,18 @@ Remove a profile without credentials: profiles remove NAME
 
 Set the default profile: profiles use NAME
 
+## `oku rpc list`
+
+List configured chain RPCs and their source (env or config), URLs redacted
+
+## `oku rpc set`
+
+Save a chain RPC URL in the config file: rpc set CHAIN_ID URL (OKU_RPC_URL_<CHAINID> still overrides)
+
+## `oku rpc unset`
+
+Remove a saved chain RPC URL: rpc unset CHAIN_ID
+
 ## `oku self-update`
 
 Upgrade this binary from the latest GitHub release (--check to only compare)
@@ -654,7 +666,7 @@ Prepare an agent EVM transfer
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID, e.g. 42161 (needs OKU_RPC_URL_<id>; no built-in RPC) | `` |
+| `--chain` | EVM chain ID, e.g. 42161 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>; no built-in RPC) | `` |
 | `--token` | ERC-20 contract address or native (also 0x0 or 0xEeee address) | `` |
 | `--amount` | exact decimal amount or max/all | `` |
 | `--gas-reserve` | override estimated native gas reserve in native units for max/all | `` |

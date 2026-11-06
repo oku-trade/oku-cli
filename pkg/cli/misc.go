@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	urfave "github.com/urfave/cli/v3"
 
@@ -140,6 +141,21 @@ func (a *App) cmdDoctor(e *env) (*result, error) {
 	}
 	cfg, _ := config.Path()
 	add("config", true, cfg)
+	if f, err := config.Load(); err != nil {
+		add("rpc", false, output.As(err).Message)
+	} else if rows, err := a.rpcEntries(f); err != nil {
+		add("rpc", false, err.Error())
+	} else {
+		parts := make([]string, 0, len(rows))
+		for _, r := range rows {
+			parts = append(parts, fmt.Sprintf("%d %s (%s)", r.Chain, r.URL, r.Source))
+		}
+		detail := "none configured; run oku rpc set CHAIN_ID URL or set OKU_RPC_URL_<CHAINID>"
+		if len(parts) > 0 {
+			detail = strings.Join(parts, ", ")
+		}
+		add("rpc", true, detail)
+	}
 	ok := true
 	for _, c := range checks {
 		ok = ok && c.OK
