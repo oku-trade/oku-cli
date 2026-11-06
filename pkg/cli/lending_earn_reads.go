@@ -220,7 +220,7 @@ func (a *App) morphoEarnPositions(ctx context.Context, chain uint64, agent strin
 	if len(vaults) == 0 {
 		return []earnPosition{}, nil
 	}
-	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	rpc := a.httpRPC()
 	holdings, err := lending.ReadHoldings(ctx, rpc, chain, addr(agent), vaults)
 	if err != nil {
 		return nil, output.Wrap(output.CodeUpstream, err, "vault balances")

@@ -79,7 +79,7 @@ func (a *App) cmdBorrowPrepare(e *env) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err = onchain.RPCURL(a.Getenv, t.chain); err != nil {
+	if _, err = a.rpcResolver().URL(t.chain); err != nil {
 		return nil, output.Wrap(output.CodeConfigError, err, "chain RPC")
 	}
 	ctx, cancel := e.requestCtx()
@@ -128,7 +128,7 @@ func (a *App) morphoBorrowPrepare(ctx context.Context, e *env, w *resolvedWallet
 		return nil, output.Wrap(output.CodeInvalidArgument, err, "morpho")
 	}
 	owner := addr(w.agent)
-	s, err := lending.ReadMarket(ctx, onchain.HTTPRPC{Getenv: a.Getenv}, d, id, owner)
+	s, err := lending.ReadMarket(ctx, a.httpRPC(), d, id, owner)
 	if err != nil {
 		return nil, output.Wrap(output.CodeUpstream, err, "morpho market")
 	}

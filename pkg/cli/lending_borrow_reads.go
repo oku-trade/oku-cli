@@ -116,7 +116,7 @@ func (a *App) tokenInfos(ctx context.Context, e *env, chain uint64, tokens []str
 	if len(tokens) == 0 {
 		return out
 	}
-	if _, err := onchain.RPCURL(a.Getenv, chain); err != nil {
+	if _, err := a.rpcResolver().URL(chain); err != nil {
 		e.diag("note: token symbols and decimals unknown on chain %d: %v", chain, err)
 		return out
 	}
@@ -124,7 +124,7 @@ func (a *App) tokenInfos(ctx context.Context, e *env, chain uint64, tokens []str
 	for _, tk := range tokens {
 		calls = append(calls, onchain.Call3{Target: tk, Data: []byte{0x31, 0x3c, 0xe5, 0x67}}, onchain.Call3{Target: tk, Data: []byte{0x95, 0xd8, 0x9b, 0x41}})
 	}
-	r, err := onchain.HTTPRPC{Getenv: a.Getenv}.Aggregate(ctx, chain, calls)
+	r, err := a.httpRPC().Aggregate(ctx, chain, calls)
 	if err != nil {
 		e.diag("warning: token metadata multicall failed on chain %d (%d tokens): %v", chain, len(tokens), err)
 		return out
@@ -375,7 +375,7 @@ func (a *App) morphoBorrowPositions(ctx context.Context, chain uint64, agent str
 	if len(ids) == 0 {
 		return out, nil
 	}
-	snaps, err := lending.ReadMarkets(ctx, onchain.HTTPRPC{Getenv: a.Getenv}, d, ids, addr(agent))
+	snaps, err := lending.ReadMarkets(ctx, a.httpRPC(), d, ids, addr(agent))
 	if err != nil {
 		return nil, output.Wrap(output.CodeUpstream, err, "morpho positions")
 	}

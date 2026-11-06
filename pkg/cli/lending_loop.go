@@ -140,7 +140,7 @@ func loopSlippage(e *env) (int, error) {
 
 // readLoop reads the position the loop flags name, for either protocol.
 func (a *App) readLoop(ctx context.Context, e *env, w *resolvedWallet, t lendingTarget, open bool) (loopState, error) {
-	if _, err := onchain.RPCURL(a.Getenv, t.chain); err != nil {
+	if _, err := a.rpcResolver().URL(t.chain); err != nil {
 		return loopState{}, output.Wrap(output.CodeConfigError, err, "chain RPC")
 	}
 	owner := addr(w.agent)
@@ -153,7 +153,7 @@ func (a *App) readLoop(ctx context.Context, e *env, w *resolvedWallet, t lending
 		if err != nil {
 			return loopState{}, output.Wrap(output.CodeInvalidArgument, err, "morpho")
 		}
-		snap, err := lending.ReadMarket(ctx, onchain.HTTPRPC{Getenv: a.Getenv}, d, common.HexToHash(id), owner)
+		snap, err := lending.ReadMarket(ctx, a.httpRPC(), d, common.HexToHash(id), owner)
 		if err != nil {
 			return loopState{}, output.Wrap(output.CodeUpstream, err, "morpho market")
 		}
@@ -631,7 +631,7 @@ func (s loopState) loopPreview(coll, debt *big.Int, q loopSwapQuote, target floa
 // eulerFunds reads the agent's collateral balance and its allowance to
 // the collateral vault (an ERC-4626 vault) in one read.
 func (a *App) eulerFunds(ctx context.Context, s loopState) (*big.Int, *big.Int, error) {
-	v, err := lending.ReadVault(ctx, onchain.HTTPRPC{Getenv: a.Getenv}, s.chain, s.cvAddr, s.owner, s.cvAddr, nil)
+	v, err := lending.ReadVault(ctx, a.httpRPC(), s.chain, s.cvAddr, s.owner, s.cvAddr, nil)
 	if err != nil {
 		return nil, nil, output.Wrap(output.CodeUpstream, err, "collateral balance")
 	}

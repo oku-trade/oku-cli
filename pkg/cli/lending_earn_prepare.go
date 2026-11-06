@@ -41,7 +41,7 @@ func (a *App) cmdEarnPrepare(e *env) (*result, error) {
 	if (dep == "") == (wd == "") {
 		return nil, output.Errorf(output.CodeUsage, "pass exactly one of --deposit or --withdraw")
 	}
-	if _, err = onchain.RPCURL(a.Getenv, t.chain); err != nil {
+	if _, err = a.rpcResolver().URL(t.chain); err != nil {
 		return nil, output.Wrap(output.CodeConfigError, err, "chain RPC")
 	}
 	ctx, cancel := e.requestCtx()
@@ -62,7 +62,7 @@ func (a *App) morphoEarnPrepare(ctx context.Context, e *env, w *resolvedWallet, 
 		return nil, output.Wrap(output.CodeInvalidArgument, err, "morpho")
 	}
 	owner := addr(w.agent)
-	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	rpc := a.httpRPC()
 	probe, err := lending.ReadVault(ctx, rpc, t.chain, vault, owner, d.GeneralAdapter1, nil)
 	if err != nil {
 		return nil, output.Wrap(output.CodeUpstream, err, "vault")
@@ -207,7 +207,7 @@ func (a *App) eulerEarnPrepare(ctx context.Context, e *env, w *resolvedWallet, t
 			want.Vault(vault, "withdraw", amount)
 		} else {
 			// Full exit: redeem the exact share balance read on chain.
-			shares, err := lending.ReadHoldings(ctx, onchain.HTTPRPC{Getenv: a.Getenv}, t.chain, lending.SubAccount(owner, sub), []common.Address{vault})
+			shares, err := lending.ReadHoldings(ctx, a.httpRPC(), t.chain, lending.SubAccount(owner, sub), []common.Address{vault})
 			if err != nil {
 				return nil, output.Wrap(output.CodeUpstream, err, "vault shares")
 			}

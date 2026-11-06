@@ -6,7 +6,6 @@ import (
 
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
 	"github.com/oku-trade/oku-cli/pkg/lending"
-	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
 )
 
@@ -51,7 +50,7 @@ func (a *App) positionRisk(ctx context.Context, e *env, w *resolvedWallet, plan 
 		if err != nil {
 			return liveRisk{}, err
 		}
-		s, err := lending.ReadMarket(ctx, onchain.HTTPRPC{Getenv: a.Getenv}, d, *plan.MarketID, plan.Owner)
+		s, err := lending.ReadMarket(ctx, a.httpRPC(), d, *plan.MarketID, plan.Owner)
 		if err != nil {
 			return liveRisk{}, err
 		}

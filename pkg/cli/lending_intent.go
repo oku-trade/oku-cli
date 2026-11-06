@@ -99,7 +99,7 @@ func (a *App) simulateLending(e *env, w *resolvedWallet, chain uint64, calls []l
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
-	err := onchain.HTTPRPC{Getenv: a.Getenv}.SimulateSequence(ctx, chain, w.agent, templates)
+	err := a.httpRPC().SimulateSequence(ctx, chain, w.agent, templates)
 	var revert *onchain.SimulationRevert
 	switch {
 	case err == nil:
@@ -235,7 +235,7 @@ func (a *App) cmdLendingSubmit(e *env, kind string, after func(context.Context, 
 	}
 	execCtx, execCancel := context.WithTimeout(e.ctx, onchainExecBudget)
 	defer execCancel()
-	rpc := onchain.HTTPRPC{Getenv: a.Getenv}
+	rpc := a.httpRPC()
 	x := onchain.Executor{Getenv: a.Getenv, RPC: rpc, Sender: ps, Journal: j, WalletID: walletID}
 	if resume {
 		err = x.ExecuteSteps(execCtx, r.OnchainIntent, r.StepIndex)

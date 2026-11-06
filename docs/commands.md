@@ -89,7 +89,7 @@ List Morpho or Euler borrow markets with LLTV, rates and liquidity (read-only)
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID, e.g. 8453 (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--protocol` | morpho or euler | `morpho` |
 | `--loan-token` | only markets lending this token (address) | `` |
 | `--collateral-token` | only markets taking this collateral (address) | `` |
@@ -103,7 +103,7 @@ List the agent's borrow positions with LTV, health factor and liquidation price 
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID, e.g. 8453 (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--protocol` | morpho or euler | `morpho` |
 
 ## `oku borrow prepare`
@@ -114,7 +114,7 @@ Prepare supply/borrow or repay/withdraw on a market, refused above the max LTV (
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID, e.g. 8453 (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--protocol` | morpho or euler | `morpho` |
 | `--market` | Morpho market id | `` |
 | `--collateral-vault` | Euler collateral vault | `` |
@@ -365,7 +365,7 @@ List the agent's earn vault positions (read-only)
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID, e.g. 8453 (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--protocol` | morpho or euler | `morpho` |
 
 ## `oku earn prepare`
@@ -376,7 +376,7 @@ Prepare a vault deposit or withdrawal (never signs)
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID, e.g. 8453 (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--protocol` | morpho or euler | `morpho` |
 | `--vault` | vault address (required) | `` |
 | `--deposit` | asset amount to deposit | `` |
@@ -424,7 +424,7 @@ List Morpho or Euler earn vaults with APY and TVL (read-only)
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID, e.g. 8453 (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--protocol` | morpho or euler | `morpho` |
 | `--asset` | only vaults of this asset (token address) | `` |
 | `--limit` | maximum vaults to show, highest net APY first | `25` |
@@ -447,7 +447,7 @@ Prepare an atomic leverage increase or decrease to a target leverage or LTV (nev
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID, e.g. 8453 (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--protocol` | morpho or euler | `morpho` |
 | `--market` | Morpho market id | `` |
 | `--collateral-vault` | Euler collateral vault | `` |
@@ -472,7 +472,7 @@ Prepare a leveraged loop: deposit, flash borrow, swap to collateral, supply, in 
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID, e.g. 8453 (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--protocol` | morpho or euler | `morpho` |
 | `--market` | Morpho market id | `` |
 | `--collateral-vault` | Euler collateral vault | `` |
@@ -528,7 +528,7 @@ Prepare closing a loop: repay all debt from collateral sold in the same transact
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chain` | EVM chain ID, e.g. 8453 (needs OKU_RPC_URL_<id>) | `` |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
 | `--protocol` | morpho or euler | `morpho` |
 | `--market` | Morpho market id | `` |
 | `--collateral-vault` | Euler collateral vault | `` |

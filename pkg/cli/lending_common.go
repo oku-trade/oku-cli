@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/oku-trade/oku-cli/pkg/config"
 	"github.com/oku-trade/oku-cli/pkg/lending"
-	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
 	urfave "github.com/urfave/cli/v3"
 )
@@ -40,7 +39,7 @@ func (t lendingTarget) caip2() string { return fmt.Sprintf("eip155:%d", t.chain)
 func parseLendingTarget(e *env) (lendingTarget, error) {
 	// 31 bits, like the swap routes, so the id fits every int conversion.
 	chain, err := strconv.ParseUint(strings.TrimPrefix(str(e, "chain"), "eip155:"), 10, 31)
-	if err != nil || !onchain.Allowed(chain) {
+	if err != nil || !config.ValidChainID(chain) {
 		return lendingTarget{}, output.Errorf(output.CodeInvalidArgument, "--chain must be an EVM chain ID")
 	}
 	p := strings.ToLower(str(e, "protocol"))
@@ -65,7 +64,7 @@ func parseLendingTarget(e *env) (lendingTarget, error) {
 
 func lendingTargetFlags() []urfave.Flag {
 	return []urfave.Flag{
-		&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID, e.g. 8453 (needs OKU_RPC_URL_<id>)"},
+		&urfave.StringFlag{Name: "chain", Usage: "EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>)"},
 		&urfave.StringFlag{Name: "protocol", Value: protoMorpho, Usage: "morpho or euler"},
 	}
 }
