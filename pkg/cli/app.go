@@ -253,6 +253,9 @@ func (a *App) commandTable() map[string]*handler {
 			h.required[name] = true
 		}
 	}
+	for path, h := range a.lendingCommands() {
+		m[path] = h
+	}
 	for path, h := range a.lpCommands() {
 		m[path] = h
 	}

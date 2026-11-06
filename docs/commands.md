@@ -81,6 +81,85 @@ Run one auto-update now: self-update, then refresh unmodified installed skills
 
 Show the auto-update setting, last check and last result
 
+## `oku borrow markets`
+
+List Morpho or Euler borrow markets with LLTV, rates and liquidity (read-only)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
+| `--protocol` | morpho or euler | `morpho` |
+| `--loan-token` | only markets lending this token (address) | `` |
+| `--collateral-token` | only markets taking this collateral (address) | `` |
+| `--limit` | maximum markets to show, largest first | `25` |
+
+## `oku borrow positions`
+
+List the agent's borrow positions with LTV, health factor and liquidation price (read-only)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
+| `--protocol` | morpho or euler | `morpho` |
+
+## `oku borrow prepare`
+
+Prepare supply/borrow or repay/withdraw on a market, refused above the max LTV (never signs)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
+| `--protocol` | morpho or euler | `morpho` |
+| `--market` | Morpho market id | `` |
+| `--collateral-vault` | Euler collateral vault | `` |
+| `--borrow-vault` | Euler borrow vault | `` |
+| `--sub-account` | Euler sub-account index (0-255) of an existing position | `0` |
+| `--supply-collateral` | collateral amount to add | `` |
+| `--borrow` | loan amount to borrow | `` |
+| `--repay` | loan amount to repay, or max for the whole debt | `` |
+| `--withdraw-collateral` | collateral amount to withdraw, or max | `` |
+| `--close` | repay all debt and withdraw all collateral | `false` |
+| `--accept-high-risk` | allow a post-action health factor below 1.333 (never above the max LTV) | `false` |
+| `--intent-id` | optional idempotency ID | `` |
+
+## `oku borrow reconcile`
+
+Attach and verify a recovered borrow transaction hash
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | unresolved intent ID | `` |
+| `--tx-hash` | recovered onchain transaction hash | `` |
+
+## `oku borrow status`
+
+Reconcile a borrow intent
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id (required) | `` |
+
+## `oku borrow submit`
+
+Submit a verified borrow intent
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id from 'borrow prepare prepare' (required) | `` |
+| `--digest` | intent digest from 'borrow prepare prepare' (required) | `` |
+
 ## `oku bridge claim`
 
 Claim a bridge transfer or all ready transfers with --ready
@@ -278,6 +357,78 @@ Repair malformed order-draft JSON from --stdin into a reviewable candidate (loca
 | --- | --- | --- |
 | `--stdin` | read the draft JSON from stdin (required) | `false` |
 
+## `oku earn positions`
+
+List the agent's earn vault positions (read-only)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
+| `--protocol` | morpho or euler | `morpho` |
+
+## `oku earn prepare`
+
+Prepare a vault deposit or withdrawal (never signs)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
+| `--protocol` | morpho or euler | `morpho` |
+| `--vault` | vault address (required) | `` |
+| `--deposit` | asset amount to deposit | `` |
+| `--withdraw` | asset amount to withdraw, or max for the whole position | `` |
+| `--sub-account` | Euler sub-account index (0-255) | `0` |
+| `--intent-id` | optional idempotency ID | `` |
+
+## `oku earn reconcile`
+
+Attach and verify a recovered earn transaction hash
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | unresolved intent ID | `` |
+| `--tx-hash` | recovered onchain transaction hash | `` |
+
+## `oku earn status`
+
+Reconcile an earn intent
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id (required) | `` |
+
+## `oku earn submit`
+
+Submit a verified earn intent
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id from 'earn prepare prepare' (required) | `` |
+| `--digest` | intent digest from 'earn prepare prepare' (required) | `` |
+
+## `oku earn vaults`
+
+List Morpho or Euler earn vaults with APY and TVL (read-only)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
+| `--protocol` | morpho or euler | `morpho` |
+| `--asset` | only vaults of this asset (token address) | `` |
+| `--limit` | maximum vaults to show, highest net APY first | `25` |
+
 ## `oku fills list`
 
 Recent fills
@@ -287,6 +438,112 @@ Recent fills
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--market` | filter by market, e.g. BTC | `` |
+
+## `oku loop adjust`
+
+Prepare an atomic leverage increase or decrease to a target leverage or LTV (never signs)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
+| `--protocol` | morpho or euler | `morpho` |
+| `--market` | Morpho market id | `` |
+| `--collateral-vault` | Euler collateral vault | `` |
+| `--borrow-vault` | Euler borrow vault | `` |
+| `--sub-account` | Euler sub-account index (1-255) holding the loop | `0` |
+| `--slippage-bps` | swap slippage in basis points, 1-300 | `50` |
+| `--route` | pin one swap router | `` |
+| `--max-loss-bps` | refuse when the swap's priced market loss exceeds this (default 500) | `0` |
+| `--allow-high-impact` | accept a swap above --max-loss-bps | `false` |
+| `--no-intent` |  | `true` |
+| `--intent-id` | optional idempotency ID | `` |
+| `--target-leverage` | adjust: target leverage | `` |
+| `--target-ltv` | adjust: target LTV, e.g. 0.6 | `` |
+| `--to` | unwind: what the agent ends up holding, collateral or loan | `collateral` |
+| `--accept-high-risk` | allow a health factor below 1.333 (never above the max LTV) | `false` |
+
+## `oku loop open`
+
+Prepare a leveraged loop: deposit, flash borrow, swap to collateral, supply, in one transaction (never signs)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
+| `--protocol` | morpho or euler | `morpho` |
+| `--market` | Morpho market id | `` |
+| `--collateral-vault` | Euler collateral vault | `` |
+| `--borrow-vault` | Euler borrow vault | `` |
+| `--sub-account` | Euler sub-account index (1-255) holding the loop | `0` |
+| `--slippage-bps` | swap slippage in basis points, 1-300 | `50` |
+| `--route` | pin one swap router | `` |
+| `--max-loss-bps` | refuse when the swap's priced market loss exceeds this (default 500) | `0` |
+| `--allow-high-impact` | accept a swap above --max-loss-bps | `false` |
+| `--no-intent` |  | `true` |
+| `--intent-id` | optional idempotency ID | `` |
+| `--deposit` | collateral amount to deposit (required) | `` |
+| `--target-leverage` | target leverage, e.g. 3 (required) | `` |
+| `--accept-high-risk` | allow a health factor below 1.333 (never above the max LTV) | `false` |
+
+## `oku loop reconcile`
+
+Attach and verify a recovered loop transaction hash
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | unresolved intent ID | `` |
+| `--tx-hash` | recovered onchain transaction hash | `` |
+
+## `oku loop status`
+
+Reconcile a loop intent
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id (required) | `` |
+
+## `oku loop submit`
+
+Submit a verified loop intent
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id from 'loop prepare prepare' (required) | `` |
+| `--digest` | intent digest from 'loop prepare prepare' (required) | `` |
+
+## `oku loop unwind`
+
+Prepare closing a loop: repay all debt from collateral sold in the same transaction (never signs)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--chain` | EVM chain ID, e.g. 8453 (needs a chain RPC: oku rpc set or OKU_RPC_URL_<id>) | `` |
+| `--protocol` | morpho or euler | `morpho` |
+| `--market` | Morpho market id | `` |
+| `--collateral-vault` | Euler collateral vault | `` |
+| `--borrow-vault` | Euler borrow vault | `` |
+| `--sub-account` | Euler sub-account index (1-255) holding the loop | `0` |
+| `--slippage-bps` | swap slippage in basis points, 1-300 | `50` |
+| `--route` | pin one swap router | `` |
+| `--max-loss-bps` | refuse when the swap's priced market loss exceeds this (default 500) | `0` |
+| `--allow-high-impact` | accept a swap above --max-loss-bps | `false` |
+| `--no-intent` |  | `true` |
+| `--intent-id` | optional idempotency ID | `` |
+| `--target-leverage` | adjust: target leverage | `` |
+| `--target-ltv` | adjust: target LTV, e.g. 0.6 | `` |
+| `--to` | unwind: what the agent ends up holding, collateral or loan | `collateral` |
+| `--accept-high-risk` | allow a health factor below 1.333 (never above the max LTV) | `false` |
 
 ## `oku lp close prepare`
 

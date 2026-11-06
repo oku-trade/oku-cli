@@ -17,4 +17,9 @@ files:
   - gfxcafe/oku/account/v2/token.proto
   - gfxcafe/oku/account/v2/onchain.proto
   - gfxcafe/oku/account/v2/portfolio.proto
+  # LendingService (Euler build/read RPCs and loop RPCs) is vendored from a
+  # later upstream commit because the loop protocol/route fields postdate the
+  # commit above.
+  - path: gfxcafe/oku/account/v2/lending.proto
+    commit: 6df65e2b4e79e846579ddfef8fb6d06aefb6b2dc
   - buf/validate/validate.proto

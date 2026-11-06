@@ -1,0 +1,628 @@
+syntax = "proto3";
+
+package gfxcafe.oku.account.v2;
+
+import "buf/validate/validate.proto";
+import "gfxcafe/oku/account/v1/validate.proto";
+import "gfxcafe/oku/account/v2/validate.proto";
+
+option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v2;accountv2";
+
+// LendingService builds Euler V2 vault and borrow calldata server side and
+// quotes and confirms leveraged loops (Euler and Morpho Blue).
+service LendingService {
+  rpc GetLendingVaults(GetLendingVaultsRequest) returns (GetLendingVaultsResponse);
+  rpc GetLendingMarkets(GetLendingMarketsRequest) returns (GetLendingMarketsResponse);
+  rpc GetLendingPosition(GetLendingPositionRequest) returns (GetLendingPositionResponse);
+  rpc GetLendingUserPositions(GetLendingUserPositionsRequest) returns (GetLendingUserPositionsResponse);
+  rpc BuildLendingDeposit(BuildLendingDepositRequest) returns (BuildLendingDepositResponse);
+  rpc BuildLendingWithdraw(BuildLendingWithdrawRequest) returns (BuildLendingWithdrawResponse);
+  rpc BuildLendingBorrow(BuildLendingBorrowRequest) returns (BuildLendingBorrowResponse);
+  rpc BuildLendingRepay(BuildLendingRepayRequest) returns (BuildLendingRepayResponse);
+  rpc QuoteLoop(QuoteLoopRequest) returns (LoopStatus);
+  rpc ConfirmLoop(LoopOrderRequest) returns (ConfirmLoopResponse);
+  rpc SubmitLoop(SubmitLoopRequest) returns (SubmitLoopResponse);
+  rpc GetLoop(LoopOrderRequest) returns (LoopStatus);
+}
+
+message QuoteLoopRequest {
+  string chain = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true];
+  string user_address = 2;
+  string collateral_vault = 3;
+  string borrow_vault = 4;
+  string collateral_amount = 5;
+  string leverage = 6;
+  uint32 slippage_bps = 7;
+  bool atomic_batch = 8;
+  bool use_oku_router = 9;
+  // "morpho" loops a Morpho Blue market by market_id; empty is Euler (collateral_vault/borrow_vault).
+  string protocol = 10;
+  string market_id = 11;
+  // Euler swap route: empty or "cowswap" is the CoW wrapper order, "oku" is the best Oku route through
+  // the Euler Swapper in one EVC batch tx, any other value pins that Oku market from LoopStatus.routes.
+  string route = 12;
+}
+
+message LoopOrderRequest {
+  string order_id = 1;
+}
+message LoopStep {
+  oneof action {
+    LendingTransaction tx = 1;
+    string typed_data = 2;
+  }
+}
+message LoopStatus {
+  string order_id = 1;
+  bool preview = 2;
+  string stage = 3;
+  int64 expires_at = 4;
+  string signing_scheme = 5;
+  string sub_account_address = 6;
+  string borrow_amount_raw = 7;
+  string swap_out_amount = 8;
+  string min_swap_out_amount = 9;
+  string total_collateral_amount = 10;
+  int32 oku_fee_ppm = 11;
+  bool free_trade = 12;
+  string ltv = 13;
+  string liquidation_price = 14; // Borrow asset per collateral asset, assuming current vault share exchange rate.
+  string realized_leverage = 15;
+  string max_leverage = 16;
+  string route = 17;
+  string order_uid = 18;
+  string tx_hash = 19;
+  string explorer_url = 20;
+  string borrow_amount = 21;
+  string oku_fee_amount = 22;
+  repeated LendingTransaction revoke_txs = 23;
+  string revoke_error = 24;
+  // Oku routes quoted for a non-CoW Euler loop, best minimum output first. route is the selected one.
+  repeated LoopRoute routes = 25;
+}
+message LoopRoute {
+  string route = 1;
+  string swap_out_amount = 2;
+  string min_swap_out_amount = 3;
+  double gas_usd = 4;
+  double price_impact = 5;
+}
+message ConfirmLoopResponse {
+  repeated LoopStep steps = 1;
+  int64 valid_to = 2;
+}
+message SubmitLoopRequest {
+  string order_id = 1;
+  string order_signature = 2;
+}
+message SubmitLoopResponse {
+  string order_uid = 1;
+  string explorer_url = 2;
+}
+
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+// LendingProtocol identifies the lending protocol.
+enum LendingProtocol {
+  LENDING_PROTOCOL_UNSPECIFIED = 0;
+  LENDING_PROTOCOL_EULER_V2 = 1;
+}
+
+// ============================================================================
+// Vault Discovery
+// ============================================================================
+
+message GetLendingVaultsRequest {
+  // Chain identifier (e.g., "eip155:1")
+  string chain = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Optional protocol filter
+  LendingProtocol protocol = 2;
+}
+
+message GetLendingVaultsResponse {
+  repeated LendingVault vaults = 1;
+}
+
+message LendingVault {
+  // Vault contract address
+  string address = 1;
+
+  // Underlying asset address
+  string asset_address = 2;
+
+  // Underlying asset symbol
+  string asset_symbol = 3;
+
+  // Underlying asset decimals
+  int32 asset_decimals = 4;
+
+  // Vault name
+  string name = 5;
+
+  // Vault symbol (share token)
+  string symbol = 6;
+
+  // Total assets deposited (raw units, decimal string)
+  string total_assets = 7;
+
+  // Total assets borrowed (raw units, decimal string)
+  string total_borrowed = 8;
+
+  // Supply cap (raw units, decimal string; "0" = no cap)
+  string supply_cap = 9;
+
+  // Borrow cap (raw units, decimal string; "0" = no cap)
+  string borrow_cap = 10;
+
+  // Current supply APY as a decimal string (e.g., "0.045" = 4.5%)
+  string supply_apy = 11;
+
+  // Current borrow APY as a decimal string
+  string borrow_apy = 12;
+
+  // Protocol identifier
+  LendingProtocol protocol = 13;
+
+  // Chain identifier (CAIP-2)
+  string chain = 14;
+
+  // Assets withdrawable right now (raw units, decimal string; empty = unknown)
+  string available_liquidity = 15;
+}
+
+
+// ============================================================================
+// Market Discovery
+// ============================================================================
+
+message GetLendingMarketsRequest {
+  // Chain identifier (e.g., "eip155:1")
+  string chain = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Optional protocol filter
+  LendingProtocol protocol = 2;
+}
+
+message GetLendingMarketsResponse {
+  repeated LendingMarket markets = 1;
+}
+
+// LendingMarket is a borrowable (collateral vault, borrow vault) pair.
+message LendingMarket {
+  // Collateral vault address
+  string collateral_vault_address = 1;
+
+  // Borrow vault address
+  string borrow_vault_address = 2;
+
+  // Collateral underlying asset
+  string collateral_asset_address = 3;
+  string collateral_asset_symbol = 4;
+  int32 collateral_asset_decimals = 5;
+
+  // Borrow underlying asset
+  string borrow_asset_address = 6;
+  string borrow_asset_symbol = 7;
+  int32 borrow_asset_decimals = 8;
+
+  // Max borrow LTV configured on the borrow vault for this collateral
+  // (decimal string, e.g. "0.85")
+  string borrow_ltv = 9;
+
+  // Liquidation LTV (decimal string, e.g. "0.90")
+  string liquidation_ltv = 10;
+
+  // Current borrow APY as a decimal string (e.g. "0.045" = 4.5%)
+  string borrow_apy = 11;
+
+  // Current supply APY of the borrow vault as a decimal string
+  string supply_apy = 12;
+
+  // Available liquidity to borrow (raw units of borrow asset, decimal string)
+  string available_liquidity = 13;
+
+  // Total borrowed from the borrow vault (raw units, decimal string)
+  string total_borrowed = 14;
+
+  // Oracle price: human-readable borrow-asset units per 1 collateral-asset
+  // unit, from the borrow vault's on-chain oracle. "0" if unavailable.
+  string oracle_price = 15;
+
+  // Protocol identifier
+  LendingProtocol protocol = 16;
+
+  // Chain identifier (CAIP-2)
+  string chain = 17;
+
+  // Vault display names
+  string collateral_vault_name = 18;
+  string borrow_vault_name = 19;
+}
+
+// ============================================================================
+// Position Reads
+// ============================================================================
+
+message GetLendingPositionRequest {
+  // Chain identifier
+  string chain = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // User wallet address
+  string user_address = 2 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Borrow vault address
+  string borrow_vault_address = 3 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Collateral vault address
+  string collateral_vault_address = 4 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Sub-account index (0-255, default 0)
+  uint32 sub_account_index = 5 [(buf.validate.field).uint32.lte = 255];
+}
+
+message GetLendingPositionResponse {
+  // Collateral deposited (raw units, decimal string)
+  string collateral_assets = 1;
+
+  // Collateral vault shares held (decimal string)
+  string collateral_shares = 2;
+
+  // Debt owed (raw units, decimal string)
+  string debt_assets = 3;
+
+  // Current LTV as a decimal string (e.g. "0.75" = 75%).
+  // Computed using our pricing oracle (approximate, not on-chain oracle).
+  string current_ltv = 4;
+
+  // Health factor as a decimal string (> 1 is healthy, < 1 is liquidatable).
+  // health_factor = liquidation_ltv / current_ltv. Approximate.
+  string health_factor = 5;
+
+  // Max additional borrow in borrow-asset units (human-readable decimal string)
+  // that maintains a healthy position. Approximate, based on the vault's
+  // on-chain oracle.
+  string max_borrow = 6;
+
+  // Whether EVC controller is already enabled for this sub-account
+  bool controller_enabled = 7;
+
+  // Whether collateral vault is already enabled for this sub-account
+  bool collateral_enabled = 8;
+
+  // Sub-account address (derived from user address + index)
+  string sub_account_address = 9;
+
+  // Borrow LTV configured on the borrow vault for this collateral (decimal string)
+  string borrow_ltv = 10;
+
+  // Liquidation LTV configured on the borrow vault for this collateral (decimal string)
+  string liquidation_ltv = 11;
+}
+
+// ---- Position Discovery ----
+
+message GetLendingUserPositionsRequest {
+  // Chain identifier
+  string chain = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // User wallet address
+  string user_address = 2 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Number of EVC sub-accounts to scan (1-256). 0 uses the default (16).
+  uint32 max_sub_accounts = 3 [(buf.validate.field).uint32.lte = 256];
+
+  // When true, sub-account 0 additionally gets a share-balance scan across
+  // every known vault so deposit-only (earn) positions are discovered too.
+  // Off by default — borrow-position discovery only needs EVC state, which
+  // keeps the scan to a single multicall.
+  bool include_vault_scan = 4;
+}
+
+message GetLendingUserPositionsResponse {
+  repeated LendingUserPosition positions = 1;
+}
+
+// LendingUserPosition is all activity found on a single EVC sub-account.
+message LendingUserPosition {
+  // Sub-account index (0 = the wallet address itself)
+  uint32 sub_account_index = 1;
+
+  // Derived sub-account address
+  string sub_account_address = 2;
+
+  // Borrow vault (EVC controller) enabled on this sub-account, empty if none
+  string borrow_vault_address = 3;
+
+  // Debt owed to the borrow vault (raw units of its underlying asset,
+  // decimal string; "0" when no debt)
+  string debt_assets = 4;
+
+  // Vaults the sub-account holds shares in (collateral and/or plain deposits)
+  repeated LendingVaultHolding holdings = 5;
+
+  // Chain identifier (CAIP-2)
+  string chain = 6 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true,
+    (buf.validate.field).required = true
+  ];
+}
+
+// LendingVaultHolding is a share balance in a single vault.
+message LendingVaultHolding {
+  // Vault address
+  string vault_address = 1;
+
+  // Share balance (decimal string)
+  string shares = 2;
+
+  // Underlying asset value of the shares via convertToAssets (raw units,
+  // decimal string)
+  string assets = 3;
+
+  // Whether the vault is enabled as collateral in the EVC for this sub-account
+  bool enabled_as_collateral = 4;
+}
+
+// ============================================================================
+// Transaction Building
+// ============================================================================
+
+// LendingTransaction is a single transaction the frontend should sign and send.
+message LendingTransaction {
+  // Target contract address
+  string to = 1;
+
+  // Hex-encoded calldata
+  string data = 2;
+
+  // ETH value as decimal string (wei)
+  string value = 3;
+
+  // Chain identifier (CAIP-2)
+  string chain = 4;
+}
+
+// ---- Deposit ----
+
+message BuildLendingDepositRequest {
+  // Chain identifier
+  string chain = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // User wallet address
+  string user_address = 2 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Vault address to deposit into
+  string vault_address = 3 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Amount to deposit (human-readable decimal, e.g., "1.5")
+  string amount = 4 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Sub-account index for share receiver (0-255, default 0)
+  uint32 sub_account_index = 5 [(buf.validate.field).uint32.lte = 255];
+
+  // Whether to enable this vault as collateral in the EVC (Euler only)
+  bool enable_as_collateral = 6;
+}
+
+message BuildLendingDepositResponse {
+  // Approval transaction (only set if allowance is insufficient)
+  LendingTransaction approve_tx = 1;
+
+  // Deposit transaction (direct vault.deposit or EVC batch)
+  LendingTransaction deposit_tx = 2;
+
+  // Whether approval is needed
+  bool needs_approval = 3;
+
+  // Deposit amount (echoed back)
+  string amount = 4;
+
+  // Asset symbol
+  string asset_symbol = 5;
+
+  // Estimated shares to receive (raw units, decimal string)
+  string estimated_shares = 6;
+}
+
+// ---- Withdraw ----
+
+message BuildLendingWithdrawRequest {
+  // Chain identifier
+  string chain = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // User wallet address
+  string user_address = 2 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Vault address to withdraw from
+  string vault_address = 3 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Amount to withdraw (human-readable decimal, e.g., "1.5").
+  // Use "max" to withdraw all.
+  string amount = 4 [(buf.validate.field).required = true];
+
+  // Sub-account index (0-255, default 0)
+  uint32 sub_account_index = 5 [(buf.validate.field).uint32.lte = 255];
+}
+
+message BuildLendingWithdrawResponse {
+  // Withdraw transaction
+  LendingTransaction withdraw_tx = 1;
+
+  // Withdraw amount (echoed back, or actual amount for "max")
+  string withdraw_amount = 2;
+
+  // Asset symbol
+  string asset_symbol = 3;
+}
+
+// ---- Borrow ----
+
+message BuildLendingBorrowRequest {
+  // Chain identifier
+  string chain = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // User wallet address
+  string user_address = 2 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Vault address to borrow from
+  string borrow_vault_address = 3 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Collateral vault address
+  string collateral_vault_address = 4 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Collateral amount to deposit (human-readable decimal)
+  string collateral_amount = 5 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Amount to borrow (human-readable decimal)
+  string borrow_amount = 6 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v2.decimal_string) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Sub-account index (0-255, default 0)
+  uint32 sub_account_index = 7 [(buf.validate.field).uint32.lte = 255];
+}
+
+message BuildLendingBorrowResponse {
+  // Approval transaction for collateral token (only if needed)
+  LendingTransaction approve_tx = 1;
+
+  // Borrow transaction (EVC batch: deposit collateral + enable + borrow)
+  LendingTransaction borrow_tx = 2;
+
+  // Whether approval is needed
+  bool needs_approval = 3;
+
+  // Collateral amount (echoed back)
+  string collateral_amount = 4;
+
+  // Borrow amount (echoed back)
+  string borrow_amount = 5;
+
+  // Collateral asset symbol
+  string collateral_symbol = 6;
+
+  // Borrow asset symbol
+  string borrow_symbol = 7;
+
+  reserved 8;
+
+  // Sub-account address used
+  string sub_account_address = 9;
+}
+
+// ---- Repay ----
+
+message BuildLendingRepayRequest {
+  // Chain identifier
+  string chain = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v2.caip2) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // User wallet address
+  string user_address = 2 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Vault address to repay to
+  string borrow_vault_address = 3 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Repay amount (human-readable decimal). Use "max" for full repay.
+  string repay_amount = 4 [(buf.validate.field).required = true];
+
+  // Collateral vault to withdraw from (optional, omit to repay only)
+  optional string collateral_vault_address = 5 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
+
+  // Collateral amount to withdraw (human-readable decimal).
+  // Use "max" to withdraw all.
+  optional string withdraw_collateral_amount = 6;
+
+  // Sub-account index (0-255, default 0)
+  uint32 sub_account_index = 7 [(buf.validate.field).uint32.lte = 255];
+}
+
+message BuildLendingRepayResponse {
+  // Approval transaction for borrow asset (only if needed)
+  LendingTransaction approve_tx = 1;
+
+  // Repay transaction (direct repay or EVC batch if also withdrawing collateral)
+  LendingTransaction repay_tx = 2;
+
+  // Whether approval is needed
+  bool needs_approval = 3;
+
+  // Repay amount (echoed back, or actual amount for "max")
+  string repay_amount = 4;
+
+  // Borrow asset symbol
+  string borrow_symbol = 5;
+}

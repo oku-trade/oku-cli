@@ -19,6 +19,7 @@ type fundsClients struct {
 	onchain   accountv2connect.OnchainServiceClient
 	token     accountv2connect.TokenServiceClient
 	portfolio accountv2connect.PortfolioServiceClient
+	lending   accountv2connect.LendingServiceClient
 }
 
 func (c *Client) History(ctx context.Context, req *accountv1.OrderHistoryRequest, resp *accountv1.OrderHistoryResponse) error {

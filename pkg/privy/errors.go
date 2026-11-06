@@ -49,11 +49,24 @@ func safeErrorMetadata(raw []byte, status int) (string, string) {
 	case strings.Contains(text, "insufficient funds"):
 		description = "upstream reports insufficient funds; broadcast outcome not determined"
 	case strings.Contains(text, "execution reverted"):
-		description = "upstream reports execution reverted; broadcast outcome not determined"
+		description = causeExecutionReverted + "; broadcast outcome not determined"
 	case strings.Contains(text, "simulation failed"):
 		description = "upstream reports simulation failed; broadcast outcome not determined"
 	}
 	return code, description
+}
+
+const causeExecutionReverted = "upstream reports execution reverted"
+
+// NotBroadcast reports a definite pre-broadcast rejection: a 400
+// transaction_broadcast_failure whose cause is an execution revert. Privy's
+// API reference says this code means the transaction was not broadcast and is
+// safe to retry (docs.privy.io/basics/troubleshooting/error-handling/api-errors),
+// and that wallet_sendCalls only answers success once the transaction has been
+// broadcast, with a failing simulation never signed or sent. Any other cause
+// (nonce, fees, funds) is left undetermined, as is every other status.
+func (e *Error) NotBroadcast() bool {
+	return e.Status == http.StatusBadRequest && e.Code == "transaction_broadcast_failure" && strings.HasPrefix(e.Description, causeExecutionReverted)
 }
 
 func safeErrorCode(code string) string {

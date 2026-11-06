@@ -40,6 +40,7 @@ Install locations are `~/.claude/skills` for Claude Code, `~/.agents/skills` for
 - `provide-uniswap-liquidity`: open, add to, remove from and close Uniswap v3/v4 positions.
 - `reconcile-hyperliquid-actions`: resolve unknown outcomes without duplicate submissions.
 - `troubleshoot-macos-keychain`: resolve credential access on macOS.
+- `lend-and-loop`: earn in Morpho/Euler vaults, borrow, and open, adjust or unwind leveraged loops.
 
 `install` does not overwrite edited skill files unless you pass `--force`. `uninstall` removes only files matching the bundled version unless you pass `--force`. Back up your edits before forcing either action.
 

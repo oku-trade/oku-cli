@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -346,15 +347,16 @@ func (a *App) cmdFundsStatus(e *env, kind string) (*result, error) {
 		return nil, output.Errorf(output.CodeNotFound, "intent not found")
 	}
 	// A batch whose submit stopped before it was found on chain: locate it by
-	// the reserved nonce. Absence never closes it; only a found, matching
-	// transaction and its receipt resolve the intent.
+	// the reserved nonce. Absence alone never closes it: only a found, matching
+	// transaction and its receipt, or a lending batch that can provably no
+	// longer execute (closeLapsedBatch), resolve the intent.
 	if r.Batch != nil && (r.State == "unknown" || r.State == "sending") && len(r.Hashes) == 0 {
 		ctx, cancel := e.requestCtx()
 		defer cancel()
 		rpc := a.httpRPC()
 		hash, err := onchain.LocateBatch(ctx, r.OnchainIntent, *r.Batch, rpc)
 		if err == nil {
-			if err = j.AdvanceOnchain(r.ID, r.State, "unknown", hash); err != nil {
+			if err = j.AdvanceOnchainObserved(r.ID, r.State, "unknown", hash, observed(r)); err != nil {
 				return nil, err
 			}
 			if r, err = j.GetOnchain(r.ID); err != nil {
@@ -362,6 +364,8 @@ func (a *App) cmdFundsStatus(e *env, kind string) (*result, error) {
 			}
 		} else if !onchain.IsBatchNotMined(err) {
 			return nil, output.Wrap(output.CodeUpstream, err, "batch lookup")
+		} else if r, err = a.closeLapsedBatch(ctx, rpc, j, r); err != nil {
+			return nil, err
 		}
 	}
 	if r, err = a.resolveReceipt(e, j, r); err != nil {
@@ -392,15 +396,43 @@ func (a *App) resolveReceipt(e *env, j *journal.Journal, r *journal.OnchainRecor
 		next = "confirmed"
 	}
 	if *status && next != "confirmed" {
-		// Earlier steps confirmed but later ones were never recorded.
-		// Absence of a later transaction is not proof it cannot land, so
-		// this stays unresolved until reconciled with a hash.
 		next = "unknown"
+		if sequentialStepConfirmed(r) {
+			// The confirmed hash is the step at the cursor, and the next
+			// step is only handed off after the cursor moves, so it was
+			// never sent: advance the cursor and leave it resumable.
+			next = "sending"
+		}
+		// Otherwise a later transaction may be in flight; absence is not
+		// proof it cannot land, so this stays unresolved until reconciled.
 	}
-	if err = j.AdvanceOnchain(r.ID, r.State, next, ""); err != nil {
+	// Bind the advance to the row the receipt was checked for. If submit
+	// or another resolver moved it meanwhile, this receipt is stale: report
+	// the current row untouched and let the next status call judge it.
+	err = j.AdvanceOnchainObserved(r.ID, r.State, next, "", observed(r))
+	if err != nil && !errors.Is(err, journal.ErrConflict) {
 		return nil, err
 	}
 	return j.GetOnchain(r.ID)
 }
-func (a *App) cmdSendStatus(e *env) (*result, error)    { return a.cmdFundsStatus(e, "send") }
+
+// observed captures the hashes and cursor a decision was based on.
+func observed(r *journal.OnchainRecord) journal.OnchainObservation {
+	return journal.OnchainObservation{Hashes: slices.Clone(r.Hashes), Step: r.StepIndex}
+}
+func (a *App) cmdSendStatus(e *env) (*result, error) { return a.cmdFundsStatus(e, "send") }
+
+// sequentialStepConfirmed reports whether the last recorded hash belongs to
+// the step at the sequential cursor, so no later step has been handed off.
+func sequentialStepConfirmed(r *journal.OnchainRecord) bool {
+	if r.Batch != nil || r.ExecutionMode != "sequential" || len(r.Hashes) == 0 {
+		return false
+	}
+	offset := 0
+	if r.ApprovalSkipped {
+		offset = 1
+	}
+	step := len(r.Hashes) - 1 + offset
+	return step == r.StepIndex && step < len(r.Templates)-1
+}
 func (a *App) cmdDepositStatus(e *env) (*result, error) { return a.cmdFundsStatus(e, "deposit") }

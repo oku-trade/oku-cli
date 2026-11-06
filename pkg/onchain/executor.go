@@ -193,6 +193,15 @@ type Executor struct {
 // reached the chain.
 var ErrNotBroadcast = errors.New("not broadcast")
 
+// notBroadcast reports an error Privy defines as "not broadcast": the first
+// step of an intent that fails this way sent nothing, so it closes as failed
+// and frees the account instead of staying unknown. Later sequential steps
+// keep the conservative unknown outcome.
+func notBroadcast(err error) bool {
+	var upstream *privy.Error
+	return errors.As(err, &upstream) && upstream.NotBroadcast()
+}
+
 // preflight wraps a pre-broadcast failure. For the first step the executor
 // closes the intent; for later steps the earlier steps already confirmed, so
 // the intent is closed as failed with those hashes kept for the record.
@@ -343,6 +352,9 @@ func (x Executor) executeFrom(ctx context.Context, in journal.OnchainIntent, sta
 		}
 		hash, err := x.Sender.SendTransaction(ctx, x.WalletID, tx)
 		if err != nil {
+			if i == 0 && notBroadcast(err) {
+				return x.preflight(in, "sending", err)
+			}
 			if jerr := x.Journal.AdvanceOnchain(in.ID, "sending", "unknown", ""); jerr != nil {
 				return fmt.Errorf("%w: broadcast ambiguous: %w; journal failure: %v", ErrUnknown, err, jerr)
 			}
@@ -478,6 +490,9 @@ func (x Executor) ExecuteBatch(ctx context.Context, in journal.OnchainIntent, se
 	}
 	id, err := sender.SendCalls(ctx, x.WalletID, in.ChainID, calls)
 	if err != nil {
+		if notBroadcast(err) {
+			return x.preflight(in, "sending", err)
+		}
 		if jerr := x.Journal.AdvanceOnchain(in.ID, "sending", "unknown", ""); jerr != nil {
 			return fmt.Errorf("%w: batch ambiguous: %w; journal failure: %v", ErrUnknown, err, jerr)
 		}

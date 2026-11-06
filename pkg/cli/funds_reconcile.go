@@ -12,8 +12,8 @@ func reconcileFlags() []urfave.Flag {
 	return []urfave.Flag{&urfave.StringFlag{Name: "intent", Usage: "unresolved intent ID"}, &urfave.StringFlag{Name: "tx-hash", Usage: "recovered onchain transaction hash"}}
 }
 
-// cmdFundsReconcile attaches a verified recovered hash, then reports through
-// the kind's own status command.
+// cmdFundsReconcile attaches a verified recovered hash to an unresolved
+// intent of kind, then reports it through that kind's status command.
 func (a *App) cmdFundsReconcile(e *env, kind string, status func(*env) (*result, error)) (*result, error) {
 	hash := str(e, "tx-hash")
 	if len(hash) != 66 || !strings.HasPrefix(hash, "0x") {

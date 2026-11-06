@@ -79,6 +79,10 @@ type routeQuote struct {
 	NoSimulation bool  `json:"no_simulation,omitempty"`
 	// amountText is the decimal input sent to the backend, resolved from max/all.
 	amountText string
+	// payer, when set, is the contract that pays the router inside a
+	// lending bundle (Bundler3, the Euler Swapper). Such quotes exclude
+	// intent routes and skip the backend simulation, which cannot fund it.
+	payer string
 }
 
 func positiveRaw(s string) (*big.Int, error) {
@@ -485,7 +489,11 @@ func (a *App) fetchRoute(e *env, kind string, prepare bool) (routeQuote, *resolv
 func (a *App) fetchRouteAttempt(ctx context.Context, e *env, kind string, prepare bool, w *resolvedWallet, c *api.Client, q routeQuote) (routeQuote, *routeRejection, error) {
 	var err error
 	ppm := int32(e.cmd.Int("slippage-bps") * 100)
-	noIntent := e.cmd.Bool("no-intent")
+	noIntent := e.cmd.Bool("no-intent") || q.payer != ""
+	account := w.agent
+	if q.payer != "" {
+		account = q.payer
+	}
 	reasons := map[string]string{}
 	answered, quoted := false, false
 	if kind == "swap" {
@@ -501,7 +509,7 @@ func (a *App) fetchRouteAttempt(ctx context.Context, e *env, kind string, prepar
 			return q, nil, output.Errorf(output.CodeRejected, "no active swap markets support chain %d", q.Chain)
 		}
 		var created v2.SwapCreateResponse
-		req := &v2.SwapCreateRequest{Integration: "", Params: &v2.SwapQuoteParams{Chain: int64(q.Chain), EnabledMarkets: markets, Account: w.agent, IsExactIn: true, InTokenAddress: quoteTokenAddress("swap", q.InToken), OutTokenAddress: quoteTokenAddress("swap", q.OutToken), TokenAmount: q.amountText, SlippagePpm: ppm, DstAddress: q.Recipient, UseOkuRouter: true, UsePermit2: false, EnableJit: false}}
+		req := &v2.SwapCreateRequest{Integration: "", Params: &v2.SwapQuoteParams{Chain: int64(q.Chain), EnabledMarkets: markets, Account: account, IsExactIn: true, InTokenAddress: quoteTokenAddress("swap", q.InToken), OutTokenAddress: quoteTokenAddress("swap", q.OutToken), TokenAmount: q.amountText, SlippagePpm: ppm, DstAddress: q.Recipient, UseOkuRouter: true, UsePermit2: false, EnableJit: false, SkipSimulation: q.payer != ""}}
 		if err = c.Swap(ctx, "Create", req, &created, prepare); err != nil {
 			return q, nil, apiError(err, "swap Create")
 		}
