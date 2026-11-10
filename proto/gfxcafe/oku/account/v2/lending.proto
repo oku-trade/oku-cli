@@ -41,6 +41,7 @@ message QuoteLoopRequest {
   // Euler swap route: empty or "cowswap" is the CoW wrapper order, "oku" is the best Oku route through
   // the Euler Swapper in one EVC batch tx, any other value pins that Oku market from LoopStatus.routes.
   string route = 12;
+  string integration = 13 [(buf.validate.field).string.(gfxcafe.oku.account.v2.integration_id) = true];
 }
 
 message LoopOrderRequest {

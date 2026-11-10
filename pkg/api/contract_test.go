@@ -5,9 +5,22 @@ import (
 	"testing"
 
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	accountv2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
 )
+
+func TestLoopQuoteIntegrationWireContract(t *testing.T) {
+	// Account encodes integration as string field 13.
+	wire := []byte{0x6a, 0x05, 'a', 'g', 'e', 'n', 't'}
+	var req accountv2.QuoteLoopRequest
+	if err := proto.Unmarshal(wire, &req); err != nil {
+		t.Fatal(err)
+	}
+	if req.GetIntegration() != "agent" {
+		t.Fatalf("loop integration = %q, want agent", req.GetIntegration())
+	}
+}
 
 // TestWireMatchesGeneratedProto round-trips handwritten request bodies
 // through the vendored generated types with strict protojson, so a renamed

@@ -77,6 +77,9 @@ func bridgeQuoteGeneration(t *testing.T, reported, polled float64) {
 		case "GetSupportedBridges":
 			return map[string]any{"bridges": []any{map[string]any{"name": "across", "active": true, "supportedChains": []string{"eip155:42161", "eip155:8453"}}, map[string]any{"name": "other", "active": true, "supportedChains": []string{"eip155:42161", "eip155:8453"}}}}, true
 		case "Create":
+			if body["integration"] != "agent" {
+				t.Errorf("bridge integration = %v, want agent", body["integration"])
+			}
 			return map[string]any{"orderId": "order"}, true
 		case "UpdateQuoteParams":
 			if body["orderId"] != "order" || body["params"] == nil {

@@ -40,6 +40,9 @@ func TestSwapQuoteCollectsFlowstreamAcrossPolls(t *testing.T) {
 				map[string]any{"name": "basonly", "active": true, "supportedChainIds": []int{8453}},
 			}}, true
 		case "Create":
+			if body["integration"] != "agent" {
+				t.Errorf("swap integration = %v, want agent", body["integration"])
+			}
 			params := body["params"].(map[string]any)
 			if markets, _ := params["enabledMarkets"].([]any); len(markets) != 3 || params["useOkuRouter"] != true {
 				t.Errorf("Create must send the chain's active markets and use the Oku Router: %v", params)

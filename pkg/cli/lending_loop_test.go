@@ -197,6 +197,9 @@ func loopSwapService(t *testing.T, h *harness, sell, buy, payer, hop common.Addr
 		case "GetSupportedMarkets":
 			return map[string]any{"markets": []any{map[string]any{"name": "zeroex", "active": true, "supportedChainIds": []int{1}}}}, true
 		case "Create":
+			if body["integration"] != "agent" {
+				t.Errorf("loop swap integration = %v, want agent", body["integration"])
+			}
 			p := body["params"].(map[string]any)
 			if !strings.EqualFold(p["account"].(string), payer.Hex()) || !strings.EqualFold(p["dstAddress"].(string), hop.Hex()) || p["skipSimulation"] != true {
 				t.Errorf("loop swap must be quoted for the router caller and delivered to the bundle hop without simulation: %v", p)
