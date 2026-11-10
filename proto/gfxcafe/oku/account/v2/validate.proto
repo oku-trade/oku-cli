@@ -80,7 +80,7 @@ extend buf.validate.StringRules {
   optional bool integration_id = 2005 [
     (buf.validate.predefined).cel = {
       id: "string.integration_id"
-      expression: "rule && this != '' && !(this in ['miniapp', 'retail']) ? 'invalid integration ID: `%s`'.format([this]) : ''"
+      expression: "rule && this != '' && !(this in ['miniapp', 'retail', 'agent']) ? 'invalid integration ID: `%s`'.format([this]) : ''"
     }
   ];
 
