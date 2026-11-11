@@ -87,6 +87,7 @@ type QuoteLoopRequest struct {
 	// Euler swap route: empty or "cowswap" is the CoW wrapper order, "oku" is the best Oku route through
 	// the Euler Swapper in one EVC batch tx, any other value pins that Oku market from LoopStatus.routes.
 	Route         string `protobuf:"bytes,12,opt,name=route,proto3" json:"route,omitempty"`
+	Integration   string `protobuf:"bytes,13,opt,name=integration,proto3" json:"integration,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -201,6 +202,13 @@ func (x *QuoteLoopRequest) GetMarketId() string {
 func (x *QuoteLoopRequest) GetRoute() string {
 	if x != nil {
 		return x.Route
+	}
+	return ""
+}
+
+func (x *QuoteLoopRequest) GetIntegration() string {
+	if x != nil {
+		return x.Integration
 	}
 	return ""
 }
@@ -2667,7 +2675,7 @@ var File_gfxcafe_oku_account_v2_lending_proto protoreflect.FileDescriptor
 
 const file_gfxcafe_oku_account_v2_lending_proto_rawDesc = "" +
 	"\n" +
-	"$gfxcafe/oku/account/v2/lending.proto\x12\x16gfxcafe.oku.account.v2\x1a\x1bbuf/validate/validate.proto\x1a%gfxcafe/oku/account/v1/validate.proto\x1a%gfxcafe/oku/account/v2/validate.proto\"\xa7\x03\n" +
+	"$gfxcafe/oku/account/v2/lending.proto\x12\x16gfxcafe.oku.account.v2\x1a\x1bbuf/validate/validate.proto\x1a%gfxcafe/oku/account/v1/validate.proto\x1a%gfxcafe/oku/account/v2/validate.proto\"\xd3\x03\n" +
 	"\x10QuoteLoopRequest\x12\x1e\n" +
 	"\x05chain\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0}\x01R\x05chain\x12!\n" +
 	"\fuser_address\x18\x02 \x01(\tR\vuserAddress\x12)\n" +
@@ -2681,7 +2689,8 @@ const file_gfxcafe_oku_account_v2_lending_proto_rawDesc = "" +
 	"\bprotocol\x18\n" +
 	" \x01(\tR\bprotocol\x12\x1b\n" +
 	"\tmarket_id\x18\v \x01(\tR\bmarketId\x12\x14\n" +
-	"\x05route\x18\f \x01(\tR\x05route\"-\n" +
+	"\x05route\x18\f \x01(\tR\x05route\x12*\n" +
+	"\vintegration\x18\r \x01(\tB\b\xbaH\x05r\x03\xa8}\x01R\vintegration\"-\n" +
 	"\x10LoopOrderRequest\x12\x19\n" +
 	"\border_id\x18\x01 \x01(\tR\aorderId\"s\n" +
 	"\bLoopStep\x12<\n" +

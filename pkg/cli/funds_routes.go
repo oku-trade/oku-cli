@@ -21,6 +21,8 @@ import (
 	urfave "github.com/urfave/cli/v3"
 )
 
+const agentIntegration = "agent"
+
 // Swap quotes stream in per router. Collect for up to swapQuoteWindow (bounded by
 // the request deadline) with long polls of at most swapFlowstreamPoll each.
 const (
@@ -509,7 +511,7 @@ func (a *App) fetchRouteAttempt(ctx context.Context, e *env, kind string, prepar
 			return q, nil, output.Errorf(output.CodeRejected, "no active swap markets support chain %d", q.Chain)
 		}
 		var created v2.SwapCreateResponse
-		req := &v2.SwapCreateRequest{Integration: "", Params: &v2.SwapQuoteParams{Chain: int64(q.Chain), EnabledMarkets: markets, Account: account, IsExactIn: true, InTokenAddress: quoteTokenAddress("swap", q.InToken), OutTokenAddress: quoteTokenAddress("swap", q.OutToken), TokenAmount: q.amountText, SlippagePpm: ppm, DstAddress: q.Recipient, UseOkuRouter: true, UsePermit2: false, EnableJit: false, SkipSimulation: q.payer != ""}}
+		req := &v2.SwapCreateRequest{Integration: agentIntegration, Params: &v2.SwapQuoteParams{Chain: int64(q.Chain), EnabledMarkets: markets, Account: account, IsExactIn: true, InTokenAddress: quoteTokenAddress("swap", q.InToken), OutTokenAddress: quoteTokenAddress("swap", q.OutToken), TokenAmount: q.amountText, SlippagePpm: ppm, DstAddress: q.Recipient, UseOkuRouter: true, UsePermit2: false, EnableJit: false, SkipSimulation: q.payer != ""}}
 		if err = c.Swap(ctx, "Create", req, &created, prepare); err != nil {
 			return q, nil, apiError(err, "swap Create")
 		}
@@ -645,7 +647,7 @@ func (a *App) fetchRouteAttempt(ctx context.Context, e *env, kind string, prepar
 			return q, nil, output.Errorf(output.CodeRejected, "no active bridge supports both chains")
 		}
 		var created v2.BridgeCreateResponse
-		req := &v2.BridgeCreateRequest{Integration: "", Params: &v2.BridgeQuoteParams{InChain: int64(q.Chain), OutChain: int64(q.OutChain), EnabledBridges: bridges, InChainCaip2: fmt.Sprintf("eip155:%d", q.Chain), OutChainCaip2: fmt.Sprintf("eip155:%d", q.OutChain), Account: w.agent, DstAddress: q.Recipient, InTokenAddress: quoteTokenAddress("bridge", q.InToken), OutTokenAddress: quoteTokenAddress("bridge", q.OutToken), InTokenAmount: q.amountText, SlippagePpm: ppm}}
+		req := &v2.BridgeCreateRequest{Integration: agentIntegration, Params: &v2.BridgeQuoteParams{InChain: int64(q.Chain), OutChain: int64(q.OutChain), EnabledBridges: bridges, InChainCaip2: fmt.Sprintf("eip155:%d", q.Chain), OutChainCaip2: fmt.Sprintf("eip155:%d", q.OutChain), Account: w.agent, DstAddress: q.Recipient, InTokenAddress: quoteTokenAddress("bridge", q.InToken), OutTokenAddress: quoteTokenAddress("bridge", q.OutToken), InTokenAmount: q.amountText, SlippagePpm: ppm}}
 		if err = c.Bridge(ctx, "Create", req, &created, prepare); err != nil {
 			return q, nil, apiError(err, "bridge Create")
 		}

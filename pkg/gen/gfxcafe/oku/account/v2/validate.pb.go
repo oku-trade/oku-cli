@@ -192,10 +192,10 @@ const file_gfxcafe_oku_account_v2_validate_proto_rawDesc = "" +
 	"\x1fstring.canonical_decimal_string\x1a~rule && this != '' && !this.matches(r'^(0|[1-9]\\d*)(\\.\\d*[1-9])?$') ? 'not a canonical decimal string: %s'.format([this]) : ''R\x16canonicalDecimalString:\x9d\x02\n" +
 	"\x1fcanonical_signed_decimal_string\x12\x19.buf.validate.StringRules\x18\xda\x0f \x01(\bB\xb9\x01\xc2H\xb5\x01\n" +
 	"\xb2\x01\n" +
-	"&string.canonical_signed_decimal_string\x1a\x87\x01rule && this != '' && !this.matches(r'^-?(0|[1-9]\\d*)(\\.\\d*[1-9])?$') ? 'not a canonical signed decimal string: %s'.format([this]) : ''R\x1ccanonicalSignedDecimalString:\xcf\x01\n" +
-	"\x0eintegration_id\x12\x19.buf.validate.StringRules\x18\xd5\x0f \x01(\bB\x8b\x01\xc2H\x87\x01\n" +
-	"\x84\x01\n" +
-	"\x15string.integration_id\x1akrule && this != '' && !(this in ['miniapp', 'retail']) ? 'invalid integration ID: `%s`'.format([this]) : ''R\rintegrationId:\xed\x01\n" +
+	"&string.canonical_signed_decimal_string\x1a\x87\x01rule && this != '' && !this.matches(r'^-?(0|[1-9]\\d*)(\\.\\d*[1-9])?$') ? 'not a canonical signed decimal string: %s'.format([this]) : ''R\x1ccanonicalSignedDecimalString:\xd8\x01\n" +
+	"\x0eintegration_id\x12\x19.buf.validate.StringRules\x18\xd5\x0f \x01(\bB\x94\x01\xc2H\x90\x01\n" +
+	"\x8d\x01\n" +
+	"\x15string.integration_id\x1atrule && this != '' && !(this in ['miniapp', 'retail', 'agent']) ? 'invalid integration ID: `%s`'.format([this]) : ''R\rintegrationId:\xed\x01\n" +
 	"\x15signed_decimal_string\x12\x19.buf.validate.StringRules\x18\xd7\x0f \x01(\bB\x9c\x01\xc2H\x98\x01\n" +
 	"\x95\x01\n" +
 	"\x1cstring.signed_decimal_string\x1aurule && this != '' && !this.matches(r'^-?\\d+(\\.\\d+)?$') ? 'not a valid signed decimal string: %s'.format([this]) : ''R\x13signedDecimalString:\xed\x01\n" +
