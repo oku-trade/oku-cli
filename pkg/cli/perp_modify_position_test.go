@@ -1,94 +1,141 @@
 package cli
 
 import (
-	"encoding/json"
+	"context"
 	"strings"
 	"testing"
 
-	"github.com/oku-trade/oku-cli/pkg/trading"
+	"github.com/oku-trade/oku-cli/pkg/api"
+	"github.com/oku-trade/oku-cli/pkg/journal"
 )
 
-func TestModifyPositionTpsl(t *testing.T) {
-	schema, err := InputSchema("orders modify")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, field := range schema["required"].([]string) {
-		if field == "side" || field == "size" || field == "tpsl" {
-			t.Fatalf("schema requires inferred position TP/SL field %s", field)
-		}
-	}
-	for _, tc := range []struct {
-		name, szi, side, orderType, wantError string
-		flags                                 []string
-		jsonInput                             bool
-	}{
-		{name: "long stop", szi: "0.012349", side: "A", orderType: "Stop Market"},
-		{name: "JSON stop", szi: "0.01234", side: "A", orderType: "Stop Market", jsonInput: true},
-		{name: "short take profit", szi: "-0.012340", side: "B", orderType: "Take Profit Market", flags: []string{"--size", "0.01234"}},
-		{name: "trigger limit", szi: "0.01234", side: "A", orderType: "Stop Limit", flags: []string{"--price", "48900"}},
-		{name: "conflicting size", szi: "0.01234", side: "A", orderType: "Stop Market", flags: []string{"--size", "0.01"}, wantError: "--size conflicts"},
-		{name: "no position", side: "A", orderType: "Stop Market", wantError: "no open position"},
-		{name: "closed position", szi: "0", side: "A", orderType: "Stop Market", wantError: "no open position"},
-		{name: "unknown size", szi: "bad", side: "A", orderType: "Stop Market", wantError: "live position size"},
-		{name: "conflicting kind", szi: "0.01234", side: "A", orderType: "Stop Market", flags: []string{"--tpsl", "tp"}, wantError: "must retain"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
+func TestModifyWholePositionRejected(t *testing.T) {
+	for _, entry := range []string{"flags", "json", "service"} {
+		t.Run(entry, func(t *testing.T) {
 			h := newHarness(t)
 			if r := h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL); r.code != 0 {
 				t.Fatal(r.stdout)
 			}
-			orderReads, positionReads := 0, 0
+			reads := 0
+			h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
+				if method != "GetOpenOrders" {
+					return nil, false
+				}
+				reads++
+				if body["address"] != acct || body["skipCache"] != true {
+					t.Errorf("order read is not fresh: %v", body)
+				}
+				return api.GetOpenOrdersResponse{OpenOrders: []api.Order{{Oid: 41, Coin: "BTC", Children: []api.Order{{
+					Oid: 42, Coin: "BTC", Side: "A", Sz: "0", OrderType: "Stop Market", IsTrigger: true, ReduceOnly: true, IsPositionTpsl: true,
+				}}}}}, true
+			}
+			var message string
+			switch entry {
+			case "service":
+				svc := testService(h)
+				svc.AllowMutations(true)
+				_, err := svc.Call(context.Background(), "orders modify", Globals{Profile: "main"}, map[string]any{
+					"market": "BTC", "order-id": int64(42), "side": "sell", "size": "0.01", "trigger-price": "49000", "tpsl": "sl", "market-trigger": true,
+				}, nil)
+				if err == nil {
+					t.Fatal("service accepted whole-position modify")
+				}
+				message = err.Error()
+			default:
+				args := []string{"orders", "modify", "--market", "BTC", "--order-id", "42", "--trigger-price", "49000", "--json"}
+				if entry == "json" {
+					h.stdin = `{"market":"BTC","order-id":42,"side":"sell","size":"0.01","trigger-price":"49000","tpsl":"sl","market-trigger":true}`
+					args = []string{"orders", "modify", "--input", "-", "--json"}
+				}
+				r := h.run(args...)
+				if r.errCode() != "INVALID_ARGUMENT" {
+					t.Fatalf("whole-position modify not rejected: %s %s", r.stdout, r.stderr)
+				}
+				message = r.stdout
+			}
+			if !strings.Contains(message, "whole-position TP/SL cannot be modified atomically") || !strings.Contains(message, "--close-position") || !strings.Contains(message, "unprotected interval") {
+				t.Fatalf("missing actionable refusal: %s", message)
+			}
+			if reads != 1 {
+				t.Fatalf("order reads = %d", reads)
+			}
+			for _, call := range h.fake.calls {
+				if call == "CreateAction" || call == "ConfirmAction" || call == "CancelAction" || call == "GetPerpPositions" {
+					t.Fatalf("refusal performed unnecessary call %s", call)
+				}
+			}
+		})
+	}
+}
+
+func TestModifySubmissionChecksWholePosition(t *testing.T) {
+	const wire = `{"type":"batchModify","modifies":[{"oid":42,"order":{"a":0,"b":false,"p":"44100","s":"0.01","r":true,"t":{"trigger":{"isMarket":true,"triggerPx":"49000","tpsl":"sl"}}}}]}`
+	for _, state := range []string{"prepared", "created", "before-signing", "fixed-size"} {
+		t.Run(state, func(t *testing.T) {
+			h := newHarness(t)
+			h.enroll()
+			reads := 0
 			h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
 				switch method {
 				case "GetOpenOrders":
-					orderReads++
+					reads++
 					if body["address"] != acct || body["skipCache"] != true {
 						t.Errorf("order read is not fresh: %v", body)
 					}
-					return map[string]any{"openOrders": []any{map[string]any{"oid": "41", "coin": "BTC", "children": []any{map[string]any{
-						"oid": "42", "coin": "BTC", "side": tc.side, "sz": "0", "orderType": tc.orderType, "isTrigger": true, "reduceOnly": true, "isPositionTpsl": true,
-					}}}}}, true
-				case "GetPerpPositions":
-					positionReads++
-					positions := []any{}
-					if tc.szi != "" {
-						positions = append(positions, map[string]any{"coin": "BTC", "szi": tc.szi})
+					position := state != "fixed-size" && reads >= 2
+					if state == "before-signing" {
+						position = reads >= 3
 					}
-					return map[string]any{"marginSummary": map[string]any{}, "positions": positions}, true
+					return api.GetOpenOrdersResponse{OpenOrders: []api.Order{{Oid: 42, Coin: "BTC", Side: "A", Sz: "0.01", OrderType: "Stop Market", IsTrigger: true, ReduceOnly: true, IsPositionTpsl: position}}}, true
+				case "CreateAction":
+					h.fake.creates++
+					return api.ActionPayloadResponse{ActionID: "modify-action", ActionJSON: wire}, true
 				}
 				return nil, false
 			}
-			args := append([]string{"orders", "modify", "--market", "BTC", "--order-id", "42", "--trigger-price", "49000", "--json"}, tc.flags...)
-			if tc.jsonInput {
-				h.stdin = `{"market":"BTC","order-id":42,"trigger-price":"49000"}`
-				args = []string{"orders", "modify", "--input", "-", "--json"}
-			}
-			r := h.run(args...)
-			if tc.wantError != "" {
-				if r.code == 0 || !strings.Contains(r.stdout, tc.wantError) {
-					t.Fatalf("expected %q: %s %s", tc.wantError, r.stdout, r.stderr)
-				}
-				return
-			}
+			r := h.run("orders", "modify", "--market", "BTC", "--order-id", "42", "--side", "sell", "--size", "0.01", "--trigger-price", "49000", "--tpsl", "sl", "--market-trigger", "--json")
 			if r.code != 0 {
-				t.Fatalf("%s %s", r.stdout, r.stderr)
+				t.Fatal(r.stdout)
 			}
-			raw, err := json.Marshal(r.data()["intent"])
-			if err != nil {
-				t.Fatal(err)
+			id, digest := r.data()["intent_id"].(string), r.data()["digest"].(string)
+			if state == "created" {
+				j, err := journal.Open("main")
+				if err != nil {
+					t.Fatal(err)
+				}
+				rec, err := j.Get(id)
+				if err != nil {
+					t.Fatal(err)
+				}
+				rec.State, rec.ActionID, rec.ActionJSON = journal.StateCreated, "modify-action", wire
+				if err := j.Put(rec, ""); err != nil {
+					t.Fatal(err)
+				}
+				if err := j.Close(); err != nil {
+					t.Fatal(err)
+				}
 			}
-			var in trading.Intent
-			if err := json.Unmarshal(raw, &in); err != nil {
-				t.Fatal(err)
+			r = h.run("orders", "submit", "--intent", id, "--digest", digest, "--json")
+			if state == "fixed-size" {
+				if r.code != 0 || h.fake.creates != 1 || h.fake.confirms != 1 || reads != 3 {
+					t.Fatalf("fixed-size modify failed: %s %s", r.stdout, r.stderr)
+				}
+			} else {
+				if r.errCode() != "INVALID_ARGUMENT" || !strings.Contains(r.stdout, "whole-position TP/SL") || h.fake.confirms != 0 || h.fake.lastSigned != nil {
+					t.Fatalf("unsafe modify was not refused before signing: %s %s", r.stdout, r.stderr)
+				}
+				wantCreates := 0
+				if state == "before-signing" {
+					wantCreates = 1
+				}
+				if h.fake.creates != wantCreates {
+					t.Fatalf("unexpected action creation count %d", h.fake.creates)
+				}
 			}
-			plan := in.Advanced.Payload().(trading.ModifyPlan)
-			item := createRequest(&in).Params.Modify.Modifies[0]
-			if !plan.PositionTpsl || plan.AlwaysPlace || item.Size != "0.01234" || int64(item.Oid) != 42 || item.TriggerPx != "49000" || item.IsBuy != (tc.side == "B") || item.IsMarket != strings.HasSuffix(tc.orderType, "Market") {
-				t.Fatalf("wrong position modify: %s", raw)
-			}
-			if orderReads != 1 || positionReads != 1 || h.fake.creates != 0 || h.fake.confirms != 0 {
-				t.Fatal("preparation must read live inputs once and send no exchange action")
+			for _, call := range h.fake.calls {
+				if call == "CancelAction" {
+					t.Fatal("modify cancelled protection")
+				}
 			}
 		})
 	}

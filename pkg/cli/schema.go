@@ -29,7 +29,7 @@ var requiredFlags = map[string][]string{
 	"orders prepare":     {"market", "side", "type"},
 	"orders submit":      {"intent", "digest"},
 	"orders cancel":      {"market"},
-	"orders modify":      {"market", "order-id"},
+	"orders modify":      {"market", "order-id", "side", "size"},
 	"orders cancel-twap": {"market", "twap-id"},
 	"orders status":      {"intent"},
 	"orders abandon":     {"intent"},
@@ -142,7 +142,6 @@ func InputSchema(path string) (map[string]any, error) {
 	}
 	if path == "orders modify" {
 		example["price"] = "60000"
-		example["side"], example["size"] = "buy", "0.0002"
 	}
 	if path == "swap orders create" {
 		example["all"] = true

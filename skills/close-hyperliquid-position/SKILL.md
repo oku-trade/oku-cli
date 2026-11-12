@@ -43,7 +43,7 @@ oku orders prepare --profile <p> --market <market> --side <closing-side> --type 
 
 `--close-position` applies only to trigger types and uses whole-position TP/SL grouping, which follows position size. Its exchange size may be `0`. For a fixed-size partial exit use `--size` with `--reduce-only` instead. `stop_limit` and `take_limit` need both a trigger and an execution limit. A trigger is not a guaranteed fill price, and a limit may never fill.
 
-If the leg already exists, move it using atomic `orders modify` from manage-hyperliquid-orders. Never cancel an existing stop first. Preserve market-trigger versus trigger-limit execution and whole-position semantics.
+If a fixed-size leg already exists, move it using atomic `orders modify` from manage-hyperliquid-orders, retaining market-trigger versus trigger-limit execution. Whole-position TP/SL cannot be modified safely by this backend, and the CLI refuses it rather than turning it into fixed-size protection. Never automatically cancel an existing stop first. Leave it in place unless the user explicitly authorizes a separate cancel and re-place with `--close-position` and accepts the unprotected interval.
 
 For `twap`, `scale` or `trailing_stop` exits, discover required parameters with `oku docs schema --command 'orders prepare'` and keep the exit reduce-only. Do not invent a schedule, scale range or trailing distance. Review all child sizes and total closing exposure before submitting. A scheduled exit is not an immediate flatten.
 

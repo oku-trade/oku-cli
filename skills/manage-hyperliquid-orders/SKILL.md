@@ -40,7 +40,7 @@ Review the exact market and every id, then submit using the intent and digest be
 
 ## Atomic modify
 
-Use `orders modify`, never a cancel followed by a replacement, to move an existing stop or take-profit. Cancellation first creates an unprotected interval. Re-read the order before preparing and carry forward the existing side, size and execution mode unless the user explicitly changed them.
+Use `orders modify`, never an automatic cancel followed by a replacement, to move an existing fixed-size stop or take-profit. Cancellation first creates an unprotected interval. Re-read the order before preparing and carry forward the existing side, size and execution mode unless the user explicitly changed them.
 
 ```sh
 oku orders modify --profile <p> --market <market> --order-id <oid> --side <buy|sell> --size <existing-size> --price <new-limit> --json
@@ -48,15 +48,11 @@ oku orders modify --profile <p> --market <market> --order-id <sl-oid> --side <cl
 oku orders modify --profile <p> --market <market> --order-id <tp-oid> --side <closing-side> --size <existing-size> --trigger-price <new-tp> --tpsl tp --price <execution-limit> --json
 ```
 
-`--market-trigger` is for market-trigger legs only. A trigger-limit leg needs `--price` and must not be silently converted to a market-trigger leg. For a whole-position market TP/SL (`isPositionTpsl`), use just the order id and new trigger within the market:
+`--market-trigger` is for market-trigger legs only. A trigger-limit leg needs `--price` and must not be silently converted to a market-trigger leg.
 
-```sh
-oku orders modify --profile <p> --market <market> --order-id <sl-oid> --trigger-price <new-stop> --json
-```
+Whole-position TP/SL (`isPositionTpsl`, often size `0`) cannot be modified safely with this backend. A positive replacement size produces fixed-size protection, and the modify contract cannot express whole-position grouping or accept size zero. Preparation and submission refuse these targets. Never substitute the current position size, claim that an order id retains whole-position semantics, or automatically cancel first. Leave the existing protection in place and explain the limitation. Only with explicit authorization to accept an unprotected interval may the user cancel and re-place with `--close-position`, reviewing and submitting each separate action. A request to move a stop does not authorize that cancellation.
 
-Omit `--size`, including when the listed size is `0`. Preparation reads fresh orders and the live position, infers the closing side, TP/SL kind and execution mode, and binds the absolute position size rounded down to `szDecimals` into the intent. The atomic modify retains whole-position grouping through the original order id, not a fixed-size replacement. A conflicting `--size` or absent position is refused. Whole-position trigger-limit legs also need `--price <execution-limit>`. Never fall back to cancel-first.
-
-Modify only prepares. Review the exact `oid`, side, size, trigger kind, trigger price, execution limit, reduce-only and position TP/SL semantics. A clear request to change a named order to a specified price or size authorizes a matching preview. USD-to-base and position-fraction conversions rounded down to `szDecimals` are deterministic, so state the computed size. Confirm ambiguity, guesses or deviations, including material rounding. Submit prepared modify, batch cancel and TWAP cancel intents with:
+Modify only prepares. Review the exact `oid`, side, fixed size, trigger kind, trigger price, execution limit and reduce-only behavior. A clear request to change a named fixed-size order to a specified price or size authorizes a matching preview. USD-to-base and position-fraction conversions rounded down to `szDecimals` are deterministic, so state the computed size. Confirm ambiguity, guesses or deviations, including material rounding. Submit prepared modify, batch cancel and TWAP cancel intents with:
 
 ```sh
 oku orders submit --profile <p> --intent <intent_id> --digest <digest> --json

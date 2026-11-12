@@ -3,6 +3,7 @@ package trading
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -19,6 +20,8 @@ const (
 	KindTrailingStop = "trailing_stop"
 	KindCancelMany   = "cancel_many"
 )
+
+var ErrPositionTpslModify = errors.New("whole-position TP/SL cannot be modified atomically by this backend. Cancel and re-place with --close-position only with explicit authorization (cancellation creates an unprotected interval)")
 
 // AdvancedPayload is a closed union of approved perpetual action plans.
 // Values enter through NewAdvanced or JSON decoding, both of which validate.
@@ -251,7 +254,8 @@ type ModifyPlan struct {
 	Modifies     []ApprovedModify `json:"modifies"`
 	AlwaysPlace  bool             `json:"always_place,omitempty"`
 	SizeDecimals int              `json:"size_decimals"`
-	PositionTpsl bool             `json:"position_tpsl,omitempty"`
+	// PositionTpsl is decoded to reject unsupported persisted approvals.
+	PositionTpsl bool `json:"position_tpsl,omitempty"`
 }
 
 func (ModifyPlan) advancedKind() string { return KindModify }

@@ -21,7 +21,7 @@ oku orders list --profile <p> --fresh --json   # protective triggers, children a
 
 Use the live position to determine the closing side (`sell` for long, `buy` for short). Inspect nested `children` as well as top-level orders, including `tpsl`, `triggerPx`, `isPositionTpsl` and `reduceOnly`. Whole-position TP/SL orders can have size `0`, so do not mistake them for missing protection.
 
-To move an existing stop or take-profit, follow manage-hyperliquid-orders and use atomic `orders modify`. Never cancel a stop first, even when the goal is to move it to breakeven. Carry forward size, closing side and market-trigger or trigger-limit execution mode unless the user authorized changing them:
+To move an existing fixed-size stop or take-profit, follow manage-hyperliquid-orders and use atomic `orders modify`. Never automatically cancel a stop first, even when the goal is to move it to breakeven. Carry forward size, closing side and market-trigger or trigger-limit execution mode unless the user authorized changing them:
 
 ```sh
 oku orders modify --profile <p> --market <market> --order-id <sl-oid> --side <closing-side> --size <existing-size> --trigger-price <new-stop> --tpsl sl --market-trigger --json
@@ -29,13 +29,7 @@ oku orders modify --profile <p> --market <market> --order-id <sl-oid> --side <cl
 
 For a fixed-size trigger-limit stop, replace `--market-trigger` with `--price <execution-limit>`. For a fixed-size take-profit use `--tpsl tp`.
 
-For a whole-position market stop (`isPositionTpsl`, often listed with size `0`), move it to entry or another authorized trigger without specifying size, side or TP/SL kind:
-
-```sh
-oku orders modify --profile <p> --market <market> --order-id <sl-oid> --trigger-price <entry-or-new-stop> --json
-```
-
-Preparation reads fresh orders and the live position and uses the absolute position size rounded down to `szDecimals`. The existing order id retains whole-position semantics. A conflicting `--size` or missing position is refused. Execution mode is inferred, and a whole-position trigger-limit also needs `--price <execution-limit>`. Never cancel first.
+Whole-position stops and take-profits (`isPositionTpsl`, often listed with size `0`) cannot be modified atomically with this backend. Supplying the live position size would turn them into fixed-size protection. The CLI refuses the operation at preparation and submission. Leave protection in place, explain the limitation and never automatically cancel first. Cancel and re-place with `--close-position` only with explicit authorization that acknowledges the unprotected interval, then review and submit the separate actions. Moving a stop to entry does not by itself authorize removing it.
 
 To add whole-position protection when none exists for that leg:
 

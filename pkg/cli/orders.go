@@ -374,6 +374,9 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 			}
 		}
 	}
+	if err := e.checkModifyIntent(in); err != nil {
+		return nil, err
+	}
 	s, err := e.unlock(p, requiredScope(in.Kind))
 	if err != nil {
 		return nil, err
@@ -427,6 +430,9 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 
 	// Nonce allocation, the account-wide unresolved gate and the
 	// "signing" state commit in one transaction before anything is signed.
+	if err := e.checkModifyIntent(in); err != nil {
+		return nil, err
+	}
 	nonce, err := j.BeginSubmission(rec, s.md.AgentAddress)
 	switch {
 	case errors.Is(err, journal.ErrUnresolved):

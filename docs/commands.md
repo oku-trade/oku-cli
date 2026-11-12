@@ -798,7 +798,7 @@ Open orders
 
 ## `oku orders modify`
 
-Prepare an atomic resting limit or TP/SL replacement, never cancel first
+Prepare an atomic resting limit or fixed-size TP/SL replacement, whole-position TP/SL is refused
 
 ### Options
 
@@ -806,11 +806,11 @@ Prepare an atomic resting limit or TP/SL replacement, never cancel first
 | --- | --- | --- |
 | `--market` | market (required) | `` |
 | `--order-id` | resting order id to replace atomically (required) | `0` |
-| `--side` | replacement side: buy or sell (inferred for position TP/SL) | `` |
-| `--size` | complete replacement size (live position size for position TP/SL) | `` |
+| `--side` | replacement side: buy or sell (required) | `` |
+| `--size` | complete fixed replacement size (required, whole-position TP/SL cannot be modified) | `` |
 | `--price` | replacement limit price (required unless market trigger) | `` |
 | `--trigger-price` | replacement TP/SL trigger price | `` |
-| `--tpsl` | tp or sl, required with trigger-price unless position TP/SL | `` |
+| `--tpsl` | tp or sl, required with trigger-price | `` |
 | `--market-trigger` | market-style trigger replacement with backend fixed 10% slippage | `false` |
 | `--tif` | plain limit time in force: gtc, ioc, alo | `gtc` |
 | `--reduce-only` | plain limit replacement only reduces a position (trigger replacements always do) | `false` |
