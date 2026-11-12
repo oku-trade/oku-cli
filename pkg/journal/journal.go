@@ -551,12 +551,12 @@ func (j *Journal) BeginSubmission(r *Record, signer string) (int64, error) {
 		return 0, ErrConflict
 	}
 	// Cancelling an existing order cannot add exposure, so a cancel whose
-	// stored action validates as exactly that cancel (one target, the
-	// intent's asset and oid, nothing else) is exempt from the unresolved
+	// stored action validates as exactly its approved cancellation targets
+	// is exempt from the unresolved
 	// gate. Every other kind is gated. Nonce allocation and the submitting
 	// transition stay in this one write transaction either way.
 	riskReducing := false
-	if prev.Intent.Kind == trading.KindCancel {
+	if prev.Intent.Kind == trading.KindCancel || prev.Intent.Kind == trading.KindCancelMany || prev.Intent.Kind == trading.KindCancelTWAP {
 		if _, verr := trading.ValidateAction(&prev.Intent, prev.ActionJSON); verr != nil {
 			return 0, ErrConflict
 		}
