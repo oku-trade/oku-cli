@@ -77,6 +77,9 @@ type Intent struct {
 
 	// Margin fields: canonical signed USDC decimal, at most 6 decimals.
 	MarginAmount string `json:"margin_amount,omitempty"`
+
+	// Advanced binds the typed economics of compound and conditional actions.
+	Advanced *Advanced `json:"advanced,omitempty"`
 }
 
 // Digest is sha256 over the canonical JSON encoding of the intent.
@@ -211,12 +214,15 @@ func strictUnmarshal(actionJSON string, v any) error {
 	return nil
 }
 
-// ValidateAction checks a server-built actionJson against the intent. Only
-// the order, cancel, updateLeverage and updateIsolatedMargin families are
-// accepted, each only for the matching intent kind; anything else
-// (transfers, approvals, vault/subaccount routing) is rejected.
+// ValidateAction checks a server-built actionJson against the intent. Legacy
+// orders, cancels, leverage and margin actions and typed advanced plans are
+// accepted only for their matching intent kind. Transfers, approvals and
+// vault/subaccount routing are rejected.
 // It returns the client order id when present.
 func ValidateAction(in *Intent, actionJSON string) (string, error) {
+	if in == nil {
+		return "", mismatch("missing intent")
+	}
 	// The exact bytes will be msgpack-encoded for signing. Reject anything
 	// the encoder would treat ambiguously (duplicate keys, floats, unsafe
 	// integers) before interpreting the economics.
@@ -234,8 +240,14 @@ func ValidateAction(in *Intent, actionJSON string) (string, error) {
 	if err := checkExactShape(head.Type, actionJSON); err != nil {
 		return "", err
 	}
+	if in.Advanced != nil {
+		return validateAdvancedAction(in, actionJSON)
+	}
 	switch in.Kind {
 	case KindOrder:
+		if in.OrderType != "limit" && in.OrderType != "market" {
+			return "", mismatch("conditional orders require a typed advanced plan")
+		}
 		if head.Type != "order" {
 			return "", mismatch("action type %q, want order", head.Type)
 		}

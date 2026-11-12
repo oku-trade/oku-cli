@@ -13,10 +13,10 @@ import (
 // action is therefore checked against an exact, case-sensitive shape on the
 // same bytes that are signed before any struct decoding.
 type shape struct {
-	kind     string // "object", "array", "string", "number", "bool", "any"
+	kind     string // "object", "array", "string", "number", "bool"
 	fields   map[string]field
 	elem     *shape
-	nonEmpty bool
+	nullable bool
 }
 
 type field struct {
@@ -28,24 +28,26 @@ var (
 	sString = &shape{kind: "string"}
 	sNumber = &shape{kind: "number"}
 	sBool   = &shape{kind: "bool"}
-	sAny    = &shape{kind: "any"}
 )
 
 func obj(fields map[string]field) *shape { return &shape{kind: "object", fields: fields} }
 func req(s *shape) field                 { return field{s: s} }
 func opt(s *shape) field                 { return field{s: s, optional: true} }
+func nullable(s *shape) *shape           { copy := *s; copy.nullable = true; return &copy }
+
+var orderShape = obj(map[string]field{
+	"a": req(sNumber), "b": req(sBool), "p": req(sString), "s": req(sString), "r": req(sBool),
+	"t": req(obj(map[string]field{
+		"limit":   opt(obj(map[string]field{"tif": req(sString)})),
+		"trigger": opt(obj(map[string]field{"isMarket": req(sBool), "triggerPx": req(sString), "tpsl": req(sString)})),
+	})),
+	"c": opt(sString),
+})
 
 var actionShapes = map[string]*shape{
 	"order": obj(map[string]field{
-		"type": req(sString),
-		"orders": req(&shape{kind: "array", elem: obj(map[string]field{
-			"a": req(sNumber), "b": req(sBool), "p": req(sString), "s": req(sString), "r": req(sBool),
-			"t": req(obj(map[string]field{
-				"limit":   opt(obj(map[string]field{"tif": req(sString)})),
-				"trigger": opt(sAny),
-			})),
-			"c": opt(sString),
-		})}),
+		"type":     req(sString),
+		"orders":   req(&shape{kind: "array", elem: orderShape}),
 		"grouping": req(sString),
 		"builder":  opt(obj(map[string]field{"b": req(sString), "f": req(sNumber)})),
 	}),
@@ -59,11 +61,23 @@ var actionShapes = map[string]*shape{
 	"updateIsolatedMargin": obj(map[string]field{
 		"type": req(sString), "asset": req(sNumber), "isBuy": req(sBool), "ntli": req(sNumber),
 	}),
+	"batchModify": obj(map[string]field{
+		"type": req(sString), "modifies": req(&shape{kind: "array", elem: obj(map[string]field{"oid": req(sNumber), "order": req(orderShape)})}), "a": opt(sBool),
+	}),
+	"twapOrder": obj(map[string]field{
+		"type": req(sString), "twap": req(obj(map[string]field{"a": req(sNumber), "b": req(sBool), "s": req(sString), "r": req(sBool), "m": req(sNumber), "t": req(sBool)})),
+		"details": opt(obj(map[string]field{"t": req(nullable(obj(map[string]field{"p": req(sString), "a": req(sBool)}))), "s": req(nullable(sString))})),
+	}),
+	"twapCancel": obj(map[string]field{"type": req(sString), "a": req(sNumber), "t": req(sNumber)}),
+	"trailingStop": obj(map[string]field{
+		"type": req(sString), "asset": req(sNumber), "isBuy": req(sBool), "sz": req(sString), "reduceOnly": req(sBool),
+		"activationPx": req(nullable(sString)), "retracement": req(obj(map[string]field{"pct": opt(sString), "px": opt(sString)})),
+	}),
 }
 
 // checkExactShape verifies actionJSON against the shape for actionType with
 // case-sensitive keys, no duplicates, no unknown or missing required keys,
-// no nulls and exact value kinds.
+// exact value kinds and nulls only where the venue contract requires them.
 func checkExactShape(actionType, actionJSON string) error {
 	s, ok := actionShapes[actionType]
 	if !ok {
@@ -85,8 +99,8 @@ func walk(dec *json.Decoder, s *shape, path string) error {
 	if err != nil {
 		return fmt.Errorf("%s: %v", path, err)
 	}
-	if s.kind == "any" {
-		return skip(dec, tok)
+	if tok == nil && s.nullable {
+		return nil
 	}
 	switch t := tok.(type) {
 	case json.Delim:
@@ -141,25 +155,4 @@ func walk(dec *json.Decoder, s *shape, path string) error {
 		}
 	}
 	return fmt.Errorf("%s: expected %s", path, s.kind)
-}
-
-func skip(dec *json.Decoder, tok json.Token) error {
-	d, ok := tok.(json.Delim)
-	if !ok || (d != '{' && d != '[') {
-		return nil
-	}
-	for depth := 1; depth > 0; {
-		t, err := dec.Token()
-		if err != nil {
-			return err
-		}
-		if d, ok := t.(json.Delim); ok {
-			if d == '{' || d == '[' {
-				depth++
-			} else {
-				depth--
-			}
-		}
-	}
-	return nil
 }
