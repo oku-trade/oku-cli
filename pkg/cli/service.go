@@ -54,7 +54,7 @@ var ServiceReads = map[string]bool{
 // constructed with AllowMutations. Login, logout, profile, skills and server commands are
 // never reachable through a Service.
 var ServiceMutations = map[string]bool{
-	"orders prepare": true, "positions leverage": true, "positions margin": true,
+	"orders prepare": true, "orders modify": true, "orders cancel-twap": true, "positions leverage": true, "positions margin": true,
 	"orders submit": true, "orders cancel": true, "orders reconcile": true, "orders abandon": true,
 	"send submit": true, "deposit submit": true, "swap submit": true, "send reconcile": true, "swap reconcile": true,
 	"bridge submit": true, "bridge reconcile": true, "bridge claim": true, "deposit reconcile": true,
@@ -153,14 +153,17 @@ func (s *Service) allowed(path string) bool {
 
 // mapFlags implements flagSource from values already validated against the
 // declared flag types. Accessors never coerce: Call rejects wrong types.
-type mapFlags map[string]any
+type mapFlags struct {
+	values map[string]any
+	given  map[string]any
+}
 
 // newMapFlags checks every given value against its declared flag type.
 // Strings must be string; booleans bool; integers an exact int, int64 or
 // json.Number integer (no floats, no silent truncation, int range checked);
 // durations a time.Duration or a Go duration string.
 func newMapFlags(h *handler, given map[string]any) (mapFlags, error) {
-	m := mapFlags{}
+	m := map[string]any{}
 	declared := map[string]urfave.Flag{}
 	if h.flags != nil {
 		for _, f := range h.flags() {
@@ -183,11 +186,11 @@ func newMapFlags(h *handler, given map[string]any) (mapFlags, error) {
 	for k, v := range given {
 		f, ok := declared[k]
 		if !ok {
-			return nil, output.Errorf(output.CodeUsage, "unknown option %q", k)
+			return mapFlags{}, output.Errorf(output.CodeUsage, "unknown option %q", k)
 		}
 		cv, err := checkType(f, v)
 		if err != nil {
-			return nil, output.Errorf(output.CodeUsage, "option %q: %v", k, err)
+			return mapFlags{}, output.Errorf(output.CodeUsage, "option %q: %v", k, err)
 		}
 		if allowed := h.enums[k]; len(allowed) > 0 {
 			valid := false
@@ -197,12 +200,12 @@ func newMapFlags(h *handler, given map[string]any) (mapFlags, error) {
 				}
 			}
 			if !valid {
-				return nil, output.Errorf(output.CodeUsage, "option %q must be one of %s", k, strings.Join(allowed, ", "))
+				return mapFlags{}, output.Errorf(output.CodeUsage, "option %q must be one of %s", k, strings.Join(allowed, ", "))
 			}
 		}
 		m[k] = cv
 	}
-	return m, nil
+	return mapFlags{values: m, given: given}, nil
 }
 
 func checkType(f urfave.Flag, v any) (any, error) {
@@ -254,17 +257,18 @@ func checkType(f urfave.Flag, v any) (any, error) {
 }
 
 func (m mapFlags) String(n string) string {
-	switch v := m[n].(type) {
+	switch v := m.values[n].(type) {
 	case string:
 		return v
 	}
 	return ""
 }
 
-func (m mapFlags) Bool(n string) bool { b, _ := m[n].(bool); return b }
-func (m mapFlags) Int(n string) int   { i, _ := m[n].(int64); return int(i) }
+func (m mapFlags) IsSet(n string) bool { _, ok := m.given[n]; return ok }
+func (m mapFlags) Bool(n string) bool  { b, _ := m.values[n].(bool); return b }
+func (m mapFlags) Int(n string) int    { i, _ := m.values[n].(int64); return int(i) }
 func (m mapFlags) Int64(n string) int64 {
-	i, _ := m[n].(int64)
+	i, _ := m.values[n].(int64)
 	return i
 }
-func (m mapFlags) Duration(n string) time.Duration { d, _ := m[n].(time.Duration); return d }
+func (m mapFlags) Duration(n string) time.Duration { d, _ := m.values[n].(time.Duration); return d }

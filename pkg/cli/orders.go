@@ -29,10 +29,10 @@ const (
 )
 
 func prepareFlags() []urfave.Flag {
-	return []urfave.Flag{
+	return append([]urfave.Flag{
 		&urfave.StringFlag{Name: "market", Usage: "market, e.g. BTC (required)"},
 		&urfave.StringFlag{Name: "side", Usage: "buy or sell (required)"},
-		&urfave.StringFlag{Name: "type", Usage: "limit or market (required)"},
+		&urfave.StringFlag{Name: "type", Usage: "limit, market, stop_market, stop_limit, take_market, take_limit, twap, scale, or trailing_stop (required)"},
 		&urfave.StringFlag{Name: "size", Usage: "base size as a decimal string (required)"},
 		&urfave.StringFlag{Name: "price", Usage: "limit price (limit orders)"},
 		&urfave.StringFlag{Name: "tif", Value: "gtc", Usage: "time in force for limit orders: gtc, ioc, alo"},
@@ -40,7 +40,7 @@ func prepareFlags() []urfave.Flag {
 		&urfave.BoolFlag{Name: "reduce-only", Usage: "only reduce an existing position"},
 		&urfave.StringFlag{Name: "intent-id", Usage: "caller-chosen idempotency id (default: random)"},
 		&urfave.DurationFlag{Name: "expires", Value: defaultIntentTTL, Usage: "intent lifetime (max 1h)"},
-	}
+	}, advancedOrderFlags()...)
 }
 
 func submitFlags() []urfave.Flag {
@@ -58,6 +58,8 @@ func cancelFlags() []urfave.Flag {
 	return []urfave.Flag{
 		&urfave.StringFlag{Name: "market", Usage: "market of the order (required)"},
 		&urfave.Int64Flag{Name: "order-id", Usage: "exchange order id (oid) to cancel (required)"},
+		&urfave.StringFlag{Name: "order-ids", Usage: "comma-separated exchange order ids to cancel in one action"},
+		&urfave.BoolFlag{Name: "prepare", Usage: "preview cancellation without signing, then use orders submit"},
 		&urfave.StringFlag{Name: "intent-id", Usage: "idempotency id (default: random)"},
 	}
 }
@@ -145,6 +147,9 @@ func (e *env) market(p *resolved, coin string) (*api.Market, error) {
 }
 
 func (a *App) cmdOrdersPrepare(e *env) (*result, error) {
+	if usesAdvancedOrder(e) {
+		return a.cmdAdvancedOrderPrepare(e)
+	}
 	if len(e.args) != 0 {
 		return nil, output.Errorf(output.CodeUsage, "unexpected arguments %v", e.args)
 	}
@@ -509,6 +514,9 @@ func mergeDetail(m map[string]any, k string, v any) map[string]any {
 }
 
 func createRequest(in *trading.Intent) api.CreateActionRequest {
+	if in.Advanced != nil {
+		return advancedCreateRequest(in)
+	}
 	req := api.CreateActionRequest{Address: in.Account}
 	switch in.Kind {
 	case trading.KindOrder:
@@ -587,6 +595,9 @@ func recordResult(r *journal.Record) *result {
 }
 
 func (a *App) cmdOrdersCancel(e *env) (*result, error) {
+	if str(e, "order-ids") != "" || e.cmd.Bool("prepare") {
+		return a.cmdOrdersCancelMany(e)
+	}
 	p, err := e.profile()
 	if err != nil {
 		return nil, err

@@ -78,6 +78,7 @@ func (c checkedFlags) check(name string, k flagKind) {
 }
 
 func (c checkedFlags) String(n string) string { c.check(n, kindString); return c.src.String(n) }
+func (c checkedFlags) IsSet(n string) bool    { return c.src.IsSet(n) }
 func (c checkedFlags) Bool(n string) bool     { c.check(n, kindBool); return c.src.Bool(n) }
 func (c checkedFlags) Int(n string) int       { c.check(n, kindInt); return c.src.Int(n) }
 func (c checkedFlags) Int64(n string) int64   { c.check(n, kindInt64); return c.src.Int64(n) }

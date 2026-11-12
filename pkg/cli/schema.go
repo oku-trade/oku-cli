@@ -8,7 +8,8 @@ import (
 )
 
 var flagEnums = map[string]map[string][]string{
-	"orders prepare":     {"side": {"buy", "sell"}, "type": {"limit", "market"}, "tif": {"gtc", "ioc", "alo"}},
+	"orders prepare":     {"side": {"buy", "sell"}, "type": {"limit", "market", "stop_market", "stop_limit", "take_market", "take_limit", "twap", "scale", "trailing_stop"}, "tif": {"gtc", "ioc", "alo"}},
+	"orders modify":      {"side": {"buy", "sell"}, "tpsl": {"tp", "sl"}, "tif": {"gtc", "ioc", "alo"}},
 	"positions leverage": {"mode": {"cross", "isolated"}},
 	"auth login":         {"credential-store": {"file", "keyring"}},
 	"auth migrate":       {"to": {"file", "keyring"}},
@@ -27,7 +28,9 @@ var requiredFlags = map[string][]string{
 	"deposit status":     {"intent"},
 	"orders prepare":     {"market", "side", "type", "size"},
 	"orders submit":      {"intent", "digest"},
-	"orders cancel":      {"market", "order-id"},
+	"orders cancel":      {"market"},
+	"orders modify":      {"market", "order-id", "side", "size"},
+	"orders cancel-twap": {"market", "twap-id"},
 	"orders status":      {"intent"},
 	"orders abandon":     {"intent"},
 	"positions leverage": {"market", "leverage", "mode"},
