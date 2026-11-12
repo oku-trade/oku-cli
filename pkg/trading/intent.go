@@ -80,9 +80,6 @@ type Intent struct {
 
 	// Advanced binds the typed economics of compound and conditional actions.
 	Advanced *Advanced `json:"advanced,omitempty"`
-
-	// Chase binds the parent policy for delegated native ALO actions.
-	Chase *ChasePlan `json:"chase,omitempty"`
 }
 
 // Digest is sha256 over the canonical JSON encoding of the intent.

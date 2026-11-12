@@ -9,11 +9,22 @@ import (
 )
 
 func TestModifyPositionTpsl(t *testing.T) {
+	schema, err := InputSchema("orders modify")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range schema["required"].([]string) {
+		if field == "side" || field == "size" || field == "tpsl" {
+			t.Fatalf("schema requires inferred position TP/SL field %s", field)
+		}
+	}
 	for _, tc := range []struct {
 		name, szi, side, orderType, wantError string
 		flags                                 []string
+		jsonInput                             bool
 	}{
 		{name: "long stop", szi: "0.012349", side: "A", orderType: "Stop Market"},
+		{name: "JSON stop", szi: "0.01234", side: "A", orderType: "Stop Market", jsonInput: true},
 		{name: "short take profit", szi: "-0.012340", side: "B", orderType: "Take Profit Market", flags: []string{"--size", "0.01234"}},
 		{name: "trigger limit", szi: "0.01234", side: "A", orderType: "Stop Limit", flags: []string{"--price", "48900"}},
 		{name: "conflicting size", szi: "0.01234", side: "A", orderType: "Stop Market", flags: []string{"--size", "0.01"}, wantError: "--size conflicts"},
@@ -48,7 +59,12 @@ func TestModifyPositionTpsl(t *testing.T) {
 				}
 				return nil, false
 			}
-			r := h.run(append([]string{"orders", "modify", "--market", "BTC", "--order-id", "42", "--trigger-price", "49000", "--json"}, tc.flags...)...)
+			args := append([]string{"orders", "modify", "--market", "BTC", "--order-id", "42", "--trigger-price", "49000", "--json"}, tc.flags...)
+			if tc.jsonInput {
+				h.stdin = `{"market":"BTC","order-id":42,"trigger-price":"49000"}`
+				args = []string{"orders", "modify", "--input", "-", "--json"}
+			}
+			r := h.run(args...)
 			if tc.wantError != "" {
 				if r.code == 0 || !strings.Contains(r.stdout, tc.wantError) {
 					t.Fatalf("expected %q: %s %s", tc.wantError, r.stdout, r.stderr)

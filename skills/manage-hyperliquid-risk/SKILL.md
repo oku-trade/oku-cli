@@ -48,8 +48,6 @@ oku orders prepare --profile <p> --market <market> --side <closing-side> --type 
 
 These protection commands only prepare. Review market, side, trigger, execution mode, size or whole-position semantics and reduce-only behavior, then submit the exact intent and digest using `orders submit`. On an ambiguous outcome, reconcile without resubmitting. Verify protection with `orders list --fresh` after submission. Trigger-market execution has price risk, and trigger-limit execution may not fill. Never invent risk levels or claim protection guarantees a fill.
 
-A foreground chase is a maker execution strategy, not a protective stop. Use it only for an explicitly requested entry or reduce-only exit within an approved price leash. It must stay running, and interruption cancels its resting remainder when reachable. Never replace existing protection with a chase, or cancel a stop to move it. Follow manage-hyperliquid-orders for crash recovery and unknown outcomes.
-
 ## Leverage and margin mode
 
 Prefer `{"market":"BTC","leverage":2,"mode":"cross"}` in `leverage.json` after reading `oku docs schema --command 'positions leverage'`, then `oku positions leverage --profile <p> --input leverage.json --json`. Alternatively use flags:

@@ -225,7 +225,6 @@ func (a *App) commandTable() map[string]*handler {
 		"positions list":     {summary: "Open positions", run: a.cmdPositionsList},
 		"orders list":        {summary: "Open orders", flags: fresh, run: a.cmdOrdersList},
 		"orders prepare":     {summary: "Prepare a local order intent (no exchange submission; may read market data)", flags: prepareFlags, run: a.cmdOrdersPrepare},
-		"orders chase":       {summary: "Prepare or run an approved foreground maker chase, cancel on interrupt", flags: chaseFlags, run: a.cmdOrdersChase, stream: true, doneEvent: "done"},
 		"orders submit":      {summary: "Sign and submit a prepared intent: orders submit --intent ID --digest SHA", flags: submitFlags, run: a.cmdOrdersSubmit},
 		"orders modify":      {summary: "Prepare an atomic resting limit or TP/SL replacement, never cancel first", flags: modifyOrderFlags, run: a.cmdOrdersModify},
 		"orders cancel-twap": {summary: "Prepare cancellation of an active TWAP", flags: cancelTWAPFlags, run: a.cmdOrdersCancelTWAP},
