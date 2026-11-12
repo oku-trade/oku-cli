@@ -33,7 +33,7 @@ func prepareFlags() []urfave.Flag {
 		&urfave.StringFlag{Name: "market", Usage: "market, e.g. BTC (required)"},
 		&urfave.StringFlag{Name: "side", Usage: "buy or sell (required)"},
 		&urfave.StringFlag{Name: "type", Usage: "limit, market, stop_market, stop_limit, take_market, take_limit, twap, scale, or trailing_stop (required)"},
-		&urfave.StringFlag{Name: "size", Usage: "base size as a decimal string (required)"},
+		&urfave.StringFlag{Name: "size", Usage: "base size as a decimal string (required unless --close-position)"},
 		&urfave.StringFlag{Name: "price", Usage: "limit price (limit orders)"},
 		&urfave.StringFlag{Name: "tif", Value: "gtc", Usage: "time in force for limit orders: gtc, ioc, alo"},
 		&urfave.IntFlag{Name: "slippage-bps", Usage: "max slippage in basis points from the current mid (market orders; default 50 = 0.5%)"},

@@ -221,9 +221,15 @@ func (a *App) cmdAdvancedOrderPrepare(e *env) (*result, error) {
 		if err != nil {
 			return err
 		}
-		size, err := perpDecimal(e, "size", m, true, true)
-		if err != nil {
-			return err
+		size := "0"
+		if !e.cmd.Bool("close-position") || (str(e, "size") != "" && str(e, "size") != "0") {
+			size, err = perpDecimal(e, "size", m, true, true)
+			if err != nil {
+				return err
+			}
+		}
+		if e.cmd.Bool("close-position") {
+			size = "0"
 		}
 		in.Side, in.Size, in.OrderType, in.ReduceOnly = str(e, "side"), size, str(e, "type"), e.cmd.Bool("reduce-only")
 		switch in.OrderType {

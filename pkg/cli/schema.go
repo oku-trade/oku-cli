@@ -26,7 +26,7 @@ var requiredFlags = map[string][]string{
 	"deposit prepare":    {"amount"},
 	"deposit submit":     {"intent", "digest"},
 	"deposit status":     {"intent"},
-	"orders prepare":     {"market", "side", "type", "size"},
+	"orders prepare":     {"market", "side", "type"},
 	"orders submit":      {"intent", "digest"},
 	"orders cancel":      {"market"},
 	"orders modify":      {"market", "order-id", "side", "size"},
@@ -135,6 +135,7 @@ func InputSchema(path string) (map[string]any, error) {
 	}
 	if path == "orders prepare" {
 		example["price"] = "60000"
+		example["size"] = "0.0002"
 	}
 	if path == "swap orders create" {
 		example["all"] = true
@@ -143,6 +144,13 @@ func InputSchema(path string) (map[string]any, error) {
 	s := map[string]any{"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://oku.trade/schemas/oku.cli/v1/" + strings.ReplaceAll(path, " ", "-") + ".input.json", "title": "oku " + path + " input", "type": "object", "additionalProperties": false, "properties": props, "examples": []any{example}}
 	if len(required) > 0 {
 		s["required"] = required
+	}
+	if path == "orders prepare" {
+		s["allOf"] = []any{map[string]any{
+			"if":   map[string]any{"properties": map[string]any{"close-position": map[string]any{"const": true}}, "required": []string{"close-position"}},
+			"then": map[string]any{"properties": map[string]any{"type": map[string]any{"enum": []string{"stop_market", "stop_limit", "take_market", "take_limit"}}}},
+			"else": map[string]any{"required": []string{"size"}},
+		}}
 	}
 	return s, nil
 }

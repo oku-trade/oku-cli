@@ -828,7 +828,7 @@ Prepare a local order intent (no exchange submission; may read market data)
 | `--market` | market, e.g. BTC (required) | `` |
 | `--side` | buy or sell (required) | `` |
 | `--type` | limit, market, stop_market, stop_limit, take_market, take_limit, twap, scale, or trailing_stop (required) | `` |
-| `--size` | base size as a decimal string (required) | `` |
+| `--size` | base size as a decimal string (required unless --close-position) | `` |
 | `--price` | limit price (limit orders) | `` |
 | `--tif` | time in force for limit orders: gtc, ioc, alo | `gtc` |
 | `--slippage-bps` | max slippage in basis points from the current mid (market orders; default 50 = 0.5%) | `0` |

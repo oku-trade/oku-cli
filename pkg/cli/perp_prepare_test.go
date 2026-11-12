@@ -68,7 +68,7 @@ func TestPerpPrepareVariants(t *testing.T) {
 					t.Fatalf("wrong backend market trigger contract: %s", raw)
 				}
 			case "take_market":
-				if !req.Params.Order.ClosePosition || req.Params.Order.Sz != "0.01" {
+				if !req.Params.Order.ClosePosition || req.Params.Order.Sz != "0" {
 					t.Fatalf("position TP/SL: %s", raw)
 				}
 			case "market-entry-tpsl":
@@ -141,6 +141,10 @@ func TestAdvancedOrderInputParity(t *testing.T) {
 	}
 	h.stdin = `{"market":"BTC","side":"sell","type":"stop_market","size":"0.01","trigger-price":"49000","close-position":true}`
 	r := h.run("orders", "prepare", "--input", "-", "--json")
+	if r.code != 0 {
+		t.Fatal(r.stdout)
+	}
+	r = h.run("orders", "prepare", "--market", "BTC", "--side", "sell", "--type", "stop_market", "--trigger-price", "49000", "--close-position", "--json")
 	if r.code != 0 {
 		t.Fatal(r.stdout)
 	}
