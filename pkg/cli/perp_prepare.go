@@ -56,11 +56,11 @@ func modifyOrderFlags() []urfave.Flag {
 	return []urfave.Flag{
 		&urfave.StringFlag{Name: "market", Usage: "market (required)"},
 		&urfave.Int64Flag{Name: "order-id", Usage: "resting order id to replace atomically (required)"},
-		&urfave.StringFlag{Name: "side", Usage: "replacement side: buy or sell (required)"},
-		&urfave.StringFlag{Name: "size", Usage: "complete replacement size (required)"},
+		&urfave.StringFlag{Name: "side", Usage: "replacement side: buy or sell (inferred for position TP/SL)"},
+		&urfave.StringFlag{Name: "size", Usage: "complete replacement size (live position size for position TP/SL)"},
 		&urfave.StringFlag{Name: "price", Usage: "replacement limit price (required unless market trigger)"},
 		&urfave.StringFlag{Name: "trigger-price", Usage: "replacement TP/SL trigger price"},
-		&urfave.StringFlag{Name: "tpsl", Usage: "tp or sl, required with trigger-price"},
+		&urfave.StringFlag{Name: "tpsl", Usage: "tp or sl, required with trigger-price unless position TP/SL"},
 		&urfave.BoolFlag{Name: "market-trigger", Usage: "market-style trigger replacement with backend fixed 10% slippage"},
 		&urfave.StringFlag{Name: "tif", Value: "gtc", Usage: "plain limit time in force: gtc, ioc, alo"},
 		&urfave.BoolFlag{Name: "reduce-only", Usage: "plain limit replacement only reduces a position (trigger replacements always do)"},
@@ -330,23 +330,33 @@ func (a *App) cmdAdvancedOrderPrepare(e *env) (*result, error) {
 
 func (a *App) cmdOrdersModify(e *env) (*result, error) {
 	return e.preparePerp(func(in *trading.Intent, m *api.Market) error {
-		buy, err := perpSide(e)
-		if err != nil {
-			return err
-		}
-		size, err := perpDecimal(e, "size", m, true, true)
-		if err != nil {
-			return err
-		}
 		oid := e.cmd.Int64("order-id")
 		if oid <= 0 {
 			return output.Errorf(output.CodeInvalidArgument, "--order-id must be positive")
 		}
-		trigger, err := perpDecimal(e, "trigger-price", m, false, false)
+		target, err := e.positionModifyTarget(in, m, oid)
 		if err != nil {
 			return err
 		}
-		market := e.cmd.Bool("market-trigger")
+		var buy bool
+		var size string
+		tpsl, market := str(e, "tpsl"), e.cmd.Bool("market-trigger")
+		if target != nil {
+			buy, size, tpsl, market = target.buy, target.size, target.tpsl, target.market
+		} else {
+			buy, err = perpSide(e)
+			if err != nil {
+				return err
+			}
+			size, err = perpDecimal(e, "size", m, true, true)
+			if err != nil {
+				return err
+			}
+		}
+		trigger, err := perpDecimal(e, "trigger-price", m, false, target != nil)
+		if err != nil {
+			return err
+		}
 		var execution trading.Execution
 		var price string
 		reduce := e.cmd.Bool("reduce-only")
@@ -357,7 +367,7 @@ func (a *App) cmdOrdersModify(e *env) (*result, error) {
 			if e.cmd.IsSet("tif") {
 				return output.Errorf(output.CodeInvalidArgument, "--tif applies only to plain limit replacements")
 			}
-			execution, err = trading.NewTriggerExecution(market, trigger, str(e, "tpsl"))
+			execution, err = trading.NewTriggerExecution(market, trigger, tpsl)
 			if err != nil {
 				return output.Wrap(output.CodeInvalidArgument, err, "trigger replacement requires --tpsl tp or sl")
 			}
@@ -383,8 +393,12 @@ func (a *App) cmdOrdersModify(e *env) (*result, error) {
 		if err != nil {
 			return err
 		}
-		in.OrderID, in.Side, in.Size, in.Price, in.ReduceOnly = oid, str(e, "side"), size, price, reduce
-		return setAdvanced(in, trading.ModifyPlan{SizeDecimals: m.SzDecimals, Modifies: []trading.ApprovedModify{{OrderID: oid, Order: trading.ApprovedOrder{AssetID: m.AssetID, IsBuy: buy, Price: price, Size: size, ReduceOnly: reduce, Execution: execution}}}})
+		in.Side = "sell"
+		if buy {
+			in.Side = "buy"
+		}
+		in.OrderID, in.Size, in.Price, in.ReduceOnly = oid, size, price, reduce
+		return setAdvanced(in, trading.ModifyPlan{SizeDecimals: m.SzDecimals, PositionTpsl: target != nil, Modifies: []trading.ApprovedModify{{OrderID: oid, Order: trading.ApprovedOrder{AssetID: m.AssetID, IsBuy: buy, Price: price, Size: size, ReduceOnly: reduce, Execution: execution}}}})
 	})
 }
 

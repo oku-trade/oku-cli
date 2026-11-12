@@ -251,6 +251,7 @@ type ModifyPlan struct {
 	Modifies     []ApprovedModify `json:"modifies"`
 	AlwaysPlace  bool             `json:"always_place,omitempty"`
 	SizeDecimals int              `json:"size_decimals"`
+	PositionTpsl bool             `json:"position_tpsl,omitempty"`
 }
 
 func (ModifyPlan) advancedKind() string { return KindModify }

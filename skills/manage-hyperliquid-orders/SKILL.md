@@ -48,7 +48,13 @@ oku orders modify --profile <p> --market <market> --order-id <sl-oid> --side <cl
 oku orders modify --profile <p> --market <market> --order-id <tp-oid> --side <closing-side> --size <existing-size> --trigger-price <new-tp> --tpsl tp --price <execution-limit> --json
 ```
 
-`--market-trigger` is for market-trigger legs only. A trigger-limit leg needs `--price` and must not be silently converted to a market-trigger leg. Whole-position TP/SL uses the existing size `0` and position TP/SL semantics, not a newly sized order. If the installed build cannot atomically modify that order, stop and report the limitation. Never fall back to cancel-first.
+`--market-trigger` is for market-trigger legs only. A trigger-limit leg needs `--price` and must not be silently converted to a market-trigger leg. For a whole-position market TP/SL (`isPositionTpsl`), use just the order id and new trigger within the market:
+
+```sh
+oku orders modify --profile <p> --market <market> --order-id <sl-oid> --trigger-price <new-stop> --json
+```
+
+Omit `--size`, including when the listed size is `0`. Preparation reads fresh orders and the live position, infers the closing side, TP/SL kind and execution mode, and binds the absolute position size rounded down to `szDecimals` into the intent. The atomic modify retains whole-position grouping through the original order id, not a fixed-size replacement. A conflicting `--size` or absent position is refused. Whole-position trigger-limit legs also need `--price <execution-limit>`. Never fall back to cancel-first.
 
 Modify only prepares. Review the exact `oid`, side, size, trigger kind, trigger price, execution limit, reduce-only and position TP/SL semantics. A clear request to change a named order to a specified price or size authorizes a matching preview. USD-to-base and position-fraction conversions rounded down to `szDecimals` are deterministic, so state the computed size. Confirm ambiguity, guesses or deviations, including material rounding. Submit prepared modify, batch cancel and TWAP cancel intents with:
 

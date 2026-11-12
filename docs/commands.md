@@ -825,11 +825,11 @@ Prepare an atomic resting limit or TP/SL replacement, never cancel first
 | --- | --- | --- |
 | `--market` | market (required) | `` |
 | `--order-id` | resting order id to replace atomically (required) | `0` |
-| `--side` | replacement side: buy or sell (required) | `` |
-| `--size` | complete replacement size (required) | `` |
+| `--side` | replacement side: buy or sell (inferred for position TP/SL) | `` |
+| `--size` | complete replacement size (live position size for position TP/SL) | `` |
 | `--price` | replacement limit price (required unless market trigger) | `` |
 | `--trigger-price` | replacement TP/SL trigger price | `` |
-| `--tpsl` | tp or sl, required with trigger-price | `` |
+| `--tpsl` | tp or sl, required with trigger-price unless position TP/SL | `` |
 | `--market-trigger` | market-style trigger replacement with backend fixed 10% slippage | `false` |
 | `--tif` | plain limit time in force: gtc, ioc, alo | `gtc` |
 | `--reduce-only` | plain limit replacement only reduces a position (trigger replacements always do) | `false` |

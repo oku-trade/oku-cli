@@ -27,7 +27,15 @@ To move an existing stop or take-profit, follow manage-hyperliquid-orders and us
 oku orders modify --profile <p> --market <market> --order-id <sl-oid> --side <closing-side> --size <existing-size> --trigger-price <new-stop> --tpsl sl --market-trigger --json
 ```
 
-For a trigger-limit stop, replace `--market-trigger` with `--price <execution-limit>`. For a take-profit use `--tpsl tp`. If the installed build cannot modify the particular protection atomically, report the limitation without removing it.
+For a fixed-size trigger-limit stop, replace `--market-trigger` with `--price <execution-limit>`. For a fixed-size take-profit use `--tpsl tp`.
+
+For a whole-position market stop (`isPositionTpsl`, often listed with size `0`), move it to entry or another authorized trigger without specifying size, side or TP/SL kind:
+
+```sh
+oku orders modify --profile <p> --market <market> --order-id <sl-oid> --trigger-price <entry-or-new-stop> --json
+```
+
+Preparation reads fresh orders and the live position and uses the absolute position size rounded down to `szDecimals`. The existing order id retains whole-position semantics. A conflicting `--size` or missing position is refused. Execution mode is inferred, and a whole-position trigger-limit also needs `--price <execution-limit>`. Never cancel first.
 
 To add whole-position protection when none exists for that leg:
 

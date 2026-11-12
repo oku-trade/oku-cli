@@ -115,6 +115,9 @@ func (a *Advanced) validate() error {
 		if len(p.Modifies) == 0 {
 			return fmt.Errorf("modify plan must not be empty")
 		}
+		if p.PositionTpsl && (len(p.Modifies) != 1 || p.AlwaysPlace || !p.Modifies[0].Order.Execution.IsTrigger() || !p.Modifies[0].Order.ReduceOnly) {
+			return fmt.Errorf("position TP/SL modify requires one existing reduce-only trigger")
+		}
 		seen := map[int64]bool{}
 		for _, m := range p.Modifies {
 			if m.OrderID <= 0 || m.OrderID > maxSafeID || seen[m.OrderID] {

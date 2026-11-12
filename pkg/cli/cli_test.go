@@ -156,6 +156,8 @@ func (f *fakeOku) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		reply(map[string]any{"builderAddress": "0xd637f2a36c1a3b37d57ef4c7022cb183d8922f2c", "builderFeeChargedPpm": 100, "builderFeeApproved": true, "builderFeePpm": 500})
 	case "GetPerpPositions":
 		reply(map[string]any{"marginSummary": map[string]string{"accountValue": "100.71"}, "withdrawable": "100.71"})
+	case "GetOpenOrders":
+		reply(map[string]any{"openOrders": []map[string]any{{"oid": "42", "coin": "BTC", "orderType": "Limit"}}})
 	case "GetAccountBalances":
 		reply(map[string]any{"accountAbstraction": "unifiedAccount", "spotUsdcBalance": "0.005666"})
 	case "CreateAction":
