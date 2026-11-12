@@ -38,6 +38,9 @@ service PerpsService {
   // at a slower cadence and invalidate on order actions/fills.
   rpc GetOpenOrders(GetOpenOrdersRequest) returns (GetOpenOrdersResponse);
 
+  // GetTwapHistory backs active TWAP reads and includes terminal entries.
+  rpc GetTwapHistory(GetTwapHistoryRequest) returns (GetTwapHistoryResponse);
+
   // GetAccountBalances returns spot and separate Standard-mode perps balances.
   // This may fan out across supported HIP-3 DEXs; poll slowly and invalidate
   // after deposits, withdrawals, transfers, and spot conversions.
@@ -343,6 +346,35 @@ message GetOpenOrdersRequest {
 message GetOpenOrdersResponse {
   // Open orders across all Hyperliquid perp interfaces.
   repeated PerpOrder open_orders = 1;
+}
+
+message GetTwapHistoryRequest {
+  string address = 1 [(buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true];
+  bool skip_cache = 2;
+}
+
+message GetTwapHistoryResponse {
+  repeated PerpTwap twaps = 1;
+}
+
+message PerpTwap {
+  int64 twap_id = 1;
+  int64 time = 2; // HL event time, seconds
+  string status = 3;
+  string coin = 4;
+  string user = 5;
+  string side = 6;
+  string sz = 7;
+  int32 minutes = 8;
+  bool reduce_only = 9;
+  bool randomize = 10;
+  int64 timestamp = 11; // TWAP start timestamp, milliseconds
+  int32 leverage = 12;
+  string executed_sz = 13;
+  string executed_ntl = 14;
+  string trigger_px = 15;
+  bool trigger_activate_above = 16;
+  string stop_px = 17;
 }
 
 // ----------------------------------------------------------------------------

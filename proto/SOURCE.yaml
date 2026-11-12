@@ -10,7 +10,9 @@ files:
   - gfxcafe/oku/account/v1/common.proto
   - gfxcafe/oku/account/v1/orderhistory.proto
   - gfxcafe/oku/account/v2/validate.proto
-  - gfxcafe/oku/account/v2/perps.proto
+  # GetTwapHistory and PerpTwap are trimmed from this later revision.
+  - path: gfxcafe/oku/account/v2/perps.proto
+    commit: b626b8ec5c872fdc22101be3a7408b9faeac2904
   - gfxcafe/oku/account/v2/orders.proto
   - gfxcafe/oku/account/v2/simpleswap.proto
   - gfxcafe/oku/account/v2/bridge.proto

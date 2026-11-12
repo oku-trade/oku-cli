@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,43 @@ import (
 	"testing"
 	"time"
 )
+
+func TestTwapHistoryWire(t *testing.T) {
+	const address = "0x0000000000000000000000000000000000000001"
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		if r.URL.Path != "/connect/gfxcafe.oku.account.v2.PerpsService/GetTwapHistory" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		var req GetTwapHistoryRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Error(err)
+		}
+		if req.Address != address || !req.SkipCache {
+			t.Errorf("unexpected request: %+v", req)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if _, err := io.WriteString(w, `{"twaps":[{"twapId":"9007199254740993","time":"1730000000","timestamp":"1730000000000","coin":"BTC","status":"activated","side":"B","sz":"1","minutes":30,"executedSz":"0.25","executedNtl":"25000","triggerPx":"100000","triggerActivateAbove":true,"stopPx":"90000"}]}`); err != nil {
+			t.Error(err)
+		}
+	}))
+	defer srv.Close()
+	cl := &Client{BaseURL: srv.URL, HTTP: NewHTTPClient(5 * time.Second)}
+	var got GetTwapHistoryResponse
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := cl.Perps(ctx, "GetTwapHistory", GetTwapHistoryRequest{Address: address, SkipCache: true}, &got, false); err != nil {
+		t.Fatal(err)
+	}
+	if hits != 1 || len(got.Twaps) != 1 {
+		t.Fatalf("hits=%d, twaps=%v", hits, got.Twaps)
+	}
+	twap := got.Twaps[0]
+	if twap.TwapID != 9007199254740993 || twap.Time != 1730000000 || twap.Timestamp != 1730000000000 || twap.ExecutedSz != "0.25" || twap.ExecutedNtl != "25000" || !twap.TriggerActivateAbove || twap.StopPx != "90000" {
+		t.Fatalf("TWAP fields changed: %+v", twap)
+	}
+}
 
 // The runtime path is the generated Connect client: correct procedure path,
 // protocol headers, session token and user agent, exactly one attempt, and
@@ -68,6 +106,7 @@ func TestLocalRejectionSendsNothing(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	for _, err := range []error{
+		cl.Perps(ctx, "CreateAction", CreateActionRequest{Params: ActionParams{Order: &OrderActionMetadata{}, Twap: &TWAPActionMetadata{}}}, nil, false),
 		cl.Perps(ctx, "GetMarkets", map[string]string{"bogus": "1"}, nil, false),
 		cl.Perps(ctx, "Withdraw", struct{}{}, nil, false),
 		cl.Auth(ctx, "ExtendSession", map[string]string{"nope": "SECRETVALUE"}, nil, false),

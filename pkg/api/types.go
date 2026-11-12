@@ -170,22 +170,33 @@ type GetUserFillsResponse struct {
 	Fills []Fill `json:"fills"`
 }
 
-// OrderActionMetadata mirrors perps.proto OrderActionMetadata (subset used).
+// OrderActionMetadata mirrors perps.proto OrderActionMetadata.
 type OrderActionMetadata struct {
-	Coin        string `json:"coin"`
-	Side        string `json:"side"`
-	OrderType   string `json:"orderType"`
-	Sz          string `json:"sz"`
-	LimitPx     string `json:"limitPx,omitempty"`
-	Tif         string `json:"tif,omitempty"`
-	ReduceOnly  bool   `json:"reduceOnly,omitempty"`
-	SlippageBps int    `json:"slippageBps,omitempty"`
+	Coin          string `json:"coin"`
+	Side          string `json:"side"`
+	OrderType     string `json:"orderType"`
+	Sz            string `json:"sz"`
+	LimitPx       string `json:"limitPx,omitempty"`
+	Tif           string `json:"tif,omitempty"`
+	ReduceOnly    bool   `json:"reduceOnly,omitempty"`
+	SlippageBps   int    `json:"slippageBps,omitempty"`
+	TriggerPx     string `json:"triggerPx,omitempty"`
+	TakeProfitPx  string `json:"takeProfitPx,omitempty"`
+	StopLossPx    string `json:"stopLossPx,omitempty"`
+	TpLimitPx     string `json:"tpLimitPx,omitempty"`
+	SlLimitPx     string `json:"slLimitPx,omitempty"`
+	TpSz          string `json:"tpSz,omitempty"`
+	SlSz          string `json:"slSz,omitempty"`
+	Cloid         string `json:"cloid,omitempty"`
+	Leverage      int    `json:"leverage,omitempty"`
+	ClosePosition bool   `json:"closePosition,omitempty"`
 }
 
 // CancelActionMetadata mirrors perps.proto CancelActionMetadata.
 type CancelActionMetadata struct {
-	Coin string `json:"coin"`
-	Oid  Int64  `json:"oid"`
+	ActionID string `json:"actionId,omitempty"`
+	Coin     string `json:"coin"`
+	Oid      Int64  `json:"oid"`
 }
 
 // LeverageActionMetadata mirrors perps.proto LeverageActionMetadata.
@@ -203,10 +214,17 @@ type MarginActionMetadata struct {
 }
 
 type ActionParams struct {
-	Order    *OrderActionMetadata    `json:"order,omitempty"`
-	Cancel   *CancelActionMetadata   `json:"cancel,omitempty"`
-	Leverage *LeverageActionMetadata `json:"leverage,omitempty"`
-	Margin   *MarginActionMetadata   `json:"margin,omitempty"`
+	Order         *OrderActionMetadata         `json:"order,omitempty"`
+	Cancel        *CancelActionMetadata        `json:"cancel,omitempty"`
+	Leverage      *LeverageActionMetadata      `json:"leverage,omitempty"`
+	Margin        *MarginActionMetadata        `json:"margin,omitempty"`
+	Modify        *ModifyActionMetadata        `json:"modify,omitempty"`
+	Twap          *TWAPActionMetadata          `json:"twap,omitempty"`
+	CancelTwap    *CancelTWAPActionMetadata    `json:"cancelTwap,omitempty"`
+	Scale         *ScaleActionMetadata         `json:"scale,omitempty"`
+	TrailingStop  *TrailingStopActionMetadata  `json:"trailingStop,omitempty"`
+	CancelOrders  *CancelOrdersActionMetadata  `json:"cancelOrders,omitempty"`
+	ConvertToUsdc *ConvertToUsdcActionMetadata `json:"convertToUsdc,omitempty"`
 }
 
 type CreateActionRequest struct {

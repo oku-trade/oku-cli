@@ -114,6 +114,9 @@ var perpsMethods = map[string]handler{
 	"GetOpenOrders": perps[accountv2.GetOpenOrdersRequest, accountv2.GetOpenOrdersResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetOpenOrdersRequest]) (*connect.Response[accountv2.GetOpenOrdersResponse], error) {
 		return c.GetOpenOrders
 	}),
+	"GetTwapHistory": perps[accountv2.GetTwapHistoryRequest, accountv2.GetTwapHistoryResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetTwapHistoryRequest]) (*connect.Response[accountv2.GetTwapHistoryResponse], error) {
+		return c.GetTwapHistory
+	}),
 	"GetAccountBalances": perps[accountv2.GetAccountBalancesRequest, accountv2.GetAccountBalancesResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetAccountBalancesRequest]) (*connect.Response[accountv2.GetAccountBalancesResponse], error) {
 		return c.GetAccountBalances
 	}),
