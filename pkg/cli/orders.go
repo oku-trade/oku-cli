@@ -842,7 +842,7 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 	// have passed through the ordinary reconciliation state machine.
 	unlock()
 	unlock = nil
-	chases, err := e.reconcileChases(p)
+	chases, skippedChases, err := e.reconcileChases(p)
 	if err != nil {
 		return nil, output.Wrap(output.CodeOutcomeUnknown, err, "reconciling chase orders").WithDetail("chases", chases)
 	}
@@ -851,6 +851,7 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 	for _, r := range otherOrigin {
 		skipped = append(skipped, map[string]string{"intent_id": r.Intent.ID, "api_url": r.Intent.APIURL})
 	}
+	skipped = append(skipped, skippedChases...)
 	if len(skipped) > 0 {
 		data["skipped_other_api"] = skipped
 	}

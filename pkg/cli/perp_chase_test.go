@@ -19,15 +19,17 @@ import (
 )
 
 type chaseFixture struct {
-	app     *App
-	out     bytes.Buffer
-	now     time.Time
-	bid     string
-	status  string
-	live    string
-	fills   []map[string]any
-	fake    *fakeOku
-	profile *resolved
+	app    *App
+	out    bytes.Buffer
+	now    time.Time
+	bid    string
+	status string
+	live   string
+	fills  []map[string]any
+	// fillsFor, when set, serves userFillsByTime pages by startTime.
+	fillsFor func(startTime int64) []map[string]any
+	fake     *fakeOku
+	profile  *resolved
 }
 
 // This fixture creates no signer or login session. Any accidental execution
@@ -54,6 +56,9 @@ func newChaseFixture(t *testing.T) *chaseFixture {
 			response = map[string]any{"status": "order", "order": map[string]any{"status": f.status, "order": map[string]any{"coin": "BTC", "side": "B", "oid": int64(req["oid"].(float64)), "sz": f.live, "limitPx": "50001"}}}
 		case "userFillsByTime":
 			response = f.fills
+			if f.fillsFor != nil {
+				response = f.fillsFor(int64(req["startTime"].(float64)))
+			}
 		default:
 			t.Errorf("unexpected public read %v", req["type"])
 			http.Error(w, "unexpected read", 400)
@@ -274,5 +279,38 @@ func TestChaseCleanupFailureKeepsOwnedOrderRecoverable(t *testing.T) {
 	}
 	if !found || f.fake.creates != 0 || f.fake.confirms != 0 {
 		t.Fatal("cancellation did not stop at the real unsigned credential boundary")
+	}
+}
+
+func TestChaseFillsPageThroughFullHistory(t *testing.T) {
+	f := newChaseFixture(t)
+	j, parent := f.prepare(t)
+	c, err := j.CreateChase(parent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.OrderID, c.OrderIDs, c.State = 42, []int64{42}, journal.ChaseResting
+	if err = j.PutChase(c); err != nil {
+		t.Fatal(err)
+	}
+	created, err := time.Parse(time.RFC3339, parent.Intent.CreatedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := created.UnixMilli() + 1
+	f.status, f.live = "filled", "0"
+	f.fillsFor = func(start int64) []map[string]any {
+		if start > first {
+			return []map[string]any{{"oid": 42, "tid": 5000, "time": first + 1999, "sz": "0.01", "px": "50000", "coin": "BTC", "side": "B"}}
+		}
+		page := make([]map[string]any, 0, 2000)
+		for i := int64(0); i < 2000; i++ {
+			page = append(page, map[string]any{"oid": 7, "tid": i + 1, "time": first + i, "sz": "1", "px": "1", "coin": "BTC", "side": "B"})
+		}
+		return page
+	}
+	r := f.run("--resume", parent.Intent.ID)
+	if r.code != 0 || r.data()["reason"] != "filled" || r.data()["filled_size"] != "0.01" {
+		t.Fatalf("paged fills: %s", r.stdout)
 	}
 }

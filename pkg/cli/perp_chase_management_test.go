@@ -71,3 +71,45 @@ func TestChasePolicyManagementEntryPaths(t *testing.T) {
 		t.Fatal("management of an unstarted policy sent an action")
 	}
 }
+
+func TestReconcileSkipsChaseFromOtherAPI(t *testing.T) {
+	h := newHarness(t)
+	if r := h.run("profiles", "add", "main", "--account", acct, "--api-url", h.srv.URL); r.code != 0 {
+		t.Fatal(r.stdout)
+	}
+	h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
+		if method == "info" && body["type"] == "l2Book" {
+			return map[string]any{"coin": "BTC", "levels": []any{[]any{map[string]any{"px": "49999"}}, []any{map[string]any{"px": "50002"}}}}, true
+		}
+		return nil, false
+	}
+	if r := h.run("orders", "chase", "--market", "BTC", "--side", "buy", "--size", "0.01", "--intent-id", "chase-other-api", "--json"); r.code != 0 {
+		t.Fatal(r.stdout)
+	}
+	j, err := journal.Open("main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := j.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	rec, err := j.Get("chase-other-api")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = j.CreateChase(rec); err != nil {
+		t.Fatal(err)
+	}
+	if r := h.run("profiles", "remove", "main", "--json"); r.code != 0 {
+		t.Fatal(r.stdout)
+	}
+	if r := h.run("profiles", "add", "main", "--account", acct, "--api-url", "https://other.example.invalid", "--json"); r.code != 0 {
+		t.Fatal(r.stdout)
+	}
+	r := h.run("orders", "reconcile", "--json")
+	if r.code != 0 || len(r.data()["skipped_other_api"].([]any)) != 1 || len(r.data()["chases"].([]any)) != 0 {
+		t.Fatal(r.stdout)
+	}
+}

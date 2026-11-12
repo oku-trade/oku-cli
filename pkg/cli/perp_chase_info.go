@@ -137,26 +137,58 @@ func (e *env) chaseOrder(ctx context.Context, in *trading.Intent, oid int64) (ch
 	return chaseOrderSnapshot{Status: out.Order.Status, Remaining: remaining, Price: price}, nil
 }
 
-// chaseFills only counts fills belonging to durably owned order ids. A full
-// page might be truncated, so it cannot establish a safe remaining budget.
-func (e *env) chaseFills(ctx context.Context, in *trading.Intent, c *journal.ChaseRecord) (string, *string, error) {
+// chaseFillPageLimit is the venue's page size for userFillsByTime. A full page
+// may be truncated, so the next request resumes at its last timestamp.
+const chaseFillPageLimit = 2000
+
+// chaseFillMaxPages bounds the history walk. Exceeding it fails closed.
+const chaseFillMaxPages = 25
+
+type chaseFill struct {
+	Oid  int64  `json:"oid"`
+	Tid  int64  `json:"tid"`
+	Time int64  `json:"time"`
+	Sz   string `json:"sz"`
+	Px   string `json:"px"`
+	Coin string `json:"coin"`
+	Side string `json:"side"`
+}
+
+// chaseFillHistory pages the account's fills since the parent was created.
+// Overlapping boundary fills are deduplicated by trade id by the caller.
+func (e *env) chaseFillHistory(ctx context.Context, in *trading.Intent) ([]chaseFill, error) {
 	start, err := time.Parse(time.RFC3339, in.CreatedAt)
 	if err != nil {
+		return nil, err
+	}
+	cursor := start.UnixMilli()
+	var all []chaseFill
+	for range chaseFillMaxPages {
+		var page []chaseFill
+		if err = e.chaseInfo(ctx, map[string]any{"type": "userFillsByTime", "user": in.Account, "startTime": cursor, "aggregateByTime": false}, &page); err != nil {
+			return nil, err
+		}
+		if page == nil {
+			return nil, errors.New("chase fills missing")
+		}
+		all = append(all, page...)
+		if len(page) < chaseFillPageLimit {
+			return all, nil
+		}
+		last := page[len(page)-1].Time
+		if last <= cursor {
+			return nil, errors.New("chase fill history did not advance")
+		}
+		cursor = last
+	}
+	return nil, errors.New("chase fill history exceeds the page bound")
+}
+
+// chaseFills only counts fills belonging to durably owned order ids.
+func (e *env) chaseFills(ctx context.Context, in *trading.Intent, c *journal.ChaseRecord) (string, *string, error) {
+	fills, err := e.chaseFillHistory(ctx, in)
+	if err != nil {
 		return "", nil, err
-	}
-	var fills []struct {
-		Oid  int64  `json:"oid"`
-		Tid  int64  `json:"tid"`
-		Sz   string `json:"sz"`
-		Px   string `json:"px"`
-		Coin string `json:"coin"`
-		Side string `json:"side"`
-	}
-	if err = e.chaseInfo(ctx, map[string]any{"type": "userFillsByTime", "user": in.Account, "startTime": start.UnixMilli(), "aggregateByTime": false}, &fills); err != nil {
-		return "", nil, err
-	}
-	if fills == nil || len(fills) >= 2000 {
-		return "", nil, errors.New("chase fills missing or possibly truncated")
 	}
 	owned := map[int64]bool{}
 	for _, oid := range c.OrderIDs {

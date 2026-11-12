@@ -224,7 +224,9 @@ func (r *chaseRunner) stop(reason string) error {
 	}
 	refreshErr := r.refresh()
 	if r.c.State == journal.ChaseStopped {
-		return nil
+		// refresh only reaches the stopped state after a classified order, so an
+		// error here means the durable write failed.
+		return refreshErr
 	}
 	plan := trading.CancelManyPlan{Cancels: []trading.CancelTarget{{AssetID: r.parent.Intent.AssetID, OrderID: r.c.OrderID}}}
 	if err := r.act(plan, true); err != nil {

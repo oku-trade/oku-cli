@@ -268,15 +268,17 @@ func (e *env) chaseEvent(c *journal.ChaseRecord) error {
 
 // reconcileChases cancels recovered resting orders instead of starting a new
 // foreground owner. Active foreground owners keep their own exclusive lock.
-func (e *env) reconcileChases(p *resolved) (_ []*journal.ChaseRecord, err error) {
+// Chases sent through a different API than the profile's are returned as
+// skipped, like ordinary intents, instead of failing the whole reconcile.
+func (e *env) reconcileChases(p *resolved) (_ []*journal.ChaseRecord, skipped []map[string]string, err error) {
 	j, err := openJournal(p)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer closeChaseJournal(j, &err)
 	chases, err := j.ListChases()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var failures []error
 	for i, c := range chases {
@@ -300,6 +302,12 @@ func (e *env) reconcileChases(p *resolved) (_ []*journal.ChaseRecord, err error)
 		}
 		chases[i] = fresh
 		parent, getErr := j.Get(c.IntentID)
+		if getErr == nil && parent.Intent.APIURL != p.APIURL {
+			skipped = append(skipped, map[string]string{"intent_id": c.IntentID, "api_url": parent.Intent.APIURL})
+			chases[i] = nil
+			unlock()
+			continue
+		}
 		if getErr == nil {
 			getErr = chaseParentBinding(parent, p)
 		}
@@ -312,7 +320,13 @@ func (e *env) reconcileChases(p *resolved) (_ []*journal.ChaseRecord, err error)
 			failures = append(failures, fmt.Errorf("chase %s: %w", c.IntentID, getErr))
 		}
 	}
-	return chases, errors.Join(failures...)
+	active := chases[:0]
+	for _, c := range chases {
+		if c != nil {
+			active = append(active, c)
+		}
+	}
+	return active, skipped, errors.Join(failures...)
 }
 
 func closeChaseJournal(j *journal.Journal, err *error) {
