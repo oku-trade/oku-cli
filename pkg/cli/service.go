@@ -54,7 +54,7 @@ var ServiceReads = map[string]bool{
 // constructed with AllowMutations. Login, logout, profile, skills and server commands are
 // never reachable through a Service.
 var ServiceMutations = map[string]bool{
-	"orders prepare": true, "orders modify": true, "orders cancel-twap": true, "positions leverage": true, "positions margin": true,
+	"orders prepare": true, "orders modify": true, "orders cancel-twap": true, "orders chase": true, "positions leverage": true, "positions margin": true,
 	"orders submit": true, "orders cancel": true, "orders reconcile": true, "orders abandon": true,
 	"send submit": true, "deposit submit": true, "swap submit": true, "send reconcile": true, "swap reconcile": true,
 	"bridge submit": true, "bridge reconcile": true, "bridge claim": true, "deposit reconcile": true,

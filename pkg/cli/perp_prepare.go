@@ -79,7 +79,7 @@ func cancelTWAPFlags() []urfave.Flag {
 
 // preparePerp resolves external metadata once and persists the approved plan.
 // It never unlocks credentials or sends an action to the exchange.
-func (e *env) preparePerp(fill func(*trading.Intent, *api.Market) error) (*result, error) {
+func (e *env) preparePerp(fill func(*trading.Intent, *api.Market) error) (res *result, err error) {
 	if len(e.args) != 0 {
 		return nil, output.Errorf(output.CodeUsage, "unexpected arguments %v", e.args)
 	}
@@ -130,7 +130,11 @@ func (e *env) preparePerp(fill func(*trading.Intent, *api.Market) error) (*resul
 	if err != nil {
 		return nil, err
 	}
-	defer j.Close()
+	defer func() {
+		if closeErr := j.Close(); closeErr != nil {
+			err = errors.Join(err, output.Wrap(output.CodeInternal, closeErr, "closing perp intent journal"))
+		}
+	}()
 	unlock, err := j.Lock()
 	if err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "locking journal")
@@ -148,14 +152,18 @@ func (e *env) preparePerp(fill func(*trading.Intent, *api.Market) error) (*resul
 	if (in.Kind == trading.KindOrder || in.Kind == trading.KindScale) && !fee.BuilderFeeApproved {
 		notes = append(notes, "Oku builder fee is not approved for this account")
 	}
+	raw, err := rec.Intent.Advanced.MarshalJSON()
+	if err != nil {
+		return nil, output.Wrap(output.CodeInternal, err, "rendering approved order plan")
+	}
 	return &result{data: map[string]any{"intent_id": rec.Intent.ID, "digest": rec.Digest, "state": rec.State, "intent": rec.Intent, "notes": notes, "next": next}, human: func(w io.Writer) {
 		fmt.Fprintf(w, "prepared %s on %s (%s), expires %s\n", in.Kind, in.Market, in.ID, in.ExpiresAt)
-		raw, err := in.Advanced.MarshalJSON()
-		if err != nil {
-			fmt.Fprintf(w, "cannot render plan: %v\n", err)
-			return
+		fmt.Fprintf(w, "  account %s on %s, builder %s fee up to %d tenths bps\n", in.Account, in.Network, orDash(in.BuilderAddress), in.MaxBuilderFee10)
+		fmt.Fprintf(w, "  approved plan: %s\n", raw)
+		for _, note := range notes {
+			fmt.Fprintf(w, "  note: %s\n", note)
 		}
-		fmt.Fprintf(w, "  approved plan: %s\nsubmit with: %s\n", raw, next)
+		fmt.Fprintf(w, "submit with: %s\n", next)
 	}}, nil
 }
 
@@ -343,6 +351,9 @@ func (a *App) cmdOrdersModify(e *env) (*result, error) {
 		var price string
 		reduce := e.cmd.Bool("reduce-only")
 		if trigger != "" {
+			if e.cmd.IsSet("reduce-only") && !reduce {
+				return output.Errorf(output.CodeInvalidArgument, "trigger replacements are always reduce-only")
+			}
 			if e.cmd.IsSet("tif") {
 				return output.Errorf(output.CodeInvalidArgument, "--tif applies only to plain limit replacements")
 			}
@@ -372,7 +383,7 @@ func (a *App) cmdOrdersModify(e *env) (*result, error) {
 		if err != nil {
 			return err
 		}
-		in.OrderID, in.Side, in.Size = oid, str(e, "side"), size
+		in.OrderID, in.Side, in.Size, in.Price, in.ReduceOnly = oid, str(e, "side"), size, price, reduce
 		return setAdvanced(in, trading.ModifyPlan{SizeDecimals: m.SzDecimals, Modifies: []trading.ApprovedModify{{OrderID: oid, Order: trading.ApprovedOrder{AssetID: m.AssetID, IsBuy: buy, Price: price, Size: size, ReduceOnly: reduce, Execution: execution}}}})
 	})
 }

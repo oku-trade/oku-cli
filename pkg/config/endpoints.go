@@ -10,6 +10,28 @@ import (
 // DefaultWebOrigin is the Oku web app origin used when OKU_WEB_URL is unset.
 const DefaultWebOrigin = "https://oku.trade"
 
+// DefaultHyperliquidInfoURL is the public read-only venue endpoint.
+const DefaultHyperliquidInfoURL = "https://api.hyperliquid.xyz/info"
+
+// LoadHyperliquidInfoURL validates the public info endpoint override. Plain
+// HTTP is restricted to loopback test servers, and credentials are forbidden.
+func LoadHyperliquidInfoURL(getenv func(string) string) (string, error) {
+	raw := strings.TrimSpace(getenv("OKU_HYPERLIQUID_INFO_URL"))
+	if raw == "" {
+		raw = DefaultHyperliquidInfoURL
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return "", errors.New("OKU_HYPERLIQUID_INFO_URL must be an HTTP(S) endpoint without credentials, query or fragment")
+	}
+	host := u.Hostname()
+	loopback := host == "localhost" || host == "127.0.0.1" || host == "::1"
+	if u.Scheme != "https" && !(u.Scheme == "http" && loopback) {
+		return "", errors.New("OKU_HYPERLIQUID_INFO_URL must use HTTPS outside loopback")
+	}
+	return u.String(), nil
+}
+
 // LendingEndpoints is the validated lending endpoint configuration.
 // MorphoIndexer is set only when OKU_MORPHO_API_URL overrides discovery
 // from the web app's runtime config at WebOrigin.

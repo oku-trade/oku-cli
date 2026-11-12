@@ -68,7 +68,7 @@ func TestPerpPrepareVariants(t *testing.T) {
 					t.Fatalf("wrong backend market trigger contract: %s", raw)
 				}
 			case "take_market":
-				if !req.Params.Order.ClosePosition || req.Params.Order.Sz != "0" {
+				if !req.Params.Order.ClosePosition || req.Params.Order.Sz != "0" || !in.ReduceOnly {
 					t.Fatalf("position TP/SL: %s", raw)
 				}
 			case "market-entry-tpsl":
@@ -108,6 +108,7 @@ func TestPerpPrepareRejectsIllegalCombinations(t *testing.T) {
 	for _, flags := range []string{
 		"--type stop_market --trigger-price 49000 --price 48000",
 		"--type stop_limit --price 48000",
+		"--type stop_market --trigger-price 49000 --close-position --reduce-only=false",
 		"--type limit --price 50000 --close-position",
 		"--type limit --price 50000 --tp-size 0.01",
 		"--type twap --duration-minutes 4",
@@ -124,6 +125,7 @@ func TestPerpPrepareRejectsIllegalCombinations(t *testing.T) {
 	}
 	for _, flags := range []string{
 		"--trigger-price 49000 --market-trigger",
+		"--trigger-price 49000 --tpsl sl --market-trigger --reduce-only=false",
 		"--trigger-price 49000 --tpsl sl --market-trigger --price 48000",
 		"--tpsl sl --price 49000",
 	} {

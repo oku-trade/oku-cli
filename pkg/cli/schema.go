@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	urfave "github.com/urfave/cli/v3"
@@ -10,6 +11,7 @@ import (
 var flagEnums = map[string]map[string][]string{
 	"orders prepare":     {"side": {"buy", "sell"}, "type": {"limit", "market", "stop_market", "stop_limit", "take_market", "take_limit", "twap", "scale", "trailing_stop"}, "tif": {"gtc", "ioc", "alo"}},
 	"orders modify":      {"side": {"buy", "sell"}, "tpsl": {"tp", "sl"}, "tif": {"gtc", "ioc", "alo"}},
+	"orders chase":       {"side": {"buy", "sell"}},
 	"positions leverage": {"mode": {"cross", "isolated"}},
 	"auth login":         {"credential-store": {"file", "keyring"}},
 	"auth migrate":       {"to": {"file", "keyring"}},
@@ -137,6 +139,15 @@ func InputSchema(path string) (map[string]any, error) {
 		example["price"] = "60000"
 		example["size"] = "0.0002"
 	}
+	if path == "orders chase" {
+		example["market"], example["side"], example["size"], example["max-distance"] = "BTC", "buy", "0.0002", "100"
+	}
+	if path == "orders cancel" {
+		example["order-id"] = 1
+	}
+	if path == "orders modify" {
+		example["price"] = "60000"
+	}
 	if path == "swap orders create" {
 		example["all"] = true
 		example["stop-loss-pct"] = "10"
@@ -151,6 +162,33 @@ func InputSchema(path string) (map[string]any, error) {
 			"then": map[string]any{"properties": map[string]any{"type": map[string]any{"enum": []string{"stop_market", "stop_limit", "take_market", "take_limit"}}}},
 			"else": map[string]any{"required": []string{"size"}},
 		}}
+	}
+	if path == "orders chase" {
+		mode := func(required, forbidden []string) map[string]any {
+			absent := make([]any, 0, len(forbidden))
+			for _, name := range forbidden {
+				absent = append(absent, map[string]any{"required": []string{name}})
+			}
+			return map[string]any{"required": required, "not": map[string]any{"anyOf": absent}}
+		}
+		prepareOnly := []string{}
+		for name := range props {
+			if name != "intent" && name != "digest" && name != "resume" {
+				prepareOnly = append(prepareOnly, name)
+			}
+		}
+		sort.Strings(prepareOnly)
+		s["oneOf"] = []any{
+			mode([]string{"market", "side", "size"}, []string{"intent", "digest", "resume"}),
+			mode([]string{"intent", "digest"}, append(append([]string{}, prepareOnly...), "resume")),
+			mode([]string{"resume"}, append(append([]string{}, prepareOnly...), "intent", "digest")),
+		}
+	}
+	if path == "orders cancel" {
+		s["oneOf"] = []any{
+			map[string]any{"required": []string{"order-id"}, "not": map[string]any{"required": []string{"order-ids"}}},
+			map[string]any{"required": []string{"order-ids"}, "not": map[string]any{"required": []string{"order-id"}}},
+		}
 	}
 	return s, nil
 }

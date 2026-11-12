@@ -774,6 +774,25 @@ Prepare cancellation of an active TWAP
 | `--intent-id` | caller-chosen idempotency id | `` |
 | `--expires` | intent lifetime (max 1h) | `5m0s` |
 
+## `oku orders chase`
+
+Prepare or run an approved foreground maker chase, cancel on interrupt
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--market` | market to chase (prepare only) | `` |
+| `--side` | buy or sell (prepare only) | `` |
+| `--size` | total base size (prepare only) | `` |
+| `--reduce-only` | only reduce a position | `false` |
+| `--max-distance` | absolute price-distance leash from the prepared reference | `` |
+| `--intent-id` | idempotency id for preparation | `` |
+| `--expires` | approved chase lifetime (maximum 1h) | `5m0s` |
+| `--intent` | prepared chase intent to approve and run | `` |
+| `--digest` | exact prepared digest to approve | `` |
+| `--resume` | recover and resume a previously approved chase | `` |
+
 ## `oku orders intents`
 
 List intents in the local journal (--unresolved for what doctor counts); never contacts Oku

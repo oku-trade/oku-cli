@@ -342,6 +342,9 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 		return nil, output.Errorf(output.CodePayloadMismatch, "digest does not match intent %q; review the intent and pass its exact digest", id)
 	}
 	in := &rec.Intent
+	if in.Kind == trading.KindChase {
+		return nil, output.Errorf(output.CodeUsage, "chase policies run with 'oku orders chase --intent ID --digest SHA', not orders submit")
+	}
 	if in.Network != p.Network || !strings.EqualFold(in.Account, p.Account) || in.APIURL != p.APIURL {
 		return nil, output.Errorf(output.CodeConfigError, "intent was prepared for %s/%s/%s, not the current profile", in.Network, in.Account, in.APIURL)
 	}
@@ -359,7 +362,7 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 	if in.Expired(e.app.Now()) {
 		return nil, output.Errorf(output.CodeIntentState, "intent %q expired at %s; prepare a new one", id, in.ExpiresAt)
 	}
-	if in.Kind != trading.KindCancel {
+	if in.Kind != trading.KindCancel && in.Kind != trading.KindCancelMany && in.Kind != trading.KindCancelTWAP {
 		// Fast pre-check (the authoritative gate is BeginSubmission): do not
 		// add exposure while any submission for this account, from any
 		// profile or origin, is unresolved.
@@ -373,6 +376,9 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 					WithDetail("blocking_intent", u.Intent.ID)
 			}
 		}
+	}
+	if err := e.validateChaseChild(j, rec); err != nil {
+		return nil, err
 	}
 	s, err := e.unlock(p, requiredScope(in.Kind))
 	if err != nil {
@@ -427,6 +433,9 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 
 	// Nonce allocation, the account-wide unresolved gate and the
 	// "signing" state commit in one transaction before anything is signed.
+	if err := e.validateChaseChild(j, rec); err != nil {
+		return nil, err
+	}
 	nonce, err := j.BeginSubmission(rec, s.md.AgentAddress)
 	switch {
 	case errors.Is(err, journal.ErrUnresolved):
@@ -439,6 +448,9 @@ func (e *env) submit(p *resolved, id, digest string) (*result, error) {
 	signer, err := e.signerFor(p, s)
 	if err != nil {
 		return nil, withJournal(output.Wrap(output.CodeSignerUnavailable, err, "authenticating Privy signer (nothing sent)"), j.FinishSigning(rec, false))
+	}
+	if err := e.validateChaseChild(j, rec); err != nil {
+		return nil, withJournal(err, j.FinishSigning(rec, false))
 	}
 	signCtx, signCancel := e.requestCtx()
 	signed, err := signing.SignActionContext(signCtx, signer, rec.ActionJSON, uint64(nonce))
@@ -659,6 +671,9 @@ func (a *App) cmdOrdersStatus(e *env) (*result, error) {
 	if err != nil {
 		return nil, err
 	}
+	if rec.Intent.Kind == trading.KindChase {
+		return chaseStatusResult(j, rec)
+	}
 	return recordResult(rec), nil
 }
 
@@ -715,7 +730,11 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 	if err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "locking journal")
 	}
-	defer unlock()
+	defer func() {
+		if unlock != nil {
+			unlock()
+		}
+	}()
 	un, err := j.Unresolved()
 	if err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "journal")
@@ -818,7 +837,16 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 			unknown++
 		}
 	}
-	data := map[string]any{"checked": views, "still_unknown": unknown}
+	// Chase recovery may submit an exact cancellation. Release the journal's
+	// submission lock before entering that flow, after pending child actions
+	// have passed through the ordinary reconciliation state machine.
+	unlock()
+	unlock = nil
+	chases, err := e.reconcileChases(p)
+	if err != nil {
+		return nil, output.Wrap(output.CodeOutcomeUnknown, err, "reconciling chase orders").WithDetail("chases", chases)
+	}
+	data := map[string]any{"checked": views, "still_unknown": unknown, "chases": chases}
 	skipped := []map[string]string{}
 	for _, r := range otherOrigin {
 		skipped = append(skipped, map[string]string{"intent_id": r.Intent.ID, "api_url": r.Intent.APIURL})
@@ -827,7 +855,7 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 		data["skipped_other_api"] = skipped
 	}
 	return &result{data: data, human: func(w io.Writer) {
-		if len(un) == 0 {
+		if len(un) == 0 && len(chases) == 0 {
 			fmt.Fprintln(w, "nothing to reconcile")
 			return
 		}
@@ -842,6 +870,9 @@ func (a *App) cmdOrdersReconcile(e *env) (*result, error) {
 		}
 		tw.Flush()
 		fmt.Fprintf(w, "\n%d intent(s) still unknown\n", unknown)
+		for _, chase := range chases {
+			chaseResult(chase).human(w)
+		}
 		if len(skipped) > 0 {
 			fmt.Fprintf(w, "%d intent(s) skipped: sent through a different API than this profile's (%s); reconcile them with a profile on that API:\n", len(skipped), p.APIURL)
 			for _, s := range skipped {
@@ -915,6 +946,13 @@ func (a *App) cmdOrdersAbandon(e *env) (*result, error) {
 	defer unlock()
 	if rec, err = j.Get(rec.Intent.ID); err != nil {
 		return nil, output.Wrap(output.CodeInternal, err, "journal")
+	}
+	if rec.Intent.Kind == trading.KindChase {
+		unlockChase, err := lockChaseAbandon(j, rec.Intent.ID)
+		if err != nil {
+			return nil, err
+		}
+		defer unlockChase()
 	}
 	// Only never-signed intents can be abandoned. Once a signature has been
 	// produced the outcome must be resolved with 'orders reconcile'.

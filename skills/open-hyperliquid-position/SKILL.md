@@ -77,6 +77,17 @@ oku orders prepare --profile <p> --market <market> --side <buy|sell> --type trai
 
 TWAP supports `--randomize`, conditional `--trigger-price` with `--trigger-activate-above`, and `--stop-price`. Review the trigger direction and stop bound rather than deriving them later from a moving market. A trailing stop takes either `--retracement-pct` or `--retracement-price`, not both. Validate all child orders, scheduling conditions and total exposure, not just the parent summary. Never invent a duration, scale range or trailing distance. Follow any preview warnings about backend-managed execution and protection.
 
+### Foreground maker chase
+
+Use a plain limit for a fixed resting price, a market order for an immediate bounded IOC attempt, and chase only when the user wants a maker order to follow the book. Chase is a client-side strategy, not a native trigger or a guarantee of execution. It places a post-only limit and atomically reprices only its own remaining order size. It does not replace a stop-loss strategy.
+
+```sh
+oku orders chase --profile <p> --market <market> --side <buy|sell> --size <size> --max-distance <quote-price-distance> --json
+oku orders chase --profile <p> --intent <intent_id> --digest <digest> --json
+```
+
+The first command prepares one policy without signing. Review its reference, worst price, distance leash, total size, side, reduce-only, builder policy and expiry. The second runs the approved policy in the foreground and emits newline-delimited JSON progress. Keep that process running for the strategy to work. Ctrl-C or SIGTERM attempts to cancel the resting remainder before exiting. A hard kill or lost network can prevent cleanup, so recover using manage-hyperliquid-orders rather than starting another chase. Do not invent or widen the user's distance leash.
+
 If the order arrives as a messy JSON draft, `oku drafts repair --stdin` returns a candidate and the matching prepare arguments. It never fills in missing values. The candidate still has to be prepared and reviewed.
 
 ## 4. Validate the prepared preview

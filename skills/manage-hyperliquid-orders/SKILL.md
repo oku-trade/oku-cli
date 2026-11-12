@@ -58,6 +58,18 @@ oku orders submit --profile <p> --intent <intent_id> --digest <digest> --json
 
 Afterwards, reconcile status and re-read `orders list --fresh` and `positions list`. An atomic modify can still race a fill or be rejected. Verify the resulting order and protection, not just the old id's disappearance. On timeout or an unknown outcome, follow reconcile-hyperliquid-actions without retrying the mutation.
 
+## Recover a foreground chase
+
+A chase must stay running to follow the book. Its progress is NDJSON under `--json`, and an interrupt cancels the resting remainder when the exchange can be reached. Never assume a killed process cancelled anything. Check the recorded chase and its linked action before taking another action:
+
+```sh
+oku orders status --profile <p> --intent <chase-intent-id> --json
+oku orders reconcile --profile <p> --json
+oku orders chase --profile <p> --resume <chase-intent-id> --json
+```
+
+Reconcile resolves pending actions before cleaning up orphaned chase orders. Resume reconciles the recorded order and continues only within the original approved policy and expiry. Do not start a duplicate chase when a place, modify or cancellation outcome is unknown. A "canceled or filled" modify rejection does not establish a fill. Check authoritative status and fills, and report unavailable filled size or average price as unknown rather than zero. Chase cancellation stops only the resting remainder and never reverses prior fills.
+
 ## Abandon an unsigned intent
 
 ```sh

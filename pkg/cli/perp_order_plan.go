@@ -24,6 +24,12 @@ func (e *env) prepareOrderPlan(in *trading.Intent, m *api.Market, buy bool) erro
 	if closePosition && !triggerKind {
 		return output.Errorf(output.CodeInvalidArgument, "--close-position requires a trigger order type")
 	}
+	if closePosition {
+		if e.cmd.IsSet("reduce-only") && !in.ReduceOnly {
+			return output.Errorf(output.CodeInvalidArgument, "whole-position triggers are always reduce-only")
+		}
+		in.ReduceOnly = true
+	}
 	if !triggerKind && str(e, "trigger-price") != "" {
 		return output.Errorf(output.CodeInvalidArgument, "--trigger-price requires a trigger order type")
 	}
