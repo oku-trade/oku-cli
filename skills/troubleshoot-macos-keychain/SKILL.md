@@ -5,7 +5,7 @@ description: Diagnose locked macOS Keychain credentials, binary-update access pr
 
 # Troubleshoot macOS Keychain authentication
 
-Start with `oku docs commands`. Check `oku auth status --json` and `oku doctor --json` without prompting. Do not confuse a missing credential (`AUTH_REQUIRED`) with a locked Keychain (`KEYCHAIN_LOCKED`), an access denial (`KEYCHAIN_ACCESS_DENIED`), or a canceled dialog (`KEYCHAIN_CANCELED`). These Keychain codes exit with status 3. `SIGNER_UNAVAILABLE` can mean the Keychain itself is absent or inaccessible, particularly in a headless session. JSON, MCP, and Service calls never display Keychain UI.
+Start with `oku docs commands`. Oku runs on mainnet only: never suggest a testnet or sandbox. Check `oku auth status --json` and `oku doctor --json` without prompting. Do not confuse a missing credential (`AUTH_REQUIRED`) with a locked Keychain (`KEYCHAIN_LOCKED`), an access denial (`KEYCHAIN_ACCESS_DENIED`), or a canceled dialog (`KEYCHAIN_CANCELED`). These Keychain codes exit with status 3. `SIGNER_UNAVAILABLE` can mean the Keychain itself is absent or inaccessible, particularly in a headless session. JSON, MCP, and Service calls never display Keychain UI.
 
 ## Ask the user to act in their own terminal
 

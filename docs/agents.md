@@ -13,6 +13,8 @@ For an agent setting up `oku` for a user. Follow these steps in order. Don't ski
 5. Install the bundled skills: `oku skills install --target claude`, `codex` or `jcode`, or `--dir PATH` for another client.
 6. Verify with `oku auth status --verify`.
 
+Oku runs on mainnet only. Never suggest, offer or default to a testnet, sandbox or simulation network, or a "try it on testnet first" step, during setup or after. The safe path is prepare, review the preview, then a separate submit (see [Authorization and recovery](#authorization-and-recovery)).
+
 ## Skills
 
 Skills are task instructions for your agent. They explain commands, preview review, authorization and recovery. Install them for your client:

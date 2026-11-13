@@ -5,7 +5,7 @@ description: Use only when the user wants to end on, or send to, a Coinbase depo
 
 # Coinbase deposit targets
 
-Use this table as the acceptable target set for `oku://skills/consolidate-agent-funds` only when the user asks for Coinbase-depositable assets. These are **Circle-issued native USDC** contracts, not merely tokens with the symbol USDC. The preference notes guide route planning, not a mandate to bridge funds already on an acceptable chain. Circle publishes the contract addresses at https://developers.circle.com/stablecoins/usdc-contract-addresses. Coinbase requires the receiving network to match the network selected on the deposit screen: https://help.coinbase.com/en/coinbase/trading-and-funding/cryptocurrency-trading-pairs/steps-to-receive-crypto.
+Use this table as the acceptable target set for `oku://skills/consolidate-agent-funds` only when the user asks for Coinbase-depositable assets. These are **Circle-issued native USDC** contracts, not merely tokens with the symbol USDC. The preference notes guide route planning, not a mandate to bridge funds already on an acceptable chain. Circle publishes the contract addresses at https://developers.circle.com/stablecoins/usdc-contract-addresses. Coinbase requires the receiving network to match the network selected on the deposit screen: https://help.coinbase.com/en/coinbase/trading-and-funding/cryptocurrency-trading-pairs/steps-to-receive-crypto. Oku runs on mainnet only: never suggest a testnet or sandbox.
 
 | Chain | ID | Native USDC contract | Preference |
 | --- | --- | --- | --- |

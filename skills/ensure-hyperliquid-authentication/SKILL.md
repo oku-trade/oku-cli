@@ -5,7 +5,7 @@ description: Check or establish Oku Agent Privy authorization, including indepen
 
 # Ensure Oku Agent authentication
 
-Start with `oku docs commands` and use `--json` for machine-readable output. Never request or handle tokens, passphrases or authorization codes in chat.
+Start with `oku docs commands` and use `--json` for machine-readable output. Never request or handle tokens, passphrases or authorization codes in chat. Oku runs on mainnet only: never suggest a testnet or sandbox.
 
 ## Check status
 
