@@ -13,12 +13,10 @@ import (
 	"github.com/oku-trade/oku-cli/pkg/config"
 )
 
-const hyperliquidInfoURL = "https://api.hyperliquid.xyz/info"
-
 // agentMaster reads the approval recorded by Hyperliquid, not a claim from the browser.
 func agentMaster(ctx context.Context, endpoint, agent string) (string, error) {
 	if endpoint == "" {
-		endpoint = hyperliquidInfoURL
+		endpoint = config.DefaultHyperliquidInfoURL
 	}
 	input, _ := json.Marshal(struct {
 		Type string `json:"type"`
@@ -70,7 +68,7 @@ var fallbackHIP3Dexes = []string{"xyz", "flx", "vntl", "hyna", "km", "abcd", "ca
 func (e *env) hip3Dexes() []string {
 	endpoint := e.app.Getenv("OKU_HYPERLIQUID_INFO_URL")
 	if endpoint == "" {
-		endpoint = hyperliquidInfoURL
+		endpoint = config.DefaultHyperliquidInfoURL
 	}
 	ctx, cancel := e.requestCtx()
 	defer cancel()
@@ -113,7 +111,7 @@ func (e *env) hip3Dexes() []string {
 func (e *env) hlOrderStatus(ctx context.Context, user string, oid int64) (string, error) {
 	endpoint := e.app.Getenv("OKU_HYPERLIQUID_INFO_URL")
 	if endpoint == "" {
-		endpoint = hyperliquidInfoURL
+		endpoint = config.DefaultHyperliquidInfoURL
 	}
 	input, _ := json.Marshal(map[string]any{"type": "orderStatus", "user": user, "oid": oid})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(input))

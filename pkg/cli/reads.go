@@ -278,22 +278,75 @@ func (a *App) cmdOrdersList(e *env) (*result, error) {
 	if err := e.perpsRead(p, "GetOpenOrders", req, &resp); err != nil {
 		return nil, err
 	}
-	if resp.OpenOrders == nil {
-		resp.OpenOrders = []api.Order{}
+	var history api.GetTwapHistoryResponse
+	if err := e.perpsRead(p, "GetTwapHistory", api.GetTwapHistoryRequest{Address: acct, SkipCache: e.cmd.Bool("fresh")}, &history); err != nil {
+		return nil, err
 	}
-	data := map[string]any{"meta": e.meta(p, acct, "GetOpenOrders"), "orders": resp.OpenOrders}
+	twaps := make([]api.PerpTwap, 0, len(history.Twaps))
+	for _, twap := range history.Twaps {
+		switch strings.Map(func(r rune) rune {
+			if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
+				return r
+			}
+			return -1
+		}, strings.ToLower(twap.Status)) {
+		case "finished", "terminated", "stopped", "error":
+			continue
+		}
+		twaps = append(twaps, twap)
+	}
+	orders := listOrders(resp.OpenOrders)
+	data := map[string]any{"meta": e.meta(p, acct, "GetOpenOrders+GetTwapHistory"), "orders": orders, "active_twaps": twaps}
 	return &result{data: data, human: func(w io.Writer) {
-		if len(resp.OpenOrders) == 0 {
+		if len(orders) == 0 {
 			fmt.Fprintln(w, "no open orders")
+		} else {
+			tw := newTable(w)
+			fmt.Fprintln(tw, "OID\tPARENT\tMARKET\tSIDE\tSIZE\tPRICE\tTYPE\tTRIGGER PX\tCONDITION\tTP/SL\tPOSITION TP/SL\tREDUCE\tCLOID")
+			var rows func([]listedOrder, string)
+			rows = func(orders []listedOrder, parent string) {
+				for _, o := range orders {
+					fmt.Fprintf(tw, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%v\t%v\t%s\n", o.Oid, parent, o.Coin, sideName(o.Side), o.Sz, o.LimitPx, o.OrderType, orDash(o.TriggerPx), orDash(o.TriggerCondition), orDash(o.Tpsl), o.IsPositionTpsl, o.ReduceOnly, orDash(o.Cloid))
+					rows(o.Children, fmt.Sprint(o.Oid))
+				}
+			}
+			rows(orders, "-")
+			tw.Flush()
+		}
+		if len(twaps) == 0 {
+			fmt.Fprintln(w, "no active TWAPs")
 			return
 		}
+		fmt.Fprintln(w, "active TWAPs")
 		tw := newTable(w)
-		fmt.Fprintln(tw, "OID\tMARKET\tSIDE\tSIZE\tPRICE\tTYPE\tREDUCE\tCLOID")
-		for _, o := range resp.OpenOrders {
-			fmt.Fprintf(tw, "%d\t%s\t%s\t%s\t%s\t%s\t%v\t%s\n", o.Oid, o.Coin, sideName(o.Side), o.Sz, o.LimitPx, o.OrderType, o.ReduceOnly, orDash(o.Cloid))
+		fmt.Fprintln(tw, "TWAP ID\tMARKET\tSIDE\tSIZE\tEXECUTED\tMINUTES\tSTATUS\tTRIGGER PX\tSTOP PX\tREDUCE")
+		for _, t := range twaps {
+			fmt.Fprintf(tw, "%d\t%s\t%s\t%s\t%s\t%d\t%s\t%s\t%s\t%v\n", t.TwapID, t.Coin, sideName(t.Side), t.Sz, t.ExecutedSz, t.Minutes, t.Status, orDash(t.TriggerPx), orDash(t.StopPx), t.ReduceOnly)
 		}
 		tw.Flush()
 	}}, nil
+}
+
+type listedOrder struct {
+	api.Order
+	Tpsl     string        `json:"tpsl,omitempty"`
+	Children []listedOrder `json:"children,omitempty"`
+}
+
+func listOrders(orders []api.Order) []listedOrder {
+	listed := make([]listedOrder, 0, len(orders))
+	for _, order := range orders {
+		tpsl := ""
+		label := strings.ToLower(order.OrderType + " " + order.TriggerCondition)
+		switch {
+		case strings.Contains(label, "take"), strings.Contains(label, "profit"):
+			tpsl = "tp"
+		case strings.Contains(label, "stop"), strings.Contains(label, "loss"):
+			tpsl = "sl"
+		}
+		listed = append(listed, listedOrder{Order: order, Tpsl: tpsl, Children: listOrders(order.Children)})
+	}
+	return listed
 }
 
 func (a *App) cmdFillsList(e *env) (*result, error) {

@@ -86,6 +86,7 @@ func TestResponsesDecodeIntoCompatTypes(t *testing.T) {
 		{&accountv2.GetMarketFundingHistoryResponse{}, &GetMarketFundingHistoryResponse{}},
 		{&accountv2.GetPerpPositionsResponse{}, &GetPerpPositionsResponse{}},
 		{&accountv2.GetOpenOrdersResponse{}, &GetOpenOrdersResponse{}},
+		{&accountv2.GetTwapHistoryResponse{}, &GetTwapHistoryResponse{}},
 		{&accountv2.GetAccountBalancesResponse{}, &GetAccountBalancesResponse{}},
 		{&accountv2.GetBuilderFeeStatusResponse{}, &GetBuilderFeeStatusResponse{}},
 		{&accountv2.GetUserFillsResponse{}, &GetUserFillsResponse{}},

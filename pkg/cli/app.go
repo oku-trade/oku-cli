@@ -132,6 +132,7 @@ func (e *env) emit(event string, data any) {
 // for the executable; Service supplies a typed map for in-process callers
 // such as the MCP server so both share one implementation.
 type flagSource interface {
+	IsSet(name string) bool
 	String(name string) string
 	Bool(name string) bool
 	Int(name string) int
@@ -225,6 +226,8 @@ func (a *App) commandTable() map[string]*handler {
 		"orders list":        {summary: "Open orders", flags: fresh, run: a.cmdOrdersList},
 		"orders prepare":     {summary: "Prepare a local order intent (no exchange submission; may read market data)", flags: prepareFlags, run: a.cmdOrdersPrepare},
 		"orders submit":      {summary: "Sign and submit a prepared intent: orders submit --intent ID --digest SHA", flags: submitFlags, run: a.cmdOrdersSubmit},
+		"orders modify":      {summary: "Prepare an atomic resting limit or fixed-size TP/SL replacement, whole-position TP/SL is refused", flags: modifyOrderFlags, run: a.cmdOrdersModify},
+		"orders cancel-twap": {summary: "Prepare cancellation of an active TWAP", flags: cancelTWAPFlags, run: a.cmdOrdersCancelTWAP},
 		"orders cancel":      {summary: "Cancel an open order: orders cancel --market COIN --order-id OID", flags: cancelFlags, run: a.cmdOrdersCancel},
 		"orders status":      {summary: "Status of an intent: orders status --intent ID", flags: statusFlags, run: a.cmdOrdersStatus},
 		"orders reconcile":   {summary: "Resolve unknown or in-flight intents with Oku", run: a.cmdOrdersReconcile},

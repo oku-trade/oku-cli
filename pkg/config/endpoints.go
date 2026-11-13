@@ -10,6 +10,9 @@ import (
 // DefaultWebOrigin is the Oku web app origin used when OKU_WEB_URL is unset.
 const DefaultWebOrigin = "https://oku.trade"
 
+// DefaultHyperliquidInfoURL is the public read-only venue endpoint.
+const DefaultHyperliquidInfoURL = "https://api.hyperliquid.xyz/info"
+
 // LendingEndpoints is the validated lending endpoint configuration.
 // MorphoIndexer is set only when OKU_MORPHO_API_URL overrides discovery
 // from the web app's runtime config at WebOrigin.

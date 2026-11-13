@@ -757,7 +757,22 @@ Cancel an open order: orders cancel --market COIN --order-id OID
 | --- | --- | --- |
 | `--market` | market of the order (required) | `` |
 | `--order-id` | exchange order id (oid) to cancel (required) | `0` |
+| `--order-ids` | comma-separated exchange order ids to cancel in one action | `` |
+| `--prepare` | preview cancellation without signing, then use orders submit | `false` |
 | `--intent-id` | idempotency id (default: random) | `` |
+
+## `oku orders cancel-twap`
+
+Prepare cancellation of an active TWAP
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--market` | TWAP market (required) | `` |
+| `--twap-id` | active TWAP id (required) | `0` |
+| `--intent-id` | caller-chosen idempotency id | `` |
+| `--expires` | intent lifetime (max 1h) | `5m0s` |
 
 ## `oku orders intents`
 
@@ -781,6 +796,27 @@ Open orders
 | --- | --- | --- |
 | `--fresh` | bypass the Oku server cache | `false` |
 
+## `oku orders modify`
+
+Prepare an atomic resting limit or fixed-size TP/SL replacement, whole-position TP/SL is refused
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--market` | market (required) | `` |
+| `--order-id` | resting order id to replace atomically (required) | `0` |
+| `--side` | replacement side: buy or sell (required) | `` |
+| `--size` | complete fixed replacement size (required, whole-position TP/SL cannot be modified) | `` |
+| `--price` | replacement limit price (required unless market trigger) | `` |
+| `--trigger-price` | replacement TP/SL trigger price | `` |
+| `--tpsl` | tp or sl, required with trigger-price | `` |
+| `--market-trigger` | market-style trigger replacement with backend fixed 10% slippage | `false` |
+| `--tif` | plain limit time in force: gtc, ioc, alo | `gtc` |
+| `--reduce-only` | plain limit replacement only reduces a position (trigger replacements always do) | `false` |
+| `--intent-id` | caller-chosen idempotency id | `` |
+| `--expires` | intent lifetime (max 1h) | `5m0s` |
+
 ## `oku orders prepare`
 
 Prepare a local order intent (no exchange submission; may read market data)
@@ -791,14 +827,33 @@ Prepare a local order intent (no exchange submission; may read market data)
 | --- | --- | --- |
 | `--market` | market, e.g. BTC (required) | `` |
 | `--side` | buy or sell (required) | `` |
-| `--type` | limit or market (required) | `` |
-| `--size` | base size as a decimal string (required) | `` |
+| `--type` | limit, market, stop_market, stop_limit, take_market, take_limit, twap, scale, or trailing_stop (required) | `` |
+| `--size` | base size as a decimal string (required unless --close-position) | `` |
 | `--price` | limit price (limit orders) | `` |
 | `--tif` | time in force for limit orders: gtc, ioc, alo | `gtc` |
 | `--slippage-bps` | max slippage in basis points from the current mid (market orders; default 50 = 0.5%) | `0` |
 | `--reduce-only` | only reduce an existing position | `false` |
 | `--intent-id` | caller-chosen idempotency id (default: random) | `` |
 | `--expires` | intent lifetime (max 1h) | `5m0s` |
+| `--trigger-price` | trigger price for a stop, take profit, or conditional TWAP | `` |
+| `--close-position` | attach a trigger to the whole position (positionTpsl, exchange size 0) | `false` |
+| `--take-profit-price` | take-profit trigger attached to an entry | `` |
+| `--stop-loss-price` | stop-loss trigger attached to an entry | `` |
+| `--tp-limit-price` | attached take-profit limit price (otherwise market) | `` |
+| `--sl-limit-price` | attached stop-loss limit price (otherwise market) | `` |
+| `--tp-size` | attached take-profit size (default entry size) | `` |
+| `--sl-size` | attached stop-loss size (default entry size) | `` |
+| `--duration-minutes` | TWAP duration, 5 to 10080 minutes | `0` |
+| `--randomize` | randomize TWAP slicing | `false` |
+| `--trigger-activate-above` | activate conditional TWAP above the trigger price | `false` |
+| `--stop-price` | TWAP stop price | `` |
+| `--start-price` | first scale child price | `` |
+| `--end-price` | last scale child price | `` |
+| `--total-orders` | scale child count, 2 to 100 | `0` |
+| `--size-skew` | scale last-child / first-child size ratio | `1` |
+| `--activation-price` | trailing stop activation price (otherwise immediate) | `` |
+| `--retracement-pct` | trailing retracement percent, exclusive with retracement-price | `` |
+| `--retracement-price` | trailing fixed retracement distance, exclusive with retracement-pct | `` |
 
 ## `oku orders reconcile`
 

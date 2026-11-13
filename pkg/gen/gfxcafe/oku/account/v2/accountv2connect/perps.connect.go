@@ -47,6 +47,9 @@ const (
 	// PerpsServiceGetOpenOrdersProcedure is the fully-qualified name of the PerpsService's
 	// GetOpenOrders RPC.
 	PerpsServiceGetOpenOrdersProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetOpenOrders"
+	// PerpsServiceGetTwapHistoryProcedure is the fully-qualified name of the PerpsService's
+	// GetTwapHistory RPC.
+	PerpsServiceGetTwapHistoryProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetTwapHistory"
 	// PerpsServiceGetAccountBalancesProcedure is the fully-qualified name of the PerpsService's
 	// GetAccountBalances RPC.
 	PerpsServiceGetAccountBalancesProcedure = "/gfxcafe.oku.account.v2.PerpsService/GetAccountBalances"
@@ -103,6 +106,8 @@ type PerpsServiceClient interface {
 	// interfaces. Heavier than GetPerpPositions (weight 20 per interface); poll
 	// at a slower cadence and invalidate on order actions/fills.
 	GetOpenOrders(context.Context, *connect.Request[v2.GetOpenOrdersRequest]) (*connect.Response[v2.GetOpenOrdersResponse], error)
+	// GetTwapHistory backs active TWAP reads and includes terminal entries.
+	GetTwapHistory(context.Context, *connect.Request[v2.GetTwapHistoryRequest]) (*connect.Response[v2.GetTwapHistoryResponse], error)
 	// GetAccountBalances returns spot and separate Standard-mode perps balances.
 	// This may fan out across supported HIP-3 DEXs; poll slowly and invalidate
 	// after deposits, withdrawals, transfers, and spot conversions.
@@ -183,6 +188,12 @@ func NewPerpsServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+PerpsServiceGetOpenOrdersProcedure,
 			connect.WithSchema(perpsServiceMethods.ByName("GetOpenOrders")),
+			connect.WithClientOptions(opts...),
+		),
+		getTwapHistory: connect.NewClient[v2.GetTwapHistoryRequest, v2.GetTwapHistoryResponse](
+			httpClient,
+			baseURL+PerpsServiceGetTwapHistoryProcedure,
+			connect.WithSchema(perpsServiceMethods.ByName("GetTwapHistory")),
 			connect.WithClientOptions(opts...),
 		),
 		getAccountBalances: connect.NewClient[v2.GetAccountBalancesRequest, v2.GetAccountBalancesResponse](
@@ -267,6 +278,7 @@ type perpsServiceClient struct {
 	getMarketFundingHistory *connect.Client[v2.GetMarketFundingHistoryRequest, v2.GetMarketFundingHistoryResponse]
 	getPerpPositions        *connect.Client[v2.GetPerpPositionsRequest, v2.GetPerpPositionsResponse]
 	getOpenOrders           *connect.Client[v2.GetOpenOrdersRequest, v2.GetOpenOrdersResponse]
+	getTwapHistory          *connect.Client[v2.GetTwapHistoryRequest, v2.GetTwapHistoryResponse]
 	getAccountBalances      *connect.Client[v2.GetAccountBalancesRequest, v2.GetAccountBalancesResponse]
 	getBuilderFeeStatus     *connect.Client[v2.GetBuilderFeeStatusRequest, v2.GetBuilderFeeStatusResponse]
 	getPerpsPnlSummary      *connect.Client[v2.GetPerpsPnlSummaryRequest, v2.GetPerpsPnlSummaryResponse]
@@ -304,6 +316,11 @@ func (c *perpsServiceClient) GetPerpPositions(ctx context.Context, req *connect.
 // GetOpenOrders calls gfxcafe.oku.account.v2.PerpsService.GetOpenOrders.
 func (c *perpsServiceClient) GetOpenOrders(ctx context.Context, req *connect.Request[v2.GetOpenOrdersRequest]) (*connect.Response[v2.GetOpenOrdersResponse], error) {
 	return c.getOpenOrders.CallUnary(ctx, req)
+}
+
+// GetTwapHistory calls gfxcafe.oku.account.v2.PerpsService.GetTwapHistory.
+func (c *perpsServiceClient) GetTwapHistory(ctx context.Context, req *connect.Request[v2.GetTwapHistoryRequest]) (*connect.Response[v2.GetTwapHistoryResponse], error) {
+	return c.getTwapHistory.CallUnary(ctx, req)
 }
 
 // GetAccountBalances calls gfxcafe.oku.account.v2.PerpsService.GetAccountBalances.
@@ -385,6 +402,8 @@ type PerpsServiceHandler interface {
 	// interfaces. Heavier than GetPerpPositions (weight 20 per interface); poll
 	// at a slower cadence and invalidate on order actions/fills.
 	GetOpenOrders(context.Context, *connect.Request[v2.GetOpenOrdersRequest]) (*connect.Response[v2.GetOpenOrdersResponse], error)
+	// GetTwapHistory backs active TWAP reads and includes terminal entries.
+	GetTwapHistory(context.Context, *connect.Request[v2.GetTwapHistoryRequest]) (*connect.Response[v2.GetTwapHistoryResponse], error)
 	// GetAccountBalances returns spot and separate Standard-mode perps balances.
 	// This may fan out across supported HIP-3 DEXs; poll slowly and invalidate
 	// after deposits, withdrawals, transfers, and spot conversions.
@@ -461,6 +480,12 @@ func NewPerpsServiceHandler(svc PerpsServiceHandler, opts ...connect.HandlerOpti
 		PerpsServiceGetOpenOrdersProcedure,
 		svc.GetOpenOrders,
 		connect.WithSchema(perpsServiceMethods.ByName("GetOpenOrders")),
+		connect.WithHandlerOptions(opts...),
+	)
+	perpsServiceGetTwapHistoryHandler := connect.NewUnaryHandler(
+		PerpsServiceGetTwapHistoryProcedure,
+		svc.GetTwapHistory,
+		connect.WithSchema(perpsServiceMethods.ByName("GetTwapHistory")),
 		connect.WithHandlerOptions(opts...),
 	)
 	perpsServiceGetAccountBalancesHandler := connect.NewUnaryHandler(
@@ -547,6 +572,8 @@ func NewPerpsServiceHandler(svc PerpsServiceHandler, opts ...connect.HandlerOpti
 			perpsServiceGetPerpPositionsHandler.ServeHTTP(w, r)
 		case PerpsServiceGetOpenOrdersProcedure:
 			perpsServiceGetOpenOrdersHandler.ServeHTTP(w, r)
+		case PerpsServiceGetTwapHistoryProcedure:
+			perpsServiceGetTwapHistoryHandler.ServeHTTP(w, r)
 		case PerpsServiceGetAccountBalancesProcedure:
 			perpsServiceGetAccountBalancesHandler.ServeHTTP(w, r)
 		case PerpsServiceGetBuilderFeeStatusProcedure:
@@ -598,6 +625,10 @@ func (UnimplementedPerpsServiceHandler) GetPerpPositions(context.Context, *conne
 
 func (UnimplementedPerpsServiceHandler) GetOpenOrders(context.Context, *connect.Request[v2.GetOpenOrdersRequest]) (*connect.Response[v2.GetOpenOrdersResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetOpenOrders is not implemented"))
+}
+
+func (UnimplementedPerpsServiceHandler) GetTwapHistory(context.Context, *connect.Request[v2.GetTwapHistoryRequest]) (*connect.Response[v2.GetTwapHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PerpsService.GetTwapHistory is not implemented"))
 }
 
 func (UnimplementedPerpsServiceHandler) GetAccountBalances(context.Context, *connect.Request[v2.GetAccountBalancesRequest]) (*connect.Response[v2.GetAccountBalancesResponse], error) {

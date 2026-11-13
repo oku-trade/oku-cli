@@ -8,7 +8,8 @@ import (
 )
 
 var flagEnums = map[string]map[string][]string{
-	"orders prepare":     {"side": {"buy", "sell"}, "type": {"limit", "market"}, "tif": {"gtc", "ioc", "alo"}},
+	"orders prepare":     {"side": {"buy", "sell"}, "type": {"limit", "market", "stop_market", "stop_limit", "take_market", "take_limit", "twap", "scale", "trailing_stop"}, "tif": {"gtc", "ioc", "alo"}},
+	"orders modify":      {"side": {"buy", "sell"}, "tpsl": {"tp", "sl"}, "tif": {"gtc", "ioc", "alo"}},
 	"positions leverage": {"mode": {"cross", "isolated"}},
 	"auth login":         {"credential-store": {"file", "keyring"}},
 	"auth migrate":       {"to": {"file", "keyring"}},
@@ -25,9 +26,11 @@ var requiredFlags = map[string][]string{
 	"deposit prepare":    {"amount"},
 	"deposit submit":     {"intent", "digest"},
 	"deposit status":     {"intent"},
-	"orders prepare":     {"market", "side", "type", "size"},
+	"orders prepare":     {"market", "side", "type"},
 	"orders submit":      {"intent", "digest"},
-	"orders cancel":      {"market", "order-id"},
+	"orders cancel":      {"market"},
+	"orders modify":      {"market", "order-id", "side", "size"},
+	"orders cancel-twap": {"market", "twap-id"},
 	"orders status":      {"intent"},
 	"orders abandon":     {"intent"},
 	"positions leverage": {"market", "leverage", "mode"},
@@ -132,6 +135,13 @@ func InputSchema(path string) (map[string]any, error) {
 	}
 	if path == "orders prepare" {
 		example["price"] = "60000"
+		example["size"] = "0.0002"
+	}
+	if path == "orders cancel" {
+		example["order-id"] = 1
+	}
+	if path == "orders modify" {
+		example["price"] = "60000"
 	}
 	if path == "swap orders create" {
 		example["all"] = true
@@ -140,6 +150,19 @@ func InputSchema(path string) (map[string]any, error) {
 	s := map[string]any{"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://oku.trade/schemas/oku.cli/v1/" + strings.ReplaceAll(path, " ", "-") + ".input.json", "title": "oku " + path + " input", "type": "object", "additionalProperties": false, "properties": props, "examples": []any{example}}
 	if len(required) > 0 {
 		s["required"] = required
+	}
+	if path == "orders prepare" {
+		s["allOf"] = []any{map[string]any{
+			"if":   map[string]any{"properties": map[string]any{"close-position": map[string]any{"const": true}}, "required": []string{"close-position"}},
+			"then": map[string]any{"properties": map[string]any{"type": map[string]any{"enum": []string{"stop_market", "stop_limit", "take_market", "take_limit"}}}},
+			"else": map[string]any{"required": []string{"size"}},
+		}}
+	}
+	if path == "orders cancel" {
+		s["oneOf"] = []any{
+			map[string]any{"required": []string{"order-id"}, "not": map[string]any{"required": []string{"order-ids"}}},
+			map[string]any{"required": []string{"order-ids"}, "not": map[string]any{"required": []string{"order-id"}}},
+		}
 	}
 	return s, nil
 }
