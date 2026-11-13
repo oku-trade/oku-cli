@@ -115,8 +115,8 @@ func (a *Advanced) validate() error {
 		if len(p.Modifies) == 0 {
 			return fmt.Errorf("modify plan must not be empty")
 		}
-		if p.PositionTpsl {
-			return ErrPositionTpslModify
+		if p.PositionTpsl && (len(p.Modifies) != 1 || p.AlwaysPlace || !p.Modifies[0].Order.Execution.IsTrigger() || !p.Modifies[0].Order.ReduceOnly) {
+			return fmt.Errorf("position TP/SL modify requires one existing reduce-only trigger")
 		}
 		seen := map[int64]bool{}
 		for _, m := range p.Modifies {
@@ -236,11 +236,23 @@ func validateOrderPrecision(o ApprovedOrder, sizeDecimals int) error {
 	return nil
 }
 
+// ValidateForSubmission applies current policy without invalidating historical
+// serialization or the digests used by journal recovery.
+func (a *Advanced) ValidateForSubmission() error {
+	if err := a.validate(); err != nil {
+		return err
+	}
+	if p, ok := a.payload.(ModifyPlan); ok && p.PositionTpsl {
+		return ErrPositionTpslModify
+	}
+	return nil
+}
+
 // validateAdvancedAction compares complete signed objects after validating their
 // exact schema. Only generated CLOIDs and the explicitly capped builder policy
 // are variable. Missing fields, added fields and reordered children fail closed.
 func validateAdvancedAction(in *Intent, actionJSON string) (string, error) {
-	if err := in.Advanced.validate(); err != nil {
+	if err := in.Advanced.ValidateForSubmission(); err != nil {
 		return "", mismatch("invalid approved plan: %v", err)
 	}
 	if in.Kind != in.Advanced.Kind() {

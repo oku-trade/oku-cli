@@ -37,7 +37,7 @@ func (a *Advanced) Kind() string             { return a.payload.advancedKind() }
 // mutate the approved economics after construction.
 func NewAdvanced(payload AdvancedPayload) (*Advanced, error) {
 	a := &Advanced{payload: payload}
-	if err := a.validate(); err != nil {
+	if err := a.ValidateForSubmission(); err != nil {
 		return nil, err
 	}
 	raw, err := a.MarshalJSON()
@@ -254,7 +254,7 @@ type ModifyPlan struct {
 	Modifies     []ApprovedModify `json:"modifies"`
 	AlwaysPlace  bool             `json:"always_place,omitempty"`
 	SizeDecimals int              `json:"size_decimals"`
-	// PositionTpsl is decoded to reject unsupported persisted approvals.
+	// PositionTpsl retains historical plan semantics, not permission to submit.
 	PositionTpsl bool `json:"position_tpsl,omitempty"`
 }
 

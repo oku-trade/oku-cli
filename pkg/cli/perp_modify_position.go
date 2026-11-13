@@ -37,6 +37,9 @@ func (e *env) checkModifyIntent(in *trading.Intent) error {
 	if !ok {
 		return nil
 	}
+	if err := in.Advanced.ValidateForSubmission(); err != nil {
+		return output.Errorf(output.CodeInvalidArgument, "%v", err).WithExec(output.ExecNone)
+	}
 	oids := make([]int64, 0, len(plan.Modifies))
 	for _, modify := range plan.Modifies {
 		oids = append(oids, modify.OrderID)
