@@ -30,6 +30,17 @@ func merklRewards(agent, distributor string, amount, claimed string) map[string]
 	}}}
 }
 
+func claimableParticipant(distributor string) map[string]any {
+	return map[string]any{
+		"registered": true,
+		"claim":      map[string]any{"chain": "eip155:8453", "distributor": distributor},
+		"rewards": []any{map[string]any{
+			"state": "COMPETITION_REWARD_STATE_CLAIMABLE", "amount": "150.25",
+			"token": map[string]any{"address": merkl.CompetitionToken, "chain": "eip155:8453", "decimals": 6},
+		}},
+	}
+}
+
 // baseRPC answers the Base calls for preparing, submitting or recovering a claim.
 func baseRPC(t *testing.T, simulationReverts bool, recovered *journal.OnchainIntent) *httptest.Server {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +95,13 @@ func TestCompetitionClaimPrepareSubmit(t *testing.T) {
 	agent := strings.ToLower(h.fake.agentAddress)
 	var asked map[string]any
 	h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
-		if method == "GetUserRewards" {
+		switch method {
+		case "GetParticipant":
+			if body["wallet"] != agent {
+				t.Errorf("GetParticipant wallet: %v", body["wallet"])
+			}
+			return claimableParticipant(merkl.Distributor), true
+		case "GetUserRewards":
 			asked = body
 			return merklRewards(agent, merkl.Distributor, "300000000", "100000000"), true
 		}
@@ -100,7 +117,8 @@ func TestCompetitionClaimPrepareSubmit(t *testing.T) {
 	}
 	d := requireClaimAmounts(t, prep, "prepared")
 	preview := d["preview"].(map[string]any)
-	if preview["claimable_usdc"] != "200" || preview["simulated"] != false {
+	if preview["claimable_usdc"] != "200" || preview["simulated"] != false || d["competition_award_usdc"] != "150.25" ||
+		!strings.Contains(fmt.Sprint(preview["claim_scope"]), "also settles 49.75 USDC from other campaigns") {
 		t.Fatalf("preview: %v", preview)
 	}
 	in := d["intent"].(map[string]any)
@@ -137,6 +155,14 @@ func TestCompetitionClaimPrepareSubmit(t *testing.T) {
 	if changed.Digest() == digest {
 		t.Fatal("claimable amount is not bound to the digest")
 	}
+	legacy := record.OnchainIntent
+	legacy.ID, legacy.CompetitionAwardAmount = "legacy-claim", ""
+	if _, err := j.CreateOnchain(legacy); err != nil {
+		t.Fatal(err)
+	}
+	if r := h.run("competition", "claim", "submit", "--intent", legacy.ID, "--digest", legacy.Digest(), "--json"); r.errCode() != "INTENT_STATE" || !strings.Contains(r.stdout, "no verified competition award") || h.privy.rpcCalls != 0 {
+		t.Fatalf("legacy submit: %s", r.stdout)
+	}
 	expired := record.OnchainIntent
 	expired.ID, expired.ExpiresAt = "expired-claim", time.Now().Add(-time.Minute).UTC().Format(time.RFC3339Nano)
 	if _, err := j.CreateOnchain(expired); err != nil {
@@ -154,7 +180,7 @@ func TestCompetitionClaimPrepareSubmit(t *testing.T) {
 		t.Fatalf("resubmit: %s", r.stdout)
 	}
 	requireClaimAmounts(t, h.run("competition", "claim", "status", "--intent", id, "--json"), "confirmed")
-	if r := h.run("competition", "claim", "status", "--intent", id); r.code != 0 || !strings.Contains(r.stdout, "Claims 200 USDC (cumulative Merkl amount 300 USDC)") {
+	if r := h.run("competition", "claim", "status", "--intent", id); r.code != 0 || !strings.Contains(r.stdout, "Claims 200 USDC (cumulative Merkl amount 300 USDC)") || !strings.Contains(r.stdout, "from other campaigns") {
 		t.Fatalf("human status: %s %s", r.stdout, r.stderr)
 	}
 
@@ -195,13 +221,28 @@ func TestCompetitionClaimRefusals(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
 	agent := strings.ToLower(h.fake.agentAddress)
-	reply := merklRewards(agent, merkl.Distributor, "100", "100")
+	reply := merklRewards(agent, merkl.Distributor, "300000000", "0")
+	participant := map[string]any{"registered": true}
+	merklCalls := 0
 	h.fake.routeReply = func(method string, _ map[string]any) (any, bool) {
-		if method == "GetUserRewards" {
+		switch method {
+		case "GetParticipant":
+			return participant, true
+		case "GetUserRewards":
+			merklCalls++
 			return reply, true
 		}
 		return nil, false
 	}
+	if r := h.run("competition", "claim", "prepare", "--json"); r.errCode() != "NOT_FOUND" || merklCalls != 0 {
+		t.Fatalf("unrelated-only USDC: %s", r.stdout)
+	}
+	participant = claimableParticipant("0x1111111111111111111111111111111111111111")
+	if r := h.run("competition", "claim", "prepare", "--json"); r.errCode() != "PAYLOAD_MISMATCH" || merklCalls != 0 {
+		t.Fatalf("foreign participant distributor: %s", r.stdout)
+	}
+	participant = claimableParticipant(merkl.Distributor)
+	reply = merklRewards(agent, merkl.Distributor, "100", "100")
 	if r := h.run("competition", "claim", "prepare", "--json"); r.errCode() != "NOT_FOUND" {
 		t.Fatalf("fully claimed: %s", r.stdout)
 	}
@@ -213,7 +254,7 @@ func TestCompetitionClaimRefusals(t *testing.T) {
 	if r := h.run("competition", "claim", "prepare", "--json"); r.errCode() != "PAYLOAD_MISMATCH" {
 		t.Fatalf("foreign recipient: %s", r.stdout)
 	}
-	reply = merklRewards(agent, merkl.Distributor, "300", "0")
+	reply = merklRewards(agent, merkl.Distributor, "300000000", "0")
 	h.rpcChain, h.rpcURL = "8453", baseRPC(t, true, nil).URL
 	if r := h.run("competition", "claim", "prepare", "--json"); r.errCode() != "REJECTED" || !strings.Contains(r.stdout, "invalid proof") {
 		t.Fatalf("simulation revert: %s", r.stdout)

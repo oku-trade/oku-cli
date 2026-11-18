@@ -48,6 +48,9 @@ type OnchainIntent struct {
 	// ClaimableAmount is the raw unclaimed balance at prepare for a Merkl
 	// claim. Amount remains the cumulative balance committed to by the proof.
 	ClaimableAmount string `json:"claimable_amount,omitempty"`
+	// CompetitionAwardAmount is the raw claimable competition award verified
+	// at prepare. The wallet's cumulative Merkl leaf can include other awards.
+	CompetitionAwardAmount string `json:"competition_award_amount,omitempty"`
 }
 type OnchainTemplate struct {
 	ChainID  uint64 `json:"chain_id"`

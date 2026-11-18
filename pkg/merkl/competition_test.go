@@ -58,6 +58,11 @@ func TestFindCompetitionLeaf(t *testing.T) {
 	}
 	proof := "0x" + strings.Repeat("ab", 32)
 	claimable := reward(proof)
+	unknownBalance := reward(proof)
+	unknownBalance.Claimed = ""
+	if leaf, err := find(unknownBalance); leaf != nil || err == nil {
+		t.Fatalf("missing claimed balance: leaf=%v err=%v", leaf, err)
+	}
 	if leaf, err := find(reward()); leaf != nil || !errors.Is(err, ErrProofsUnavailable) {
 		t.Fatalf("missing proofs: leaf=%v err=%v", leaf, err)
 	}

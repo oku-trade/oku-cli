@@ -33,7 +33,7 @@ var distributorABI = func() abi.ABI {
 }()
 
 // ErrProofsUnavailable means Merkl reports unclaimed USDC but has no proofs for it yet.
-var ErrProofsUnavailable = errors.New("Merkl reports unclaimed competition USDC but has not published proofs yet; try again later")
+var ErrProofsUnavailable = errors.New("Merkl reports unclaimed Base USDC but has not published proofs yet; try again later")
 
 // CompetitionLeaf is an unclaimed USDC reward on Base with proofs for its cumulative amount.
 type CompetitionLeaf struct {
@@ -65,10 +65,10 @@ func FindCompetitionLeaf(resp *v2.GetUserRewardsResponse, agent string) (*Compet
 			if r.Recipient != "" && !strings.EqualFold(r.Recipient, agent) {
 				return nil, fmt.Errorf("reward recipient %s is not the agent", r.Recipient)
 			}
-			amount, ok1 := new(big.Int).SetString(orZero(r.Amount), 10)
-			claimed, ok2 := new(big.Int).SetString(orZero(r.Claimed), 10)
-			if !ok1 || !ok2 || amount.Sign() < 0 || claimed.Sign() < 0 {
-				return nil, errors.New("Merkl returned a malformed amount")
+			amount, ok1 := new(big.Int).SetString(r.Amount, 10)
+			claimed, ok2 := new(big.Int).SetString(r.Claimed, 10)
+			if !ok1 || !ok2 || amount.Sign() < 0 || claimed.Sign() < 0 || amount.BitLen() > 256 || claimed.Cmp(amount) > 0 {
+				return nil, errors.New("Merkl returned missing or invalid reward balances")
 			}
 			if amount.Cmp(claimed) <= 0 {
 				continue
@@ -78,7 +78,7 @@ func FindCompetitionLeaf(resp *v2.GetUserRewardsResponse, agent string) (*Compet
 				continue
 			}
 			if leaf != nil {
-				return nil, errors.New("Merkl returned multiple claimable competition USDC rewards")
+				return nil, errors.New("Merkl returned multiple claimable Base USDC rewards")
 			}
 			proofs := make([][32]byte, len(r.Proofs))
 			for i, p := range r.Proofs {
@@ -95,13 +95,6 @@ func FindCompetitionLeaf(resp *v2.GetUserRewardsResponse, agent string) (*Compet
 		return nil, ErrProofsUnavailable
 	}
 	return leaf, nil
-}
-
-func orZero(s string) string {
-	if s == "" {
-		return "0"
-	}
-	return s
 }
 
 // EncodeCompetitionClaim packs a single USDC leaf using its cumulative Merkl amount.

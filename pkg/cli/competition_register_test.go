@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/oku-trade/oku-cli/pkg/auth"
 	"github.com/oku-trade/oku-cli/pkg/signing"
 	"golang.org/x/crypto/sha3"
 )
@@ -44,17 +45,13 @@ type competitionRegistrar struct {
 	t          *testing.T
 	registered bool
 	failure    string
-	expiresIn  time.Duration
-	messages   []string
+	now        func() time.Time
 	starts     int
 	completes  int
 }
 
 func (c *competitionRegistrar) message() string {
-	if len(c.messages) == 0 {
-		return competitionMessage
-	}
-	return c.messages[min(c.starts, len(c.messages))-1]
+	return fmt.Sprintf("%s\nNonce: %d", competitionMessage, c.starts)
 }
 
 func (c *competitionRegistrar) reply(method string, body map[string]any) (any, bool) {
@@ -64,12 +61,7 @@ func (c *competitionRegistrar) reply(method string, body map[string]any) (any, b
 		if c.registered {
 			return map[string]any{"alreadyRegistered": map[string]any{}}, true
 		}
-		exp := c.expiresIn
-		if exp == 0 {
-			exp = 5 * time.Minute
-		}
-		c.expiresIn = 0 // a refetch gets a fresh challenge
-		return map[string]any{"challenge": map[string]any{"message": c.message(), "challengeToken": fmt.Sprintf("tok-%d", c.starts), "expiresAt": time.Now().Add(exp).UTC().Format(time.RFC3339)}}, true
+		return map[string]any{"challenge": map[string]any{"message": c.message(), "challengeToken": fmt.Sprintf("tok-%d", c.starts), "expiresAt": c.now().Add(5 * time.Minute).UTC().Format(time.RFC3339)}}, true
 	case "CompleteRegistration":
 		c.completes++
 		if c.failure != "" {
@@ -92,11 +84,15 @@ func (c *competitionRegistrar) reply(method string, body map[string]any) (any, b
 func TestCompetitionRegisterRequiresAcceptAndDigest(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
-	reg := &competitionRegistrar{t: t}
+	reg := &competitionRegistrar{t: t, now: h.now}
 	h.fake.routeReply = reg.reply
-	digest := fmt.Sprintf("%x", sha256.Sum256([]byte(competitionMessage)))
+	if r := h.run("competition", "register", "--accept", "--digest", "unreviewed", "--json"); r.errCode() != "INTENT_STATE" || reg.starts != 0 {
+		t.Fatalf("accept without preview: %s", r.stdout)
+	}
 	r := h.run("competition", "register", "--json")
-	if r.code != 0 || r.data()["registered"] != false || r.data()["message"] != competitionMessage || r.data()["digest"] != digest || r.data()["next"] != "oku competition register --accept --digest "+digest {
+	message := reg.message()
+	digest := fmt.Sprintf("%x", sha256.Sum256([]byte(message)))
+	if r.code != 0 || r.data()["registered"] != false || r.data()["message"] != message || r.data()["digest"] != digest || r.data()["next"] != "oku --profile main competition register --accept --digest "+digest || strings.Contains(r.stdout, "tok-1") {
 		t.Fatalf("preview: %s", r.stdout)
 	}
 	r = h.run("competition", "register", "--accept", "--json")
@@ -107,77 +103,98 @@ func TestCompetitionRegisterRequiresAcceptAndDigest(t *testing.T) {
 	if r.code != 0 || r.data()["registered"] != true || r.data()["alreadyRegistered"] != false || r.data()["digest"] != digest {
 		t.Fatalf("register: %s %s", r.stdout, r.stderr)
 	}
-	if len(h.privy.personalMessages) != 1 || h.privy.personalMessages[0] != competitionMessage {
+	if reg.starts != 1 || reg.completes != 1 || len(h.privy.personalMessages) != 1 || h.privy.personalMessages[0] != message {
 		t.Fatalf("signed %q", h.privy.personalMessages)
 	}
 	r = h.run("competition", "register", "--accept", "--digest", digest, "--json")
+	if r.errCode() != "INTENT_STATE" || reg.starts != 1 || len(h.privy.personalMessages) != 1 {
+		t.Fatalf("replay: %s", r.stdout)
+	}
+	r = h.run("competition", "register", "--json")
 	if r.code != 0 || r.data()["alreadyRegistered"] != true || r.data()["digest"] != nil || len(h.privy.personalMessages) != 1 {
 		t.Fatalf("already registered: %s", r.stdout)
 	}
 }
 
-func TestCompetitionRegisterRejectsChangedConsent(t *testing.T) {
-	const current = "Updated competition rules.\nReview before proceeding."
-	for _, tc := range []struct {
-		name     string
-		messages []string
-		expiry   time.Duration
-	}{
-		{"fresh challenge", []string{competitionMessage, current}, 0},
-		{"after expiry refresh", []string{competitionMessage, competitionMessage, current}, 5 * time.Second},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			h := newHarness(t)
-			h.enroll()
-			reg := &competitionRegistrar{t: t, messages: tc.messages}
-			h.fake.routeReply = reg.reply
-			r := h.run("competition", "register", "--json")
-			approved, ok := r.data()["digest"].(string)
-			if !ok {
-				t.Fatalf("missing preview digest: %s", r.stdout)
-			}
-			reg.expiresIn = tc.expiry
-			r = h.run("competition", "register", "--accept", "--digest", approved, "--json")
-			if r.errCode() != "PAYLOAD_MISMATCH" || reg.starts != len(tc.messages) || reg.completes != 0 || len(h.privy.personalMessages) != 0 {
-				t.Fatalf("changed consent: starts=%d completes=%d response=%s", reg.starts, reg.completes, r.stdout)
-			}
-			oe := r.env["error"].(map[string]any)
-			details, _ := oe["details"].(map[string]any)
-			newDigest := fmt.Sprintf("%x", sha256.Sum256([]byte(current)))
-			if details["message"] != current || details["digest"] != newDigest {
-				t.Fatalf("missing current consent: %s", r.stdout)
-			}
-			r = h.run("competition", "register", "--accept", "--digest", newDigest, "--json")
-			if r.code != 0 || r.data()["digest"] != newDigest || len(h.privy.personalMessages) != 1 || h.privy.personalMessages[0] != current {
-				t.Fatalf("approved updated consent: %s", r.stdout)
-			}
-		})
+func TestCompetitionRegisterExpiredPreviewRequiresNewApproval(t *testing.T) {
+	h := newHarness(t)
+	h.enroll()
+	now := time.Now()
+	h.now = func() time.Time { return now }
+	reg := &competitionRegistrar{t: t, now: h.now}
+	h.fake.routeReply = reg.reply
+	old := registrationPreviewDigest(t, h)
+	now = now.Add(6 * time.Minute)
+	accept := func(digest string) run {
+		return h.run("competition", "register", "--accept", "--digest", digest, "--json")
+	}
+	if r := accept(old); r.errCode() != "INTENT_STATE" || !strings.Contains(r.stdout, "expired") || reg.starts != 1 || reg.completes != 0 || len(h.privy.personalMessages) != 0 {
+		t.Fatalf("expired preview: %s", r.stdout)
+	}
+	fresh := registrationPreviewDigest(t, h)
+	if r := accept(old); r.errCode() != "PAYLOAD_MISMATCH" || fresh == old || reg.starts != 2 || reg.completes != 0 || len(h.privy.personalMessages) != 0 {
+		t.Fatalf("stale approval: %s", r.stdout)
+	}
+	if r := accept(fresh); r.code != 0 || reg.starts != 2 || reg.completes != 1 {
+		t.Fatalf("new approval: %s", r.stdout)
 	}
 }
 
-func TestCompetitionRegisterRefreshesExpiringChallenge(t *testing.T) {
+func TestCompetitionRegisterBindsPreviewToProfileAndWallet(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
-	reg := &competitionRegistrar{t: t, expiresIn: 5 * time.Second}
+	reg := &competitionRegistrar{t: t, now: h.now}
 	h.fake.routeReply = reg.reply
-	digest := fmt.Sprintf("%x", sha256.Sum256([]byte(competitionMessage)))
-	r := h.run("competition", "register", "--accept", "--digest", digest, "--json")
-	if r.code != 0 || reg.starts != 2 || reg.completes != 1 {
-		t.Fatalf("starts=%d completes=%d: %s", reg.starts, reg.completes, r.stdout)
+	digest := registrationPreviewDigest(t, h)
+	if r := h.run("profiles", "add", "other", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code != 0 {
+		t.Fatal(r.stdout)
 	}
+	md, sec, err := auth.LoadPrivy("main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := *md
+	other.Profile = "other"
+	if err := auth.SavePrivy("other", other, *sec); err != nil {
+		t.Fatal(err)
+	}
+	accept := func(profile string) run {
+		return h.run("--profile", profile, "competition", "register", "--accept", "--digest", digest, "--json")
+	}
+	if r := accept("other"); r.errCode() != "INTENT_STATE" {
+		t.Fatalf("wrong profile: %s", r.stdout)
+	}
+	md.AgentAddress = "0x2222222222222222222222222222222222222222"
+	if err := auth.SavePrivy("main", *md, *sec); err != nil {
+		t.Fatal(err)
+	}
+	if r := accept("main"); r.errCode() != "INTENT_STATE" || reg.starts != 1 || reg.completes != 0 || len(h.privy.personalMessages) != 0 {
+		t.Fatalf("wrong agent: %s", r.stdout)
+	}
+}
+
+func registrationPreviewDigest(t *testing.T, h *harness) string {
+	t.Helper()
+	r := h.run("competition", "register", "--json")
+	digest, ok := r.data()["digest"].(string)
+	if r.code != 0 || !ok {
+		t.Fatalf("missing preview digest: %s", r.stdout)
+	}
+	return digest
 }
 
 func TestCompetitionRegisterTypedFailure(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
-	reg := &competitionRegistrar{t: t, failure: "COMPETITION_REGISTRATION_FAILURE_REGISTERED_WITH_OTHER_WALLET"}
+	reg := &competitionRegistrar{t: t, now: h.now, failure: "COMPETITION_REGISTRATION_FAILURE_REGISTERED_WITH_OTHER_WALLET"}
 	h.fake.routeReply = reg.reply
-	digest := fmt.Sprintf("%x", sha256.Sum256([]byte(competitionMessage)))
+	digest := registrationPreviewDigest(t, h)
 	r := h.run("competition", "register", "--accept", "--digest", digest, "--json")
 	if r.errCode() != "REJECTED" || !strings.Contains(r.stdout, "another wallet") || !strings.Contains(r.stdout, "registered_with_other_wallet") {
 		t.Fatalf("failure: %s", r.stdout)
 	}
 	reg.failure = "COMPETITION_REGISTRATION_FAILURE_RATE_LIMITED"
+	digest = registrationPreviewDigest(t, h)
 	if r := h.run("competition", "register", "--accept", "--digest", digest, "--json"); r.errCode() != "RATE_LIMITED" {
 		t.Fatalf("rate limited: %s", r.stdout)
 	}

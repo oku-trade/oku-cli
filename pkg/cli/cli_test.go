@@ -260,6 +260,7 @@ type harness struct {
 	srv    *httptest.Server
 	stdin  string
 	privy  *fakePrivy
+	now    func() time.Time
 	rpcURL string
 	// rpcChain additionally routes OKU_RPC_URL_<rpcChain> to rpcURL.
 	rpcChain string
@@ -287,7 +288,7 @@ func newHarness(t *testing.T) *harness {
 	pv := newFakePrivy(t)
 	fake.agentAddress = pv.signer.Address()
 	fake.approved = true
-	return &harness{t: t, fake: fake, srv: srv, privy: pv}
+	return &harness{t: t, fake: fake, srv: srv, privy: pv, now: time.Now}
 }
 
 type run struct {
@@ -323,7 +324,7 @@ func (h *harness) run(args ...string) run {
 			return ""
 		},
 		StdinIsTTY: true,
-		Now:        time.Now,
+		Now:        h.now,
 		Sleep:      func(context.Context, time.Duration) error { return nil },
 		Version:    "test",
 	}

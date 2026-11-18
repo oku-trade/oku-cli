@@ -2,20 +2,18 @@ package cli
 
 import (
 	"crypto/sha256"
-	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
+	"github.com/oku-trade/oku-cli/pkg/journal"
 	"github.com/oku-trade/oku-cli/pkg/output"
 	urfave "github.com/urfave/cli/v3"
 )
-
-// A challenge this close to expiry is not signed: a fresh one is fetched.
-const competitionExpiryMargin = 30 * time.Second
 
 func competitionRegisterFlags() []urfave.Flag {
 	return []urfave.Flag{
@@ -65,8 +63,8 @@ func startCompetitionRegistration(e *env, wallet string) (*v2.StartRegistrationR
 	}
 	if resp.GetAlreadyRegistered() == nil {
 		c := resp.GetChallenge()
-		if c == nil || c.Message == "" || c.ChallengeToken == "" || c.ExpiresAt == nil {
-			return nil, output.Errorf(output.CodeUpstream, "StartRegistration returned no challenge")
+		if c == nil || c.Message == "" || c.ChallengeToken == "" || !c.ExpiresAt.IsValid() {
+			return nil, output.Errorf(output.CodeUpstream, "StartRegistration returned no valid challenge")
 		}
 	}
 	return &resp, nil
@@ -98,43 +96,67 @@ func (a *App) cmdCompetitionRegister(e *env) (*result, error) {
 		return nil, err
 	}
 	wallet := strings.ToLower(w.agent)
-	resp, err := startCompetitionRegistration(e, wallet)
+	j, err := openJournal(w.profile)
 	if err != nil {
 		return nil, err
 	}
-	if resp.GetAlreadyRegistered() != nil {
-		return competitionRegistrationResult(wallet, ""), nil
-	}
-	ch := resp.GetChallenge()
-	if accept && time.Until(ch.ExpiresAt.AsTime()) < competitionExpiryMargin {
-		resp, err = startCompetitionRegistration(e, wallet)
+	defer func() {
+		if err := j.Close(); err != nil {
+			slog.New(slog.NewJSONHandler(e.app.Stderr, nil)).WarnContext(e.ctx, "closing registration journal failed", "profile", w.profile.Name)
+		}
+	}()
+	if !accept {
+		resp, err := startCompetitionRegistration(e, wallet)
 		if err != nil {
 			return nil, err
 		}
 		if resp.GetAlreadyRegistered() != nil {
 			return competitionRegistrationResult(wallet, ""), nil
 		}
-		ch = resp.GetChallenge()
-	}
-
-	// SHA-256 over the exact UTF-8 bytes displayed for review, not the EIP-191 signing digest.
-	sum := sha256.Sum256([]byte(ch.Message))
-	digest := hex.EncodeToString(sum[:])
-	next := "oku competition register --accept --digest " + digest
-	if !accept {
-		data := map[string]any{"wallet": wallet, "registered": false, "message": ch.Message, "digest": digest, "expiresAt": tsPtr(ch.ExpiresAt), "next": next}
+		ch := resp.GetChallenge()
+		preview := journal.RegistrationChallenge{Message: ch.Message, Token: ch.ChallengeToken, ExpiresAt: ch.ExpiresAt.AsTime()}
+		if !a.Now().Before(preview.ExpiresAt) {
+			return nil, output.Errorf(output.CodeUpstream, "StartRegistration returned an expired challenge; run competition register again")
+		}
+		if err := j.SaveRegistrationChallenge(wallet, preview); err != nil {
+			return nil, output.Wrap(output.CodeInternal, err, "saving registration preview")
+		}
+		digest := competitionConsentDigest(preview.Message)
+		next := "oku --profile " + w.profile.Name + " competition register --accept --digest " + digest
+		data := map[string]any{"wallet": wallet, "registered": false, "message": preview.Message, "digest": digest, "expiresAt": preview.ExpiresAt, "next": next}
 		return &result{data: data, human: func(out io.Writer) {
-			fmt.Fprintf(out, "Registering signs this message with the agent wallet %s:\n\n%s\n\nNothing was signed. To accept and register, run: %s\n", wallet, ch.Message, next)
+			fmt.Fprintf(out, "Registering signs this message with the agent wallet %s:\n\n%s\n\nNothing was signed. To accept and register, run: %s\n", wallet, preview.Message, next)
 		}}, nil
 	}
+	ch, err := j.GetRegistrationChallenge(wallet)
+	if errors.Is(err, journal.ErrNotFound) {
+		return nil, output.Errorf(output.CodeIntentState, "no registration preview for this profile and agent wallet; run competition register without --accept and review the message").WithExec(output.ExecNone)
+	}
+	if err != nil {
+		return nil, output.Wrap(output.CodeInternal, err, "loading registration preview")
+	}
+	expired := func() error {
+		return output.Errorf(output.CodeIntentState, "registration preview expired; run competition register without --accept and review the new message").WithExec(output.ExecNone)
+	}
+	if !a.Now().Before(ch.ExpiresAt) {
+		return nil, expired()
+	}
+	digest := competitionConsentDigest(ch.Message)
 	if approved != digest {
-		return nil, output.Errorf(output.CodePayloadMismatch, "consent digest does not match. Nothing was signed. Review the current message %q and, if approved, run: %s", ch.Message, next).
-			WithExec(output.ExecNone).WithDetail("message", ch.Message).WithDetail("digest", digest)
+		return nil, output.Errorf(output.CodePayloadMismatch, "consent digest does not match the saved preview; review the preview before accepting").WithExec(output.ExecNone)
 	}
 
 	ps, walletID, err := a.agentSigner(e, w)
 	if err != nil {
 		return nil, err
+	}
+	if err := j.ConsumeRegistrationChallenge(wallet, ch); errors.Is(err, journal.ErrNotFound) {
+		return nil, output.Errorf(output.CodeIntentState, "registration preview changed or was used; run competition register without --accept and review the new message").WithExec(output.ExecNone)
+	} else if err != nil {
+		return nil, output.Wrap(output.CodeInternal, err, "consuming registration preview")
+	}
+	if !a.Now().Before(ch.ExpiresAt) {
+		return nil, expired()
 	}
 	ctx, cancel := e.requestCtx()
 	sig, err := ps.PersonalSign(ctx, walletID, ch.Message)
@@ -143,14 +165,21 @@ func (a *App) cmdCompetitionRegister(e *env) (*result, error) {
 		return nil, output.Wrap(output.CodeSignerUnavailable, err, "signing registration message")
 	}
 	var done v2.CompleteRegistrationResponse
-	if err := e.competitionCall("CompleteRegistration", &v2.CompleteRegistrationRequest{Wallet: wallet, ChallengeToken: ch.ChallengeToken, Signature: hexutil.Encode(sig[:])}, &done); err != nil {
-		return nil, err
+	signature := hexutil.Encode(sig[:])
+	if err := e.competitionCall("CompleteRegistration", &v2.CompleteRegistrationRequest{Wallet: wallet, ChallengeToken: ch.Token, Signature: signature}, &done); err != nil {
+		return nil, output.Errorf(output.CodeOutcomeUnknown, "registration was not confirmed, check competition status before trying again").WithDetail("upstream_code", output.As(err).Code)
 	}
 	if done.GetRegistered() != nil {
 		return competitionRegistrationResult(wallet, digest), nil
 	}
 	if f, ok := done.Outcome.(*v2.CompleteRegistrationResponse_Failure); ok {
-		return nil, registrationFailure(f.Failure, done.FailureMessage)
+		msg := strings.NewReplacer(ch.Token, "<redacted>", signature, "<redacted>").Replace(done.FailureMessage)
+		return nil, registrationFailure(f.Failure, msg)
 	}
-	return nil, output.Errorf(output.CodeUpstream, "CompleteRegistration returned no outcome")
+	return nil, output.Errorf(output.CodeOutcomeUnknown, "CompleteRegistration returned no outcome, check competition status before trying again")
+}
+
+// SHA-256 over the exact UTF-8 bytes displayed for review, not the EIP-191 digest.
+func competitionConsentDigest(message string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(message)))
 }

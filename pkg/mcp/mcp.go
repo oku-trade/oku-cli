@@ -32,7 +32,18 @@ type Command struct {
 	Summary string
 	Options []Option
 	Schema  map[string]any
+	Access  Access
 }
+
+// Access allows a backend command to declare its policy for both exposure and
+// dispatch. Unspecified access uses the server's legacy tool allowlists.
+type Access uint8
+
+const (
+	AccessUnspecified Access = iota
+	AccessRead
+	AccessMutation
+)
 
 // Globals mirrors the CLI global options accepted by every tool.
 type Globals struct {
@@ -78,9 +89,6 @@ var (
 		"earn vaults": true, "earn positions": true, "earn prepare": true, "earn status": true,
 		"borrow markets": true, "borrow positions": true, "borrow prepare": true, "borrow status": true,
 		"loop open": true, "loop adjust": true, "loop unwind": true, "loop status": true,
-		// Trading competition reads.
-		"competition info": true, "competition leaderboard": true, "competition status": true,
-		"competition claim prepare": true, "competition claim status": true,
 	}
 	// docs are served as resources; tool exposure of docs commands is
 	// intentionally omitted.
@@ -96,8 +104,6 @@ var (
 		"swap orders create": true, "swap orders cancel": true, "swap orders watch": true,
 		// Lending: these sign and broadcast with Privy.
 		"earn submit": true, "earn reconcile": true, "borrow submit": true, "borrow reconcile": true, "loop submit": true, "loop reconcile": true,
-		// Competition registration signs a consent message with the agent wallet.
-		"competition register": true, "competition claim submit": true, "competition claim reconcile": true,
 	}
 	// positional names commands take as arguments instead of options.
 	positional = map[string][]Option{
@@ -129,8 +135,11 @@ func NewServer(b Backend, cfg Config) *sdk.Server {
 				return &sdk.ReadResourceResult{Contents: []*sdk.ResourceContents{{URI: uri, MIMEType: "application/schema+json", Text: string(data)}}}, nil
 			})
 		}
-		mut := mutationTools[c.Path]
-		if !readTools[c.Path] && !(mut && cfg.AllowMutations) {
+		read, mut := c.Access == AccessRead, c.Access == AccessMutation
+		if c.Access == AccessUnspecified {
+			read, mut = readTools[c.Path], mutationTools[c.Path]
+		}
+		if !read && !(mut && cfg.AllowMutations) {
 			continue
 		}
 		addCommandTool(s, b, c, mut)
