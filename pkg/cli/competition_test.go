@@ -1,40 +1,10 @@
 package cli
 
 import (
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/oku-trade/oku-cli/pkg/signing"
-	"golang.org/x/crypto/sha3"
 )
-
-// personalDigest is the EIP-191 personal_sign digest of message.
-func personalDigest(message string) [32]byte {
-	h := sha3.NewLegacyKeccak256()
-	fmt.Fprintf(h, "\x19Ethereum Signed Message:\n%d%s", len(message), message)
-	var out [32]byte
-	h.Sum(out[:0])
-	return out
-}
-
-// recoverPersonal recovers the signer of a 0x hex 65-byte personal_sign signature.
-func recoverPersonal(t *testing.T, message, sigHex string) string {
-	t.Helper()
-	raw, err := hex.DecodeString(strings.TrimPrefix(sigHex, "0x"))
-	if err != nil || len(raw) != 65 {
-		t.Fatalf("bad signature %q", sigHex)
-	}
-	addr, err := signing.RecoverAddress(personalDigest(message), signing.Signature{R: "0x" + hex.EncodeToString(raw[:32]), S: "0x" + hex.EncodeToString(raw[32:64]), V: uint64(raw[64])})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return addr
-}
-
-const competitionMessage = "Join the Oku trading competition.\nI consent to the rules."
 
 func competitionFixture() map[string]any {
 	return map[string]any{
@@ -171,99 +141,5 @@ func TestCompetitionStatusDefaultsToAgent(t *testing.T) {
 	}
 	if r := h.run("competition", "status", "--wallet", "nope", "--json"); r.errCode() != "INVALID_ARGUMENT" {
 		t.Fatalf("bad wallet: %s", r.stdout)
-	}
-}
-
-// competitionRegistrar fakes StartRegistration and CompleteRegistration,
-// verifying the signature recovers to the registering wallet.
-type competitionRegistrar struct {
-	t          *testing.T
-	registered bool
-	failure    string
-	expiresIn  time.Duration
-	starts     int
-	completes  int
-}
-
-func (c *competitionRegistrar) reply(method string, body map[string]any) (any, bool) {
-	switch method {
-	case "StartRegistration":
-		c.starts++
-		if c.registered {
-			return map[string]any{"alreadyRegistered": map[string]any{}}, true
-		}
-		exp := c.expiresIn
-		if exp == 0 {
-			exp = 5 * time.Minute
-		}
-		c.expiresIn = 0 // a refetch gets a fresh challenge
-		return map[string]any{"challenge": map[string]any{"message": competitionMessage, "challengeToken": fmt.Sprintf("tok-%d", c.starts), "expiresAt": time.Now().Add(exp).UTC().Format(time.RFC3339)}}, true
-	case "CompleteRegistration":
-		c.completes++
-		if c.failure != "" {
-			return map[string]any{"failure": c.failure, "failureMessage": "nope"}, true
-		}
-		wallet, _ := body["wallet"].(string)
-		if got := recoverPersonal(c.t, competitionMessage, body["signature"].(string)); !strings.EqualFold(got, wallet) {
-			c.t.Errorf("signature recovers to %s, want %s", got, wallet)
-			return map[string]any{"failure": "COMPETITION_REGISTRATION_FAILURE_INVALID_SIGNATURE"}, true
-		}
-		if body["challengeToken"] != fmt.Sprintf("tok-%d", c.starts) {
-			c.t.Errorf("signed stale challenge %v", body["challengeToken"])
-		}
-		c.registered = true
-		return map[string]any{"registered": map[string]any{}}, true
-	}
-	return nil, false
-}
-
-func TestCompetitionRegisterRequiresAccept(t *testing.T) {
-	h := newHarness(t)
-	h.enroll()
-	reg := &competitionRegistrar{t: t}
-	h.fake.routeReply = reg.reply
-	r := h.run("competition", "register", "--json")
-	if r.code != 0 || r.data()["registered"] != false || r.data()["message"] != competitionMessage {
-		t.Fatalf("preview: %s", r.stdout)
-	}
-	if reg.completes != 0 || len(h.privy.personalMessages) != 0 {
-		t.Fatal("register without --accept signed or completed")
-	}
-	r = h.run("competition", "register", "--accept", "--json")
-	if r.code != 0 || r.data()["registered"] != true || r.data()["alreadyRegistered"] != false {
-		t.Fatalf("register: %s %s", r.stdout, r.stderr)
-	}
-	if len(h.privy.personalMessages) != 1 || h.privy.personalMessages[0] != competitionMessage {
-		t.Fatalf("signed %q", h.privy.personalMessages)
-	}
-	r = h.run("competition", "register", "--accept", "--json")
-	if r.code != 0 || r.data()["alreadyRegistered"] != true || len(h.privy.personalMessages) != 1 {
-		t.Fatalf("already registered: %s", r.stdout)
-	}
-}
-
-func TestCompetitionRegisterRefreshesExpiringChallenge(t *testing.T) {
-	h := newHarness(t)
-	h.enroll()
-	reg := &competitionRegistrar{t: t, expiresIn: 5 * time.Second}
-	h.fake.routeReply = reg.reply
-	r := h.run("competition", "register", "--accept", "--json")
-	if r.code != 0 || reg.starts != 2 || reg.completes != 1 {
-		t.Fatalf("starts=%d completes=%d: %s", reg.starts, reg.completes, r.stdout)
-	}
-}
-
-func TestCompetitionRegisterTypedFailure(t *testing.T) {
-	h := newHarness(t)
-	h.enroll()
-	reg := &competitionRegistrar{t: t, failure: "COMPETITION_REGISTRATION_FAILURE_REGISTERED_WITH_OTHER_WALLET"}
-	h.fake.routeReply = reg.reply
-	r := h.run("competition", "register", "--accept", "--json")
-	if r.errCode() != "REJECTED" || !strings.Contains(r.stdout, "another wallet") || !strings.Contains(r.stdout, "registered_with_other_wallet") {
-		t.Fatalf("failure: %s", r.stdout)
-	}
-	reg.failure = "COMPETITION_REGISTRATION_FAILURE_RATE_LIMITED"
-	if r := h.run("competition", "register", "--accept", "--json"); r.errCode() != "RATE_LIMITED" {
-		t.Fatalf("rate limited: %s", r.stdout)
 	}
 }

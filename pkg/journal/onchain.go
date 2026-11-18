@@ -45,6 +45,9 @@ type OnchainIntent struct {
 	// digest like every other field.
 	LP        json.RawMessage `json:"lp,omitempty"`
 	CreatedAt string          `json:"created_at"`
+	// ClaimableAmount is the raw unclaimed balance at prepare for a Merkl
+	// claim. Amount remains the cumulative balance committed to by the proof.
+	ClaimableAmount string `json:"claimable_amount,omitempty"`
 }
 type OnchainTemplate struct {
 	ChainID  uint64 `json:"chain_id"`

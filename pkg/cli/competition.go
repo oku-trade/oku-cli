@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/hex"
 	"fmt"
 	"io"
 	"strings"
@@ -15,15 +14,11 @@ import (
 )
 
 // The trading competition: Voltrade scores it, the account CompetitionService
-// serves it (every RPC public). Registration signs the server's challenge
-// message with personal_sign from the agent wallet, the wallet the CLI trades
-// with, so its volume is the volume that counts.
+// serves it (every RPC public).
 
 const (
 	competitionPageSize = 100   // ListLeaderboardRequest.page_size limit
 	competitionMaxPages = 10000 // ListLeaderboardRequest.page limit
-	// A challenge this close to expiry is not signed: a fresh one is fetched.
-	competitionExpiryMargin = 30 * time.Second
 )
 
 func (a *App) competitionCommands() map[string]*handler {
@@ -31,7 +26,7 @@ func (a *App) competitionCommands() map[string]*handler {
 		"competition info":            {summary: "Trading competition: phase, schedule, prize pool, rules, eligible stocks and raffle days (read-only)", run: a.cmdCompetitionInfo},
 		"competition leaderboard":     {summary: "Trading competition leaderboard: one page, or every row with --all; --search filters by name or wallet (read-only)", flags: competitionLeaderboardFlags, run: a.cmdCompetitionLeaderboard},
 		"competition status":          {summary: "A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet; read-only)", flags: competitionWalletFlags, run: a.cmdCompetitionStatus},
-		"competition register":        {summary: "Register the agent wallet for the trading competition: shows the consent message, signs it only with --accept", flags: competitionRegisterFlags, run: a.cmdCompetitionRegister},
+		"competition register":        {summary: "Register the agent wallet for the trading competition: preview the consent message and digest, then sign only with --accept and the matching --digest", flags: competitionRegisterFlags, run: a.cmdCompetitionRegister},
 		"competition claim prepare":   {summary: "Prepare claiming the agent's competition USDC on Base from Merkl with fresh proofs (never signs)", run: a.cmdCompetitionClaimPrepare},
 		"competition claim submit":    {summary: "Submit a verified competition claim intent", flags: func() []urfave.Flag { return submitFlagsFor("competition claim") }, run: a.cmdCompetitionClaimSubmit, required: map[string]bool{"intent": true, "digest": true}},
 		"competition claim status":    {summary: "Reconcile a competition claim intent", flags: statusFlags, run: a.cmdCompetitionClaimStatus, required: map[string]bool{"intent": true}},
@@ -50,10 +45,6 @@ func competitionLeaderboardFlags() []urfave.Flag {
 		&urfave.BoolFlag{Name: "all", Usage: "read every page"},
 		&urfave.StringFlag{Name: "search", Usage: "only rows whose display name or short wallet contains this text (reads every page)"},
 	}
-}
-
-func competitionRegisterFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.BoolFlag{Name: "accept", Usage: "accept the consent and sign the registration message with the agent wallet"}}
 }
 
 func (e *env) competitionCall(method string, req, resp any) error {
@@ -440,114 +431,4 @@ func (a *App) cmdCompetitionStatus(e *env) (*result, error) {
 			fmt.Fprintf(w, "Claim through Merkl distributor %s on %s\n", s.Claim.Distributor, s.Claim.Chain)
 		}
 	}}, nil
-}
-
-// registrationFailure maps CompleteRegistration's typed failure to an error.
-func registrationFailure(f v2.CompetitionRegistrationFailure, msg string) error {
-	name := enumName(f.String(), "COMPETITION_REGISTRATION_FAILURE_")
-	text := map[v2.CompetitionRegistrationFailure]string{
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_EXPIRED:                      "the challenge expired; run register again",
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_USED:                         "the challenge was already used; run register again",
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_INVALID_SIGNATURE:            "the signature does not match the wallet",
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_INVALID_CHALLENGE:            "the challenge is invalid; run register again",
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_REGISTRATION_CLOSED:          "registration is closed",
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_REGISTERED_WITH_OTHER_WALLET: "this wallet's Voltrade account already entered with another wallet",
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_BANNED:                       "this wallet's Voltrade account is banned from competitions",
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_UNSUPPORTED:                  "this wallet cannot join through Oku; register on Voltrade",
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_RATE_LIMITED:                 "too many attempts; retry shortly",
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_UNAVAILABLE:                  "registration is unavailable right now; retry shortly",
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_REFUSED:                      "registration refused",
-	}[f]
-	if text == "" {
-		text = "registration failed"
-	}
-	if msg != "" {
-		text += ": " + msg
-	}
-	code, retry := output.CodeRejected, false
-	switch f {
-	case v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_RATE_LIMITED:
-		code, retry = output.CodeRateLimited, true
-	case v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_UNAVAILABLE, v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_UNSPECIFIED:
-		code, retry = output.CodeUpstream, true
-	case v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_EXPIRED, v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_USED, v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_INVALID_CHALLENGE:
-		retry = true
-	}
-	return (&output.Error{Code: code, Message: text, Retryable: retry}).WithDetail("failure", name)
-}
-
-func (a *App) startCompetitionRegistration(e *env, wallet string) (*v2.StartRegistrationResponse, error) {
-	var resp v2.StartRegistrationResponse
-	if err := e.competitionCall("StartRegistration", &v2.StartRegistrationRequest{Wallet: wallet}, &resp); err != nil {
-		return nil, err
-	}
-	if resp.GetAlreadyRegistered() == nil {
-		c := resp.GetChallenge()
-		if c == nil || c.Message == "" || c.ChallengeToken == "" || c.ExpiresAt == nil {
-			return nil, output.Errorf(output.CodeUpstream, "StartRegistration returned no challenge")
-		}
-	}
-	return &resp, nil
-}
-
-func (a *App) cmdCompetitionRegister(e *env) (*result, error) {
-	w, err := agentWalletMetadata(e)
-	if err != nil {
-		return nil, err
-	}
-	wallet := strings.ToLower(w.agent)
-	resp, err := a.startCompetitionRegistration(e, wallet)
-	if err != nil {
-		return nil, err
-	}
-	registered := func(already bool) *result {
-		data := map[string]any{"wallet": wallet, "registered": true, "alreadyRegistered": already}
-		return &result{data: data, human: func(out io.Writer) {
-			if already {
-				fmt.Fprintf(out, "%s is already registered for the competition.\n", wallet)
-			} else {
-				fmt.Fprintf(out, "Registered %s for the competition. Check standing with 'oku competition status'.\n", wallet)
-			}
-		}}
-	}
-	if resp.GetAlreadyRegistered() != nil {
-		return registered(true), nil
-	}
-	ch := resp.GetChallenge()
-	if !e.cmd.Bool("accept") {
-		data := map[string]any{"wallet": wallet, "registered": false, "message": ch.Message, "expiresAt": tsPtr(ch.ExpiresAt), "next": "oku competition register --accept"}
-		return &result{data: data, human: func(out io.Writer) {
-			fmt.Fprintf(out, "Registering signs this message with the agent wallet %s:\n\n%s\n\nNothing was signed. To accept and register, run: oku competition register --accept\n", wallet, ch.Message)
-		}}, nil
-	}
-	if time.Until(ch.ExpiresAt.AsTime()) < competitionExpiryMargin {
-		if resp, err = a.startCompetitionRegistration(e, wallet); err != nil {
-			return nil, err
-		}
-		if resp.GetAlreadyRegistered() != nil {
-			return registered(true), nil
-		}
-		ch = resp.GetChallenge()
-	}
-	ps, walletID, err := a.agentSigner(e, w)
-	if err != nil {
-		return nil, err
-	}
-	ctx, cancel := e.requestCtx()
-	sig, err := ps.PersonalSign(ctx, walletID, ch.Message)
-	cancel()
-	if err != nil {
-		return nil, output.Wrap(output.CodeSignerUnavailable, err, "signing registration message")
-	}
-	var done v2.CompleteRegistrationResponse
-	if err := e.competitionCall("CompleteRegistration", &v2.CompleteRegistrationRequest{Wallet: wallet, ChallengeToken: ch.ChallengeToken, Signature: "0x" + hex.EncodeToString(sig[:])}, &done); err != nil {
-		return nil, err
-	}
-	if done.GetRegistered() != nil {
-		return registered(false), nil
-	}
-	if f, ok := done.Outcome.(*v2.CompleteRegistrationResponse_Failure); ok {
-		return nil, registrationFailure(f.Failure, done.FailureMessage)
-	}
-	return nil, output.Errorf(output.CodeUpstream, "CompleteRegistration returned no outcome")
 }

@@ -303,13 +303,14 @@ Trading competition leaderboard: one page, or every row with --all; --search fil
 
 ## `oku competition register`
 
-Register the agent wallet for the trading competition: shows the consent message, signs it only with --accept
+Register the agent wallet for the trading competition: preview the consent message and digest, then sign only with --accept and the matching --digest
 
 ### Options
 
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--accept` | accept the consent and sign the registration message with the agent wallet | `false` |
+| `--digest` | exact consent digest from 'competition register' (required with --accept) | `` |
 
 ## `oku competition status`
 
