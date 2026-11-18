@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/oku-trade/oku-cli/pkg/auth"
+	"github.com/oku-trade/oku-cli/pkg/mcp"
 	"github.com/oku-trade/oku-cli/pkg/signing"
 	"golang.org/x/crypto/sha3"
 )
@@ -44,7 +45,7 @@ const competitionMessage = "Join the Oku trading competition.\nI consent to the 
 type competitionRegistrar struct {
 	t          *testing.T
 	registered bool
-	failure    string
+	completion map[string]any
 	now        func() time.Time
 	starts     int
 	completes  int
@@ -64,9 +65,6 @@ func (c *competitionRegistrar) reply(method string, body map[string]any) (any, b
 		return map[string]any{"challenge": map[string]any{"message": c.message(), "challengeToken": fmt.Sprintf("tok-%d", c.starts), "expiresAt": c.now().Add(5 * time.Minute).UTC().Format(time.RFC3339)}}, true
 	case "CompleteRegistration":
 		c.completes++
-		if c.failure != "" {
-			return map[string]any{"failure": c.failure, "failureMessage": "nope"}, true
-		}
 		wallet, _ := body["wallet"].(string)
 		if got := recoverPersonal(c.t, c.message(), body["signature"].(string)); !strings.EqualFold(got, wallet) {
 			c.t.Errorf("signature recovers to %s, want %s", got, wallet)
@@ -74,6 +72,9 @@ func (c *competitionRegistrar) reply(method string, body map[string]any) (any, b
 		}
 		if body["challengeToken"] != fmt.Sprintf("tok-%d", c.starts) {
 			c.t.Errorf("signed stale challenge %v", body["challengeToken"])
+		}
+		if c.completion != nil {
+			return c.completion, true
 		}
 		c.registered = true
 		return map[string]any{"registered": map[string]any{}}, true
@@ -183,19 +184,82 @@ func registrationPreviewDigest(t *testing.T, h *harness) string {
 	return digest
 }
 
-func TestCompetitionRegisterTypedFailure(t *testing.T) {
-	h := newHarness(t)
-	h.enroll()
-	reg := &competitionRegistrar{t: t, now: h.now, failure: "COMPETITION_REGISTRATION_FAILURE_REGISTERED_WITH_OTHER_WALLET"}
-	h.fake.routeReply = reg.reply
-	digest := registrationPreviewDigest(t, h)
-	r := h.run("competition", "register", "--accept", "--digest", digest, "--json")
-	if r.errCode() != "REJECTED" || !strings.Contains(r.stdout, "another wallet") || !strings.Contains(r.stdout, "registered_with_other_wallet") {
-		t.Fatalf("failure: %s", r.stdout)
-	}
-	reg.failure = "COMPETITION_REGISTRATION_FAILURE_RATE_LIMITED"
-	digest = registrationPreviewDigest(t, h)
-	if r := h.run("competition", "register", "--accept", "--digest", digest, "--json"); r.errCode() != "RATE_LIMITED" {
-		t.Fatalf("rate limited: %s", r.stdout)
+func TestCompetitionRegisterCompletionOutcomes(t *testing.T) {
+	const prefix = "COMPETITION_REGISTRATION_FAILURE_"
+	for _, surface := range []string{"CLI", "MCP"} {
+		t.Run(surface, func(t *testing.T) {
+			h := newHarness(t)
+			h.enroll()
+			reg := &competitionRegistrar{t: t, now: h.now}
+			h.fake.routeReply = reg.reply
+			invoke := func(digest string) map[string]any {
+				args := []string{"competition", "register", "--json"}
+				if digest != "" {
+					args = append(args, "--accept", "--digest", digest)
+				}
+				return h.run(args...).env
+			}
+			if surface == "MCP" {
+				svc := testService(h)
+				svc.AllowMutations(true)
+				cs := mcpSession(t, MCPBackend{S: svc}, true)
+				invoke = func(digest string) map[string]any {
+					args := map[string]any{}
+					if digest != "" {
+						args = map[string]any{"accept": true, "digest": digest}
+					}
+					_, env := callTool(t, cs, mcp.ToolName("competition register"), args)
+					return env
+				}
+			}
+			for _, tc := range []struct {
+				name, code, state, detail, message string
+				failure                            any
+				retryable                          bool
+			}{
+				{"unavailable", "OUTCOME_UNKNOWN", "unknown", "unavailable", "competition status", prefix + "UNAVAILABLE", false},
+				{"unspecified", "OUTCOME_UNKNOWN", "unknown", "unknown", "competition status", 0, false},
+				{"unrecognized", "OUTCOME_UNKNOWN", "unknown", "999", "competition status", 999, false},
+				{"missing", "OUTCOME_UNKNOWN", "unknown", "", "competition status", nil, false},
+				{"other wallet", "REJECTED", "rejected", "registered_with_other_wallet", "another wallet", prefix + "REGISTERED_WITH_OTHER_WALLET", false},
+				{"refused", "REJECTED", "rejected", "refused", "registration refused: fixture message", prefix + "REFUSED", false},
+				{"expired", "REJECTED", "rejected", "expired", "challenge expired", prefix + "EXPIRED", true},
+				{"rate limited", "RATE_LIMITED", "rejected", "rate_limited", "too many attempts", prefix + "RATE_LIMITED", true},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					reg.completion = map[string]any{}
+					if tc.failure != nil {
+						reg.completion = map[string]any{"failure": tc.failure, "failureMessage": "fixture message"}
+					}
+					starts, completes, signed := reg.starts, reg.completes, len(h.privy.personalMessages)
+					preview := invoke("")
+					data, _ := preview["data"].(map[string]any)
+					digest, _ := data["digest"].(string)
+					if preview["ok"] != true || digest == "" {
+						t.Fatalf("missing preview digest: %v", preview)
+					}
+					env := invoke(digest)
+					failure, _ := env["error"].(map[string]any)
+					message, _ := failure["message"].(string)
+					details, _ := failure["details"].(map[string]any)
+					detail, _ := details["failure"].(string)
+					if env["ok"] != false || failure["code"] != tc.code || failure["execution_state"] != tc.state || failure["retryable"] != tc.retryable || detail != tc.detail || !strings.Contains(message, tc.message) {
+						t.Fatalf("unexpected completion outcome: %v", env)
+					}
+					if tc.retryable && !strings.Contains(message, "without --accept and approve the new preview") {
+						t.Fatalf("missing fresh approval guidance: %v", env)
+					}
+					if tc.code == "OUTCOME_UNKNOWN" {
+						replay := invoke(digest)
+						if err, _ := replay["error"].(map[string]any); err["code"] != "INTENT_STATE" {
+							t.Fatalf("consumed approval was replayed: %v", replay)
+						}
+					}
+					if reg.starts != starts+1 || reg.completes != completes+1 || len(h.privy.personalMessages) != signed+1 {
+						t.Fatalf("expected one preview, signature and submission, got %d/%d/%d", reg.starts-starts, len(h.privy.personalMessages)-signed, reg.completes-completes)
+					}
+				})
+			}
+		})
 	}
 }

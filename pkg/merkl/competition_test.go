@@ -1,12 +1,15 @@
 package merkl
 
 import (
+	"bytes"
 	"errors"
 	"math/big"
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
 	"github.com/oku-trade/oku-cli/pkg/journal"
 )
@@ -45,6 +48,70 @@ func TestVerifyCompetitionClaimRejectsTampering(t *testing.T) {
 		if VerifyCompetitionClaim(in, agent) == nil {
 			t.Errorf("%s tampering accepted", name)
 		}
+	}
+}
+
+func TestCompetitionClaimDoesNotUseRecipientOverrides(t *testing.T) {
+	wallet := common.HexToAddress(agent)
+	usdc := common.HexToAddress(CompetitionToken)
+	other := common.HexToAddress("0x4444444444444444444444444444444444444444")
+	data, err := EncodeCompetitionClaim(agent, big.NewInt(5), [][32]byte{{0xab}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	selector := crypto.Keccak256([]byte("claimWithRecipient(address[],address[],uint256[],bytes32[][],address[],bytes[])"))[:4]
+	if !bytes.Equal(data[:4], selector) {
+		t.Fatalf("wrong deployed method selector: %x", data[:4])
+	}
+	m := distributorABI.Methods[claimMethod]
+	args, err := m.Inputs.Unpack(data[4:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	users, recipients, callbacks := args[0].([]common.Address), args[4].([]common.Address), args[5].([][]byte)
+	if len(users) != 1 || users[0] != wallet || len(recipients) != 1 || recipients[0] != wallet || len(callbacks) != 1 || len(callbacks[0]) != 0 {
+		t.Fatalf("unexpected owner, recipient or callback: %v %v %x", users, recipients, callbacks)
+	}
+	// The deployed contract consults these defaults only for a zero recipient
+	// or a caller other than the owner. Reject sealed calls that use either
+	// default's wallet as the explicit recipient, or leave it up to fallback.
+	for name, defaults := range map[string]map[common.Address]common.Address{
+		"USDC override":   {usdc: other},
+		"global override": {{0}: other},
+	} {
+		t.Run(name, func(t *testing.T) {
+			defaultRecipient := defaults[usdc]
+			if defaultRecipient == (common.Address{}) {
+				defaultRecipient = defaults[common.Address{}]
+			}
+			in := journal.OnchainIntent{ChainID: CompetitionChain, Sender: agent, Recipient: agent, Token: CompetitionToken, Amount: "5",
+				Templates: []journal.OnchainTemplate{{ChainID: CompetitionChain, To: Distributor, Value: "0x0", Data: hexutil.Encode(data)}}}
+			if err := VerifyCompetitionClaim(in, agent); err != nil {
+				t.Fatal(err)
+			}
+			for _, recipient := range []common.Address{{}, defaultRecipient} {
+				tampered := append([]any(nil), args...)
+				tampered[4] = []common.Address{recipient}
+				packed, err := distributorABI.Pack(claimMethod, tampered...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				in.Templates[0].Data = hexutil.Encode(packed)
+				if VerifyCompetitionClaim(in, agent) == nil {
+					t.Fatalf("accepted override recipient %v", recipient)
+				}
+			}
+			withCallback := append([]any(nil), args...)
+			withCallback[5] = [][]byte{{1}}
+			packed, err := distributorABI.Pack(claimMethod, withCallback...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			in.Templates[0].Data = hexutil.Encode(packed)
+			if VerifyCompetitionClaim(in, agent) == nil {
+				t.Fatal("accepted callback data")
+			}
+		})
 	}
 }
 

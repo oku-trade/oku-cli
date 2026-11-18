@@ -22,24 +22,27 @@ func competitionRegisterFlags() []urfave.Flag {
 	}
 }
 
-// registrationFailure maps CompleteRegistration's typed failure to an error.
+func registrationOutcomeUnknown() *output.Error {
+	return output.Errorf(output.CodeOutcomeUnknown, "registration was not confirmed. Check 'oku competition status' before trying again").WithExec(output.ExecUnknown)
+}
+
+// Only explicit refusals confirm that CompleteRegistration did not register the wallet.
 func registrationFailure(f v2.CompetitionRegistrationFailure, msg string) error {
 	name := enumName(f.String(), "COMPETITION_REGISTRATION_FAILURE_")
 	text := map[v2.CompetitionRegistrationFailure]string{
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_EXPIRED:                      "the challenge expired; run register again",
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_USED:                         "the challenge was already used; run register again",
+		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_EXPIRED:                      "the challenge expired",
+		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_USED:                         "the challenge was already used",
 		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_INVALID_SIGNATURE:            "the signature does not match the wallet",
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_INVALID_CHALLENGE:            "the challenge is invalid; run register again",
+		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_INVALID_CHALLENGE:            "the challenge is invalid",
 		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_REGISTRATION_CLOSED:          "registration is closed",
 		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_REGISTERED_WITH_OTHER_WALLET: "this wallet's Voltrade account already entered with another wallet",
 		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_BANNED:                       "this wallet's Voltrade account is banned from competitions",
 		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_UNSUPPORTED:                  "this wallet cannot join through Oku; register on Voltrade",
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_RATE_LIMITED:                 "too many attempts; retry shortly",
-		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_UNAVAILABLE:                  "registration is unavailable right now; retry shortly",
+		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_RATE_LIMITED:                 "too many attempts, wait before trying again",
 		v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_REFUSED:                      "registration refused",
 	}[f]
 	if text == "" {
-		text = "registration failed"
+		return registrationOutcomeUnknown().WithDetail("failure", name)
 	}
 	if msg != "" {
 		text += ": " + msg
@@ -48,12 +51,13 @@ func registrationFailure(f v2.CompetitionRegistrationFailure, msg string) error 
 	switch f {
 	case v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_RATE_LIMITED:
 		code, retry = output.CodeRateLimited, true
-	case v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_UNAVAILABLE, v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_UNSPECIFIED:
-		code, retry = output.CodeUpstream, true
 	case v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_EXPIRED, v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_USED, v2.CompetitionRegistrationFailure_COMPETITION_REGISTRATION_FAILURE_INVALID_CHALLENGE:
 		retry = true
 	}
-	return (&output.Error{Code: code, Message: text, Retryable: retry}).WithDetail("failure", name)
+	if retry {
+		text += ". To try again, run 'oku competition register' without --accept and approve the new preview"
+	}
+	return (&output.Error{Code: code, Message: text, Retryable: retry}).WithExec(output.ExecRejected).WithDetail("failure", name)
 }
 
 func startCompetitionRegistration(e *env, wallet string) (*v2.StartRegistrationResponse, error) {
@@ -167,7 +171,7 @@ func (a *App) cmdCompetitionRegister(e *env) (*result, error) {
 	var done v2.CompleteRegistrationResponse
 	signature := hexutil.Encode(sig[:])
 	if err := e.competitionCall("CompleteRegistration", &v2.CompleteRegistrationRequest{Wallet: wallet, ChallengeToken: ch.Token, Signature: signature}, &done); err != nil {
-		return nil, output.Errorf(output.CodeOutcomeUnknown, "registration was not confirmed, check competition status before trying again").WithDetail("upstream_code", output.As(err).Code)
+		return nil, registrationOutcomeUnknown().WithDetail("upstream_code", output.As(err).Code)
 	}
 	if done.GetRegistered() != nil {
 		return competitionRegistrationResult(wallet, digest), nil
@@ -176,7 +180,7 @@ func (a *App) cmdCompetitionRegister(e *env) (*result, error) {
 		msg := strings.NewReplacer(ch.Token, "<redacted>", signature, "<redacted>").Replace(done.FailureMessage)
 		return nil, registrationFailure(f.Failure, msg)
 	}
-	return nil, output.Errorf(output.CodeOutcomeUnknown, "CompleteRegistration returned no outcome, check competition status before trying again")
+	return nil, registrationOutcomeUnknown()
 }
 
 // SHA-256 over the exact UTF-8 bytes displayed for review, not the EIP-191 digest.

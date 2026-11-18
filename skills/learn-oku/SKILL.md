@@ -51,7 +51,7 @@ The error object has `code`, `message`, `retryable` and sometimes `execution_sta
 | Unknown Hyperliquid outcomes, recovery | reconcile-hyperliquid-actions |
 | Unknown onchain send/swap/deposit outcomes, recovery | move-agent-funds |
 | Uniswap v3/v4 liquidity positions, ranges, fees, LP intent recovery | provide-uniswap-liquidity |
-| Trading competition: rules, leaderboard, own standing, registration, reward claims | no skill: `oku competition info`, `leaderboard`, `status`. `register` previews the consent message and digest. After the user approves that message, use `register --accept --digest SHA` with the preview digest. If `PAYLOAD_MISMATCH` returns a new message and digest, ask the user to review the new message before retrying. Claim USDC rewards with `competition claim prepare`, then `submit` after the user approves the preview. See `oku docs show usage`. |
+| Trading competition: rules, leaderboard, own standing, registration, reward claims | no skill: `oku competition info`, `leaderboard`, `status`. `register` previews the consent message and digest. After the user approves that message, use `register --accept --digest SHA` with the preview digest. If registration returns `OUTCOME_UNKNOWN`, do not resubmit. Check `oku competition status` for the same profile before deciding whether to start again. If another attempt is appropriate, get a fresh preview and user approval. On `PAYLOAD_MISMATCH`, run `register` without `--accept` and ask the user to review the new preview. Claim USDC rewards with `competition claim prepare`, then `submit` after the user approves the preview. See `oku docs show usage`. |
 
 ## Agent integration
 

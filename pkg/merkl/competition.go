@@ -22,7 +22,9 @@ const (
 	Distributor = "0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae"
 )
 
-const claimABI = `[{"type":"function","name":"claim","stateMutability":"nonpayable","inputs":[{"name":"users","type":"address[]"},{"name":"tokens","type":"address[]"},{"name":"amounts","type":"uint256[]"},{"name":"proofs","type":"bytes32[][]"}],"outputs":[]}]`
+const claimMethod = "claimWithRecipient"
+
+const claimABI = `[{"type":"function","name":"` + claimMethod + `","stateMutability":"nonpayable","inputs":[{"name":"users","type":"address[]"},{"name":"tokens","type":"address[]"},{"name":"amounts","type":"uint256[]"},{"name":"proofs","type":"bytes32[][]"},{"name":"recipients","type":"address[]"},{"name":"datas","type":"bytes[]"}],"outputs":[]}]`
 
 var distributorABI = func() abi.ABI {
 	a, err := abi.JSON(strings.NewReader(claimABI))
@@ -37,10 +39,11 @@ var ErrProofsUnavailable = errors.New("Merkl reports unclaimed Base USDC but has
 
 // CompetitionLeaf is an unclaimed USDC reward on Base with proofs for its cumulative amount.
 type CompetitionLeaf struct {
-	Amount  *big.Int
-	Claimed *big.Int
-	Proofs  [][32]byte
-	Root    string
+	Amount     *big.Int
+	Claimed    *big.Int
+	Proofs     [][32]byte
+	Root       string
+	breakdowns []*v2.UserRewardBreakdown
 }
 
 // FindCompetitionLeaf returns nil when no matching reward has an unclaimed balance.
@@ -88,7 +91,7 @@ func FindCompetitionLeaf(resp *v2.GetUserRewardsResponse, agent string) (*Compet
 				}
 				proofs[i] = [32]byte(b)
 			}
-			leaf = &CompetitionLeaf{Amount: amount, Claimed: claimed, Proofs: proofs, Root: r.Root}
+			leaf = &CompetitionLeaf{Amount: amount, Claimed: claimed, Proofs: proofs, Root: r.Root, breakdowns: r.GetBreakdowns()}
 		}
 	}
 	if leaf == nil && missingProofs {
@@ -99,13 +102,16 @@ func FindCompetitionLeaf(resp *v2.GetUserRewardsResponse, agent string) (*Compet
 
 // EncodeCompetitionClaim packs a single USDC leaf using its cumulative Merkl amount.
 func EncodeCompetitionClaim(agent string, amount *big.Int, proofs [][32]byte) ([]byte, error) {
-	return distributorABI.Pack("claim", []common.Address{common.HexToAddress(agent)}, []common.Address{common.HexToAddress(CompetitionToken)}, []*big.Int{amount}, [][][32]byte{proofs})
+	wallet := []common.Address{common.HexToAddress(agent)}
+	return distributorABI.Pack(claimMethod, wallet, []common.Address{common.HexToAddress(CompetitionToken)}, []*big.Int{amount}, [][][32]byte{proofs}, wallet, [][]byte{nil})
 }
 
 // VerifyCompetitionClaim decodes the sealed template and requires exactly one
-// claim of the competition's USDC, for the agent, to the distributor, with no value.
+// Distributor call with the agent as both reward owner and explicit payout
+// recipient, with no value or callback. A self-claim with a nonzero recipient
+// bypasses both the token-specific and global recipient defaults.
 func VerifyCompetitionClaim(in journal.OnchainIntent, agent string) error {
-	if in.ChainID != CompetitionChain || len(in.Templates) != 1 || !strings.EqualFold(in.Sender, agent) || !strings.EqualFold(in.Recipient, agent) || !strings.EqualFold(in.Token, CompetitionToken) {
+	if !common.IsHexAddress(agent) || common.HexToAddress(agent) == (common.Address{}) || in.ChainID != CompetitionChain || len(in.Templates) != 1 || !strings.EqualFold(in.Sender, agent) || !strings.EqualFold(in.Recipient, agent) || !strings.EqualFold(in.Token, CompetitionToken) {
 		return errors.New("claim intent chain, wallet or token differs")
 	}
 	t := in.Templates[0]
@@ -117,26 +123,26 @@ func VerifyCompetitionClaim(in journal.OnchainIntent, agent string) error {
 		return errors.New("claim calldata malformed")
 	}
 	m, err := distributorABI.MethodById(data[:4])
-	if err != nil || m.Name != "claim" {
-		return errors.New("calldata is not a Merkl claim")
+	if err != nil || m.Name != claimMethod {
+		return errors.New("calldata is not a Merkl claim with an explicit recipient")
 	}
 	args, err := m.Inputs.Unpack(data[4:])
-	if err != nil || len(args) != 4 {
+	if err != nil || len(args) != 6 {
 		return errors.New("claim calldata malformed")
 	}
-	users, _ := args[0].([]common.Address)
-	tokens, _ := args[1].([]common.Address)
-	amounts, _ := args[2].([]*big.Int)
-	proofs, _ := args[3].([][][32]byte)
-	if len(users) != 1 || len(tokens) != 1 || len(amounts) != 1 || len(proofs) != 1 {
+	// ABI decoding guarantees the argument types. Canonical repacking below
+	// checks the recipient and callback arrays against the explicit self-claim.
+	amounts := args[2].([]*big.Int)
+	proofs := args[3].([][][32]byte)
+	if len(amounts) != 1 || len(proofs) != 1 || len(proofs[0]) == 0 {
 		return errors.New("claim must settle exactly one leaf")
 	}
-	if !strings.EqualFold(users[0].Hex(), agent) || !strings.EqualFold(tokens[0].Hex(), CompetitionToken) || amounts[0].String() != in.Amount {
-		return errors.New("claim user, token or amount differs from the intent")
+	if amounts[0].String() != in.Amount {
+		return errors.New("claim amount differs from the intent")
 	}
 	again, err := EncodeCompetitionClaim(agent, amounts[0], proofs[0])
 	if err != nil || !strings.EqualFold(hexutil.Encode(again), t.Data) {
-		return errors.New("claim calldata is not canonical")
+		return errors.New("claim calldata differs from the canonical self-claim with no callback")
 	}
 	return nil
 }

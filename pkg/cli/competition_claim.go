@@ -19,7 +19,7 @@ import (
 
 // Competition reward claims: the competition pays USDC on Base through a
 // Merkl distribution. prepare reads fresh proofs from the account
-// MerklService, builds one Distributor.claim call for the agent alone and
+// MerklService, builds one Distributor.claimWithRecipient call for the agent and
 // journals it; submit re-derives that exact call from the intent before it
 // signs. A cumulative USDC leaf can settle more than the competition award.
 
@@ -30,6 +30,7 @@ const (
 )
 
 func competitionClaimResult(r *journal.OnchainRecord, preview map[string]any) *result {
+	boundRecipient := merkl.VerifyCompetitionClaim(r.OnchainIntent, r.Sender) == nil
 	claimable := "unknown" // Older intents did not record an unclaimed balance.
 	unclaimed, haveUnclaimed := new(big.Int).SetString(r.ClaimableAmount, 10)
 	if haveUnclaimed {
@@ -39,28 +40,38 @@ func competitionClaimResult(r *journal.OnchainRecord, preview map[string]any) *r
 	if raw, ok := new(big.Int).SetString(r.Amount, 10); ok {
 		cumulative = formatUnits(raw, 6)
 	}
-	data := map[string]any{"intent": r, "claimable_usdc": claimable, "cumulative_merkl_usdc": cumulative}
+	data := map[string]any{"intent": r, "claimable_usdc": claimable, "cumulative_merkl_usdc": cumulative, "recipient_bound": boundRecipient}
 	if preview != nil {
 		preview["claimable_usdc"] = claimable
 		preview["cumulative_raw"] = r.Amount
 		data["preview"] = preview
 	}
-	var scope string
-	if award, ok := new(big.Int).SetString(r.CompetitionAwardAmount, 10); ok && haveUnclaimed {
-		data["competition_award_usdc"] = formatUnits(award, 6)
-		scope = fmt.Sprintf("Competition reports %s USDC claimable. Merkl settles the wallet's USDC across campaigns.", formatUnits(award, 6))
-		if extra := new(big.Int).Sub(unclaimed, award); extra.Sign() > 0 {
-			scope += fmt.Sprintf(" This claim also settles %s USDC from other campaigns beyond the reported competition award.", formatUnits(extra, 6))
+	attributed, other, haveAttribution := sealedCompetitionAmounts(r.OnchainIntent)
+	scope := "Campaign attribution was not verified for this intent."
+	if boundRecipient && haveAttribution {
+		if award, ok := new(big.Int).SetString(r.CompetitionAwardAmount, 10); ok {
+			data["competition_award_usdc"] = formatUnits(award, 6)
 		}
-		data["claim_scope"] = scope
-		if preview != nil {
-			preview["claim_scope"] = scope
-		}
+		data["competition_claimable_usdc"] = formatUnits(attributed, 6)
+		data["other_campaigns_claimable_usdc"] = formatUnits(other, 6)
+		scope = fmt.Sprintf("Merkl's breakdown at prepare: %s USDC from the competition and %s USDC from other campaigns.", formatUnits(attributed, 6), formatUnits(other, 6))
+	}
+	data["claim_scope"] = scope
+	if !boundRecipient {
+		data["payout_warning"] = "This intent did not bind the payout recipient. A successful receipt does not verify payment to the agent."
+	}
+	if preview != nil {
+		preview["claim_scope"] = scope
 	}
 	return &result{data: data, human: func(w io.Writer) {
-		fmt.Fprintf(w, "competition claim %s on Base to %s\n", r.ID, r.Recipient)
-		fmt.Fprintf(w, "  Claims %s USDC (cumulative Merkl amount %s USDC)\n", claimable, cumulative)
-		if scope != "" && preview == nil {
+		fmt.Fprintf(w, "competition claim %s on Base\n", r.ID)
+		if boundRecipient {
+			fmt.Fprintf(w, "  Bound payout recipient: %s\n", r.Recipient)
+		} else {
+			fmt.Fprintf(w, "  %s\n", data["payout_warning"])
+		}
+		fmt.Fprintf(w, "  Claimable at prepare: %s USDC (cumulative Merkl amount %s USDC)\n", claimable, cumulative)
+		if preview == nil {
 			fmt.Fprintf(w, "  %s\n", scope)
 		}
 		for _, k := range sortedKeys(preview) {
@@ -71,13 +82,23 @@ func competitionClaimResult(r *journal.OnchainRecord, preview map[string]any) *r
 			fmt.Fprintf(w, "Tx: %s\n", r.Hashes[len(r.Hashes)-1])
 		}
 		if r.State == "prepared" {
-			if r.CompetitionAwardAmount == "" {
-				fmt.Fprintln(w, "Prepare again to verify competition eligibility before submitting.")
+			if !boundRecipient || !haveAttribution {
+				fmt.Fprintln(w, "Prepare again and approve the new preview before submitting.")
 			} else {
 				fmt.Fprintf(w, "Submit with: oku competition claim submit --intent %s --digest %s\n", r.ID, r.Digest)
 			}
 		}
 	}}
+}
+
+func sealedCompetitionAmounts(in journal.OnchainIntent) (competition, other *big.Int, ok bool) {
+	competition, haveCompetition := new(big.Int).SetString(in.CompetitionClaimableAmount, 10)
+	claimable, haveClaimable := new(big.Int).SetString(in.ClaimableAmount, 10)
+	cumulative, haveCumulative := new(big.Int).SetString(in.Amount, 10)
+	if !haveCompetition || !haveClaimable || !haveCumulative || competition.Sign() <= 0 || competition.Cmp(claimable) > 0 || claimable.Cmp(cumulative) > 0 {
+		return nil, nil, false
+	}
+	return competition, new(big.Int).Sub(claimable, competition), true
 }
 
 func (a *App) cmdCompetitionClaimPrepare(e *env) (*result, error) {
@@ -86,7 +107,7 @@ func (a *App) cmdCompetitionClaimPrepare(e *env) (*result, error) {
 		return nil, err
 	}
 	agent := strings.ToLower(w.agent)
-	award, err := competitionClaimableAward(e, agent)
+	award, campaigns, err := competitionClaimableAward(e, agent)
 	if err != nil {
 		return nil, err
 	}
@@ -108,8 +129,9 @@ func (a *App) cmdCompetitionClaimPrepare(e *env) (*result, error) {
 		return nil, output.Errorf(output.CodeNotFound, "no claimable competition USDC on Base for %s; check 'oku competition status'", agent)
 	}
 	claimable := new(big.Int).Sub(leaf.Amount, leaf.Claimed)
-	if claimable.Cmp(award) < 0 {
-		return nil, output.Errorf(output.CodePayloadMismatch, "Merkl's unclaimed Base USDC does not cover the reported competition award; try preparing again after the reward is published")
+	competition, err := leaf.UnclaimedCompetitionAmount(campaigns)
+	if err != nil {
+		return nil, output.Wrap(output.CodeUpstream, err, "cannot verify an unclaimed competition payout")
 	}
 	data, err := merkl.EncodeCompetitionClaim(agent, leaf.Amount, leaf.Proofs)
 	if err != nil {
@@ -135,7 +157,7 @@ func (a *App) cmdCompetitionClaimPrepare(e *env) (*result, error) {
 	in := journal.OnchainIntent{
 		ID: randomID(), Kind: competitionClaimKind, ChainID: merkl.CompetitionChain,
 		Sender: agent, Recipient: agent, Token: merkl.CompetitionToken,
-		Amount: leaf.Amount.String(), ClaimableAmount: claimable.String(), CompetitionAwardAmount: award.String(),
+		Amount: leaf.Amount.String(), ClaimableAmount: claimable.String(), CompetitionAwardAmount: award.String(), CompetitionClaimableAmount: competition.String(),
 		Templates: []journal.OnchainTemplate{tpl}, ExpiresAt: now.Add(competitionClaimTTL).Format(time.RFC3339Nano), CreatedAt: now.Format(time.RFC3339Nano),
 	}
 	if err := merkl.VerifyCompetitionClaim(in, agent); err != nil {
@@ -154,10 +176,10 @@ func (a *App) cmdCompetitionClaimPrepare(e *env) (*result, error) {
 	return competitionClaimResult(r, preview), nil
 }
 
-func competitionClaimableAward(e *env, agent string) (*big.Int, error) {
+func competitionClaimableAward(e *env, agent string) (*big.Int, []string, error) {
 	var participant v2.GetParticipantResponse
 	if err := e.competitionCall("GetParticipant", &v2.GetParticipantRequest{Wallet: agent}, &participant); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	base := fmt.Sprintf("eip155:%d", merkl.CompetitionChain)
 	award := new(big.Int)
@@ -171,18 +193,18 @@ func competitionClaimableAward(e *env, agent string) (*big.Int, error) {
 			// GetParticipant reports token units. Merkl reports raw base units.
 			amount, err := parseNonnegativeUnits(reward.GetAmount(), 6)
 			if err != nil || token.GetDecimals() != 6 {
-				return nil, output.Errorf(output.CodeUpstream, "GetParticipant returned an invalid Base USDC award")
+				return nil, nil, output.Errorf(output.CodeUpstream, "GetParticipant returned an invalid Base USDC award")
 			}
 			award.Add(award, amount)
 		}
 	}
 	if award.Sign() == 0 {
-		return nil, output.Errorf(output.CodeNotFound, "no claimable competition USDC on Base for %s; check 'oku competition status'", agent)
+		return nil, nil, output.Errorf(output.CodeNotFound, "no claimable competition USDC on Base for %s; check 'oku competition status'", agent)
 	}
 	if participant.Claim.GetChain() != base || !strings.EqualFold(participant.Claim.GetDistributor(), merkl.Distributor) {
-		return nil, output.Errorf(output.CodePayloadMismatch, "GetParticipant did not report the expected Merkl distributor on Base")
+		return nil, nil, output.Errorf(output.CodePayloadMismatch, "GetParticipant did not report the expected Merkl distributor on Base")
 	}
-	return award, nil
+	return award, participant.Claim.GetCampaignIds(), nil
 }
 
 func (a *App) cmdCompetitionClaimSubmit(e *env) (*result, error) {
@@ -226,8 +248,11 @@ func (a *App) cmdCompetitionClaimSubmit(e *env) (*result, error) {
 	if r.State != "prepared" || r.Digest != str(e, "digest") {
 		return nil, output.Errorf(output.CodeIntentState, "intent changed while waiting for chain lock")
 	}
-	if r.CompetitionAwardAmount == "" {
-		return nil, output.Errorf(output.CodeIntentState, "claim intent has no verified competition award; run competition claim prepare again")
+	if r.OnchainIntent.Digest() != r.Digest {
+		return nil, output.Errorf(output.CodePayloadMismatch, "stored claim no longer matches its approved digest")
+	}
+	if _, _, ok := sealedCompetitionAmounts(r.OnchainIntent); !ok {
+		return nil, output.Errorf(output.CodeIntentState, "claim intent has no verified competition campaign attribution; prepare again and approve the new preview")
 	}
 	if err := merkl.VerifyCompetitionClaim(r.OnchainIntent, agent); err != nil {
 		return nil, output.Wrap(output.CodePayloadMismatch, err, "refusing unverified claim")
