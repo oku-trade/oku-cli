@@ -341,7 +341,13 @@ The Oku trading competition is scored by Voltrade and served by the account `Com
 - `oku competition status [--wallet 0x..]`: registration, rank, counted volume, pot minimum, projected reward, raffle wins, today's counted volume against the daily cap and raffle eligibility, rewards and the Merkl claim distributor. The default is the enrolled agent wallet.
 - `oku competition register`: registers the **agent wallet**, which trades through the CLI so its volume counts. Without `--accept` it only prints the consent message the server issued and signs nothing. `--accept` signs that exact message with EIP-191 `personal_sign` through Privy and completes registration. A challenge within 30s of expiry is replaced before signing. An already registered wallet returns `alreadyRegistered: true` without signing. Typed refusals map to `REJECTED` (with `details.failure`, e.g. `registered_with_other_wallet`, `registration_closed`, `banned`), `RATE_LIMITED` or retryable `UPSTREAM_ERROR`. Over MCP, `competition register` is a mutation tool.
 
-Claiming rewards is not done by the CLI yet: use the competition page on the Oku website once `status` shows a claimable reward.
+Rewards are paid in USDC on Base through Merkl. Once `status` shows a `claimable` reward:
+
+- `oku competition claim prepare` reads fresh proofs from the account `MerklService.GetUserRewards`, keeps only the USDC-on-Base leaf for the agent wallet, builds one `Distributor.claim` call to Merkl's distributor (`0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae`), simulates it when the Base RPC supports `eth_simulateV1`, and journals an intent. It never signs. The preview shows `claimable_usdc`. `NOT_FOUND` means nothing is claimable yet. A different distributor or recipient is refused with `PAYLOAD_MISMATCH`.
+- `oku competition claim submit --intent ID --digest SHA` re-decodes and re-encodes the sealed call (user, token, amount, target, no value) before signing, then broadcasts it from the agent. The intent expires after 10 minutes because Merkl roots rotate, so prepare again if it does.
+- `oku competition claim status --intent ID` and `oku competition claim reconcile --intent ID --tx-hash 0x..` follow the same rules as other onchain intents: never resubmit an `unknown` claim.
+
+The claim needs a Base RPC (`oku rpc set 8453 URL`) and a little ETH on Base for gas. Only the agent wallet's reward can be claimed here. A wallet registered on the website claims there.
 
 ## Agent-to-master deposits
 

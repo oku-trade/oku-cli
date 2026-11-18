@@ -21,6 +21,7 @@ type fundsClients struct {
 	portfolio   accountv2connect.PortfolioServiceClient
 	lending     accountv2connect.LendingServiceClient
 	competition accountv2connect.CompetitionServiceClient
+	merkl       accountv2connect.MerklServiceClient
 }
 
 func (c *Client) History(ctx context.Context, req *accountv1.OrderHistoryRequest, resp *accountv1.OrderHistoryResponse) error {

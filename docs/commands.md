@@ -248,6 +248,42 @@ Submit a backend-built EVM bridge
 | `--intent` | intent id from 'bridge prepare' (required) | `` |
 | `--digest` | intent digest from 'bridge prepare' (required) | `` |
 
+## `oku competition claim prepare`
+
+Prepare claiming the agent's competition USDC on Base from Merkl with fresh proofs (never signs)
+
+## `oku competition claim reconcile`
+
+Attach and verify a recovered competition claim transaction hash
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | unresolved intent ID | `` |
+| `--tx-hash` | recovered onchain transaction hash | `` |
+
+## `oku competition claim status`
+
+Reconcile a competition claim intent
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id (required) | `` |
+
+## `oku competition claim submit`
+
+Submit a verified competition claim intent
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id from 'competition claim prepare prepare' (required) | `` |
+| `--digest` | intent digest from 'competition claim prepare prepare' (required) | `` |
+
 ## `oku competition info`
 
 Trading competition: phase, schedule, prize pool, rules, eligible stocks and raffle days (read-only)

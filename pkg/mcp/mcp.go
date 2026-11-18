@@ -80,6 +80,7 @@ var (
 		"loop open": true, "loop adjust": true, "loop unwind": true, "loop status": true,
 		// Trading competition reads.
 		"competition info": true, "competition leaderboard": true, "competition status": true,
+		"competition claim prepare": true, "competition claim status": true,
 	}
 	// docs are served as resources; tool exposure of docs commands is
 	// intentionally omitted.
@@ -96,7 +97,7 @@ var (
 		// Lending: these sign and broadcast with Privy.
 		"earn submit": true, "earn reconcile": true, "borrow submit": true, "borrow reconcile": true, "loop submit": true, "loop reconcile": true,
 		// Competition registration signs a consent message with the agent wallet.
-		"competition register": true,
+		"competition register": true, "competition claim submit": true, "competition claim reconcile": true,
 	}
 	// positional names commands take as arguments instead of options.
 	positional = map[string][]Option{

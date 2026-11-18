@@ -35,3 +35,19 @@ var competitionMethods = map[string]handler{
 		return f.competition.CompleteRegistration
 	}),
 }
+
+// Merkl calls an allowlisted MerklService method. Only GetUserRewards is
+// vendored: it returns the proofs a competition claim needs.
+func (c *Client) Merkl(ctx context.Context, method string, req, resp any, authed bool) error {
+	h, ok := merklMethods[method]
+	if !ok {
+		return &Error{Code: "unimplemented", Message: "MerklService/" + method + " is not supported"}
+	}
+	return c.call(ctx, h, req, resp, authed, false)
+}
+
+var merklMethods = map[string]handler{
+	"GetUserRewards": fundsRPC[accountv2.GetUserRewardsRequest, accountv2.GetUserRewardsResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.GetUserRewardsRequest]) (*connect.Response[accountv2.GetUserRewardsResponse], error) {
+		return f.merkl.GetUserRewards
+	}),
+}

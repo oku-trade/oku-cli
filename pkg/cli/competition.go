@@ -30,10 +30,14 @@ var evmAddress = regexp.MustCompile(`^0x[0-9a-fA-F]{40}$`)
 
 func (a *App) competitionCommands() map[string]*handler {
 	return map[string]*handler{
-		"competition info":        {summary: "Trading competition: phase, schedule, prize pool, rules, eligible stocks and raffle days (read-only)", run: a.cmdCompetitionInfo},
-		"competition leaderboard": {summary: "Trading competition leaderboard: one page, or every row with --all; --search filters by name or wallet (read-only)", flags: competitionLeaderboardFlags, run: a.cmdCompetitionLeaderboard},
-		"competition status":      {summary: "A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet; read-only)", flags: competitionWalletFlags, run: a.cmdCompetitionStatus},
-		"competition register":    {summary: "Register the agent wallet for the trading competition: shows the consent message, signs it only with --accept", flags: competitionRegisterFlags, run: a.cmdCompetitionRegister},
+		"competition info":            {summary: "Trading competition: phase, schedule, prize pool, rules, eligible stocks and raffle days (read-only)", run: a.cmdCompetitionInfo},
+		"competition leaderboard":     {summary: "Trading competition leaderboard: one page, or every row with --all; --search filters by name or wallet (read-only)", flags: competitionLeaderboardFlags, run: a.cmdCompetitionLeaderboard},
+		"competition status":          {summary: "A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet; read-only)", flags: competitionWalletFlags, run: a.cmdCompetitionStatus},
+		"competition register":        {summary: "Register the agent wallet for the trading competition: shows the consent message, signs it only with --accept", flags: competitionRegisterFlags, run: a.cmdCompetitionRegister},
+		"competition claim prepare":   {summary: "Prepare claiming the agent's competition USDC on Base from Merkl with fresh proofs (never signs)", run: a.cmdCompetitionClaimPrepare},
+		"competition claim submit":    {summary: "Submit a verified competition claim intent", flags: func() []urfave.Flag { return submitFlagsFor("competition claim prepare") }, run: a.cmdCompetitionClaimSubmit, required: map[string]bool{"intent": true, "digest": true}},
+		"competition claim status":    {summary: "Reconcile a competition claim intent", flags: statusFlags, run: a.cmdCompetitionClaimStatus, required: map[string]bool{"intent": true}},
+		"competition claim reconcile": {summary: "Attach and verify a recovered competition claim transaction hash", flags: reconcileFlags, run: a.cmdCompetitionClaimReconcile, required: map[string]bool{"intent": true, "tx-hash": true}},
 	}
 }
 

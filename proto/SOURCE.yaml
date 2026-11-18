@@ -27,4 +27,8 @@ files:
   # CompetitionService (trading competition, scored by Voltrade).
   - path: gfxcafe/oku/account/v2/competition.proto
     commit: a01ef23980a07d579e59bc5a28d3145ceecad5f9
+  # MerklService: only GetUserRewards and its messages (competition claims);
+  # campaign RPCs and Chain.explorers are trimmed.
+  - path: gfxcafe/oku/account/v2/merkl.proto
+    commit: a01ef23980a07d579e59bc5a28d3145ceecad5f9
   - buf/validate/validate.proto

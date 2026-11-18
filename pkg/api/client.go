@@ -147,6 +147,7 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 			portfolio:   accountv2connect.NewPortfolioServiceClient(doer, base, opts...),
 			lending:     accountv2connect.NewLendingServiceClient(doer, base, opts...),
 			competition: accountv2connect.NewCompetitionServiceClient(doer, base, opts...),
+			merkl:       accountv2connect.NewMerklServiceClient(doer, base, opts...),
 		},
 		body, hdr)
 	if err != nil {
