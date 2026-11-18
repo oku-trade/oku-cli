@@ -78,6 +78,8 @@ var (
 		"earn vaults": true, "earn positions": true, "earn prepare": true, "earn status": true,
 		"borrow markets": true, "borrow positions": true, "borrow prepare": true, "borrow status": true,
 		"loop open": true, "loop adjust": true, "loop unwind": true, "loop status": true,
+		// Trading competition reads.
+		"competition info": true, "competition leaderboard": true, "competition status": true,
 	}
 	// docs are served as resources; tool exposure of docs commands is
 	// intentionally omitted.
@@ -93,6 +95,8 @@ var (
 		"swap orders create": true, "swap orders cancel": true, "swap orders watch": true,
 		// Lending: these sign and broadcast with Privy.
 		"earn submit": true, "earn reconcile": true, "borrow submit": true, "borrow reconcile": true, "loop submit": true, "loop reconcile": true,
+		// Competition registration signs a consent message with the agent wallet.
+		"competition register": true,
 	}
 	// positional names commands take as arguments instead of options.
 	positional = map[string][]Option{

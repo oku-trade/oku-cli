@@ -139,13 +139,14 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 		accountv2connect.NewPerpsServiceClient(doer, base, opts...),
 		accountv1connect.NewAuthServiceClient(doer, base, opts...),
 		fundsClients{
-			history:   accountv1connect.NewOrderHistoryServiceClient(doer, base, opts...),
-			swap:      accountv2connect.NewSimpleSwapServiceV2Client(doer, base, opts...),
-			bridge:    accountv2connect.NewBridgeServiceClient(doer, base, opts...),
-			onchain:   accountv2connect.NewOnchainServiceClient(doer, base, opts...),
-			token:     accountv2connect.NewTokenServiceClient(doer, base, opts...),
-			portfolio: accountv2connect.NewPortfolioServiceClient(doer, base, opts...),
-			lending:   accountv2connect.NewLendingServiceClient(doer, base, opts...),
+			history:     accountv1connect.NewOrderHistoryServiceClient(doer, base, opts...),
+			swap:        accountv2connect.NewSimpleSwapServiceV2Client(doer, base, opts...),
+			bridge:      accountv2connect.NewBridgeServiceClient(doer, base, opts...),
+			onchain:     accountv2connect.NewOnchainServiceClient(doer, base, opts...),
+			token:       accountv2connect.NewTokenServiceClient(doer, base, opts...),
+			portfolio:   accountv2connect.NewPortfolioServiceClient(doer, base, opts...),
+			lending:     accountv2connect.NewLendingServiceClient(doer, base, opts...),
+			competition: accountv2connect.NewCompetitionServiceClient(doer, base, opts...),
 		},
 		body, hdr)
 	if err != nil {

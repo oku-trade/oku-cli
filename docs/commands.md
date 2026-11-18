@@ -248,6 +248,43 @@ Submit a backend-built EVM bridge
 | `--intent` | intent id from 'bridge prepare' (required) | `` |
 | `--digest` | intent digest from 'bridge prepare' (required) | `` |
 
+## `oku competition info`
+
+Trading competition: phase, schedule, prize pool, rules, eligible stocks and raffle days (read-only)
+
+## `oku competition leaderboard`
+
+Trading competition leaderboard: one page, or every row with --all; --search filters by name or wallet (read-only)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--page` | 1-based page | `1` |
+| `--page-size` | rows per page (max 100) | `25` |
+| `--all` | read every page | `false` |
+| `--search` | only rows whose display name or short wallet contains this text (reads every page) | `` |
+
+## `oku competition register`
+
+Register the agent wallet for the trading competition: shows the consent message, signs it only with --accept
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--accept` | accept the consent and sign the registration message with the agent wallet | `false` |
+
+## `oku competition status`
+
+A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet; read-only)
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--wallet` | EVM wallet to read (default: the enrolled agent wallet) | `` |
+
 ## `oku completion bash|zsh|fish`
 
 Print a shell completion script; no network or credential access

@@ -40,6 +40,7 @@ type fakePrivy struct {
 	batches                                      [][]map[string]string
 	transactions                                 []map[string]any
 	typedRequests                                []map[string]any
+	personalMessages                             []string
 }
 
 func newFakePrivy(t *testing.T) *fakePrivy {
@@ -177,6 +178,27 @@ func (f *fakePrivy) serve(w http.ResponseWriter, r *http.Request) {
 		if f.failSign {
 			w.WriteHeader(503)
 			reply(map[string]string{"error": "signing_unavailable"})
+			return
+		}
+		if envelope.Method == "personal_sign" {
+			var ps struct {
+				Params struct {
+					Message  string `json:"message"`
+					Encoding string `json:"encoding"`
+				} `json:"params"`
+			}
+			_ = json.Unmarshal(body, &ps)
+			f.personalMessages = append(f.personalMessages, ps.Params.Message)
+			if ps.Params.Encoding != "utf-8" {
+				f.t.Errorf("personal_sign encoding %q", ps.Params.Encoding)
+			}
+			sig, err := f.signer.SignDigest(personalDigest(ps.Params.Message))
+			if err != nil {
+				f.t.Error(err)
+				return
+			}
+			// Privy returns v as 0/1; the client normalizes it to 27/28.
+			reply(map[string]any{"data": map[string]string{"signature": sig.R + strings.TrimPrefix(sig.S, "0x") + fmt.Sprintf("%02x", sig.V-27)}})
 			return
 		}
 		var typedEnvelope struct {

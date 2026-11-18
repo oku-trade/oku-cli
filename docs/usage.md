@@ -332,6 +332,17 @@ oku pnl [--range 1d|7d|30d|all] [--chain 42161] [--json]
 
 JSON `data` fields: `range`, `agent`, `chain` (when set), `chain_scope`, `read_only`, `fetched_at`, `sources[]` (`source`, `label`, `status`, `error`, `range`, `in_total`, `address`, `pnl_usd`, and per source: `change_usd`, `start_value_usd`, `end_value_usd`, `value_usd`, `points`, `excludes`, `warnings` for net worth, `as_of_ms` for perps, `realized_usd`, `unrealized_usd`, `chains[]` for agent swaps) and `total` (`status`, `pnl_usd`, `included`, `omitted[]` with `source` and `reason`, `note`). Over MCP, `pnl` is a read tool.
 
+## Trading competition
+
+The Oku trading competition is scored by Voltrade and served by the account `CompetitionService`. Every read is public, needs no login and is read-only over MCP.
+
+- `oku competition info`: phase, start and end, next daily reset, prize pool, participants, total volume, rules (pot minimum, daily cap, raffle), eligible stocks on Base and each raffle day with its winners.
+- `oku competition leaderboard [--page N] [--page-size N]`: one ranked page (max 100 rows). `--all` reads every page and `--search TEXT` filters every row by display name or short wallet.
+- `oku competition status [--wallet 0x..]`: registration, rank, counted volume, pot minimum, projected reward, raffle wins, today's counted volume against the daily cap and raffle eligibility, rewards and the Merkl claim distributor. The default is the enrolled agent wallet.
+- `oku competition register`: registers the **agent wallet**, which trades through the CLI so its volume counts. Without `--accept` it only prints the consent message the server issued and signs nothing. `--accept` signs that exact message with EIP-191 `personal_sign` through Privy and completes registration. A challenge within 30s of expiry is replaced before signing. An already registered wallet returns `alreadyRegistered: true` without signing. Typed refusals map to `REJECTED` (with `details.failure`, e.g. `registered_with_other_wallet`, `registration_closed`, `banned`), `RATE_LIMITED` or retryable `UPSTREAM_ERROR`. Over MCP, `competition register` is a mutation tool.
+
+Claiming rewards is not done by the CLI yet: use the competition page on the Oku website once `status` shows a claimable reward.
+
 ## Agent-to-master deposits
 
 `oku deposit prepare --amount N` prepares an Arbitrum USDC transfer **from agent to master EOA**, not a deposit to Hyperliquid. The master then deposits from its own wallet. `oku deposit address --asset ... --source-chain ...` reads a HyperUnit address explicitly bound to the master for external funding. Never send agent-held USDC directly to the HL bridge.

@@ -51,6 +51,7 @@ The error object has `code`, `message`, `retryable` and sometimes `execution_sta
 | Unknown Hyperliquid outcomes, recovery | reconcile-hyperliquid-actions |
 | Unknown onchain send/swap/deposit outcomes, recovery | move-agent-funds |
 | Uniswap v3/v4 liquidity positions, ranges, fees, LP intent recovery | provide-uniswap-liquidity |
+| Trading competition: rules, leaderboard, own standing, registration | no skill: `oku competition info`, `leaderboard`, `status`; `register` previews the consent message, and only `register --accept` (after the user approves that message) signs it with the agent wallet. See `oku docs show usage`. |
 
 ## Agent integration
 
