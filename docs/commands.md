@@ -281,8 +281,8 @@ Submit a verified competition claim intent
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--intent` | intent id from 'competition claim prepare prepare' (required) | `` |
-| `--digest` | intent digest from 'competition claim prepare prepare' (required) | `` |
+| `--intent` | intent id from 'competition claim prepare' (required) | `` |
+| `--digest` | intent digest from 'competition claim prepare' (required) | `` |
 
 ## `oku competition info`
 

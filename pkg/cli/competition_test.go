@@ -100,7 +100,11 @@ func TestCompetitionLeaderboardPagesAndSearch(t *testing.T) {
 			n := int(page-1)*int(size) + i + 1
 			rows = append(rows, map[string]any{"rank": n, "displayName": fmt.Sprintf("trader%d", n), "shortWallet": "0x00...00", "countedVolumeUsd": "10", "raffleWinningsUsd": "0"})
 		}
-		return map[string]any{"rows": rows, "totalCount": "150"}, true
+		if page == 2 && size == competitionPageSize {
+			// A row moved across the page boundary while we were reading.
+			rows = append(rows, map[string]any{"rank": 100, "displayName": "trader100", "shortWallet": "0x00...00"})
+		}
+		return map[string]any{"rows": rows, "totalCount": "400"}, true
 	}
 	r := h.run("competition", "leaderboard", "--page", "2", "--page-size", "10", "--json")
 	if r.code != 0 || len(r.data()["rows"].([]any)) != 10 || r.data()["page"] != float64(2) {
@@ -119,6 +123,13 @@ func TestCompetitionLeaderboardPagesAndSearch(t *testing.T) {
 	}
 	if r := h.run("competition", "leaderboard", "--page-size", "101", "--json"); r.errCode() != "INVALID_ARGUMENT" {
 		t.Fatalf("oversized page: %s", r.stdout)
+	}
+	pages = nil
+	for _, flags := range [][]string{{"--all", "--page", "1"}, {"--search", "trader", "--page-size", "25"}} {
+		args := append([]string{"competition", "leaderboard", "--json"}, flags...)
+		if r := h.run(args...); r.errCode() != "INVALID_ARGUMENT" || len(pages) != 0 {
+			t.Fatalf("conflicting flags %v fetched %v: %s", flags, pages, r.stdout)
+		}
 	}
 }
 
