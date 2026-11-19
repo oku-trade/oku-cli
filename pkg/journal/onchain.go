@@ -50,9 +50,6 @@ type OnchainIntent struct {
 	ClaimableAmount string `json:"claimable_amount,omitempty"`
 	// CompetitionAwardAmount is the raw award reported by the competition.
 	CompetitionAwardAmount string `json:"competition_award_amount,omitempty"`
-	// CompetitionClaimableAmount is the raw unclaimed portion attributed to
-	// the competition by the Merkl breakdown at prepare, not by the award feed.
-	CompetitionClaimableAmount string `json:"competition_claimable_amount,omitempty"`
 }
 type OnchainTemplate struct {
 	ChainID  uint64 `json:"chain_id"`
@@ -67,24 +64,30 @@ type OnchainTemplate struct {
 
 func (in OnchainIntent) Digest() string {
 	b, _ := json.Marshal(in)
+	return onchainDigest(b)
+}
+
+func onchainDigest(b []byte) string {
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
 }
 
 type OnchainRecord struct {
 	OnchainIntent
-	Digest          string   `json:"digest"`
-	State           string   `json:"state"`
-	Hashes          []string `json:"tx_hashes"`
-	Batch           *Batch   `json:"batch,omitempty"`
-	NextStep        string   `json:"next_step,omitempty"`
-	ExecutionMode   string   `json:"execution_mode,omitempty"`
-	StepIndex       int      `json:"step_index,omitempty"`
-	StepInFlight    bool     `json:"step_in_flight,omitempty"`
-	ApprovalSkipped bool     `json:"approval_skipped,omitempty"`
-	BackendOrderID  string   `json:"backend_order_id,omitempty"`
-	Fill            *Fill    `json:"fill,omitempty"`
-	UpdatedAt       string   `json:"updated_at"`
+	// LegacyClaimPreview marks a sealed preview that predates whole-balance disclosure.
+	LegacyClaimPreview bool     `json:"-"`
+	Digest             string   `json:"digest"`
+	State              string   `json:"state"`
+	Hashes             []string `json:"tx_hashes"`
+	Batch              *Batch   `json:"batch,omitempty"`
+	NextStep           string   `json:"next_step,omitempty"`
+	ExecutionMode      string   `json:"execution_mode,omitempty"`
+	StepIndex          int      `json:"step_index,omitempty"`
+	StepInFlight       bool     `json:"step_in_flight,omitempty"`
+	ApprovalSkipped    bool     `json:"approval_skipped,omitempty"`
+	BackendOrderID     string   `json:"backend_order_id,omitempty"`
+	Fill               *Fill    `json:"fill,omitempty"`
+	UpdatedAt          string   `json:"updated_at"`
 }
 
 // Fill is what a confirmed swap actually delivered, read from its receipts.
@@ -144,7 +147,11 @@ func (j *Journal) GetOnchain(id string) (*OnchainRecord, error) {
 		return nil, err
 	}
 	r := &OnchainRecord{Digest: digest, State: state, BackendOrderID: order, UpdatedAt: updated, ExecutionMode: mode, StepIndex: step, StepInFlight: inflight != 0, ApprovalSkipped: skipped != 0}
-	if err = json.Unmarshal([]byte(raw), &r.OnchainIntent); err != nil {
+	stored := struct {
+		*OnchainIntent
+		LegacyCampaignAmount string `json:"competition_claimable_amount"`
+	}{OnchainIntent: &r.OnchainIntent}
+	if err = json.Unmarshal([]byte(raw), &stored); err != nil {
 		return nil, err
 	}
 	if err = json.Unmarshal([]byte(hashes), &r.Hashes); err != nil {
@@ -162,7 +169,14 @@ func (j *Journal) GetOnchain(id string) (*OnchainRecord, error) {
 			return nil, err
 		}
 	}
-	if r.ID != id || r.OnchainIntent.Digest() != digest {
+	actualDigest := r.OnchainIntent.Digest()
+	if stored.LegacyCampaignAmount != "" {
+		// Keep the original seal for status and recovery. Submit must require a
+		// new preview. The journal stored the exact bytes it hashed at prepare.
+		r.LegacyClaimPreview = true
+		actualDigest = onchainDigest([]byte(raw))
+	}
+	if r.ID != id || actualDigest != digest {
 		return nil, errors.New("corrupt onchain intent digest")
 	}
 	if mode == "sequential" && step < len(r.Templates) && step > 0 && state == "sending" && inflight == 0 {

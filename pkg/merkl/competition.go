@@ -39,11 +39,10 @@ var ErrProofsUnavailable = errors.New("Merkl reports unclaimed Base USDC but has
 
 // CompetitionLeaf is an unclaimed USDC reward on Base with proofs for its cumulative amount.
 type CompetitionLeaf struct {
-	Amount     *big.Int
-	Claimed    *big.Int
-	Proofs     [][32]byte
-	Root       string
-	breakdowns []*v2.UserRewardBreakdown
+	Amount  *big.Int
+	Claimed *big.Int
+	Proofs  [][32]byte
+	Root    string
 }
 
 // FindCompetitionLeaf returns nil when no matching reward has an unclaimed balance.
@@ -91,7 +90,7 @@ func FindCompetitionLeaf(resp *v2.GetUserRewardsResponse, agent string) (*Compet
 				}
 				proofs[i] = [32]byte(b)
 			}
-			leaf = &CompetitionLeaf{Amount: amount, Claimed: claimed, Proofs: proofs, Root: r.Root, breakdowns: r.GetBreakdowns()}
+			leaf = &CompetitionLeaf{Amount: amount, Claimed: claimed, Proofs: proofs, Root: r.Root}
 		}
 	}
 	if leaf == nil && missingProofs {

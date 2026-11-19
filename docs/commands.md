@@ -250,11 +250,11 @@ Submit a backend-built EVM bridge
 
 ## `oku competition claim prepare`
 
-Prepare claiming the agent's competition USDC on Base from Merkl with fresh proofs (never signs)
+If Voltrade reports a claimable award, preview claiming all the agent's unclaimed Merkl USDC on Base across all campaigns alongside the reported award (never signs)
 
 ## `oku competition claim reconcile`
 
-Attach and verify a recovered competition claim transaction hash
+Verify and attach a recovered Merkl claim transaction hash
 
 ### Options
 
@@ -265,7 +265,7 @@ Attach and verify a recovered competition claim transaction hash
 
 ## `oku competition claim status`
 
-Reconcile a competition claim intent
+Check claim status and show the Merkl balance and Voltrade award recorded at prepare
 
 ### Options
 
@@ -275,7 +275,7 @@ Reconcile a competition claim intent
 
 ## `oku competition claim submit`
 
-Submit a verified competition claim intent
+Submit an approved claim for all the agent's unclaimed Merkl USDC on Base
 
 ### Options
 

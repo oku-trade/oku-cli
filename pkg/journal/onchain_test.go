@@ -2,12 +2,50 @@ package journal
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"github.com/pressly/goose/v3"
 	"io/fs"
 	"strings"
 	"testing"
+
+	"github.com/pressly/goose/v3"
 )
+
+func TestGetOnchainLoadsSealedLegacyClaimPreview(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	j, err := Open("first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := j.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	in := OnchainIntent{ID: "older-claim", Kind: "competition-claim", ClaimableAmount: "200000000", CompetitionAwardAmount: "150250000", Templates: []OnchainTemplate{{ChainID: 8453}}}
+	if _, err := j.CreateOnchain(in); err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := strings.TrimSuffix(string(b), "}") + `,"competition_claimable_amount":"100000000"}`
+	digest := onchainDigest([]byte(raw))
+	if _, err := j.db.Exec(`UPDATE onchain_intents SET intent_json=?,digest=? WHERE profile=? AND intent_id=?`, raw, digest, "first", in.ID); err != nil {
+		t.Fatal(err)
+	}
+	r, err := j.GetOnchain(in.ID)
+	if err != nil || !r.LegacyClaimPreview || r.Digest != digest || r.ClaimableAmount != in.ClaimableAmount || r.CompetitionAwardAmount != in.CompetitionAwardAmount {
+		t.Fatalf("legacy preview: %v, %v", r, err)
+	}
+	if _, err := j.db.Exec(`UPDATE onchain_intents SET intent_json=? WHERE profile=? AND intent_id=?`, strings.Replace(raw, "100000000", "100000001", 1), "first", in.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := j.GetOnchain(in.ID); err == nil {
+		t.Fatal("legacy preview with a mismatched digest loaded")
+	}
+}
 
 func TestClaimMigrationPreservesExistingIntents(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", t.TempDir())

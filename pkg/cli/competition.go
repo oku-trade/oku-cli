@@ -28,10 +28,10 @@ func (a *App) competitionCommands() map[string]*handler {
 		"competition leaderboard":     {access: mcp.AccessRead, summary: "Trading competition leaderboard: one page, or every row with --all; --search filters by name or wallet (read-only)", flags: competitionLeaderboardFlags, run: a.cmdCompetitionLeaderboard},
 		"competition status":          {access: mcp.AccessRead, summary: "A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet; read-only)", flags: competitionWalletFlags, run: a.cmdCompetitionStatus},
 		"competition register":        {access: mcp.AccessMutation, summary: "Register the agent wallet for the trading competition: preview the consent message and digest, then sign only with --accept and the matching --digest", flags: competitionRegisterFlags, run: a.cmdCompetitionRegister},
-		"competition claim prepare":   {access: mcp.AccessRead, summary: "Prepare claiming the agent's competition USDC on Base from Merkl with fresh proofs (never signs)", run: a.cmdCompetitionClaimPrepare},
-		"competition claim submit":    {access: mcp.AccessMutation, summary: "Submit a verified competition claim intent", flags: func() []urfave.Flag { return submitFlagsFor("competition claim") }, run: a.cmdCompetitionClaimSubmit, required: map[string]bool{"intent": true, "digest": true}},
-		"competition claim status":    {access: mcp.AccessRead, summary: "Reconcile a competition claim intent", flags: statusFlags, run: a.cmdCompetitionClaimStatus, required: map[string]bool{"intent": true}},
-		"competition claim reconcile": {access: mcp.AccessMutation, summary: "Attach and verify a recovered competition claim transaction hash", flags: reconcileFlags, run: a.cmdCompetitionClaimReconcile, required: map[string]bool{"intent": true, "tx-hash": true}},
+		"competition claim prepare":   {access: mcp.AccessRead, summary: "If Voltrade reports a claimable award, preview claiming all the agent's unclaimed Merkl USDC on Base across all campaigns alongside the reported award (never signs)", run: a.cmdCompetitionClaimPrepare},
+		"competition claim submit":    {access: mcp.AccessMutation, summary: "Submit an approved claim for all the agent's unclaimed Merkl USDC on Base", flags: func() []urfave.Flag { return submitFlagsFor("competition claim") }, run: a.cmdCompetitionClaimSubmit, required: map[string]bool{"intent": true, "digest": true}},
+		"competition claim status":    {access: mcp.AccessRead, summary: "Check claim status and show the Merkl balance and Voltrade award recorded at prepare", flags: statusFlags, run: a.cmdCompetitionClaimStatus, required: map[string]bool{"intent": true}},
+		"competition claim reconcile": {access: mcp.AccessMutation, summary: "Verify and attach a recovered Merkl claim transaction hash", flags: reconcileFlags, run: a.cmdCompetitionClaimReconcile, required: map[string]bool{"intent": true, "tx-hash": true}},
 	}
 }
 

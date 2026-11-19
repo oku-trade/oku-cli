@@ -272,9 +272,6 @@ message CompetitionMerklClaim {
   string chain = 1;
   // Merkl distributor contract address.
   string distributor = 2;
-  // Merkl campaign IDs for this competition's payouts, supplied by the
-  // competition provider. An empty list cannot establish award attribution.
-  repeated string campaign_ids = 3;
 }
 
 message StartRegistrationRequest {

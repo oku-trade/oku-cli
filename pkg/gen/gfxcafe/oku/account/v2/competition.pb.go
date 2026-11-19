@@ -1393,10 +1393,7 @@ type CompetitionMerklClaim struct {
 	// CAIP-2 chain identifier of the Merkl distributor, like eip155:8453.
 	Chain string `protobuf:"bytes,1,opt,name=chain,proto3" json:"chain,omitempty"`
 	// Merkl distributor contract address.
-	Distributor string `protobuf:"bytes,2,opt,name=distributor,proto3" json:"distributor,omitempty"`
-	// Merkl campaign IDs for this competition's payouts, supplied by the
-	// competition provider. An empty list cannot establish award attribution.
-	CampaignIds   []string `protobuf:"bytes,3,rep,name=campaign_ids,json=campaignIds,proto3" json:"campaign_ids,omitempty"`
+	Distributor   string `protobuf:"bytes,2,opt,name=distributor,proto3" json:"distributor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1443,13 +1440,6 @@ func (x *CompetitionMerklClaim) GetDistributor() string {
 		return x.Distributor
 	}
 	return ""
-}
-
-func (x *CompetitionMerklClaim) GetCampaignIds() []string {
-	if x != nil {
-		return x.CampaignIds
-	}
-	return nil
 }
 
 type StartRegistrationRequest struct {
@@ -1979,11 +1969,10 @@ const file_gfxcafe_oku_account_v2_competition_proto_rawDesc = "" +
 	"\x05chain\x18\x02 \x01(\tR\x05chain\x12\x1a\n" +
 	"\bdecimals\x18\x03 \x01(\x05R\bdecimals\x12\x1b\n" +
 	"\x06symbol\x18\x04 \x01(\tH\x00R\x06symbol\x88\x01\x01B\t\n" +
-	"\a_symbol\"r\n" +
+	"\a_symbol\"O\n" +
 	"\x15CompetitionMerklClaim\x12\x14\n" +
 	"\x05chain\x18\x01 \x01(\tR\x05chain\x12 \n" +
-	"\vdistributor\x18\x02 \x01(\tR\vdistributor\x12!\n" +
-	"\fcampaign_ids\x18\x03 \x03(\tR\vcampaignIds\"N\n" +
+	"\vdistributor\x18\x02 \x01(\tR\vdistributor\"N\n" +
 	"\x18StartRegistrationRequest\x122\n" +
 	"\x06wallet\x18\x01 \x01(\tB\x1a\xbaH\x17r\x152\x13^0x[0-9a-fA-F]{40}$R\x06wallet\"\xee\x01\n" +
 	"\x19StartRegistrationResponse\x12e\n" +
