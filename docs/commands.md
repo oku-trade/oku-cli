@@ -284,7 +284,7 @@ A wallet's competition registration, rank, volume, today's cap and raffle, and r
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--wallet` | EVM wallet to read (default: the enrolled agent wallet) | `` |
+| `--wallet` | EVM wallet to read without credential prompts (default: the enrolled agent wallet) | `` |
 
 ## `oku completion bash|zsh|fish`
 

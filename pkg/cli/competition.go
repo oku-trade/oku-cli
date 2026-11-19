@@ -3,9 +3,11 @@ package cli
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"time"
 
+	"github.com/oku-trade/oku-cli/pkg/auth"
 	"github.com/oku-trade/oku-cli/pkg/config"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
 	"github.com/oku-trade/oku-cli/pkg/mcp"
@@ -33,7 +35,7 @@ func (a *App) competitionCommands() map[string]*handler {
 }
 
 func competitionWalletFlags() []urfave.Flag {
-	return []urfave.Flag{&urfave.StringFlag{Name: "wallet", Usage: "EVM wallet to read (default: the enrolled agent wallet)"}}
+	return []urfave.Flag{&urfave.StringFlag{Name: "wallet", Usage: "EVM wallet to read without credential prompts (default: the enrolled agent wallet)"}}
 }
 
 func competitionLeaderboardFlags() []urfave.Flag {
@@ -50,6 +52,10 @@ func (e *env) competitionCall(method string, req, resp any) error {
 	if err != nil {
 		return err
 	}
+	return e.competitionCallFor(p, method, req, resp)
+}
+
+func (e *env) competitionCallFor(p *resolved, method string, req, resp any) error {
 	ctx, cancel := e.requestCtx()
 	defer cancel()
 	if err := e.client(p).Competition(ctx, method, req, resp, false); err != nil {
@@ -346,7 +352,7 @@ type competitionStatus struct {
 	ClaimNote          string              `json:"claimNote,omitempty"`
 }
 
-func toCompetitionStatus(wallet string, enrolled *resolvedWallet, r *v2.GetParticipantResponse) competitionStatus {
+func toCompetitionStatus(wallet string, r *v2.GetParticipantResponse) (competitionStatus, bool) {
 	s := competitionStatus{Wallet: wallet, Registered: r.Registered, Rank: r.Rank, CountedVolumeUSD: r.CountedVolumeUsd, PotMinimumReached: r.PotMinimumReached, ProjectedRewardUSD: r.ProjectedRewardUsd, Provisional: r.Provisional, RafflesWon: r.RafflesWon, RaffleWinningsUSD: r.RaffleWinningsUsd, Rewards: []competitionReward{}}
 	if !s.Registered {
 		s.RegistrationNote = "This result may be cached and does not confirm a registration attempt failed. For the enrolled agent wallet, run 'oku competition register' without --accept on the same profile to check without signing."
@@ -363,13 +369,14 @@ func toCompetitionStatus(wallet string, enrolled *resolvedWallet, r *v2.GetParti
 		s.Claim = &rewardDistributor{c.GetChain(), c.GetDistributor()}
 	}
 	merklRoute := s.Registered && c.GetChain() == base && strings.EqualFold(c.GetDistributor(), merkl.Distributor)
+	claimable := false
 	for _, rw := range r.Rewards {
 		out := competitionReward{State: enumName(rw.State.String(), "COMPETITION_REWARD_STATE_"), Amount: rw.Amount, TxHash: rw.TxHash}
 		if tk := rw.Token; tk != nil {
 			out.Token, out.Chain, out.Symbol, out.Decimal = strings.ToLower(tk.Address), tk.Chain, tk.Symbol, tk.Decimals
 		}
 		s.Rewards = append(s.Rewards, out)
-		if !merklRoute || s.ClaimNote != "" || rw.GetState() != v2.CompetitionRewardState_COMPETITION_REWARD_STATE_CLAIMABLE ||
+		if !merklRoute || claimable || rw.GetState() != v2.CompetitionRewardState_COMPETITION_REWARD_STATE_CLAIMABLE ||
 			out.Chain != base || out.Token != merkl.BaseUSDC || out.Decimal != 6 {
 			continue
 		}
@@ -378,41 +385,64 @@ func toCompetitionStatus(wallet string, enrolled *resolvedWallet, r *v2.GetParti
 		if err != nil || amount.Sign() == 0 {
 			continue
 		}
-		s.ClaimNote = "The Merkl claim settles the enrolled agent wallet's whole unclaimed USDC balance on Base, which may include other campaigns. Select the profile enrolled for the wallet shown, or claim on the competition website if the wallet registered there."
-		if enrolled != nil && strings.EqualFold(wallet, enrolled.agent) && config.ValidName(enrolled.profile.Name) {
-			// Pin even the default profile so the command can be used from a different shell.
-			s.Next = merklClaimPrepareCommand + " --profile " + enrolled.profile.Name
-		}
+		claimable = true
 	}
-	return s
+	return s, claimable
+}
+
+func competitionClaimMetadata(profile string) (*auth.Metadata, error) {
+	store, err := auth.StoreFor(profile)
+	if err != nil {
+		return nil, err
+	}
+	switch store {
+	case auth.StoreFile, auth.StoreKeychain:
+		// The direct macOS Keychain loader suppresses unlock and authorization prompts.
+		return auth.LoadPrivyMetadataIn(store, profile)
+	default:
+		// Secret Service has no non-interactive loader. Even a metadata read can unlock an item.
+		return nil, output.Errorf(output.CodeSignerUnavailable, "credential store does not support non-interactive metadata reads")
+	}
 }
 
 func (a *App) cmdCompetitionStatus(e *env) (*result, error) {
 	wallet := strings.TrimSpace(e.cmd.String("wallet"))
+	explicitWallet := e.cmd.IsSet("wallet")
+	if explicitWallet && !config.ValidAddress(wallet) {
+		return nil, output.Errorf(output.CodeInvalidArgument, "--wallet must be a 0x EVM address")
+	}
+	p, err := e.profile()
+	if err != nil {
+		return nil, err
+	}
 	var enrolled *resolvedWallet
-	if wallet == "" {
-		var err error
-		enrolled, err = agentWalletMetadata(e)
+	if !explicitWallet {
+		enrolled, err = agentWalletMetadataFor(p, e.g.account, e.loadMetadata)
 		if err != nil {
 			return nil, err
 		}
 		wallet = enrolled.agent
-	} else {
-		if !config.ValidAddress(wallet) {
-			return nil, output.Errorf(output.CodeInvalidArgument, "--wallet must be a 0x EVM address")
-		}
-		// An explicit wallet is a public read. If enrollment cannot be verified,
-		// report the award without suggesting a command for an unverified profile.
-		if w, err := agentWalletMetadata(e); err == nil {
-			enrolled = w
-		}
 	}
 	wallet = strings.ToLower(wallet)
 	var resp v2.GetParticipantResponse
-	if err := e.competitionCall("GetParticipant", &v2.GetParticipantRequest{Wallet: wallet}, &resp); err != nil {
+	if err := e.competitionCallFor(p, "GetParticipant", &v2.GetParticipantRequest{Wallet: wallet}, &resp); err != nil {
 		return nil, err
 	}
-	s := toCompetitionStatus(wallet, enrolled, &resp)
+	s, claimable := toCompetitionStatus(wallet, &resp)
+	if claimable {
+		s.ClaimNote = "The Merkl claim settles the enrolled agent wallet's whole unclaimed USDC balance on Base, which may include other campaigns. Select the profile enrolled for the wallet shown, or claim on the competition website if the wallet registered there."
+		if explicitWallet {
+			enrolled, err = agentWalletMetadataFor(p, e.g.account, competitionClaimMetadata)
+			if err != nil {
+				// Keep the public result usable and do not log raw credential errors.
+				slog.New(slog.NewJSONHandler(e.app.Stderr, nil)).WarnContext(e.ctx, "competition status could not verify enrollment for claim guidance", "profile", p.Name, "code", output.As(err).Code)
+			}
+		}
+		if enrolled != nil && strings.EqualFold(wallet, enrolled.agent) && config.ValidName(p.Name) {
+			// Pin even the default profile so the command can be used from a different shell.
+			s.Next = merklClaimPrepareCommand + " --profile " + p.Name
+		}
+	}
 	return &result{data: s, human: func(w io.Writer) {
 		fmt.Fprintf(w, "Wallet: %s\nRegistered: %t\n", s.Wallet, s.Registered)
 		if s.RegistrationNote != "" {

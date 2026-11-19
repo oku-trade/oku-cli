@@ -10,12 +10,17 @@ type MemoryKeyring struct {
 	mu sync.Mutex
 	// Unavailable makes every call fail like an unreachable Secret Service.
 	Unavailable bool
-	items       map[key][]byte
+	// BeforeGet observes reads at the credential provider boundary in tests.
+	BeforeGet func()
+	items     map[key][]byte
 }
 
 func (m *MemoryKeyring) Len() int { m.mu.Lock(); defer m.mu.Unlock(); return len(m.items) }
 
 func (m *MemoryKeyring) Get(k key) ([]byte, error) {
+	if m.BeforeGet != nil {
+		m.BeforeGet()
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.Unavailable {
