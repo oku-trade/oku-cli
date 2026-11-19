@@ -107,6 +107,8 @@ func TestCompetitionStatusDefaultsToAgent(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
 	var asked []string
+	rewardState := "COMPETITION_REWARD_STATE_CLAIMABLE"
+	distributor := "0x3ef3d8ba38ebe18db133cec108f4d14ce00dd9ae"
 	h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
 		if method != "GetParticipant" {
 			return nil, false
@@ -119,8 +121,8 @@ func TestCompetitionStatusDefaultsToAgent(t *testing.T) {
 			"registered": true, "rank": 3, "countedVolumeUsd": "12000", "potMinimumReached": true, "projectedRewardUsd": "150.25", "provisional": true,
 			"rafflesWon": 1, "raffleWinningsUsd": "300",
 			"today":   map[string]any{"countedVolumeUsd": "500", "dailyCapUsd": "250000", "remainingVolumeUsd": "249500", "raffleEligible": false, "raffleMinimumUsd": "2000", "resetsAt": "2026-11-20T17:00:00Z"},
-			"rewards": []any{map[string]any{"state": "COMPETITION_REWARD_STATE_CLAIMABLE", "amount": "300000000", "token": map[string]any{"address": "0x833589FCD6EDB6E08F4C7C32D4F71B54BDA02913", "chain": "eip155:8453", "decimals": 6, "symbol": "USDC"}}},
-			"claim":   map[string]any{"chain": "eip155:8453", "distributor": "0x3ef3d8ba38ebe18db133cec108f4d14ce00dd9ae"},
+			"rewards": []any{map[string]any{"state": rewardState, "amount": "150.25", "token": map[string]any{"address": "0x833589FCD6EDB6E08F4C7C32D4F71B54BDA02913", "chain": "eip155:8453", "decimals": 6, "symbol": "USDC"}}},
+			"claim":   map[string]any{"chain": "eip155:8453", "distributor": distributor},
 		}, true
 	}
 	r := h.run("competition", "status", "--json")
@@ -135,16 +137,32 @@ func TestCompetitionStatusDefaultsToAgent(t *testing.T) {
 		t.Fatalf("status data: %v", d)
 	}
 	reward := d["rewards"].([]any)[0].(map[string]any)
-	if reward["state"] != "claimable" || reward["token"] != "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913" {
+	if reward["state"] != "claimable" || reward["amount"] != "150.25" || reward["token"] != "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913" {
 		t.Fatalf("reward: %v", reward)
+	}
+	next, claimNote := "oku merkl claim prepare", fmt.Sprint(d["claimNote"])
+	if d["next"] != next || !strings.Contains(claimNote, "may include other campaigns") {
+		t.Fatalf("claim guidance: %v", d)
+	}
+	if r := h.run("competition", "status", "--wallet", h.fake.agentAddress); r.code != 0 || !strings.Contains(r.stdout, "Claim with: "+next+"\n"+claimNote) || !strings.Contains(r.stdout, "150.25") {
+		t.Fatalf("explicit wallet status: %s", r.stdout)
+	}
+	rewardState = "COMPETITION_REWARD_STATE_CLAIMED"
+	if r := h.run("competition", "status", "--json"); r.code != 0 || r.data()["next"] != nil {
+		t.Fatalf("already claimed award: %s", r.stdout)
+	}
+	rewardState = "COMPETITION_REWARD_STATE_CLAIMABLE"
+	distributor = "0x1111111111111111111111111111111111111111"
+	if r := h.run("competition", "status", "--json"); r.code != 0 || r.data()["next"] != nil {
+		t.Fatalf("award with different distributor: %s", r.stdout)
 	}
 	other := "0x2222222222222222222222222222222222222222"
 	r = h.run("competition", "status", "--wallet", other, "--json")
 	note, _ := r.data()["registrationNote"].(string)
-	if r.code != 0 || asked[1] != other || r.data()["registered"] != false || !strings.Contains(note, "may be cached") || !strings.Contains(note, "without --accept") {
+	if r.code != 0 || asked[len(asked)-1] != other || r.data()["registered"] != false || r.data()["next"] != nil || !strings.Contains(note, "may be cached") || !strings.Contains(note, "without --accept") {
 		t.Fatalf("--wallet: %v %s", asked, r.stdout)
 	}
-	if r := h.run("competition", "status", "--wallet", other); r.code != 0 || !strings.Contains(r.stdout, note) {
+	if r := h.run("competition", "status", "--wallet", other); r.code != 0 || !strings.Contains(r.stdout, note) || strings.Contains(r.stdout, "Claim with:") {
 		t.Fatalf("status text lacks registration caveat: %s", r.stdout)
 	}
 	if r := h.run("competition", "status", "--wallet", "nope", "--json"); r.errCode() != "INVALID_ARGUMENT" {

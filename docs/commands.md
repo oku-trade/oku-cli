@@ -248,42 +248,6 @@ Submit a backend-built EVM bridge
 | `--intent` | intent id from 'bridge prepare' (required) | `` |
 | `--digest` | intent digest from 'bridge prepare' (required) | `` |
 
-## `oku competition claim prepare`
-
-If Voltrade reports a claimable award, preview claiming all the agent's unclaimed Merkl USDC on Base across all campaigns alongside the reported award (never signs)
-
-## `oku competition claim reconcile`
-
-Verify and attach a recovered Merkl claim transaction hash
-
-### Options
-
-| Flag | Description | Default |
-| --- | --- | --- |
-| `--intent` | unresolved intent ID | `` |
-| `--tx-hash` | recovered onchain transaction hash | `` |
-
-## `oku competition claim status`
-
-Check claim status and show the Merkl balance and Voltrade award recorded at prepare
-
-### Options
-
-| Flag | Description | Default |
-| --- | --- | --- |
-| `--intent` | intent id (required) | `` |
-
-## `oku competition claim submit`
-
-Submit an approved claim for all the agent's unclaimed Merkl USDC on Base
-
-### Options
-
-| Flag | Description | Default |
-| --- | --- | --- |
-| `--intent` | intent id from 'competition claim prepare' (required) | `` |
-| `--digest` | intent digest from 'competition claim prepare' (required) | `` |
-
 ## `oku competition info`
 
 Trading competition: phase, schedule, prize pool, rules, eligible stocks and raffle days (read-only)
@@ -810,6 +774,42 @@ Run the MCP server on stdio (reads only unless --allow-mutations)
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--allow-mutations` | expose prepare/submit/cancel/reconcile tools (requires Oku session) | `false` |
+
+## `oku merkl claim prepare`
+
+Preview claiming all the agent's unclaimed Merkl USDC on Base across every campaign (never signs)
+
+## `oku merkl claim reconcile`
+
+Verify and attach a recovered Merkl claim transaction hash
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | unresolved intent ID | `` |
+| `--tx-hash` | recovered onchain transaction hash | `` |
+
+## `oku merkl claim status`
+
+Check claim status and show the whole Merkl USDC balance recorded at prepare
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id (required) | `` |
+
+## `oku merkl claim submit`
+
+Submit an approved claim for all the agent's unclaimed Merkl USDC on Base
+
+### Options
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--intent` | intent id from 'merkl claim prepare' (required) | `` |
+| `--digest` | intent digest from 'merkl claim prepare' (required) | `` |
 
 ## `oku orders abandon`
 

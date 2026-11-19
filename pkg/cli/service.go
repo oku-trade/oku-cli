@@ -33,6 +33,8 @@ type Service struct {
 // ServiceReads are commands a Service runs by default. Prepare commands may
 // create backend orders and journal records, but never sign or broadcast.
 // They do not submit onchain transactions or change user configuration.
+// Commands with explicit access metadata, such as Merkl claims, use that
+// classification for both in-process dispatch and MCP instead of these maps.
 var ServiceReads = map[string]bool{
 	"wallet address": true, "wallet balances": true, "wallet fund": true, "deposit address": true,
 	"send prepare": true, "send status": true, "deposit prepare": true, "deposit status": true,

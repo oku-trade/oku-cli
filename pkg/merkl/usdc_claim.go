@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	CompetitionChain = uint64(8453)
-	// CompetitionToken is USDC on Base, the only token the competition pays.
-	CompetitionToken = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+	BaseChainID = uint64(8453)
+	// BaseUSDC is the USDC token on Base.
+	BaseUSDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
 	// Distributor is Merkl's Distributor proxy, shared across chains.
 	Distributor = "0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae"
 )
@@ -37,20 +37,20 @@ var distributorABI = func() abi.ABI {
 // ErrProofsUnavailable means Merkl reports unclaimed USDC but has no proofs for it yet.
 var ErrProofsUnavailable = errors.New("Merkl reports unclaimed Base USDC but has not published proofs yet; try again later")
 
-// CompetitionLeaf is an unclaimed USDC reward on Base with proofs for its cumulative amount.
-type CompetitionLeaf struct {
+// USDCLeaf is an unclaimed USDC reward on Base with proofs for its cumulative amount.
+type USDCLeaf struct {
 	Amount  *big.Int
 	Claimed *big.Int
 	Proofs  [][32]byte
 	Root    string
 }
 
-// FindCompetitionLeaf returns nil when no matching reward has an unclaimed balance.
-func FindCompetitionLeaf(resp *v2.GetUserRewardsResponse, agent string) (*CompetitionLeaf, error) {
-	var leaf *CompetitionLeaf
+// FindUSDCLeaf returns nil when no matching reward has an unclaimed balance.
+func FindUSDCLeaf(resp *v2.GetUserRewardsResponse, agent string) (*USDCLeaf, error) {
+	var leaf *USDCLeaf
 	missingProofs := false
 	for _, chain := range resp.GetChains() {
-		if chain.GetChain().GetId() != int64(CompetitionChain) {
+		if chain.GetChain().GetId() != int64(BaseChainID) {
 			continue
 		}
 		if addr := chain.GetDistributorAddress(); addr != "" && !strings.EqualFold(addr, Distributor) {
@@ -58,10 +58,10 @@ func FindCompetitionLeaf(resp *v2.GetUserRewardsResponse, agent string) (*Compet
 		}
 		for _, r := range chain.GetRewards() {
 			token := r.GetToken()
-			if !strings.EqualFold(token.GetAddress(), CompetitionToken) {
+			if !strings.EqualFold(token.GetAddress(), BaseUSDC) {
 				continue
 			}
-			if r.DistributionChainId != int64(CompetitionChain) || token.ChainId != int64(CompetitionChain) {
+			if r.DistributionChainId != int64(BaseChainID) || token.ChainId != int64(BaseChainID) {
 				return nil, fmt.Errorf("Merkl reward distribution and token must both be on Base, got chains %d and %d", r.DistributionChainId, token.ChainId)
 			}
 			if r.Recipient != "" && !strings.EqualFold(r.Recipient, agent) {
@@ -90,7 +90,7 @@ func FindCompetitionLeaf(resp *v2.GetUserRewardsResponse, agent string) (*Compet
 				}
 				proofs[i] = [32]byte(b)
 			}
-			leaf = &CompetitionLeaf{Amount: amount, Claimed: claimed, Proofs: proofs, Root: r.Root}
+			leaf = &USDCLeaf{Amount: amount, Claimed: claimed, Proofs: proofs, Root: r.Root}
 		}
 	}
 	if leaf == nil && missingProofs {
@@ -99,22 +99,22 @@ func FindCompetitionLeaf(resp *v2.GetUserRewardsResponse, agent string) (*Compet
 	return leaf, nil
 }
 
-// EncodeCompetitionClaim packs a single USDC leaf using its cumulative Merkl amount.
-func EncodeCompetitionClaim(agent string, amount *big.Int, proofs [][32]byte) ([]byte, error) {
+// EncodeUSDCClaim packs a single USDC leaf using its cumulative Merkl amount.
+func EncodeUSDCClaim(agent string, amount *big.Int, proofs [][32]byte) ([]byte, error) {
 	wallet := []common.Address{common.HexToAddress(agent)}
-	return distributorABI.Pack(claimMethod, wallet, []common.Address{common.HexToAddress(CompetitionToken)}, []*big.Int{amount}, [][][32]byte{proofs}, wallet, [][]byte{nil})
+	return distributorABI.Pack(claimMethod, wallet, []common.Address{common.HexToAddress(BaseUSDC)}, []*big.Int{amount}, [][][32]byte{proofs}, wallet, [][]byte{nil})
 }
 
-// VerifyCompetitionClaim decodes the sealed template and requires exactly one
+// VerifyUSDCClaim decodes the sealed template and requires exactly one
 // Distributor call with the agent as both reward owner and explicit payout
 // recipient, with no value or callback. A self-claim with a nonzero recipient
 // bypasses both the token-specific and global recipient defaults.
-func VerifyCompetitionClaim(in journal.OnchainIntent, agent string) error {
-	if !common.IsHexAddress(agent) || common.HexToAddress(agent) == (common.Address{}) || in.ChainID != CompetitionChain || len(in.Templates) != 1 || !strings.EqualFold(in.Sender, agent) || !strings.EqualFold(in.Recipient, agent) || !strings.EqualFold(in.Token, CompetitionToken) {
+func VerifyUSDCClaim(in journal.OnchainIntent, agent string) error {
+	if !common.IsHexAddress(agent) || common.HexToAddress(agent) == (common.Address{}) || in.ChainID != BaseChainID || len(in.Templates) != 1 || !strings.EqualFold(in.Sender, agent) || !strings.EqualFold(in.Recipient, agent) || !strings.EqualFold(in.Token, BaseUSDC) {
 		return errors.New("claim intent chain, wallet or token differs")
 	}
 	t := in.Templates[0]
-	if t.ChainID != CompetitionChain || !strings.EqualFold(t.To, Distributor) || t.Value != "0x0" {
+	if t.ChainID != BaseChainID || !strings.EqualFold(t.To, Distributor) || t.Value != "0x0" {
 		return errors.New("claim target or value differs")
 	}
 	data, err := hexutil.Decode(t.Data)
@@ -139,7 +139,7 @@ func VerifyCompetitionClaim(in journal.OnchainIntent, agent string) error {
 	if amounts[0].String() != in.Amount {
 		return errors.New("claim amount differs from the intent")
 	}
-	again, err := EncodeCompetitionClaim(agent, amounts[0], proofs[0])
+	again, err := EncodeUSDCClaim(agent, amounts[0], proofs[0])
 	if err != nil || !strings.EqualFold(hexutil.Encode(again), t.Data) {
 		return errors.New("claim calldata differs from the canonical self-claim with no callback")
 	}

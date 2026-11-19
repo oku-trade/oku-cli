@@ -16,22 +16,22 @@ import (
 
 const agent = "0x3333333333333333333333333333333333333333"
 
-func TestVerifyCompetitionClaimRejectsTampering(t *testing.T) {
+func TestVerifyUSDCClaimRejectsTampering(t *testing.T) {
 	proofs := [][32]byte{{0xab}}
-	good, err := EncodeCompetitionClaim(agent, big.NewInt(5), proofs)
+	good, err := EncodeUSDCClaim(agent, big.NewInt(5), proofs)
 	if err != nil {
 		t.Fatal(err)
 	}
 	base := func() journal.OnchainIntent {
 		return journal.OnchainIntent{
-			ChainID: CompetitionChain, Sender: agent, Recipient: agent, Token: CompetitionToken, Amount: "5",
-			Templates: []journal.OnchainTemplate{{ChainID: CompetitionChain, To: Distributor, Data: hexutil.Encode(good), Value: "0x0"}},
+			ChainID: BaseChainID, Sender: agent, Recipient: agent, Token: BaseUSDC, Amount: "5",
+			Templates: []journal.OnchainTemplate{{ChainID: BaseChainID, To: Distributor, Data: hexutil.Encode(good), Value: "0x0"}},
 		}
 	}
-	if err := VerifyCompetitionClaim(base(), agent); err != nil {
+	if err := VerifyUSDCClaim(base(), agent); err != nil {
 		t.Fatal(err)
 	}
-	other, err := EncodeCompetitionClaim("0x4444444444444444444444444444444444444444", big.NewInt(5), proofs)
+	other, err := EncodeUSDCClaim("0x4444444444444444444444444444444444444444", big.NewInt(5), proofs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,17 +45,17 @@ func TestVerifyCompetitionClaimRejectsTampering(t *testing.T) {
 	} {
 		in := base()
 		mutate(&in)
-		if VerifyCompetitionClaim(in, agent) == nil {
+		if VerifyUSDCClaim(in, agent) == nil {
 			t.Errorf("%s tampering accepted", name)
 		}
 	}
 }
 
-func TestCompetitionClaimDoesNotUseRecipientOverrides(t *testing.T) {
+func TestUSDCClaimDoesNotUseRecipientOverrides(t *testing.T) {
 	wallet := common.HexToAddress(agent)
-	usdc := common.HexToAddress(CompetitionToken)
+	usdc := common.HexToAddress(BaseUSDC)
 	other := common.HexToAddress("0x4444444444444444444444444444444444444444")
-	data, err := EncodeCompetitionClaim(agent, big.NewInt(5), [][32]byte{{0xab}})
+	data, err := EncodeUSDCClaim(agent, big.NewInt(5), [][32]byte{{0xab}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,9 +84,9 @@ func TestCompetitionClaimDoesNotUseRecipientOverrides(t *testing.T) {
 			if defaultRecipient == (common.Address{}) {
 				defaultRecipient = defaults[common.Address{}]
 			}
-			in := journal.OnchainIntent{ChainID: CompetitionChain, Sender: agent, Recipient: agent, Token: CompetitionToken, Amount: "5",
-				Templates: []journal.OnchainTemplate{{ChainID: CompetitionChain, To: Distributor, Value: "0x0", Data: hexutil.Encode(data)}}}
-			if err := VerifyCompetitionClaim(in, agent); err != nil {
+			in := journal.OnchainIntent{ChainID: BaseChainID, Sender: agent, Recipient: agent, Token: BaseUSDC, Amount: "5",
+				Templates: []journal.OnchainTemplate{{ChainID: BaseChainID, To: Distributor, Value: "0x0", Data: hexutil.Encode(data)}}}
+			if err := VerifyUSDCClaim(in, agent); err != nil {
 				t.Fatal(err)
 			}
 			for _, recipient := range []common.Address{{}, defaultRecipient} {
@@ -97,7 +97,7 @@ func TestCompetitionClaimDoesNotUseRecipientOverrides(t *testing.T) {
 					t.Fatal(err)
 				}
 				in.Templates[0].Data = hexutil.Encode(packed)
-				if VerifyCompetitionClaim(in, agent) == nil {
+				if VerifyUSDCClaim(in, agent) == nil {
 					t.Fatalf("accepted override recipient %v", recipient)
 				}
 			}
@@ -108,20 +108,20 @@ func TestCompetitionClaimDoesNotUseRecipientOverrides(t *testing.T) {
 				t.Fatal(err)
 			}
 			in.Templates[0].Data = hexutil.Encode(packed)
-			if VerifyCompetitionClaim(in, agent) == nil {
+			if VerifyUSDCClaim(in, agent) == nil {
 				t.Fatal("accepted callback data")
 			}
 		})
 	}
 }
 
-func TestFindCompetitionLeaf(t *testing.T) {
+func TestFindUSDCLeaf(t *testing.T) {
 	reward := func(proofs ...string) *v2.UserReward {
 		return &v2.UserReward{DistributionChainId: 8453, Recipient: agent, Amount: "100", Claimed: "10", Proofs: proofs,
-			Token: &v2.Token{ChainId: 8453, Address: CompetitionToken}}
+			Token: &v2.Token{ChainId: 8453, Address: BaseUSDC}}
 	}
-	find := func(rewards ...*v2.UserReward) (*CompetitionLeaf, error) {
-		return FindCompetitionLeaf(&v2.GetUserRewardsResponse{Chains: []*v2.UserRewardsByChain{{Chain: &v2.Chain{Id: 8453}, Rewards: rewards}}}, agent)
+	find := func(rewards ...*v2.UserReward) (*USDCLeaf, error) {
+		return FindUSDCLeaf(&v2.GetUserRewardsResponse{Chains: []*v2.UserRewardsByChain{{Chain: &v2.Chain{Id: 8453}, Rewards: rewards}}}, agent)
 	}
 	proof := "0x" + strings.Repeat("ab", 32)
 	claimable := reward(proof)

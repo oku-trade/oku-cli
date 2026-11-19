@@ -1,8 +1,8 @@
 -- +goose Up
--- Trading competition reward claims (Merkl Distributor.claim of USDC on Base).
+-- Merkl USDC claims on Base.
 CREATE TABLE onchain_intents_new (
  profile TEXT NOT NULL, intent_id TEXT NOT NULL, agent TEXT NOT NULL,
- kind TEXT NOT NULL CHECK(kind IN ('send','deposit','swap','bridge','claim','lp','earn','borrow','loop','competition-claim')),
+ kind TEXT NOT NULL CHECK(kind IN ('send','deposit','swap','bridge','claim','lp','earn','borrow','loop','merkl-claim')),
  chain_id INTEGER NOT NULL, sender TEXT NOT NULL, recipient TEXT NOT NULL,
  token TEXT NOT NULL, amount TEXT NOT NULL, digest TEXT NOT NULL,
  intent_json TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('prepared','sending','sent','confirmed','failed','unknown','submitted')),
@@ -33,7 +33,7 @@ CREATE TABLE onchain_intents_old (
  fill_json TEXT,
  PRIMARY KEY(profile,intent_id)
 );
-INSERT INTO onchain_intents_old SELECT * FROM onchain_intents WHERE kind != 'competition-claim';
+INSERT INTO onchain_intents_old SELECT * FROM onchain_intents WHERE kind != 'merkl-claim';
 DROP TABLE onchain_intents;
 ALTER TABLE onchain_intents_old RENAME TO onchain_intents;
 CREATE INDEX onchain_agent_state ON onchain_intents(agent,state);

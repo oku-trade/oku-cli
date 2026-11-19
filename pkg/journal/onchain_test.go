@@ -2,7 +2,6 @@ package journal
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io/fs"
 	"strings"
@@ -10,42 +9,6 @@ import (
 
 	"github.com/pressly/goose/v3"
 )
-
-func TestGetOnchainLoadsSealedLegacyClaimPreview(t *testing.T) {
-	t.Setenv("XDG_STATE_HOME", t.TempDir())
-	j, err := Open("first")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := j.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	in := OnchainIntent{ID: "older-claim", Kind: "competition-claim", ClaimableAmount: "200000000", CompetitionAwardAmount: "150250000", Templates: []OnchainTemplate{{ChainID: 8453}}}
-	if _, err := j.CreateOnchain(in); err != nil {
-		t.Fatal(err)
-	}
-	b, err := json.Marshal(in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	raw := strings.TrimSuffix(string(b), "}") + `,"competition_claimable_amount":"100000000"}`
-	digest := onchainDigest([]byte(raw))
-	if _, err := j.db.Exec(`UPDATE onchain_intents SET intent_json=?,digest=? WHERE profile=? AND intent_id=?`, raw, digest, "first", in.ID); err != nil {
-		t.Fatal(err)
-	}
-	r, err := j.GetOnchain(in.ID)
-	if err != nil || !r.LegacyClaimPreview || r.Digest != digest || r.ClaimableAmount != in.ClaimableAmount || r.CompetitionAwardAmount != in.CompetitionAwardAmount {
-		t.Fatalf("legacy preview: %v, %v", r, err)
-	}
-	if _, err := j.db.Exec(`UPDATE onchain_intents SET intent_json=? WHERE profile=? AND intent_id=?`, strings.Replace(raw, "100000000", "100000001", 1), "first", in.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := j.GetOnchain(in.ID); err == nil {
-		t.Fatal("legacy preview with a mismatched digest loaded")
-	}
-}
 
 func TestClaimMigrationPreservesExistingIntents(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
@@ -55,6 +18,10 @@ func TestClaimMigrationPreservesExistingIntents(t *testing.T) {
 	}
 	in := OnchainIntent{ID: "legacy-bridge", Kind: "bridge", ChainID: 42161, Sender: "0x1111111111111111111111111111111111111111", Recipient: "0x2222222222222222222222222222222222222222", Token: "native", Amount: "1", Templates: []OnchainTemplate{{ChainID: 42161, To: "0x2222222222222222222222222222222222222222", Value: "0x0"}}}
 	if _, err = j.CreateOnchain(in); err != nil {
+		t.Fatal(err)
+	}
+	merkl := OnchainIntent{ID: "merkl-preview", Kind: "merkl-claim", ChainID: 8453, Amount: "300000000", ClaimableAmount: "200000000", Templates: []OnchainTemplate{{ChainID: 8453}}}
+	if _, err := j.CreateOnchain(merkl); err != nil {
 		t.Fatal(err)
 	}
 	providerFS, err := fs.Sub(migrations, "migrations")
@@ -78,6 +45,15 @@ func TestClaimMigrationPreservesExistingIntents(t *testing.T) {
 	defer func() { _ = j.Close() }()
 	if _, err = j.GetOnchain(in.ID); err != nil {
 		t.Fatalf("lost existing intent: %v", err)
+	}
+	if _, err := j.GetOnchain(merkl.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Merkl intent survived down migration: %v", err)
+	}
+	if _, err := j.CreateOnchain(merkl); err != nil {
+		t.Fatalf("Merkl claim constraint not migrated: %v", err)
+	}
+	if r, err := j.GetOnchain(merkl.ID); err != nil || r.Digest != merkl.Digest() || r.ClaimableAmount != merkl.ClaimableAmount {
+		t.Fatalf("Merkl claim preview: %v, %v", r, err)
 	}
 	in.ID = "new-claim"
 	in.Kind = "claim"

@@ -9,6 +9,7 @@ import (
 	"github.com/oku-trade/oku-cli/pkg/config"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
 	"github.com/oku-trade/oku-cli/pkg/mcp"
+	"github.com/oku-trade/oku-cli/pkg/merkl"
 	"github.com/oku-trade/oku-cli/pkg/output"
 	urfave "github.com/urfave/cli/v3"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -24,14 +25,10 @@ const (
 
 func (a *App) competitionCommands() map[string]*handler {
 	return map[string]*handler{
-		"competition info":            {access: mcp.AccessRead, summary: "Trading competition: phase, schedule, prize pool, rules, eligible stocks and raffle days (read-only)", run: a.cmdCompetitionInfo},
-		"competition leaderboard":     {access: mcp.AccessRead, summary: "Trading competition leaderboard: one page, or every row with --all; --search filters by name or wallet (read-only)", flags: competitionLeaderboardFlags, run: a.cmdCompetitionLeaderboard},
-		"competition status":          {access: mcp.AccessRead, summary: "A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet). A negative registration result may be cached", flags: competitionWalletFlags, run: a.cmdCompetitionStatus},
-		"competition register":        {access: mcp.AccessMutation, summary: "Without --accept, check the agent wallet's registration without using cached status or signing, and preview consent if needed. Sign only with --accept and the matching --digest", flags: competitionRegisterFlags, run: a.cmdCompetitionRegister},
-		"competition claim prepare":   {access: mcp.AccessRead, summary: "If Voltrade reports a claimable award, preview claiming all the agent's unclaimed Merkl USDC on Base across all campaigns alongside the reported award (never signs)", run: a.cmdCompetitionClaimPrepare},
-		"competition claim submit":    {access: mcp.AccessMutation, summary: "Submit an approved claim for all the agent's unclaimed Merkl USDC on Base", flags: func() []urfave.Flag { return submitFlagsFor("competition claim") }, run: a.cmdCompetitionClaimSubmit, required: map[string]bool{"intent": true, "digest": true}},
-		"competition claim status":    {access: mcp.AccessRead, summary: "Check claim status and show the Merkl balance and Voltrade award recorded at prepare", flags: statusFlags, run: a.cmdCompetitionClaimStatus, required: map[string]bool{"intent": true}},
-		"competition claim reconcile": {access: mcp.AccessMutation, summary: "Verify and attach a recovered Merkl claim transaction hash", flags: reconcileFlags, run: a.cmdCompetitionClaimReconcile, required: map[string]bool{"intent": true, "tx-hash": true}},
+		"competition info":        {access: mcp.AccessRead, summary: "Trading competition: phase, schedule, prize pool, rules, eligible stocks and raffle days (read-only)", run: a.cmdCompetitionInfo},
+		"competition leaderboard": {access: mcp.AccessRead, summary: "Trading competition leaderboard: one page, or every row with --all; --search filters by name or wallet (read-only)", flags: competitionLeaderboardFlags, run: a.cmdCompetitionLeaderboard},
+		"competition status":      {access: mcp.AccessRead, summary: "A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet). A negative registration result may be cached", flags: competitionWalletFlags, run: a.cmdCompetitionStatus},
+		"competition register":    {access: mcp.AccessMutation, summary: "Without --accept, check the agent wallet's registration without using cached status or signing, and preview consent if needed. Sign only with --accept and the matching --digest", flags: competitionRegisterFlags, run: a.cmdCompetitionRegister},
 	}
 }
 
@@ -341,7 +338,7 @@ type competitionReward struct {
 	TxHash  *string `json:"txHash,omitempty"`
 }
 
-type competitionClaim struct {
+type rewardDistributor struct {
 	Chain       string `json:"chain"`
 	Distributor string `json:"distributor"`
 }
@@ -359,7 +356,9 @@ type competitionStatus struct {
 	RaffleWinningsUSD  string              `json:"raffleWinningsUsd"`
 	Today              *competitionToday   `json:"today,omitempty"`
 	Rewards            []competitionReward `json:"rewards"`
-	Claim              *competitionClaim   `json:"claim,omitempty"`
+	Claim              *rewardDistributor  `json:"claim,omitempty"`
+	Next               string              `json:"next,omitempty"`
+	ClaimNote          string              `json:"claimNote,omitempty"`
 }
 
 func toCompetitionStatus(wallet string, r *v2.GetParticipantResponse) competitionStatus {
@@ -373,15 +372,29 @@ func toCompetitionStatus(wallet string, r *v2.GetParticipantResponse) competitio
 	if t := r.Today; t != nil {
 		s.Today = &competitionToday{t.CountedVolumeUsd, t.DailyCapUsd, t.RemainingVolumeUsd, t.RaffleEligible, t.RaffleMinimumUsd, tsPtr(t.ResetsAt)}
 	}
+	base := fmt.Sprintf("eip155:%d", merkl.BaseChainID)
+	c := r.GetClaim()
+	if c.GetDistributor() != "" {
+		s.Claim = &rewardDistributor{c.GetChain(), c.GetDistributor()}
+	}
+	merklRoute := s.Registered && c.GetChain() == base && strings.EqualFold(c.GetDistributor(), merkl.Distributor)
 	for _, rw := range r.Rewards {
 		out := competitionReward{State: enumName(rw.State.String(), "COMPETITION_REWARD_STATE_"), Amount: rw.Amount, TxHash: rw.TxHash}
 		if tk := rw.Token; tk != nil {
 			out.Token, out.Chain, out.Symbol, out.Decimal = strings.ToLower(tk.Address), tk.Chain, tk.Symbol, tk.Decimals
 		}
 		s.Rewards = append(s.Rewards, out)
-	}
-	if c := r.Claim; c != nil && c.Distributor != "" {
-		s.Claim = &competitionClaim{c.Chain, c.Distributor}
+		if !merklRoute || s.Next != "" || rw.GetState() != v2.CompetitionRewardState_COMPETITION_REWARD_STATE_CLAIMABLE ||
+			out.Chain != base || out.Token != merkl.BaseUSDC || out.Decimal != 6 {
+			continue
+		}
+		// Keep the reported amount visible even if it cannot justify a claim link.
+		amount, err := parseNonnegativeUnits(out.Amount, 6)
+		if err != nil || amount.Sign() == 0 {
+			continue
+		}
+		s.Next = merklClaimPrepareCommand
+		s.ClaimNote = "The Merkl claim settles the enrolled agent wallet's whole unclaimed USDC balance on Base, which may include other campaigns. Use the profile enrolled for the wallet shown."
 	}
 	return s
 }
@@ -432,8 +445,8 @@ func (a *App) cmdCompetitionStatus(e *env) (*result, error) {
 			}
 			tw.Flush()
 		}
-		if s.Claim != nil {
-			fmt.Fprintf(w, "Claim through Merkl distributor %s on %s\n", s.Claim.Distributor, s.Claim.Chain)
+		if s.Next != "" {
+			fmt.Fprintf(w, "Claim with: %s\n%s\n", s.Next, s.ClaimNote)
 		}
 	}}, nil
 }

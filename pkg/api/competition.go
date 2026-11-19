@@ -37,7 +37,7 @@ var competitionMethods = map[string]handler{
 }
 
 // Merkl calls an allowlisted MerklService method. Only GetUserRewards is
-// vendored: it returns the proofs a competition claim needs.
+// vendored: it returns the proofs for Merkl reward claims.
 func (c *Client) Merkl(ctx context.Context, method string, req, resp any, authed bool) error {
 	h, ok := merklMethods[method]
 	if !ok {

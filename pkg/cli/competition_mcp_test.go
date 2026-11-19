@@ -9,12 +9,12 @@ import (
 	"github.com/oku-trade/oku-cli/pkg/mcp"
 )
 
-func TestCompetitionMCPDispatchAndMutationGate(t *testing.T) {
+func TestCompetitionAndMerklMCPDispatchAndMutationGate(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
 	h.fake.routeReply = func(method string, _ map[string]any) (any, bool) {
 		switch method {
-		case "GetCompetition", "ListLeaderboard", "GetParticipant":
+		case "GetCompetition", "ListLeaderboard", "GetParticipant", "GetUserRewards":
 			return map[string]any{}, true
 		case "StartRegistration":
 			return map[string]any{"alreadyRegistered": map[string]any{}}, true
@@ -31,8 +31,22 @@ func TestCompetitionMCPDispatchAndMutationGate(t *testing.T) {
 			t.Fatal(err)
 		}
 		listed := map[string]bool{}
+		competitionCount, merklCount := 0, 0
 		for _, tool := range tools.Tools {
 			listed[tool.Name] = true
+			if strings.HasPrefix(tool.Name, mcp.ToolName("competition")+"_") {
+				competitionCount++
+			}
+			if strings.HasPrefix(tool.Name, mcp.ToolName("merkl")+"_") {
+				merklCount++
+			}
+		}
+		wantCompetition, wantMerkl := 3, 2
+		if allow {
+			wantCompetition, wantMerkl = 4, 4
+		}
+		if competitionCount != wantCompetition || merklCount != wantMerkl {
+			t.Errorf("mutations=%v: listed %d competition and %d Merkl tools, want %d and %d", allow, competitionCount, merklCount, wantCompetition, wantMerkl)
 		}
 		for _, tc := range []struct {
 			path string
@@ -43,11 +57,11 @@ func TestCompetitionMCPDispatchAndMutationGate(t *testing.T) {
 			{path: "competition info"},
 			{path: "competition leaderboard"},
 			{path: "competition status"},
-			{path: "competition claim prepare", code: "NOT_FOUND"},
-			{path: "competition claim status", args: map[string]any{"intent": "missing"}, code: "NOT_FOUND"},
 			{path: "competition register", mut: true},
-			{path: "competition claim submit", args: map[string]any{"intent": "missing", "digest": "missing"}, mut: true, code: "NOT_FOUND"},
-			{path: "competition claim reconcile", args: map[string]any{"intent": "missing", "tx-hash": claimTxHash}, mut: true, code: "NOT_FOUND"},
+			{path: "merkl claim prepare", code: "NOT_FOUND"},
+			{path: "merkl claim status", args: map[string]any{"intent": "missing"}, code: "NOT_FOUND"},
+			{path: "merkl claim submit", args: map[string]any{"intent": "missing", "digest": "missing"}, mut: true, code: "NOT_FOUND"},
+			{path: "merkl claim reconcile", args: map[string]any{"intent": "missing", "tx-hash": claimTxHash}, mut: true, code: "NOT_FOUND"},
 		} {
 			name := mcp.ToolName(tc.path)
 			if tc.mut && !allow {

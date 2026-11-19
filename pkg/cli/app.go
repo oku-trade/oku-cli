@@ -267,6 +267,9 @@ func (a *App) commandTable() map[string]*handler {
 	for path, h := range a.competitionCommands() {
 		m[path] = h
 	}
+	for path, h := range a.merklClaimCommands() {
+		m[path] = h
+	}
 	return m
 }
 
