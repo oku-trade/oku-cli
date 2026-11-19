@@ -125,6 +125,12 @@ MCP is read-only by default. To expose mutation tools, start the server with `ok
 
 Read these offline with `oku docs list` and `oku docs show <name>`.
 
+## Legal
+
+Use of Oku is subject to the Oku [Terms of Service](https://oku.trade/terms-of-service) and [Privacy Policy](https://oku.trade/privacy-policy).
+
+This software is provided "as is", without warranty of any kind. Nothing in this repository or the software's output is financial, investment, legal or tax advice. Trading digital assets and perpetual futures carries risk, including the loss of all funds. You are responsible for reviewing every transaction and order before you approve it, and for complying with the laws that apply to you.
+
 ## License
 
 AGPL-3.0-only. See [LICENSE](LICENSE).
