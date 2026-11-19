@@ -5,418 +5,484 @@
 package accountv2connect
 
 import (
-	connect "connectrpc.com/connect"
+	connect "connectrpc.com/connect/v2"
 	context "context"
-	errors "errors"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
-	http "net/http"
-	strings "strings"
+	sync "sync"
 )
-
-// This is a compile-time assertion to ensure that this generated file and the connect package are
-// compatible. If you get a compiler error that this constant is not defined, this code was
-// generated with a version of connect newer than the one compiled into your binary. You can fix the
-// problem by either regenerating this code with an older version of connect or updating the connect
-// version compiled into your binary.
-const _ = connect.IsAtLeastVersion1_13_0
 
 const (
 	// SimpleSwapServiceV2Name is the fully-qualified name of the SimpleSwapServiceV2 service.
 	SimpleSwapServiceV2Name = "gfxcafe.oku.account.v2.SimpleSwapServiceV2"
 )
 
-// These constants are the fully-qualified names of the RPCs defined in this package. They're
-// exposed at runtime as Spec.Procedure and as the final two segments of the HTTP route.
+// These constants are the procedure names of the RPCs defined in this package. They're exposed at
+// runtime as Spec.Procedure and as the final two segments of the HTTP route.
 //
 // Note that these are different from the fully-qualified method names used by
 // google.golang.org/protobuf/reflect/protoreflect. To convert from these constants to
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// SimpleSwapServiceV2CreateProcedure is the fully-qualified name of the SimpleSwapServiceV2's
-	// Create RPC.
+	// SimpleSwapServiceV2CreateProcedure is the procedure name of the SimpleSwapServiceV2's Create RPC.
 	SimpleSwapServiceV2CreateProcedure = "/gfxcafe.oku.account.v2.SimpleSwapServiceV2/Create"
-	// SimpleSwapServiceV2PingProcedure is the fully-qualified name of the SimpleSwapServiceV2's Ping
-	// RPC.
+	// SimpleSwapServiceV2PingProcedure is the procedure name of the SimpleSwapServiceV2's Ping RPC.
 	SimpleSwapServiceV2PingProcedure = "/gfxcafe.oku.account.v2.SimpleSwapServiceV2/Ping"
-	// SimpleSwapServiceV2CancelProcedure is the fully-qualified name of the SimpleSwapServiceV2's
-	// Cancel RPC.
+	// SimpleSwapServiceV2CancelProcedure is the procedure name of the SimpleSwapServiceV2's Cancel RPC.
 	SimpleSwapServiceV2CancelProcedure = "/gfxcafe.oku.account.v2.SimpleSwapServiceV2/Cancel"
-	// SimpleSwapServiceV2GetQuotesProcedure is the fully-qualified name of the SimpleSwapServiceV2's
+	// SimpleSwapServiceV2GetQuotesProcedure is the procedure name of the SimpleSwapServiceV2's
 	// GetQuotes RPC.
 	SimpleSwapServiceV2GetQuotesProcedure = "/gfxcafe.oku.account.v2.SimpleSwapServiceV2/GetQuotes"
-	// SimpleSwapServiceV2GetFlowstreamQuotesProcedure is the fully-qualified name of the
+	// SimpleSwapServiceV2GetFlowstreamQuotesProcedure is the procedure name of the
 	// SimpleSwapServiceV2's GetFlowstreamQuotes RPC.
 	SimpleSwapServiceV2GetFlowstreamQuotesProcedure = "/gfxcafe.oku.account.v2.SimpleSwapServiceV2/GetFlowstreamQuotes"
-	// SimpleSwapServiceV2GetQuoteProcedure is the fully-qualified name of the SimpleSwapServiceV2's
-	// GetQuote RPC.
+	// SimpleSwapServiceV2GetQuoteProcedure is the procedure name of the SimpleSwapServiceV2's GetQuote
+	// RPC.
 	SimpleSwapServiceV2GetQuoteProcedure = "/gfxcafe.oku.account.v2.SimpleSwapServiceV2/GetQuote"
-	// SimpleSwapServiceV2UpdateQuoteSelectProcedure is the fully-qualified name of the
-	// SimpleSwapServiceV2's UpdateQuoteSelect RPC.
+	// SimpleSwapServiceV2UpdateQuoteSelectProcedure is the procedure name of the SimpleSwapServiceV2's
+	// UpdateQuoteSelect RPC.
 	SimpleSwapServiceV2UpdateQuoteSelectProcedure = "/gfxcafe.oku.account.v2.SimpleSwapServiceV2/UpdateQuoteSelect"
-	// SimpleSwapServiceV2ConfirmQuoteSelectProcedure is the fully-qualified name of the
-	// SimpleSwapServiceV2's ConfirmQuoteSelect RPC.
+	// SimpleSwapServiceV2ConfirmQuoteSelectProcedure is the procedure name of the SimpleSwapServiceV2's
+	// ConfirmQuoteSelect RPC.
 	SimpleSwapServiceV2ConfirmQuoteSelectProcedure = "/gfxcafe.oku.account.v2.SimpleSwapServiceV2/ConfirmQuoteSelect"
-	// SimpleSwapServiceV2GetExecutionInfoProcedure is the fully-qualified name of the
-	// SimpleSwapServiceV2's GetExecutionInfo RPC.
+	// SimpleSwapServiceV2GetExecutionInfoProcedure is the procedure name of the SimpleSwapServiceV2's
+	// GetExecutionInfo RPC.
 	SimpleSwapServiceV2GetExecutionInfoProcedure = "/gfxcafe.oku.account.v2.SimpleSwapServiceV2/GetExecutionInfo"
-	// SimpleSwapServiceV2FinishProcedure is the fully-qualified name of the SimpleSwapServiceV2's
-	// Finish RPC.
+	// SimpleSwapServiceV2FinishProcedure is the procedure name of the SimpleSwapServiceV2's Finish RPC.
 	SimpleSwapServiceV2FinishProcedure = "/gfxcafe.oku.account.v2.SimpleSwapServiceV2/Finish"
-	// SimpleSwapServiceV2GetSupportedMarketsProcedure is the fully-qualified name of the
+	// SimpleSwapServiceV2GetSupportedMarketsProcedure is the procedure name of the
 	// SimpleSwapServiceV2's GetSupportedMarkets RPC.
 	SimpleSwapServiceV2GetSupportedMarketsProcedure = "/gfxcafe.oku.account.v2.SimpleSwapServiceV2/GetSupportedMarkets"
+)
+
+var (
+	simpleSwapServiceV2CreateSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_simpleswap_proto.Services().ByName("SimpleSwapServiceV2").Methods().ByName("Create"),
+			Procedure:  SimpleSwapServiceV2CreateProcedure,
+		}
+	})
+	simpleSwapServiceV2PingSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_simpleswap_proto.Services().ByName("SimpleSwapServiceV2").Methods().ByName("Ping"),
+			Procedure:  SimpleSwapServiceV2PingProcedure,
+		}
+	})
+	simpleSwapServiceV2CancelSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_simpleswap_proto.Services().ByName("SimpleSwapServiceV2").Methods().ByName("Cancel"),
+			Procedure:  SimpleSwapServiceV2CancelProcedure,
+		}
+	})
+	simpleSwapServiceV2GetQuotesSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_simpleswap_proto.Services().ByName("SimpleSwapServiceV2").Methods().ByName("GetQuotes"),
+			Procedure:  SimpleSwapServiceV2GetQuotesProcedure,
+		}
+	})
+	simpleSwapServiceV2GetFlowstreamQuotesSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_simpleswap_proto.Services().ByName("SimpleSwapServiceV2").Methods().ByName("GetFlowstreamQuotes"),
+			Procedure:  SimpleSwapServiceV2GetFlowstreamQuotesProcedure,
+		}
+	})
+	simpleSwapServiceV2GetQuoteSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_simpleswap_proto.Services().ByName("SimpleSwapServiceV2").Methods().ByName("GetQuote"),
+			Procedure:  SimpleSwapServiceV2GetQuoteProcedure,
+		}
+	})
+	simpleSwapServiceV2UpdateQuoteSelectSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_simpleswap_proto.Services().ByName("SimpleSwapServiceV2").Methods().ByName("UpdateQuoteSelect"),
+			Procedure:  SimpleSwapServiceV2UpdateQuoteSelectProcedure,
+		}
+	})
+	simpleSwapServiceV2ConfirmQuoteSelectSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_simpleswap_proto.Services().ByName("SimpleSwapServiceV2").Methods().ByName("ConfirmQuoteSelect"),
+			Procedure:  SimpleSwapServiceV2ConfirmQuoteSelectProcedure,
+		}
+	})
+	simpleSwapServiceV2GetExecutionInfoSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_simpleswap_proto.Services().ByName("SimpleSwapServiceV2").Methods().ByName("GetExecutionInfo"),
+			Procedure:  SimpleSwapServiceV2GetExecutionInfoProcedure,
+		}
+	})
+	simpleSwapServiceV2FinishSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_simpleswap_proto.Services().ByName("SimpleSwapServiceV2").Methods().ByName("Finish"),
+			Procedure:  SimpleSwapServiceV2FinishProcedure,
+		}
+	})
+	simpleSwapServiceV2GetSupportedMarketsSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_simpleswap_proto.Services().ByName("SimpleSwapServiceV2").Methods().ByName("GetSupportedMarkets"),
+			Procedure:  SimpleSwapServiceV2GetSupportedMarketsProcedure,
+		}
+	})
 )
 
 // SimpleSwapServiceV2Client is a client for the gfxcafe.oku.account.v2.SimpleSwapServiceV2 service.
 type SimpleSwapServiceV2Client interface {
 	// Create creates a new simple swap order
-	Create(context.Context, *connect.Request[v2.SwapCreateRequest]) (*connect.Response[v2.SwapCreateResponse], error)
+	Create(context.Context, *v2.SwapCreateRequest) (*v2.SwapCreateResponse, error)
 	// Ping pings a simple swap order and returns its current state
-	Ping(context.Context, *connect.Request[v2.PingRequest]) (*connect.Response[v2.PingResponse], error)
+	Ping(context.Context, *v2.PingRequest) (*v2.PingResponse, error)
 	// Cancel cancels a simple swap order
-	Cancel(context.Context, *connect.Request[v2.CancelRequest]) (*connect.Response[v2.CancelResponse], error)
+	Cancel(context.Context, *v2.CancelRequest) (*v2.CancelResponse, error)
 	// GetQuotes gets all quotes for a simple swap order
-	GetQuotes(context.Context, *connect.Request[v2.SwapGetQuotesRequest]) (*connect.Response[v2.SwapGetQuotesResponse], error)
+	GetQuotes(context.Context, *v2.SwapGetQuotesRequest) (*v2.SwapGetQuotesResponse, error)
 	// GetFlowstreamQuotes gets all quotes from Redis cache
-	GetFlowstreamQuotes(context.Context, *connect.Request[v2.SwapGetFlowstreamQuotesRequest]) (*connect.Response[v2.SwapGetFlowstreamQuotesResponse], error)
+	GetFlowstreamQuotes(context.Context, *v2.SwapGetFlowstreamQuotesRequest) (*v2.SwapGetFlowstreamQuotesResponse, error)
 	// GetQuote gets a specific quote for a router
-	GetQuote(context.Context, *connect.Request[v2.SwapGetQuoteRequest]) (*connect.Response[v2.SwapGetQuoteResponse], error)
+	GetQuote(context.Context, *v2.SwapGetQuoteRequest) (*v2.SwapGetQuoteResponse, error)
 	// UpdateQuoteSelect selects a quote
-	UpdateQuoteSelect(context.Context, *connect.Request[v2.SwapUpdateQuoteSelectRequest]) (*connect.Response[v2.SwapUpdateQuoteSelectResponse], error)
+	UpdateQuoteSelect(context.Context, *v2.SwapUpdateQuoteSelectRequest) (*v2.SwapUpdateQuoteSelectResponse, error)
 	// ConfirmQuoteSelect confirms quote selection
-	ConfirmQuoteSelect(context.Context, *connect.Request[v2.SwapConfirmQuoteSelectRequest]) (*connect.Response[v2.SwapConfirmQuoteSelectResponse], error)
+	ConfirmQuoteSelect(context.Context, *v2.SwapConfirmQuoteSelectRequest) (*v2.SwapConfirmQuoteSelectResponse, error)
 	// GetExecutionInfo gets execution information
-	GetExecutionInfo(context.Context, *connect.Request[v2.GetExecutionInfoRequest]) (*connect.Response[v2.GetExecutionInfoResponse], error)
+	GetExecutionInfo(context.Context, *v2.GetExecutionInfoRequest) (*v2.GetExecutionInfoResponse, error)
 	// Finish finishes the order with transaction details
-	Finish(context.Context, *connect.Request[v2.FinishRequest]) (*connect.Response[v2.FinishResponse], error)
+	Finish(context.Context, *v2.FinishRequest) (*v2.FinishResponse, error)
 	// GetSupportedMarkets returns which swap routers are active and which chains they support
-	GetSupportedMarkets(context.Context, *connect.Request[v2.GetSupportedMarketsRequest]) (*connect.Response[v2.GetSupportedMarketsResponse], error)
+	GetSupportedMarkets(context.Context, *v2.GetSupportedMarketsRequest) (*v2.GetSupportedMarketsResponse, error)
 }
 
 // NewSimpleSwapServiceV2Client constructs a client for the
-// gfxcafe.oku.account.v2.SimpleSwapServiceV2 service. By default, it uses the Connect protocol with
-// the binary Protobuf Codec, asks for gzipped responses, and sends uncompressed requests. To use
-// the gRPC or gRPC-Web protocols, supply the connect.WithGRPC() or connect.WithGRPCWeb() options.
-//
-// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
-// http://api.acme.com or https://acme.com/grpc).
-func NewSimpleSwapServiceV2Client(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) SimpleSwapServiceV2Client {
-	baseURL = strings.TrimRight(baseURL, "/")
-	simpleSwapServiceV2Methods := v2.File_gfxcafe_oku_account_v2_simpleswap_proto.Services().ByName("SimpleSwapServiceV2").Methods()
-	return &simpleSwapServiceV2Client{
-		create: connect.NewClient[v2.SwapCreateRequest, v2.SwapCreateResponse](
-			httpClient,
-			baseURL+SimpleSwapServiceV2CreateProcedure,
-			connect.WithSchema(simpleSwapServiceV2Methods.ByName("Create")),
-			connect.WithClientOptions(opts...),
-		),
-		ping: connect.NewClient[v2.PingRequest, v2.PingResponse](
-			httpClient,
-			baseURL+SimpleSwapServiceV2PingProcedure,
-			connect.WithSchema(simpleSwapServiceV2Methods.ByName("Ping")),
-			connect.WithClientOptions(opts...),
-		),
-		cancel: connect.NewClient[v2.CancelRequest, v2.CancelResponse](
-			httpClient,
-			baseURL+SimpleSwapServiceV2CancelProcedure,
-			connect.WithSchema(simpleSwapServiceV2Methods.ByName("Cancel")),
-			connect.WithClientOptions(opts...),
-		),
-		getQuotes: connect.NewClient[v2.SwapGetQuotesRequest, v2.SwapGetQuotesResponse](
-			httpClient,
-			baseURL+SimpleSwapServiceV2GetQuotesProcedure,
-			connect.WithSchema(simpleSwapServiceV2Methods.ByName("GetQuotes")),
-			connect.WithClientOptions(opts...),
-		),
-		getFlowstreamQuotes: connect.NewClient[v2.SwapGetFlowstreamQuotesRequest, v2.SwapGetFlowstreamQuotesResponse](
-			httpClient,
-			baseURL+SimpleSwapServiceV2GetFlowstreamQuotesProcedure,
-			connect.WithSchema(simpleSwapServiceV2Methods.ByName("GetFlowstreamQuotes")),
-			connect.WithClientOptions(opts...),
-		),
-		getQuote: connect.NewClient[v2.SwapGetQuoteRequest, v2.SwapGetQuoteResponse](
-			httpClient,
-			baseURL+SimpleSwapServiceV2GetQuoteProcedure,
-			connect.WithSchema(simpleSwapServiceV2Methods.ByName("GetQuote")),
-			connect.WithClientOptions(opts...),
-		),
-		updateQuoteSelect: connect.NewClient[v2.SwapUpdateQuoteSelectRequest, v2.SwapUpdateQuoteSelectResponse](
-			httpClient,
-			baseURL+SimpleSwapServiceV2UpdateQuoteSelectProcedure,
-			connect.WithSchema(simpleSwapServiceV2Methods.ByName("UpdateQuoteSelect")),
-			connect.WithClientOptions(opts...),
-		),
-		confirmQuoteSelect: connect.NewClient[v2.SwapConfirmQuoteSelectRequest, v2.SwapConfirmQuoteSelectResponse](
-			httpClient,
-			baseURL+SimpleSwapServiceV2ConfirmQuoteSelectProcedure,
-			connect.WithSchema(simpleSwapServiceV2Methods.ByName("ConfirmQuoteSelect")),
-			connect.WithClientOptions(opts...),
-		),
-		getExecutionInfo: connect.NewClient[v2.GetExecutionInfoRequest, v2.GetExecutionInfoResponse](
-			httpClient,
-			baseURL+SimpleSwapServiceV2GetExecutionInfoProcedure,
-			connect.WithSchema(simpleSwapServiceV2Methods.ByName("GetExecutionInfo")),
-			connect.WithClientOptions(opts...),
-		),
-		finish: connect.NewClient[v2.FinishRequest, v2.FinishResponse](
-			httpClient,
-			baseURL+SimpleSwapServiceV2FinishProcedure,
-			connect.WithSchema(simpleSwapServiceV2Methods.ByName("Finish")),
-			connect.WithClientOptions(opts...),
-		),
-		getSupportedMarkets: connect.NewClient[v2.GetSupportedMarketsRequest, v2.GetSupportedMarketsResponse](
-			httpClient,
-			baseURL+SimpleSwapServiceV2GetSupportedMarketsProcedure,
-			connect.WithSchema(simpleSwapServiceV2Methods.ByName("GetSupportedMarkets")),
-			connect.WithClientOptions(opts...),
-		),
-	}
-}
-
-// simpleSwapServiceV2Client implements SimpleSwapServiceV2Client.
-type simpleSwapServiceV2Client struct {
-	create              *connect.Client[v2.SwapCreateRequest, v2.SwapCreateResponse]
-	ping                *connect.Client[v2.PingRequest, v2.PingResponse]
-	cancel              *connect.Client[v2.CancelRequest, v2.CancelResponse]
-	getQuotes           *connect.Client[v2.SwapGetQuotesRequest, v2.SwapGetQuotesResponse]
-	getFlowstreamQuotes *connect.Client[v2.SwapGetFlowstreamQuotesRequest, v2.SwapGetFlowstreamQuotesResponse]
-	getQuote            *connect.Client[v2.SwapGetQuoteRequest, v2.SwapGetQuoteResponse]
-	updateQuoteSelect   *connect.Client[v2.SwapUpdateQuoteSelectRequest, v2.SwapUpdateQuoteSelectResponse]
-	confirmQuoteSelect  *connect.Client[v2.SwapConfirmQuoteSelectRequest, v2.SwapConfirmQuoteSelectResponse]
-	getExecutionInfo    *connect.Client[v2.GetExecutionInfoRequest, v2.GetExecutionInfoResponse]
-	finish              *connect.Client[v2.FinishRequest, v2.FinishResponse]
-	getSupportedMarkets *connect.Client[v2.GetSupportedMarketsRequest, v2.GetSupportedMarketsResponse]
-}
-
-// Create calls gfxcafe.oku.account.v2.SimpleSwapServiceV2.Create.
-func (c *simpleSwapServiceV2Client) Create(ctx context.Context, req *connect.Request[v2.SwapCreateRequest]) (*connect.Response[v2.SwapCreateResponse], error) {
-	return c.create.CallUnary(ctx, req)
-}
-
-// Ping calls gfxcafe.oku.account.v2.SimpleSwapServiceV2.Ping.
-func (c *simpleSwapServiceV2Client) Ping(ctx context.Context, req *connect.Request[v2.PingRequest]) (*connect.Response[v2.PingResponse], error) {
-	return c.ping.CallUnary(ctx, req)
-}
-
-// Cancel calls gfxcafe.oku.account.v2.SimpleSwapServiceV2.Cancel.
-func (c *simpleSwapServiceV2Client) Cancel(ctx context.Context, req *connect.Request[v2.CancelRequest]) (*connect.Response[v2.CancelResponse], error) {
-	return c.cancel.CallUnary(ctx, req)
-}
-
-// GetQuotes calls gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetQuotes.
-func (c *simpleSwapServiceV2Client) GetQuotes(ctx context.Context, req *connect.Request[v2.SwapGetQuotesRequest]) (*connect.Response[v2.SwapGetQuotesResponse], error) {
-	return c.getQuotes.CallUnary(ctx, req)
-}
-
-// GetFlowstreamQuotes calls gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetFlowstreamQuotes.
-func (c *simpleSwapServiceV2Client) GetFlowstreamQuotes(ctx context.Context, req *connect.Request[v2.SwapGetFlowstreamQuotesRequest]) (*connect.Response[v2.SwapGetFlowstreamQuotesResponse], error) {
-	return c.getFlowstreamQuotes.CallUnary(ctx, req)
-}
-
-// GetQuote calls gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetQuote.
-func (c *simpleSwapServiceV2Client) GetQuote(ctx context.Context, req *connect.Request[v2.SwapGetQuoteRequest]) (*connect.Response[v2.SwapGetQuoteResponse], error) {
-	return c.getQuote.CallUnary(ctx, req)
-}
-
-// UpdateQuoteSelect calls gfxcafe.oku.account.v2.SimpleSwapServiceV2.UpdateQuoteSelect.
-func (c *simpleSwapServiceV2Client) UpdateQuoteSelect(ctx context.Context, req *connect.Request[v2.SwapUpdateQuoteSelectRequest]) (*connect.Response[v2.SwapUpdateQuoteSelectResponse], error) {
-	return c.updateQuoteSelect.CallUnary(ctx, req)
-}
-
-// ConfirmQuoteSelect calls gfxcafe.oku.account.v2.SimpleSwapServiceV2.ConfirmQuoteSelect.
-func (c *simpleSwapServiceV2Client) ConfirmQuoteSelect(ctx context.Context, req *connect.Request[v2.SwapConfirmQuoteSelectRequest]) (*connect.Response[v2.SwapConfirmQuoteSelectResponse], error) {
-	return c.confirmQuoteSelect.CallUnary(ctx, req)
-}
-
-// GetExecutionInfo calls gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetExecutionInfo.
-func (c *simpleSwapServiceV2Client) GetExecutionInfo(ctx context.Context, req *connect.Request[v2.GetExecutionInfoRequest]) (*connect.Response[v2.GetExecutionInfoResponse], error) {
-	return c.getExecutionInfo.CallUnary(ctx, req)
-}
-
-// Finish calls gfxcafe.oku.account.v2.SimpleSwapServiceV2.Finish.
-func (c *simpleSwapServiceV2Client) Finish(ctx context.Context, req *connect.Request[v2.FinishRequest]) (*connect.Response[v2.FinishResponse], error) {
-	return c.finish.CallUnary(ctx, req)
-}
-
-// GetSupportedMarkets calls gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetSupportedMarkets.
-func (c *simpleSwapServiceV2Client) GetSupportedMarkets(ctx context.Context, req *connect.Request[v2.GetSupportedMarketsRequest]) (*connect.Response[v2.GetSupportedMarketsResponse], error) {
-	return c.getSupportedMarkets.CallUnary(ctx, req)
+// gfxcafe.oku.account.v2.SimpleSwapServiceV2 service. Multiple service clients may share a single
+// connect.Client.
+func NewSimpleSwapServiceV2Client(client *connect.Client) SimpleSwapServiceV2Client {
+	return &simpleSwapServiceV2Client{client: client}
 }
 
 // SimpleSwapServiceV2Handler is an implementation of the gfxcafe.oku.account.v2.SimpleSwapServiceV2
 // service.
 type SimpleSwapServiceV2Handler interface {
 	// Create creates a new simple swap order
-	Create(context.Context, *connect.Request[v2.SwapCreateRequest]) (*connect.Response[v2.SwapCreateResponse], error)
+	Create(context.Context, *v2.SwapCreateRequest) (*v2.SwapCreateResponse, error)
 	// Ping pings a simple swap order and returns its current state
-	Ping(context.Context, *connect.Request[v2.PingRequest]) (*connect.Response[v2.PingResponse], error)
+	Ping(context.Context, *v2.PingRequest) (*v2.PingResponse, error)
 	// Cancel cancels a simple swap order
-	Cancel(context.Context, *connect.Request[v2.CancelRequest]) (*connect.Response[v2.CancelResponse], error)
+	Cancel(context.Context, *v2.CancelRequest) (*v2.CancelResponse, error)
 	// GetQuotes gets all quotes for a simple swap order
-	GetQuotes(context.Context, *connect.Request[v2.SwapGetQuotesRequest]) (*connect.Response[v2.SwapGetQuotesResponse], error)
+	GetQuotes(context.Context, *v2.SwapGetQuotesRequest) (*v2.SwapGetQuotesResponse, error)
 	// GetFlowstreamQuotes gets all quotes from Redis cache
-	GetFlowstreamQuotes(context.Context, *connect.Request[v2.SwapGetFlowstreamQuotesRequest]) (*connect.Response[v2.SwapGetFlowstreamQuotesResponse], error)
+	GetFlowstreamQuotes(context.Context, *v2.SwapGetFlowstreamQuotesRequest) (*v2.SwapGetFlowstreamQuotesResponse, error)
 	// GetQuote gets a specific quote for a router
-	GetQuote(context.Context, *connect.Request[v2.SwapGetQuoteRequest]) (*connect.Response[v2.SwapGetQuoteResponse], error)
+	GetQuote(context.Context, *v2.SwapGetQuoteRequest) (*v2.SwapGetQuoteResponse, error)
 	// UpdateQuoteSelect selects a quote
-	UpdateQuoteSelect(context.Context, *connect.Request[v2.SwapUpdateQuoteSelectRequest]) (*connect.Response[v2.SwapUpdateQuoteSelectResponse], error)
+	UpdateQuoteSelect(context.Context, *v2.SwapUpdateQuoteSelectRequest) (*v2.SwapUpdateQuoteSelectResponse, error)
 	// ConfirmQuoteSelect confirms quote selection
-	ConfirmQuoteSelect(context.Context, *connect.Request[v2.SwapConfirmQuoteSelectRequest]) (*connect.Response[v2.SwapConfirmQuoteSelectResponse], error)
+	ConfirmQuoteSelect(context.Context, *v2.SwapConfirmQuoteSelectRequest) (*v2.SwapConfirmQuoteSelectResponse, error)
 	// GetExecutionInfo gets execution information
-	GetExecutionInfo(context.Context, *connect.Request[v2.GetExecutionInfoRequest]) (*connect.Response[v2.GetExecutionInfoResponse], error)
+	GetExecutionInfo(context.Context, *v2.GetExecutionInfoRequest) (*v2.GetExecutionInfoResponse, error)
 	// Finish finishes the order with transaction details
-	Finish(context.Context, *connect.Request[v2.FinishRequest]) (*connect.Response[v2.FinishResponse], error)
+	Finish(context.Context, *v2.FinishRequest) (*v2.FinishResponse, error)
 	// GetSupportedMarkets returns which swap routers are active and which chains they support
-	GetSupportedMarkets(context.Context, *connect.Request[v2.GetSupportedMarketsRequest]) (*connect.Response[v2.GetSupportedMarketsResponse], error)
+	GetSupportedMarkets(context.Context, *v2.GetSupportedMarketsRequest) (*v2.GetSupportedMarketsResponse, error)
 }
 
-// NewSimpleSwapServiceV2Handler builds an HTTP handler from the service implementation. It returns
-// the path on which to mount the handler and the handler itself.
-//
-// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
-// and JSON codecs. They also support gzip compression.
-func NewSimpleSwapServiceV2Handler(svc SimpleSwapServiceV2Handler, opts ...connect.HandlerOption) (string, http.Handler) {
-	simpleSwapServiceV2Methods := v2.File_gfxcafe_oku_account_v2_simpleswap_proto.Services().ByName("SimpleSwapServiceV2").Methods()
-	simpleSwapServiceV2CreateHandler := connect.NewUnaryHandler(
-		SimpleSwapServiceV2CreateProcedure,
-		svc.Create,
-		connect.WithSchema(simpleSwapServiceV2Methods.ByName("Create")),
-		connect.WithHandlerOptions(opts...),
+// RegisterSimpleSwapServiceV2Handler registers svc as the
+// gfxcafe.oku.account.v2.SimpleSwapServiceV2 implementation on server.
+func RegisterSimpleSwapServiceV2Handler(server *connect.Server, svc SimpleSwapServiceV2Handler) {
+	adapter := simpleSwapServiceV2Handler{svc: svc}
+	server.Register(
+		connect.Method{Spec: simpleSwapServiceV2CreateSpec(), Handler: adapter.create},
+		connect.Method{Spec: simpleSwapServiceV2PingSpec(), Handler: adapter.ping},
+		connect.Method{Spec: simpleSwapServiceV2CancelSpec(), Handler: adapter.cancel},
+		connect.Method{Spec: simpleSwapServiceV2GetQuotesSpec(), Handler: adapter.getQuotes},
+		connect.Method{Spec: simpleSwapServiceV2GetFlowstreamQuotesSpec(), Handler: adapter.getFlowstreamQuotes},
+		connect.Method{Spec: simpleSwapServiceV2GetQuoteSpec(), Handler: adapter.getQuote},
+		connect.Method{Spec: simpleSwapServiceV2UpdateQuoteSelectSpec(), Handler: adapter.updateQuoteSelect},
+		connect.Method{Spec: simpleSwapServiceV2ConfirmQuoteSelectSpec(), Handler: adapter.confirmQuoteSelect},
+		connect.Method{Spec: simpleSwapServiceV2GetExecutionInfoSpec(), Handler: adapter.getExecutionInfo},
+		connect.Method{Spec: simpleSwapServiceV2FinishSpec(), Handler: adapter.finish},
+		connect.Method{Spec: simpleSwapServiceV2GetSupportedMarketsSpec(), Handler: adapter.getSupportedMarkets},
 	)
-	simpleSwapServiceV2PingHandler := connect.NewUnaryHandler(
-		SimpleSwapServiceV2PingProcedure,
-		svc.Ping,
-		connect.WithSchema(simpleSwapServiceV2Methods.ByName("Ping")),
-		connect.WithHandlerOptions(opts...),
-	)
-	simpleSwapServiceV2CancelHandler := connect.NewUnaryHandler(
-		SimpleSwapServiceV2CancelProcedure,
-		svc.Cancel,
-		connect.WithSchema(simpleSwapServiceV2Methods.ByName("Cancel")),
-		connect.WithHandlerOptions(opts...),
-	)
-	simpleSwapServiceV2GetQuotesHandler := connect.NewUnaryHandler(
-		SimpleSwapServiceV2GetQuotesProcedure,
-		svc.GetQuotes,
-		connect.WithSchema(simpleSwapServiceV2Methods.ByName("GetQuotes")),
-		connect.WithHandlerOptions(opts...),
-	)
-	simpleSwapServiceV2GetFlowstreamQuotesHandler := connect.NewUnaryHandler(
-		SimpleSwapServiceV2GetFlowstreamQuotesProcedure,
-		svc.GetFlowstreamQuotes,
-		connect.WithSchema(simpleSwapServiceV2Methods.ByName("GetFlowstreamQuotes")),
-		connect.WithHandlerOptions(opts...),
-	)
-	simpleSwapServiceV2GetQuoteHandler := connect.NewUnaryHandler(
-		SimpleSwapServiceV2GetQuoteProcedure,
-		svc.GetQuote,
-		connect.WithSchema(simpleSwapServiceV2Methods.ByName("GetQuote")),
-		connect.WithHandlerOptions(opts...),
-	)
-	simpleSwapServiceV2UpdateQuoteSelectHandler := connect.NewUnaryHandler(
-		SimpleSwapServiceV2UpdateQuoteSelectProcedure,
-		svc.UpdateQuoteSelect,
-		connect.WithSchema(simpleSwapServiceV2Methods.ByName("UpdateQuoteSelect")),
-		connect.WithHandlerOptions(opts...),
-	)
-	simpleSwapServiceV2ConfirmQuoteSelectHandler := connect.NewUnaryHandler(
-		SimpleSwapServiceV2ConfirmQuoteSelectProcedure,
-		svc.ConfirmQuoteSelect,
-		connect.WithSchema(simpleSwapServiceV2Methods.ByName("ConfirmQuoteSelect")),
-		connect.WithHandlerOptions(opts...),
-	)
-	simpleSwapServiceV2GetExecutionInfoHandler := connect.NewUnaryHandler(
-		SimpleSwapServiceV2GetExecutionInfoProcedure,
-		svc.GetExecutionInfo,
-		connect.WithSchema(simpleSwapServiceV2Methods.ByName("GetExecutionInfo")),
-		connect.WithHandlerOptions(opts...),
-	)
-	simpleSwapServiceV2FinishHandler := connect.NewUnaryHandler(
-		SimpleSwapServiceV2FinishProcedure,
-		svc.Finish,
-		connect.WithSchema(simpleSwapServiceV2Methods.ByName("Finish")),
-		connect.WithHandlerOptions(opts...),
-	)
-	simpleSwapServiceV2GetSupportedMarketsHandler := connect.NewUnaryHandler(
-		SimpleSwapServiceV2GetSupportedMarketsProcedure,
-		svc.GetSupportedMarkets,
-		connect.WithSchema(simpleSwapServiceV2Methods.ByName("GetSupportedMarkets")),
-		connect.WithHandlerOptions(opts...),
-	)
-	return "/gfxcafe.oku.account.v2.SimpleSwapServiceV2/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case SimpleSwapServiceV2CreateProcedure:
-			simpleSwapServiceV2CreateHandler.ServeHTTP(w, r)
-		case SimpleSwapServiceV2PingProcedure:
-			simpleSwapServiceV2PingHandler.ServeHTTP(w, r)
-		case SimpleSwapServiceV2CancelProcedure:
-			simpleSwapServiceV2CancelHandler.ServeHTTP(w, r)
-		case SimpleSwapServiceV2GetQuotesProcedure:
-			simpleSwapServiceV2GetQuotesHandler.ServeHTTP(w, r)
-		case SimpleSwapServiceV2GetFlowstreamQuotesProcedure:
-			simpleSwapServiceV2GetFlowstreamQuotesHandler.ServeHTTP(w, r)
-		case SimpleSwapServiceV2GetQuoteProcedure:
-			simpleSwapServiceV2GetQuoteHandler.ServeHTTP(w, r)
-		case SimpleSwapServiceV2UpdateQuoteSelectProcedure:
-			simpleSwapServiceV2UpdateQuoteSelectHandler.ServeHTTP(w, r)
-		case SimpleSwapServiceV2ConfirmQuoteSelectProcedure:
-			simpleSwapServiceV2ConfirmQuoteSelectHandler.ServeHTTP(w, r)
-		case SimpleSwapServiceV2GetExecutionInfoProcedure:
-			simpleSwapServiceV2GetExecutionInfoHandler.ServeHTTP(w, r)
-		case SimpleSwapServiceV2FinishProcedure:
-			simpleSwapServiceV2FinishHandler.ServeHTTP(w, r)
-		case SimpleSwapServiceV2GetSupportedMarketsProcedure:
-			simpleSwapServiceV2GetSupportedMarketsHandler.ServeHTTP(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	})
 }
 
 // UnimplementedSimpleSwapServiceV2Handler returns CodeUnimplemented from all methods.
 type UnimplementedSimpleSwapServiceV2Handler struct{}
 
-func (UnimplementedSimpleSwapServiceV2Handler) Create(context.Context, *connect.Request[v2.SwapCreateRequest]) (*connect.Response[v2.SwapCreateResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.SimpleSwapServiceV2.Create is not implemented"))
+func (UnimplementedSimpleSwapServiceV2Handler) Create(context.Context, *v2.SwapCreateRequest) (*v2.SwapCreateResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.SimpleSwapServiceV2.Create is not implemented")
 }
 
-func (UnimplementedSimpleSwapServiceV2Handler) Ping(context.Context, *connect.Request[v2.PingRequest]) (*connect.Response[v2.PingResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.SimpleSwapServiceV2.Ping is not implemented"))
+func (UnimplementedSimpleSwapServiceV2Handler) Ping(context.Context, *v2.PingRequest) (*v2.PingResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.SimpleSwapServiceV2.Ping is not implemented")
 }
 
-func (UnimplementedSimpleSwapServiceV2Handler) Cancel(context.Context, *connect.Request[v2.CancelRequest]) (*connect.Response[v2.CancelResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.SimpleSwapServiceV2.Cancel is not implemented"))
+func (UnimplementedSimpleSwapServiceV2Handler) Cancel(context.Context, *v2.CancelRequest) (*v2.CancelResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.SimpleSwapServiceV2.Cancel is not implemented")
 }
 
-func (UnimplementedSimpleSwapServiceV2Handler) GetQuotes(context.Context, *connect.Request[v2.SwapGetQuotesRequest]) (*connect.Response[v2.SwapGetQuotesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetQuotes is not implemented"))
+func (UnimplementedSimpleSwapServiceV2Handler) GetQuotes(context.Context, *v2.SwapGetQuotesRequest) (*v2.SwapGetQuotesResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetQuotes is not implemented")
 }
 
-func (UnimplementedSimpleSwapServiceV2Handler) GetFlowstreamQuotes(context.Context, *connect.Request[v2.SwapGetFlowstreamQuotesRequest]) (*connect.Response[v2.SwapGetFlowstreamQuotesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetFlowstreamQuotes is not implemented"))
+func (UnimplementedSimpleSwapServiceV2Handler) GetFlowstreamQuotes(context.Context, *v2.SwapGetFlowstreamQuotesRequest) (*v2.SwapGetFlowstreamQuotesResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetFlowstreamQuotes is not implemented")
 }
 
-func (UnimplementedSimpleSwapServiceV2Handler) GetQuote(context.Context, *connect.Request[v2.SwapGetQuoteRequest]) (*connect.Response[v2.SwapGetQuoteResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetQuote is not implemented"))
+func (UnimplementedSimpleSwapServiceV2Handler) GetQuote(context.Context, *v2.SwapGetQuoteRequest) (*v2.SwapGetQuoteResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetQuote is not implemented")
 }
 
-func (UnimplementedSimpleSwapServiceV2Handler) UpdateQuoteSelect(context.Context, *connect.Request[v2.SwapUpdateQuoteSelectRequest]) (*connect.Response[v2.SwapUpdateQuoteSelectResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.SimpleSwapServiceV2.UpdateQuoteSelect is not implemented"))
+func (UnimplementedSimpleSwapServiceV2Handler) UpdateQuoteSelect(context.Context, *v2.SwapUpdateQuoteSelectRequest) (*v2.SwapUpdateQuoteSelectResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.SimpleSwapServiceV2.UpdateQuoteSelect is not implemented")
 }
 
-func (UnimplementedSimpleSwapServiceV2Handler) ConfirmQuoteSelect(context.Context, *connect.Request[v2.SwapConfirmQuoteSelectRequest]) (*connect.Response[v2.SwapConfirmQuoteSelectResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.SimpleSwapServiceV2.ConfirmQuoteSelect is not implemented"))
+func (UnimplementedSimpleSwapServiceV2Handler) ConfirmQuoteSelect(context.Context, *v2.SwapConfirmQuoteSelectRequest) (*v2.SwapConfirmQuoteSelectResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.SimpleSwapServiceV2.ConfirmQuoteSelect is not implemented")
 }
 
-func (UnimplementedSimpleSwapServiceV2Handler) GetExecutionInfo(context.Context, *connect.Request[v2.GetExecutionInfoRequest]) (*connect.Response[v2.GetExecutionInfoResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetExecutionInfo is not implemented"))
+func (UnimplementedSimpleSwapServiceV2Handler) GetExecutionInfo(context.Context, *v2.GetExecutionInfoRequest) (*v2.GetExecutionInfoResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetExecutionInfo is not implemented")
 }
 
-func (UnimplementedSimpleSwapServiceV2Handler) Finish(context.Context, *connect.Request[v2.FinishRequest]) (*connect.Response[v2.FinishResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.SimpleSwapServiceV2.Finish is not implemented"))
+func (UnimplementedSimpleSwapServiceV2Handler) Finish(context.Context, *v2.FinishRequest) (*v2.FinishResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.SimpleSwapServiceV2.Finish is not implemented")
 }
 
-func (UnimplementedSimpleSwapServiceV2Handler) GetSupportedMarkets(context.Context, *connect.Request[v2.GetSupportedMarketsRequest]) (*connect.Response[v2.GetSupportedMarketsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetSupportedMarkets is not implemented"))
+func (UnimplementedSimpleSwapServiceV2Handler) GetSupportedMarkets(context.Context, *v2.GetSupportedMarketsRequest) (*v2.GetSupportedMarketsResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.SimpleSwapServiceV2.GetSupportedMarkets is not implemented")
+}
+
+type simpleSwapServiceV2Client struct {
+	client *connect.Client
+}
+
+func (c *simpleSwapServiceV2Client) Create(ctx context.Context, req *v2.SwapCreateRequest) (*v2.SwapCreateResponse, error) {
+	var res v2.SwapCreateResponse
+	if err := c.client.CallUnary(ctx, simpleSwapServiceV2CreateSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *simpleSwapServiceV2Client) Ping(ctx context.Context, req *v2.PingRequest) (*v2.PingResponse, error) {
+	var res v2.PingResponse
+	if err := c.client.CallUnary(ctx, simpleSwapServiceV2PingSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *simpleSwapServiceV2Client) Cancel(ctx context.Context, req *v2.CancelRequest) (*v2.CancelResponse, error) {
+	var res v2.CancelResponse
+	if err := c.client.CallUnary(ctx, simpleSwapServiceV2CancelSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *simpleSwapServiceV2Client) GetQuotes(ctx context.Context, req *v2.SwapGetQuotesRequest) (*v2.SwapGetQuotesResponse, error) {
+	var res v2.SwapGetQuotesResponse
+	if err := c.client.CallUnary(ctx, simpleSwapServiceV2GetQuotesSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *simpleSwapServiceV2Client) GetFlowstreamQuotes(ctx context.Context, req *v2.SwapGetFlowstreamQuotesRequest) (*v2.SwapGetFlowstreamQuotesResponse, error) {
+	var res v2.SwapGetFlowstreamQuotesResponse
+	if err := c.client.CallUnary(ctx, simpleSwapServiceV2GetFlowstreamQuotesSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *simpleSwapServiceV2Client) GetQuote(ctx context.Context, req *v2.SwapGetQuoteRequest) (*v2.SwapGetQuoteResponse, error) {
+	var res v2.SwapGetQuoteResponse
+	if err := c.client.CallUnary(ctx, simpleSwapServiceV2GetQuoteSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *simpleSwapServiceV2Client) UpdateQuoteSelect(ctx context.Context, req *v2.SwapUpdateQuoteSelectRequest) (*v2.SwapUpdateQuoteSelectResponse, error) {
+	var res v2.SwapUpdateQuoteSelectResponse
+	if err := c.client.CallUnary(ctx, simpleSwapServiceV2UpdateQuoteSelectSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *simpleSwapServiceV2Client) ConfirmQuoteSelect(ctx context.Context, req *v2.SwapConfirmQuoteSelectRequest) (*v2.SwapConfirmQuoteSelectResponse, error) {
+	var res v2.SwapConfirmQuoteSelectResponse
+	if err := c.client.CallUnary(ctx, simpleSwapServiceV2ConfirmQuoteSelectSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *simpleSwapServiceV2Client) GetExecutionInfo(ctx context.Context, req *v2.GetExecutionInfoRequest) (*v2.GetExecutionInfoResponse, error) {
+	var res v2.GetExecutionInfoResponse
+	if err := c.client.CallUnary(ctx, simpleSwapServiceV2GetExecutionInfoSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *simpleSwapServiceV2Client) Finish(ctx context.Context, req *v2.FinishRequest) (*v2.FinishResponse, error) {
+	var res v2.FinishResponse
+	if err := c.client.CallUnary(ctx, simpleSwapServiceV2FinishSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *simpleSwapServiceV2Client) GetSupportedMarkets(ctx context.Context, req *v2.GetSupportedMarketsRequest) (*v2.GetSupportedMarketsResponse, error) {
+	var res v2.GetSupportedMarketsResponse
+	if err := c.client.CallUnary(ctx, simpleSwapServiceV2GetSupportedMarketsSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type simpleSwapServiceV2Handler struct{ svc SimpleSwapServiceV2Handler }
+
+func (h simpleSwapServiceV2Handler) create(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.SwapCreateRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Create(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h simpleSwapServiceV2Handler) ping(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.PingRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Ping(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h simpleSwapServiceV2Handler) cancel(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.CancelRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Cancel(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h simpleSwapServiceV2Handler) getQuotes(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.SwapGetQuotesRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetQuotes(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h simpleSwapServiceV2Handler) getFlowstreamQuotes(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.SwapGetFlowstreamQuotesRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetFlowstreamQuotes(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h simpleSwapServiceV2Handler) getQuote(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.SwapGetQuoteRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetQuote(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h simpleSwapServiceV2Handler) updateQuoteSelect(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.SwapUpdateQuoteSelectRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.UpdateQuoteSelect(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h simpleSwapServiceV2Handler) confirmQuoteSelect(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.SwapConfirmQuoteSelectRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ConfirmQuoteSelect(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h simpleSwapServiceV2Handler) getExecutionInfo(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetExecutionInfoRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetExecutionInfo(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h simpleSwapServiceV2Handler) finish(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.FinishRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Finish(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h simpleSwapServiceV2Handler) getSupportedMarkets(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetSupportedMarketsRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetSupportedMarkets(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
 }

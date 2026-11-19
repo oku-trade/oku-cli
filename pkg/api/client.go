@@ -15,7 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v1/accountv1connect"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -87,10 +88,10 @@ func (c *Client) Portfolio(ctx context.Context, method string, req, resp any, au
 }
 
 var portfolioMethods = map[string]handler{
-	"GetNetWorthChart": fundsRPC[accountv2.GetNetWorthChartRequest, accountv2.GetNetWorthChartResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.GetNetWorthChartRequest]) (*connect.Response[accountv2.GetNetWorthChartResponse], error) {
+	"GetNetWorthChart": fundsRPC[accountv2.GetNetWorthChartRequest, accountv2.GetNetWorthChartResponse](func(f fundsClients) func(context.Context, *accountv2.GetNetWorthChartRequest) (*accountv2.GetNetWorthChartResponse, error) {
 		return f.portfolio.GetNetWorthChart
 	}),
-	"GetHoldingsAndPositions": fundsRPC[accountv2.GetHoldingsAndPositionsRequest, accountv2.GetHoldingsAndPositionsResponse](func(f fundsClients) func(context.Context, *connect.Request[accountv2.GetHoldingsAndPositionsRequest]) (*connect.Response[accountv2.GetHoldingsAndPositionsResponse], error) {
+	"GetHoldingsAndPositions": fundsRPC[accountv2.GetHoldingsAndPositionsRequest, accountv2.GetHoldingsAndPositionsResponse](func(f fundsClients) func(context.Context, *accountv2.GetHoldingsAndPositionsRequest) (*accountv2.GetHoldingsAndPositionsResponse, error) {
 		return f.portfolio.GetHoldingsAndPositions
 	}),
 }
@@ -134,20 +135,20 @@ func (c *Client) call(ctx context.Context, h handler, reqBody, respBody any, aut
 	st := &callState{}
 	doer := observingDoer{hc: c.HTTP, st: st}
 	base := strings.TrimRight(c.BaseURL, "/") + "/connect"
-	opts := []connect.ClientOption{connect.WithProtoJSON(), connect.WithReadMaxBytes(maxBody)}
+	cc := connect.NewClient(connecthttp.NewTransport(doer, base, connecthttp.WithProtoJSON(), connecthttp.WithReadMaxBytes(maxBody)))
 	msg, err := h(ctx,
-		accountv2connect.NewPerpsServiceClient(doer, base, opts...),
-		accountv1connect.NewAuthServiceClient(doer, base, opts...),
+		accountv2connect.NewPerpsServiceClient(cc),
+		accountv1connect.NewAuthServiceClient(cc),
 		fundsClients{
-			history:     accountv1connect.NewOrderHistoryServiceClient(doer, base, opts...),
-			swap:        accountv2connect.NewSimpleSwapServiceV2Client(doer, base, opts...),
-			bridge:      accountv2connect.NewBridgeServiceClient(doer, base, opts...),
-			onchain:     accountv2connect.NewOnchainServiceClient(doer, base, opts...),
-			token:       accountv2connect.NewTokenServiceClient(doer, base, opts...),
-			portfolio:   accountv2connect.NewPortfolioServiceClient(doer, base, opts...),
-			lending:     accountv2connect.NewLendingServiceClient(doer, base, opts...),
-			competition: accountv2connect.NewCompetitionServiceClient(doer, base, opts...),
-			merkl:       accountv2connect.NewMerklServiceClient(doer, base, opts...),
+			history:     accountv1connect.NewOrderHistoryServiceClient(cc),
+			swap:        accountv2connect.NewSimpleSwapServiceV2Client(cc),
+			bridge:      accountv2connect.NewBridgeServiceClient(cc),
+			onchain:     accountv2connect.NewOnchainServiceClient(cc),
+			token:       accountv2connect.NewTokenServiceClient(cc),
+			portfolio:   accountv2connect.NewPortfolioServiceClient(cc),
+			lending:     accountv2connect.NewLendingServiceClient(cc),
+			competition: accountv2connect.NewCompetitionServiceClient(cc),
+			merkl:       accountv2connect.NewMerklServiceClient(cc),
 		},
 		body, hdr)
 	if err != nil {

@@ -3,7 +3,7 @@ module github.com/oku-trade/oku-cli
 go 1.27.1
 
 require (
-	connectrpc.com/connect v1.21.1
+	connectrpc.com/connect/v2 v2.0.2
 	github.com/cli/browser v1.3.0
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
 	github.com/ethereum/go-ethereum v1.17.10

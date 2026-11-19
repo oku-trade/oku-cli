@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	accountv1 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v1"
 	"github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v1/accountv1connect"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -29,20 +29,20 @@ var strictJSON = protojson.UnmarshalOptions{DiscardUnknown: false}
 func unary[Req, Resp any, PReq interface {
 	*Req
 	proto.Message
-}](fn func(context.Context, *connect.Request[Req]) (*connect.Response[Resp], error), ctx context.Context, in []byte, h http.Header) (proto.Message, error) {
+}](fn func(context.Context, *Req) (*Resp, error), ctx context.Context, in []byte, h http.Header) (proto.Message, error) {
 	var m Req
 	if err := strictJSON.Unmarshal(in, PReq(&m)); err != nil {
 		return nil, &requestEncodeError{err}
 	}
-	r := connect.NewRequest(&m)
+	ctx, info := connect.NewClientContext(ctx)
 	for k, v := range h {
-		r.Header()[k] = v
+		info.RequestHeader().SetValues(k, v)
 	}
-	resp, err := fn(ctx, r)
+	resp, err := fn(ctx, &m)
 	if err != nil {
 		return nil, err
 	}
-	msg, ok := any(resp.Msg).(proto.Message)
+	msg, ok := any(resp).(proto.Message)
 	if !ok {
 		return nil, errors.New("generated response is not a proto message")
 	}
@@ -59,7 +59,7 @@ func (e *requestEncodeError) Unwrap() error { return e.err }
 func perps[Req, Resp any, PReq interface {
 	*Req
 	proto.Message
-}](pick func(accountv2connect.PerpsServiceClient) func(context.Context, *connect.Request[Req]) (*connect.Response[Resp], error)) handler {
+}](pick func(accountv2connect.PerpsServiceClient) func(context.Context, *Req) (*Resp, error)) handler {
 	return func(ctx context.Context, p accountv2connect.PerpsServiceClient, _ accountv1connect.AuthServiceClient, _ fundsClients, in []byte, h http.Header) (proto.Message, error) {
 		return unary[Req, Resp, PReq](pick(p), ctx, in, h)
 	}
@@ -70,78 +70,78 @@ type P = accountv2connect.PerpsServiceClient
 func authRPC[Req, Resp any, PReq interface {
 	*Req
 	proto.Message
-}](pick func(accountv1connect.AuthServiceClient) func(context.Context, *connect.Request[Req]) (*connect.Response[Resp], error)) handler {
+}](pick func(accountv1connect.AuthServiceClient) func(context.Context, *Req) (*Resp, error)) handler {
 	return func(ctx context.Context, _ accountv2connect.PerpsServiceClient, a accountv1connect.AuthServiceClient, _ fundsClients, in []byte, h http.Header) (proto.Message, error) {
 		return unary[Req, Resp, PReq](pick(a), ctx, in, h)
 	}
 }
 
 var authMethods = map[string]handler{
-	"PrivySessionExchange": authRPC[accountv1.PrivySessionExchangeRequest, accountv1.PrivySessionExchangeResponse](func(a accountv1connect.AuthServiceClient) func(context.Context, *connect.Request[accountv1.PrivySessionExchangeRequest]) (*connect.Response[accountv1.PrivySessionExchangeResponse], error) {
+	"PrivySessionExchange": authRPC[accountv1.PrivySessionExchangeRequest, accountv1.PrivySessionExchangeResponse](func(a accountv1connect.AuthServiceClient) func(context.Context, *accountv1.PrivySessionExchangeRequest) (*accountv1.PrivySessionExchangeResponse, error) {
 		return a.PrivySessionExchange
 	}),
-	"ExtendSession": authRPC[accountv1.ExtendSessionRequest, accountv1.ExtendSessionResponse](func(a accountv1connect.AuthServiceClient) func(context.Context, *connect.Request[accountv1.ExtendSessionRequest]) (*connect.Response[accountv1.ExtendSessionResponse], error) {
+	"ExtendSession": authRPC[accountv1.ExtendSessionRequest, accountv1.ExtendSessionResponse](func(a accountv1connect.AuthServiceClient) func(context.Context, *accountv1.ExtendSessionRequest) (*accountv1.ExtendSessionResponse, error) {
 		return a.ExtendSession
 	}),
-	"Logout": authRPC[accountv1.LogoutRequest, accountv1.LogoutResponse](func(a accountv1connect.AuthServiceClient) func(context.Context, *connect.Request[accountv1.LogoutRequest]) (*connect.Response[accountv1.LogoutResponse], error) {
+	"Logout": authRPC[accountv1.LogoutRequest, accountv1.LogoutResponse](func(a accountv1connect.AuthServiceClient) func(context.Context, *accountv1.LogoutRequest) (*accountv1.LogoutResponse, error) {
 		return a.Logout
 	}),
 }
 
 // Methods the CLI is allowed to call. Anything else is refused locally.
 var perpsMethods = map[string]handler{
-	"GenerateDepositAddress": perps[accountv2.GenerateDepositAddressRequest, accountv2.GenerateDepositAddressResponse](func(c P) func(context.Context, *connect.Request[accountv2.GenerateDepositAddressRequest]) (*connect.Response[accountv2.GenerateDepositAddressResponse], error) {
+	"GenerateDepositAddress": perps[accountv2.GenerateDepositAddressRequest, accountv2.GenerateDepositAddressResponse](func(c P) func(context.Context, *accountv2.GenerateDepositAddressRequest) (*accountv2.GenerateDepositAddressResponse, error) {
 		return c.GenerateDepositAddress
 	}),
-	"GetDepositTokens": perps[accountv2.GetDepositTokensRequest, accountv2.GetDepositTokensResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetDepositTokensRequest]) (*connect.Response[accountv2.GetDepositTokensResponse], error) {
+	"GetDepositTokens": perps[accountv2.GetDepositTokensRequest, accountv2.GetDepositTokensResponse](func(c P) func(context.Context, *accountv2.GetDepositTokensRequest) (*accountv2.GetDepositTokensResponse, error) {
 		return c.GetDepositTokens
 	}),
-	"ValidateAgentKey": perps[accountv2.ValidateAgentKeyRequest, accountv2.ValidateAgentKeyResponse](func(c P) func(context.Context, *connect.Request[accountv2.ValidateAgentKeyRequest]) (*connect.Response[accountv2.ValidateAgentKeyResponse], error) {
+	"ValidateAgentKey": perps[accountv2.ValidateAgentKeyRequest, accountv2.ValidateAgentKeyResponse](func(c P) func(context.Context, *accountv2.ValidateAgentKeyRequest) (*accountv2.ValidateAgentKeyResponse, error) {
 		return c.ValidateAgentKey
 	}),
-	"GetMarkets": perps[accountv2.GetMarketsRequest, accountv2.GetMarketsResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetMarketsRequest]) (*connect.Response[accountv2.GetMarketsResponse], error) {
+	"GetMarkets": perps[accountv2.GetMarketsRequest, accountv2.GetMarketsResponse](func(c P) func(context.Context, *accountv2.GetMarketsRequest) (*accountv2.GetMarketsResponse, error) {
 		return c.GetMarkets
 	}),
-	"GetMarketPrice": perps[accountv2.GetMarketPriceRequest, accountv2.GetMarketPriceResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetMarketPriceRequest]) (*connect.Response[accountv2.GetMarketPriceResponse], error) {
+	"GetMarketPrice": perps[accountv2.GetMarketPriceRequest, accountv2.GetMarketPriceResponse](func(c P) func(context.Context, *accountv2.GetMarketPriceRequest) (*accountv2.GetMarketPriceResponse, error) {
 		return c.GetMarketPrice
 	}),
-	"GetMarketFundingHistory": perps[accountv2.GetMarketFundingHistoryRequest, accountv2.GetMarketFundingHistoryResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetMarketFundingHistoryRequest]) (*connect.Response[accountv2.GetMarketFundingHistoryResponse], error) {
+	"GetMarketFundingHistory": perps[accountv2.GetMarketFundingHistoryRequest, accountv2.GetMarketFundingHistoryResponse](func(c P) func(context.Context, *accountv2.GetMarketFundingHistoryRequest) (*accountv2.GetMarketFundingHistoryResponse, error) {
 		return c.GetMarketFundingHistory
 	}),
-	"GetPerpPositions": perps[accountv2.GetPerpPositionsRequest, accountv2.GetPerpPositionsResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetPerpPositionsRequest]) (*connect.Response[accountv2.GetPerpPositionsResponse], error) {
+	"GetPerpPositions": perps[accountv2.GetPerpPositionsRequest, accountv2.GetPerpPositionsResponse](func(c P) func(context.Context, *accountv2.GetPerpPositionsRequest) (*accountv2.GetPerpPositionsResponse, error) {
 		return c.GetPerpPositions
 	}),
-	"GetOpenOrders": perps[accountv2.GetOpenOrdersRequest, accountv2.GetOpenOrdersResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetOpenOrdersRequest]) (*connect.Response[accountv2.GetOpenOrdersResponse], error) {
+	"GetOpenOrders": perps[accountv2.GetOpenOrdersRequest, accountv2.GetOpenOrdersResponse](func(c P) func(context.Context, *accountv2.GetOpenOrdersRequest) (*accountv2.GetOpenOrdersResponse, error) {
 		return c.GetOpenOrders
 	}),
-	"GetTwapHistory": perps[accountv2.GetTwapHistoryRequest, accountv2.GetTwapHistoryResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetTwapHistoryRequest]) (*connect.Response[accountv2.GetTwapHistoryResponse], error) {
+	"GetTwapHistory": perps[accountv2.GetTwapHistoryRequest, accountv2.GetTwapHistoryResponse](func(c P) func(context.Context, *accountv2.GetTwapHistoryRequest) (*accountv2.GetTwapHistoryResponse, error) {
 		return c.GetTwapHistory
 	}),
-	"GetAccountBalances": perps[accountv2.GetAccountBalancesRequest, accountv2.GetAccountBalancesResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetAccountBalancesRequest]) (*connect.Response[accountv2.GetAccountBalancesResponse], error) {
+	"GetAccountBalances": perps[accountv2.GetAccountBalancesRequest, accountv2.GetAccountBalancesResponse](func(c P) func(context.Context, *accountv2.GetAccountBalancesRequest) (*accountv2.GetAccountBalancesResponse, error) {
 		return c.GetAccountBalances
 	}),
-	"GetBuilderFeeStatus": perps[accountv2.GetBuilderFeeStatusRequest, accountv2.GetBuilderFeeStatusResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetBuilderFeeStatusRequest]) (*connect.Response[accountv2.GetBuilderFeeStatusResponse], error) {
+	"GetBuilderFeeStatus": perps[accountv2.GetBuilderFeeStatusRequest, accountv2.GetBuilderFeeStatusResponse](func(c P) func(context.Context, *accountv2.GetBuilderFeeStatusRequest) (*accountv2.GetBuilderFeeStatusResponse, error) {
 		return c.GetBuilderFeeStatus
 	}),
-	"GetPerpsPnlSummary": perps[accountv2.GetPerpsPnlSummaryRequest, accountv2.GetPerpsPnlSummaryResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetPerpsPnlSummaryRequest]) (*connect.Response[accountv2.GetPerpsPnlSummaryResponse], error) {
+	"GetPerpsPnlSummary": perps[accountv2.GetPerpsPnlSummaryRequest, accountv2.GetPerpsPnlSummaryResponse](func(c P) func(context.Context, *accountv2.GetPerpsPnlSummaryRequest) (*accountv2.GetPerpsPnlSummaryResponse, error) {
 		return c.GetPerpsPnlSummary
 	}),
-	"GetUserFills": perps[accountv2.GetUserFillsRequest, accountv2.GetUserFillsResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetUserFillsRequest]) (*connect.Response[accountv2.GetUserFillsResponse], error) {
+	"GetUserFills": perps[accountv2.GetUserFillsRequest, accountv2.GetUserFillsResponse](func(c P) func(context.Context, *accountv2.GetUserFillsRequest) (*accountv2.GetUserFillsResponse, error) {
 		return c.GetUserFills
 	}),
-	"CreateAction": perps[accountv2.CreateActionRequest, accountv2.ActionPayloadResponse](func(c P) func(context.Context, *connect.Request[accountv2.CreateActionRequest]) (*connect.Response[accountv2.ActionPayloadResponse], error) {
+	"CreateAction": perps[accountv2.CreateActionRequest, accountv2.ActionPayloadResponse](func(c P) func(context.Context, *accountv2.CreateActionRequest) (*accountv2.ActionPayloadResponse, error) {
 		return c.CreateAction
 	}),
-	"ConfirmAction": perps[accountv2.ConfirmActionRequest, accountv2.ConfirmActionResponse](func(c P) func(context.Context, *connect.Request[accountv2.ConfirmActionRequest]) (*connect.Response[accountv2.ConfirmActionResponse], error) {
+	"ConfirmAction": perps[accountv2.ConfirmActionRequest, accountv2.ConfirmActionResponse](func(c P) func(context.Context, *accountv2.ConfirmActionRequest) (*accountv2.ConfirmActionResponse, error) {
 		return c.ConfirmAction
 	}),
-	"CancelAction": perps[accountv2.CancelActionRequest, accountv2.CancelActionResponse](func(c P) func(context.Context, *connect.Request[accountv2.CancelActionRequest]) (*connect.Response[accountv2.CancelActionResponse], error) {
+	"CancelAction": perps[accountv2.CancelActionRequest, accountv2.CancelActionResponse](func(c P) func(context.Context, *accountv2.CancelActionRequest) (*accountv2.CancelActionResponse, error) {
 		return c.CancelAction
 	}),
-	"GetAction": perps[accountv2.GetActionRequest, accountv2.GetActionResponse](func(c P) func(context.Context, *connect.Request[accountv2.GetActionRequest]) (*connect.Response[accountv2.GetActionResponse], error) {
+	"GetAction": perps[accountv2.GetActionRequest, accountv2.GetActionResponse](func(c P) func(context.Context, *accountv2.GetActionRequest) (*accountv2.GetActionResponse, error) {
 		return c.GetAction
 	}),
-	"ReconcileActions": perps[accountv2.ReconcileActionsRequest, accountv2.ReconcileActionsResponse](func(c P) func(context.Context, *connect.Request[accountv2.ReconcileActionsRequest]) (*connect.Response[accountv2.ReconcileActionsResponse], error) {
+	"ReconcileActions": perps[accountv2.ReconcileActionsRequest, accountv2.ReconcileActionsResponse](func(c P) func(context.Context, *accountv2.ReconcileActionsRequest) (*accountv2.ReconcileActionsResponse, error) {
 		return c.ReconcileActions
 	}),
 }

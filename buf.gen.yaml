@@ -11,6 +11,6 @@ plugins:
   - local: ["go", "run", "google.golang.org/protobuf/cmd/protoc-gen-go"]
     out: pkg/gen
     opt: [paths=source_relative]
-  - local: protoc-gen-connect-go
+  - local: ["go", "run", "connectrpc.com/connect/v2/cmd/protoc-gen-connect-go"]
     out: pkg/gen
     opt: [paths=source_relative]

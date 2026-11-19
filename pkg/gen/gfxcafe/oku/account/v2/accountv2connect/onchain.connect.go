@@ -5,200 +5,212 @@
 package accountv2connect
 
 import (
-	connect "connectrpc.com/connect"
+	connect "connectrpc.com/connect/v2"
 	context "context"
-	errors "errors"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
-	http "net/http"
-	strings "strings"
+	sync "sync"
 )
-
-// This is a compile-time assertion to ensure that this generated file and the connect package are
-// compatible. If you get a compiler error that this constant is not defined, this code was
-// generated with a version of connect newer than the one compiled into your binary. You can fix the
-// problem by either regenerating this code with an older version of connect or updating the connect
-// version compiled into your binary.
-const _ = connect.IsAtLeastVersion1_13_0
 
 const (
 	// OnchainServiceName is the fully-qualified name of the OnchainService service.
 	OnchainServiceName = "gfxcafe.oku.account.v2.OnchainService"
 )
 
-// These constants are the fully-qualified names of the RPCs defined in this package. They're
-// exposed at runtime as Spec.Procedure and as the final two segments of the HTTP route.
+// These constants are the procedure names of the RPCs defined in this package. They're exposed at
+// runtime as Spec.Procedure and as the final two segments of the HTTP route.
 //
 // Note that these are different from the fully-qualified method names used by
 // google.golang.org/protobuf/reflect/protoreflect. To convert from these constants to
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// OnchainServiceGetOnchainTokenBalancesProcedure is the fully-qualified name of the
-	// OnchainService's GetOnchainTokenBalances RPC.
+	// OnchainServiceGetOnchainTokenBalancesProcedure is the procedure name of the OnchainService's
+	// GetOnchainTokenBalances RPC.
 	OnchainServiceGetOnchainTokenBalancesProcedure = "/gfxcafe.oku.account.v2.OnchainService/GetOnchainTokenBalances"
-	// OnchainServiceGetNativeBalanceProcedure is the fully-qualified name of the OnchainService's
+	// OnchainServiceGetNativeBalanceProcedure is the procedure name of the OnchainService's
 	// GetNativeBalance RPC.
 	OnchainServiceGetNativeBalanceProcedure = "/gfxcafe.oku.account.v2.OnchainService/GetNativeBalance"
-	// OnchainServiceGetGasPriceProcedure is the fully-qualified name of the OnchainService's
-	// GetGasPrice RPC.
+	// OnchainServiceGetGasPriceProcedure is the procedure name of the OnchainService's GetGasPrice RPC.
 	OnchainServiceGetGasPriceProcedure = "/gfxcafe.oku.account.v2.OnchainService/GetGasPrice"
-	// OnchainServiceGetTransactionReceiptProcedure is the fully-qualified name of the OnchainService's
+	// OnchainServiceGetTransactionReceiptProcedure is the procedure name of the OnchainService's
 	// GetTransactionReceipt RPC.
 	OnchainServiceGetTransactionReceiptProcedure = "/gfxcafe.oku.account.v2.OnchainService/GetTransactionReceipt"
+)
+
+var (
+	onchainServiceGetOnchainTokenBalancesSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_onchain_proto.Services().ByName("OnchainService").Methods().ByName("GetOnchainTokenBalances"),
+			Procedure:  OnchainServiceGetOnchainTokenBalancesProcedure,
+		}
+	})
+	onchainServiceGetNativeBalanceSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_onchain_proto.Services().ByName("OnchainService").Methods().ByName("GetNativeBalance"),
+			Procedure:  OnchainServiceGetNativeBalanceProcedure,
+		}
+	})
+	onchainServiceGetGasPriceSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_onchain_proto.Services().ByName("OnchainService").Methods().ByName("GetGasPrice"),
+			Procedure:  OnchainServiceGetGasPriceProcedure,
+		}
+	})
+	onchainServiceGetTransactionReceiptSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_onchain_proto.Services().ByName("OnchainService").Methods().ByName("GetTransactionReceipt"),
+			Procedure:  OnchainServiceGetTransactionReceiptProcedure,
+		}
+	})
 )
 
 // OnchainServiceClient is a client for the gfxcafe.oku.account.v2.OnchainService service.
 type OnchainServiceClient interface {
 	// GetOnchainTokenBalances retrieves onchain token balances for a wallet address using multicall
-	GetOnchainTokenBalances(context.Context, *connect.Request[v2.GetOnchainTokenBalancesRequest]) (*connect.Response[v2.GetOnchainTokenBalancesResponse], error)
+	GetOnchainTokenBalances(context.Context, *v2.GetOnchainTokenBalancesRequest) (*v2.GetOnchainTokenBalancesResponse, error)
 	// Get native token balance (ETH, etc.) for an address
-	GetNativeBalance(context.Context, *connect.Request[v2.GetNativeBalanceRequest]) (*connect.Response[v2.GetNativeBalanceResponse], error)
+	GetNativeBalance(context.Context, *v2.GetNativeBalanceRequest) (*v2.GetNativeBalanceResponse, error)
 	// Get current gas pricing for a chain (legacy + EIP-1559)
-	GetGasPrice(context.Context, *connect.Request[v2.GetGasPriceRequest]) (*connect.Response[v2.GetGasPriceResponse], error)
+	GetGasPrice(context.Context, *v2.GetGasPriceRequest) (*v2.GetGasPriceResponse, error)
 	// Get transaction receipt (status, block number, gas used)
-	GetTransactionReceipt(context.Context, *connect.Request[v2.GetTransactionReceiptRequest]) (*connect.Response[v2.GetTransactionReceiptResponse], error)
+	GetTransactionReceipt(context.Context, *v2.GetTransactionReceiptRequest) (*v2.GetTransactionReceiptResponse, error)
 }
 
 // NewOnchainServiceClient constructs a client for the gfxcafe.oku.account.v2.OnchainService
-// service. By default, it uses the Connect protocol with the binary Protobuf Codec, asks for
-// gzipped responses, and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply
-// the connect.WithGRPC() or connect.WithGRPCWeb() options.
-//
-// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
-// http://api.acme.com or https://acme.com/grpc).
-func NewOnchainServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) OnchainServiceClient {
-	baseURL = strings.TrimRight(baseURL, "/")
-	onchainServiceMethods := v2.File_gfxcafe_oku_account_v2_onchain_proto.Services().ByName("OnchainService").Methods()
-	return &onchainServiceClient{
-		getOnchainTokenBalances: connect.NewClient[v2.GetOnchainTokenBalancesRequest, v2.GetOnchainTokenBalancesResponse](
-			httpClient,
-			baseURL+OnchainServiceGetOnchainTokenBalancesProcedure,
-			connect.WithSchema(onchainServiceMethods.ByName("GetOnchainTokenBalances")),
-			connect.WithClientOptions(opts...),
-		),
-		getNativeBalance: connect.NewClient[v2.GetNativeBalanceRequest, v2.GetNativeBalanceResponse](
-			httpClient,
-			baseURL+OnchainServiceGetNativeBalanceProcedure,
-			connect.WithSchema(onchainServiceMethods.ByName("GetNativeBalance")),
-			connect.WithClientOptions(opts...),
-		),
-		getGasPrice: connect.NewClient[v2.GetGasPriceRequest, v2.GetGasPriceResponse](
-			httpClient,
-			baseURL+OnchainServiceGetGasPriceProcedure,
-			connect.WithSchema(onchainServiceMethods.ByName("GetGasPrice")),
-			connect.WithClientOptions(opts...),
-		),
-		getTransactionReceipt: connect.NewClient[v2.GetTransactionReceiptRequest, v2.GetTransactionReceiptResponse](
-			httpClient,
-			baseURL+OnchainServiceGetTransactionReceiptProcedure,
-			connect.WithSchema(onchainServiceMethods.ByName("GetTransactionReceipt")),
-			connect.WithClientOptions(opts...),
-		),
-	}
-}
-
-// onchainServiceClient implements OnchainServiceClient.
-type onchainServiceClient struct {
-	getOnchainTokenBalances *connect.Client[v2.GetOnchainTokenBalancesRequest, v2.GetOnchainTokenBalancesResponse]
-	getNativeBalance        *connect.Client[v2.GetNativeBalanceRequest, v2.GetNativeBalanceResponse]
-	getGasPrice             *connect.Client[v2.GetGasPriceRequest, v2.GetGasPriceResponse]
-	getTransactionReceipt   *connect.Client[v2.GetTransactionReceiptRequest, v2.GetTransactionReceiptResponse]
-}
-
-// GetOnchainTokenBalances calls gfxcafe.oku.account.v2.OnchainService.GetOnchainTokenBalances.
-func (c *onchainServiceClient) GetOnchainTokenBalances(ctx context.Context, req *connect.Request[v2.GetOnchainTokenBalancesRequest]) (*connect.Response[v2.GetOnchainTokenBalancesResponse], error) {
-	return c.getOnchainTokenBalances.CallUnary(ctx, req)
-}
-
-// GetNativeBalance calls gfxcafe.oku.account.v2.OnchainService.GetNativeBalance.
-func (c *onchainServiceClient) GetNativeBalance(ctx context.Context, req *connect.Request[v2.GetNativeBalanceRequest]) (*connect.Response[v2.GetNativeBalanceResponse], error) {
-	return c.getNativeBalance.CallUnary(ctx, req)
-}
-
-// GetGasPrice calls gfxcafe.oku.account.v2.OnchainService.GetGasPrice.
-func (c *onchainServiceClient) GetGasPrice(ctx context.Context, req *connect.Request[v2.GetGasPriceRequest]) (*connect.Response[v2.GetGasPriceResponse], error) {
-	return c.getGasPrice.CallUnary(ctx, req)
-}
-
-// GetTransactionReceipt calls gfxcafe.oku.account.v2.OnchainService.GetTransactionReceipt.
-func (c *onchainServiceClient) GetTransactionReceipt(ctx context.Context, req *connect.Request[v2.GetTransactionReceiptRequest]) (*connect.Response[v2.GetTransactionReceiptResponse], error) {
-	return c.getTransactionReceipt.CallUnary(ctx, req)
+// service. Multiple service clients may share a single connect.Client.
+func NewOnchainServiceClient(client *connect.Client) OnchainServiceClient {
+	return &onchainServiceClient{client: client}
 }
 
 // OnchainServiceHandler is an implementation of the gfxcafe.oku.account.v2.OnchainService service.
 type OnchainServiceHandler interface {
 	// GetOnchainTokenBalances retrieves onchain token balances for a wallet address using multicall
-	GetOnchainTokenBalances(context.Context, *connect.Request[v2.GetOnchainTokenBalancesRequest]) (*connect.Response[v2.GetOnchainTokenBalancesResponse], error)
+	GetOnchainTokenBalances(context.Context, *v2.GetOnchainTokenBalancesRequest) (*v2.GetOnchainTokenBalancesResponse, error)
 	// Get native token balance (ETH, etc.) for an address
-	GetNativeBalance(context.Context, *connect.Request[v2.GetNativeBalanceRequest]) (*connect.Response[v2.GetNativeBalanceResponse], error)
+	GetNativeBalance(context.Context, *v2.GetNativeBalanceRequest) (*v2.GetNativeBalanceResponse, error)
 	// Get current gas pricing for a chain (legacy + EIP-1559)
-	GetGasPrice(context.Context, *connect.Request[v2.GetGasPriceRequest]) (*connect.Response[v2.GetGasPriceResponse], error)
+	GetGasPrice(context.Context, *v2.GetGasPriceRequest) (*v2.GetGasPriceResponse, error)
 	// Get transaction receipt (status, block number, gas used)
-	GetTransactionReceipt(context.Context, *connect.Request[v2.GetTransactionReceiptRequest]) (*connect.Response[v2.GetTransactionReceiptResponse], error)
+	GetTransactionReceipt(context.Context, *v2.GetTransactionReceiptRequest) (*v2.GetTransactionReceiptResponse, error)
 }
 
-// NewOnchainServiceHandler builds an HTTP handler from the service implementation. It returns the
-// path on which to mount the handler and the handler itself.
-//
-// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
-// and JSON codecs. They also support gzip compression.
-func NewOnchainServiceHandler(svc OnchainServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	onchainServiceMethods := v2.File_gfxcafe_oku_account_v2_onchain_proto.Services().ByName("OnchainService").Methods()
-	onchainServiceGetOnchainTokenBalancesHandler := connect.NewUnaryHandler(
-		OnchainServiceGetOnchainTokenBalancesProcedure,
-		svc.GetOnchainTokenBalances,
-		connect.WithSchema(onchainServiceMethods.ByName("GetOnchainTokenBalances")),
-		connect.WithHandlerOptions(opts...),
+// RegisterOnchainServiceHandler registers svc as the gfxcafe.oku.account.v2.OnchainService
+// implementation on server.
+func RegisterOnchainServiceHandler(server *connect.Server, svc OnchainServiceHandler) {
+	adapter := onchainServiceHandler{svc: svc}
+	server.Register(
+		connect.Method{Spec: onchainServiceGetOnchainTokenBalancesSpec(), Handler: adapter.getOnchainTokenBalances},
+		connect.Method{Spec: onchainServiceGetNativeBalanceSpec(), Handler: adapter.getNativeBalance},
+		connect.Method{Spec: onchainServiceGetGasPriceSpec(), Handler: adapter.getGasPrice},
+		connect.Method{Spec: onchainServiceGetTransactionReceiptSpec(), Handler: adapter.getTransactionReceipt},
 	)
-	onchainServiceGetNativeBalanceHandler := connect.NewUnaryHandler(
-		OnchainServiceGetNativeBalanceProcedure,
-		svc.GetNativeBalance,
-		connect.WithSchema(onchainServiceMethods.ByName("GetNativeBalance")),
-		connect.WithHandlerOptions(opts...),
-	)
-	onchainServiceGetGasPriceHandler := connect.NewUnaryHandler(
-		OnchainServiceGetGasPriceProcedure,
-		svc.GetGasPrice,
-		connect.WithSchema(onchainServiceMethods.ByName("GetGasPrice")),
-		connect.WithHandlerOptions(opts...),
-	)
-	onchainServiceGetTransactionReceiptHandler := connect.NewUnaryHandler(
-		OnchainServiceGetTransactionReceiptProcedure,
-		svc.GetTransactionReceipt,
-		connect.WithSchema(onchainServiceMethods.ByName("GetTransactionReceipt")),
-		connect.WithHandlerOptions(opts...),
-	)
-	return "/gfxcafe.oku.account.v2.OnchainService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case OnchainServiceGetOnchainTokenBalancesProcedure:
-			onchainServiceGetOnchainTokenBalancesHandler.ServeHTTP(w, r)
-		case OnchainServiceGetNativeBalanceProcedure:
-			onchainServiceGetNativeBalanceHandler.ServeHTTP(w, r)
-		case OnchainServiceGetGasPriceProcedure:
-			onchainServiceGetGasPriceHandler.ServeHTTP(w, r)
-		case OnchainServiceGetTransactionReceiptProcedure:
-			onchainServiceGetTransactionReceiptHandler.ServeHTTP(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	})
 }
 
 // UnimplementedOnchainServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedOnchainServiceHandler struct{}
 
-func (UnimplementedOnchainServiceHandler) GetOnchainTokenBalances(context.Context, *connect.Request[v2.GetOnchainTokenBalancesRequest]) (*connect.Response[v2.GetOnchainTokenBalancesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.OnchainService.GetOnchainTokenBalances is not implemented"))
+func (UnimplementedOnchainServiceHandler) GetOnchainTokenBalances(context.Context, *v2.GetOnchainTokenBalancesRequest) (*v2.GetOnchainTokenBalancesResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.OnchainService.GetOnchainTokenBalances is not implemented")
 }
 
-func (UnimplementedOnchainServiceHandler) GetNativeBalance(context.Context, *connect.Request[v2.GetNativeBalanceRequest]) (*connect.Response[v2.GetNativeBalanceResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.OnchainService.GetNativeBalance is not implemented"))
+func (UnimplementedOnchainServiceHandler) GetNativeBalance(context.Context, *v2.GetNativeBalanceRequest) (*v2.GetNativeBalanceResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.OnchainService.GetNativeBalance is not implemented")
 }
 
-func (UnimplementedOnchainServiceHandler) GetGasPrice(context.Context, *connect.Request[v2.GetGasPriceRequest]) (*connect.Response[v2.GetGasPriceResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.OnchainService.GetGasPrice is not implemented"))
+func (UnimplementedOnchainServiceHandler) GetGasPrice(context.Context, *v2.GetGasPriceRequest) (*v2.GetGasPriceResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.OnchainService.GetGasPrice is not implemented")
 }
 
-func (UnimplementedOnchainServiceHandler) GetTransactionReceipt(context.Context, *connect.Request[v2.GetTransactionReceiptRequest]) (*connect.Response[v2.GetTransactionReceiptResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.OnchainService.GetTransactionReceipt is not implemented"))
+func (UnimplementedOnchainServiceHandler) GetTransactionReceipt(context.Context, *v2.GetTransactionReceiptRequest) (*v2.GetTransactionReceiptResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.OnchainService.GetTransactionReceipt is not implemented")
+}
+
+type onchainServiceClient struct {
+	client *connect.Client
+}
+
+func (c *onchainServiceClient) GetOnchainTokenBalances(ctx context.Context, req *v2.GetOnchainTokenBalancesRequest) (*v2.GetOnchainTokenBalancesResponse, error) {
+	var res v2.GetOnchainTokenBalancesResponse
+	if err := c.client.CallUnary(ctx, onchainServiceGetOnchainTokenBalancesSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *onchainServiceClient) GetNativeBalance(ctx context.Context, req *v2.GetNativeBalanceRequest) (*v2.GetNativeBalanceResponse, error) {
+	var res v2.GetNativeBalanceResponse
+	if err := c.client.CallUnary(ctx, onchainServiceGetNativeBalanceSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *onchainServiceClient) GetGasPrice(ctx context.Context, req *v2.GetGasPriceRequest) (*v2.GetGasPriceResponse, error) {
+	var res v2.GetGasPriceResponse
+	if err := c.client.CallUnary(ctx, onchainServiceGetGasPriceSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *onchainServiceClient) GetTransactionReceipt(ctx context.Context, req *v2.GetTransactionReceiptRequest) (*v2.GetTransactionReceiptResponse, error) {
+	var res v2.GetTransactionReceiptResponse
+	if err := c.client.CallUnary(ctx, onchainServiceGetTransactionReceiptSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type onchainServiceHandler struct{ svc OnchainServiceHandler }
+
+func (h onchainServiceHandler) getOnchainTokenBalances(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetOnchainTokenBalancesRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetOnchainTokenBalances(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h onchainServiceHandler) getNativeBalance(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetNativeBalanceRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetNativeBalance(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h onchainServiceHandler) getGasPrice(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetGasPriceRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetGasPrice(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h onchainServiceHandler) getTransactionReceipt(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetTransactionReceiptRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetTransactionReceipt(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
 }

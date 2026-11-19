@@ -5,146 +5,103 @@
 package accountv2connect
 
 import (
-	connect "connectrpc.com/connect"
+	connect "connectrpc.com/connect/v2"
 	context "context"
-	errors "errors"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
-	http "net/http"
-	strings "strings"
+	sync "sync"
 )
-
-// This is a compile-time assertion to ensure that this generated file and the connect package are
-// compatible. If you get a compiler error that this constant is not defined, this code was
-// generated with a version of connect newer than the one compiled into your binary. You can fix the
-// problem by either regenerating this code with an older version of connect or updating the connect
-// version compiled into your binary.
-const _ = connect.IsAtLeastVersion1_13_0
 
 const (
 	// CompetitionServiceName is the fully-qualified name of the CompetitionService service.
 	CompetitionServiceName = "gfxcafe.oku.account.v2.CompetitionService"
 )
 
-// These constants are the fully-qualified names of the RPCs defined in this package. They're
-// exposed at runtime as Spec.Procedure and as the final two segments of the HTTP route.
+// These constants are the procedure names of the RPCs defined in this package. They're exposed at
+// runtime as Spec.Procedure and as the final two segments of the HTTP route.
 //
 // Note that these are different from the fully-qualified method names used by
 // google.golang.org/protobuf/reflect/protoreflect. To convert from these constants to
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// CompetitionServiceGetCompetitionProcedure is the fully-qualified name of the CompetitionService's
+	// CompetitionServiceGetCompetitionProcedure is the procedure name of the CompetitionService's
 	// GetCompetition RPC.
 	CompetitionServiceGetCompetitionProcedure = "/gfxcafe.oku.account.v2.CompetitionService/GetCompetition"
-	// CompetitionServiceListLeaderboardProcedure is the fully-qualified name of the
-	// CompetitionService's ListLeaderboard RPC.
+	// CompetitionServiceListLeaderboardProcedure is the procedure name of the CompetitionService's
+	// ListLeaderboard RPC.
 	CompetitionServiceListLeaderboardProcedure = "/gfxcafe.oku.account.v2.CompetitionService/ListLeaderboard"
-	// CompetitionServiceGetParticipantProcedure is the fully-qualified name of the CompetitionService's
+	// CompetitionServiceGetParticipantProcedure is the procedure name of the CompetitionService's
 	// GetParticipant RPC.
 	CompetitionServiceGetParticipantProcedure = "/gfxcafe.oku.account.v2.CompetitionService/GetParticipant"
-	// CompetitionServiceStartRegistrationProcedure is the fully-qualified name of the
-	// CompetitionService's StartRegistration RPC.
+	// CompetitionServiceStartRegistrationProcedure is the procedure name of the CompetitionService's
+	// StartRegistration RPC.
 	CompetitionServiceStartRegistrationProcedure = "/gfxcafe.oku.account.v2.CompetitionService/StartRegistration"
-	// CompetitionServiceCompleteRegistrationProcedure is the fully-qualified name of the
-	// CompetitionService's CompleteRegistration RPC.
+	// CompetitionServiceCompleteRegistrationProcedure is the procedure name of the CompetitionService's
+	// CompleteRegistration RPC.
 	CompetitionServiceCompleteRegistrationProcedure = "/gfxcafe.oku.account.v2.CompetitionService/CompleteRegistration"
+)
+
+var (
+	competitionServiceGetCompetitionSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_competition_proto.Services().ByName("CompetitionService").Methods().ByName("GetCompetition"),
+			Procedure:  CompetitionServiceGetCompetitionProcedure,
+		}
+	})
+	competitionServiceListLeaderboardSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_competition_proto.Services().ByName("CompetitionService").Methods().ByName("ListLeaderboard"),
+			Procedure:  CompetitionServiceListLeaderboardProcedure,
+		}
+	})
+	competitionServiceGetParticipantSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_competition_proto.Services().ByName("CompetitionService").Methods().ByName("GetParticipant"),
+			Procedure:  CompetitionServiceGetParticipantProcedure,
+		}
+	})
+	competitionServiceStartRegistrationSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_competition_proto.Services().ByName("CompetitionService").Methods().ByName("StartRegistration"),
+			Procedure:  CompetitionServiceStartRegistrationProcedure,
+		}
+	})
+	competitionServiceCompleteRegistrationSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_competition_proto.Services().ByName("CompetitionService").Methods().ByName("CompleteRegistration"),
+			Procedure:  CompetitionServiceCompleteRegistrationProcedure,
+		}
+	})
 )
 
 // CompetitionServiceClient is a client for the gfxcafe.oku.account.v2.CompetitionService service.
 type CompetitionServiceClient interface {
 	// GetCompetition returns the competition: phase, schedule, pool, rules,
 	// eligible stocks and one raffle day per competition day.
-	GetCompetition(context.Context, *connect.Request[v2.GetCompetitionRequest]) (*connect.Response[v2.GetCompetitionResponse], error)
+	GetCompetition(context.Context, *v2.GetCompetitionRequest) (*v2.GetCompetitionResponse, error)
 	// ListLeaderboard returns one page of traders with counted volume, ranked.
 	// Traders with no counted volume are left out.
-	ListLeaderboard(context.Context, *connect.Request[v2.ListLeaderboardRequest]) (*connect.Response[v2.ListLeaderboardResponse], error)
+	ListLeaderboard(context.Context, *v2.ListLeaderboardRequest) (*v2.ListLeaderboardResponse, error)
 	// GetParticipant returns one wallet's registration, standing, today's
 	// volume and rewards.
-	GetParticipant(context.Context, *connect.Request[v2.GetParticipantRequest]) (*connect.Response[v2.GetParticipantResponse], error)
+	GetParticipant(context.Context, *v2.GetParticipantRequest) (*v2.GetParticipantResponse, error)
 	// StartRegistration returns the message the wallet signs to join, or says
 	// the wallet is already registered.
-	StartRegistration(context.Context, *connect.Request[v2.StartRegistrationRequest]) (*connect.Response[v2.StartRegistrationResponse], error)
+	StartRegistration(context.Context, *v2.StartRegistrationRequest) (*v2.StartRegistrationResponse, error)
 	// CompleteRegistration registers the wallet with its signature of the
 	// message from StartRegistration.
-	CompleteRegistration(context.Context, *connect.Request[v2.CompleteRegistrationRequest]) (*connect.Response[v2.CompleteRegistrationResponse], error)
+	CompleteRegistration(context.Context, *v2.CompleteRegistrationRequest) (*v2.CompleteRegistrationResponse, error)
 }
 
 // NewCompetitionServiceClient constructs a client for the gfxcafe.oku.account.v2.CompetitionService
-// service. By default, it uses the Connect protocol with the binary Protobuf Codec, asks for
-// gzipped responses, and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply
-// the connect.WithGRPC() or connect.WithGRPCWeb() options.
-//
-// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
-// http://api.acme.com or https://acme.com/grpc).
-func NewCompetitionServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) CompetitionServiceClient {
-	baseURL = strings.TrimRight(baseURL, "/")
-	competitionServiceMethods := v2.File_gfxcafe_oku_account_v2_competition_proto.Services().ByName("CompetitionService").Methods()
-	return &competitionServiceClient{
-		getCompetition: connect.NewClient[v2.GetCompetitionRequest, v2.GetCompetitionResponse](
-			httpClient,
-			baseURL+CompetitionServiceGetCompetitionProcedure,
-			connect.WithSchema(competitionServiceMethods.ByName("GetCompetition")),
-			connect.WithClientOptions(opts...),
-		),
-		listLeaderboard: connect.NewClient[v2.ListLeaderboardRequest, v2.ListLeaderboardResponse](
-			httpClient,
-			baseURL+CompetitionServiceListLeaderboardProcedure,
-			connect.WithSchema(competitionServiceMethods.ByName("ListLeaderboard")),
-			connect.WithClientOptions(opts...),
-		),
-		getParticipant: connect.NewClient[v2.GetParticipantRequest, v2.GetParticipantResponse](
-			httpClient,
-			baseURL+CompetitionServiceGetParticipantProcedure,
-			connect.WithSchema(competitionServiceMethods.ByName("GetParticipant")),
-			connect.WithClientOptions(opts...),
-		),
-		startRegistration: connect.NewClient[v2.StartRegistrationRequest, v2.StartRegistrationResponse](
-			httpClient,
-			baseURL+CompetitionServiceStartRegistrationProcedure,
-			connect.WithSchema(competitionServiceMethods.ByName("StartRegistration")),
-			connect.WithClientOptions(opts...),
-		),
-		completeRegistration: connect.NewClient[v2.CompleteRegistrationRequest, v2.CompleteRegistrationResponse](
-			httpClient,
-			baseURL+CompetitionServiceCompleteRegistrationProcedure,
-			connect.WithSchema(competitionServiceMethods.ByName("CompleteRegistration")),
-			connect.WithClientOptions(opts...),
-		),
-	}
-}
-
-// competitionServiceClient implements CompetitionServiceClient.
-type competitionServiceClient struct {
-	getCompetition       *connect.Client[v2.GetCompetitionRequest, v2.GetCompetitionResponse]
-	listLeaderboard      *connect.Client[v2.ListLeaderboardRequest, v2.ListLeaderboardResponse]
-	getParticipant       *connect.Client[v2.GetParticipantRequest, v2.GetParticipantResponse]
-	startRegistration    *connect.Client[v2.StartRegistrationRequest, v2.StartRegistrationResponse]
-	completeRegistration *connect.Client[v2.CompleteRegistrationRequest, v2.CompleteRegistrationResponse]
-}
-
-// GetCompetition calls gfxcafe.oku.account.v2.CompetitionService.GetCompetition.
-func (c *competitionServiceClient) GetCompetition(ctx context.Context, req *connect.Request[v2.GetCompetitionRequest]) (*connect.Response[v2.GetCompetitionResponse], error) {
-	return c.getCompetition.CallUnary(ctx, req)
-}
-
-// ListLeaderboard calls gfxcafe.oku.account.v2.CompetitionService.ListLeaderboard.
-func (c *competitionServiceClient) ListLeaderboard(ctx context.Context, req *connect.Request[v2.ListLeaderboardRequest]) (*connect.Response[v2.ListLeaderboardResponse], error) {
-	return c.listLeaderboard.CallUnary(ctx, req)
-}
-
-// GetParticipant calls gfxcafe.oku.account.v2.CompetitionService.GetParticipant.
-func (c *competitionServiceClient) GetParticipant(ctx context.Context, req *connect.Request[v2.GetParticipantRequest]) (*connect.Response[v2.GetParticipantResponse], error) {
-	return c.getParticipant.CallUnary(ctx, req)
-}
-
-// StartRegistration calls gfxcafe.oku.account.v2.CompetitionService.StartRegistration.
-func (c *competitionServiceClient) StartRegistration(ctx context.Context, req *connect.Request[v2.StartRegistrationRequest]) (*connect.Response[v2.StartRegistrationResponse], error) {
-	return c.startRegistration.CallUnary(ctx, req)
-}
-
-// CompleteRegistration calls gfxcafe.oku.account.v2.CompetitionService.CompleteRegistration.
-func (c *competitionServiceClient) CompleteRegistration(ctx context.Context, req *connect.Request[v2.CompleteRegistrationRequest]) (*connect.Response[v2.CompleteRegistrationResponse], error) {
-	return c.completeRegistration.CallUnary(ctx, req)
+// service. Multiple service clients may share a single connect.Client.
+func NewCompetitionServiceClient(client *connect.Client) CompetitionServiceClient {
+	return &competitionServiceClient{client: client}
 }
 
 // CompetitionServiceHandler is an implementation of the gfxcafe.oku.account.v2.CompetitionService
@@ -152,95 +109,159 @@ func (c *competitionServiceClient) CompleteRegistration(ctx context.Context, req
 type CompetitionServiceHandler interface {
 	// GetCompetition returns the competition: phase, schedule, pool, rules,
 	// eligible stocks and one raffle day per competition day.
-	GetCompetition(context.Context, *connect.Request[v2.GetCompetitionRequest]) (*connect.Response[v2.GetCompetitionResponse], error)
+	GetCompetition(context.Context, *v2.GetCompetitionRequest) (*v2.GetCompetitionResponse, error)
 	// ListLeaderboard returns one page of traders with counted volume, ranked.
 	// Traders with no counted volume are left out.
-	ListLeaderboard(context.Context, *connect.Request[v2.ListLeaderboardRequest]) (*connect.Response[v2.ListLeaderboardResponse], error)
+	ListLeaderboard(context.Context, *v2.ListLeaderboardRequest) (*v2.ListLeaderboardResponse, error)
 	// GetParticipant returns one wallet's registration, standing, today's
 	// volume and rewards.
-	GetParticipant(context.Context, *connect.Request[v2.GetParticipantRequest]) (*connect.Response[v2.GetParticipantResponse], error)
+	GetParticipant(context.Context, *v2.GetParticipantRequest) (*v2.GetParticipantResponse, error)
 	// StartRegistration returns the message the wallet signs to join, or says
 	// the wallet is already registered.
-	StartRegistration(context.Context, *connect.Request[v2.StartRegistrationRequest]) (*connect.Response[v2.StartRegistrationResponse], error)
+	StartRegistration(context.Context, *v2.StartRegistrationRequest) (*v2.StartRegistrationResponse, error)
 	// CompleteRegistration registers the wallet with its signature of the
 	// message from StartRegistration.
-	CompleteRegistration(context.Context, *connect.Request[v2.CompleteRegistrationRequest]) (*connect.Response[v2.CompleteRegistrationResponse], error)
+	CompleteRegistration(context.Context, *v2.CompleteRegistrationRequest) (*v2.CompleteRegistrationResponse, error)
 }
 
-// NewCompetitionServiceHandler builds an HTTP handler from the service implementation. It returns
-// the path on which to mount the handler and the handler itself.
-//
-// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
-// and JSON codecs. They also support gzip compression.
-func NewCompetitionServiceHandler(svc CompetitionServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	competitionServiceMethods := v2.File_gfxcafe_oku_account_v2_competition_proto.Services().ByName("CompetitionService").Methods()
-	competitionServiceGetCompetitionHandler := connect.NewUnaryHandler(
-		CompetitionServiceGetCompetitionProcedure,
-		svc.GetCompetition,
-		connect.WithSchema(competitionServiceMethods.ByName("GetCompetition")),
-		connect.WithHandlerOptions(opts...),
+// RegisterCompetitionServiceHandler registers svc as the gfxcafe.oku.account.v2.CompetitionService
+// implementation on server.
+func RegisterCompetitionServiceHandler(server *connect.Server, svc CompetitionServiceHandler) {
+	adapter := competitionServiceHandler{svc: svc}
+	server.Register(
+		connect.Method{Spec: competitionServiceGetCompetitionSpec(), Handler: adapter.getCompetition},
+		connect.Method{Spec: competitionServiceListLeaderboardSpec(), Handler: adapter.listLeaderboard},
+		connect.Method{Spec: competitionServiceGetParticipantSpec(), Handler: adapter.getParticipant},
+		connect.Method{Spec: competitionServiceStartRegistrationSpec(), Handler: adapter.startRegistration},
+		connect.Method{Spec: competitionServiceCompleteRegistrationSpec(), Handler: adapter.completeRegistration},
 	)
-	competitionServiceListLeaderboardHandler := connect.NewUnaryHandler(
-		CompetitionServiceListLeaderboardProcedure,
-		svc.ListLeaderboard,
-		connect.WithSchema(competitionServiceMethods.ByName("ListLeaderboard")),
-		connect.WithHandlerOptions(opts...),
-	)
-	competitionServiceGetParticipantHandler := connect.NewUnaryHandler(
-		CompetitionServiceGetParticipantProcedure,
-		svc.GetParticipant,
-		connect.WithSchema(competitionServiceMethods.ByName("GetParticipant")),
-		connect.WithHandlerOptions(opts...),
-	)
-	competitionServiceStartRegistrationHandler := connect.NewUnaryHandler(
-		CompetitionServiceStartRegistrationProcedure,
-		svc.StartRegistration,
-		connect.WithSchema(competitionServiceMethods.ByName("StartRegistration")),
-		connect.WithHandlerOptions(opts...),
-	)
-	competitionServiceCompleteRegistrationHandler := connect.NewUnaryHandler(
-		CompetitionServiceCompleteRegistrationProcedure,
-		svc.CompleteRegistration,
-		connect.WithSchema(competitionServiceMethods.ByName("CompleteRegistration")),
-		connect.WithHandlerOptions(opts...),
-	)
-	return "/gfxcafe.oku.account.v2.CompetitionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case CompetitionServiceGetCompetitionProcedure:
-			competitionServiceGetCompetitionHandler.ServeHTTP(w, r)
-		case CompetitionServiceListLeaderboardProcedure:
-			competitionServiceListLeaderboardHandler.ServeHTTP(w, r)
-		case CompetitionServiceGetParticipantProcedure:
-			competitionServiceGetParticipantHandler.ServeHTTP(w, r)
-		case CompetitionServiceStartRegistrationProcedure:
-			competitionServiceStartRegistrationHandler.ServeHTTP(w, r)
-		case CompetitionServiceCompleteRegistrationProcedure:
-			competitionServiceCompleteRegistrationHandler.ServeHTTP(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	})
 }
 
 // UnimplementedCompetitionServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedCompetitionServiceHandler struct{}
 
-func (UnimplementedCompetitionServiceHandler) GetCompetition(context.Context, *connect.Request[v2.GetCompetitionRequest]) (*connect.Response[v2.GetCompetitionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.CompetitionService.GetCompetition is not implemented"))
+func (UnimplementedCompetitionServiceHandler) GetCompetition(context.Context, *v2.GetCompetitionRequest) (*v2.GetCompetitionResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.CompetitionService.GetCompetition is not implemented")
 }
 
-func (UnimplementedCompetitionServiceHandler) ListLeaderboard(context.Context, *connect.Request[v2.ListLeaderboardRequest]) (*connect.Response[v2.ListLeaderboardResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.CompetitionService.ListLeaderboard is not implemented"))
+func (UnimplementedCompetitionServiceHandler) ListLeaderboard(context.Context, *v2.ListLeaderboardRequest) (*v2.ListLeaderboardResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.CompetitionService.ListLeaderboard is not implemented")
 }
 
-func (UnimplementedCompetitionServiceHandler) GetParticipant(context.Context, *connect.Request[v2.GetParticipantRequest]) (*connect.Response[v2.GetParticipantResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.CompetitionService.GetParticipant is not implemented"))
+func (UnimplementedCompetitionServiceHandler) GetParticipant(context.Context, *v2.GetParticipantRequest) (*v2.GetParticipantResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.CompetitionService.GetParticipant is not implemented")
 }
 
-func (UnimplementedCompetitionServiceHandler) StartRegistration(context.Context, *connect.Request[v2.StartRegistrationRequest]) (*connect.Response[v2.StartRegistrationResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.CompetitionService.StartRegistration is not implemented"))
+func (UnimplementedCompetitionServiceHandler) StartRegistration(context.Context, *v2.StartRegistrationRequest) (*v2.StartRegistrationResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.CompetitionService.StartRegistration is not implemented")
 }
 
-func (UnimplementedCompetitionServiceHandler) CompleteRegistration(context.Context, *connect.Request[v2.CompleteRegistrationRequest]) (*connect.Response[v2.CompleteRegistrationResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.CompetitionService.CompleteRegistration is not implemented"))
+func (UnimplementedCompetitionServiceHandler) CompleteRegistration(context.Context, *v2.CompleteRegistrationRequest) (*v2.CompleteRegistrationResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.CompetitionService.CompleteRegistration is not implemented")
+}
+
+type competitionServiceClient struct {
+	client *connect.Client
+}
+
+func (c *competitionServiceClient) GetCompetition(ctx context.Context, req *v2.GetCompetitionRequest) (*v2.GetCompetitionResponse, error) {
+	var res v2.GetCompetitionResponse
+	if err := c.client.CallUnary(ctx, competitionServiceGetCompetitionSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *competitionServiceClient) ListLeaderboard(ctx context.Context, req *v2.ListLeaderboardRequest) (*v2.ListLeaderboardResponse, error) {
+	var res v2.ListLeaderboardResponse
+	if err := c.client.CallUnary(ctx, competitionServiceListLeaderboardSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *competitionServiceClient) GetParticipant(ctx context.Context, req *v2.GetParticipantRequest) (*v2.GetParticipantResponse, error) {
+	var res v2.GetParticipantResponse
+	if err := c.client.CallUnary(ctx, competitionServiceGetParticipantSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *competitionServiceClient) StartRegistration(ctx context.Context, req *v2.StartRegistrationRequest) (*v2.StartRegistrationResponse, error) {
+	var res v2.StartRegistrationResponse
+	if err := c.client.CallUnary(ctx, competitionServiceStartRegistrationSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *competitionServiceClient) CompleteRegistration(ctx context.Context, req *v2.CompleteRegistrationRequest) (*v2.CompleteRegistrationResponse, error) {
+	var res v2.CompleteRegistrationResponse
+	if err := c.client.CallUnary(ctx, competitionServiceCompleteRegistrationSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type competitionServiceHandler struct{ svc CompetitionServiceHandler }
+
+func (h competitionServiceHandler) getCompetition(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetCompetitionRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetCompetition(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h competitionServiceHandler) listLeaderboard(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.ListLeaderboardRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ListLeaderboard(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h competitionServiceHandler) getParticipant(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetParticipantRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetParticipant(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h competitionServiceHandler) startRegistration(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.StartRegistrationRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.StartRegistration(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h competitionServiceHandler) completeRegistration(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.CompleteRegistrationRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.CompleteRegistration(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
 }
