@@ -26,8 +26,8 @@ func (a *App) competitionCommands() map[string]*handler {
 	return map[string]*handler{
 		"competition info":            {access: mcp.AccessRead, summary: "Trading competition: phase, schedule, prize pool, rules, eligible stocks and raffle days (read-only)", run: a.cmdCompetitionInfo},
 		"competition leaderboard":     {access: mcp.AccessRead, summary: "Trading competition leaderboard: one page, or every row with --all; --search filters by name or wallet (read-only)", flags: competitionLeaderboardFlags, run: a.cmdCompetitionLeaderboard},
-		"competition status":          {access: mcp.AccessRead, summary: "A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet; read-only)", flags: competitionWalletFlags, run: a.cmdCompetitionStatus},
-		"competition register":        {access: mcp.AccessMutation, summary: "Register the agent wallet for the trading competition: preview the consent message and digest, then sign only with --accept and the matching --digest", flags: competitionRegisterFlags, run: a.cmdCompetitionRegister},
+		"competition status":          {access: mcp.AccessRead, summary: "A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet). A negative registration result may be cached", flags: competitionWalletFlags, run: a.cmdCompetitionStatus},
+		"competition register":        {access: mcp.AccessMutation, summary: "Without --accept, check the agent wallet's registration without using cached status or signing, and preview consent if needed. Sign only with --accept and the matching --digest", flags: competitionRegisterFlags, run: a.cmdCompetitionRegister},
 		"competition claim prepare":   {access: mcp.AccessRead, summary: "If Voltrade reports a claimable award, preview claiming all the agent's unclaimed Merkl USDC on Base across all campaigns alongside the reported award (never signs)", run: a.cmdCompetitionClaimPrepare},
 		"competition claim submit":    {access: mcp.AccessMutation, summary: "Submit an approved claim for all the agent's unclaimed Merkl USDC on Base", flags: func() []urfave.Flag { return submitFlagsFor("competition claim") }, run: a.cmdCompetitionClaimSubmit, required: map[string]bool{"intent": true, "digest": true}},
 		"competition claim status":    {access: mcp.AccessRead, summary: "Check claim status and show the Merkl balance and Voltrade award recorded at prepare", flags: statusFlags, run: a.cmdCompetitionClaimStatus, required: map[string]bool{"intent": true}},
@@ -349,6 +349,7 @@ type competitionClaim struct {
 type competitionStatus struct {
 	Wallet             string              `json:"wallet"`
 	Registered         bool                `json:"registered"`
+	RegistrationNote   string              `json:"registrationNote,omitempty"`
 	Rank               *int32              `json:"rank,omitempty"`
 	CountedVolumeUSD   string              `json:"countedVolumeUsd"`
 	PotMinimumReached  bool                `json:"potMinimumReached"`
@@ -363,6 +364,9 @@ type competitionStatus struct {
 
 func toCompetitionStatus(wallet string, r *v2.GetParticipantResponse) competitionStatus {
 	s := competitionStatus{Wallet: wallet, Registered: r.Registered, Rank: r.Rank, CountedVolumeUSD: r.CountedVolumeUsd, PotMinimumReached: r.PotMinimumReached, ProjectedRewardUSD: r.ProjectedRewardUsd, Provisional: r.Provisional, RafflesWon: r.RafflesWon, RaffleWinningsUSD: r.RaffleWinningsUsd, Rewards: []competitionReward{}}
+	if !s.Registered {
+		s.RegistrationNote = "This result may be cached and does not confirm a registration attempt failed. For the enrolled agent wallet, run 'oku competition register' without --accept on the same profile to check without signing."
+	}
 	if s.Rank != nil && *s.Rank == 0 {
 		s.Rank = nil
 	}
@@ -394,8 +398,8 @@ func (a *App) cmdCompetitionStatus(e *env) (*result, error) {
 	s := toCompetitionStatus(wallet, &resp)
 	return &result{data: s, human: func(w io.Writer) {
 		fmt.Fprintf(w, "Wallet: %s\nRegistered: %t\n", s.Wallet, s.Registered)
-		if !s.Registered {
-			fmt.Fprintln(w, "Not registered: run 'oku competition register' to join.")
+		if s.RegistrationNote != "" {
+			fmt.Fprintln(w, s.RegistrationNote)
 		}
 		rank := "-"
 		if s.Rank != nil {

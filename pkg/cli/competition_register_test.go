@@ -186,6 +186,7 @@ func registrationPreviewDigest(t *testing.T, h *harness) string {
 
 func TestCompetitionRegisterCompletionOutcomes(t *testing.T) {
 	const prefix = "COMPETITION_REGISTRATION_FAILURE_"
+	const checkPreview = "'oku competition register' without --accept"
 	for _, surface := range []string{"CLI", "MCP"} {
 		t.Run(surface, func(t *testing.T) {
 			h := newHarness(t)
@@ -217,10 +218,10 @@ func TestCompetitionRegisterCompletionOutcomes(t *testing.T) {
 				failure                            any
 				retryable                          bool
 			}{
-				{"unavailable", "OUTCOME_UNKNOWN", "unknown", "unavailable", "competition status", prefix + "UNAVAILABLE", false},
-				{"unspecified", "OUTCOME_UNKNOWN", "unknown", "unknown", "competition status", 0, false},
-				{"unrecognized", "OUTCOME_UNKNOWN", "unknown", "999", "competition status", 999, false},
-				{"missing", "OUTCOME_UNKNOWN", "unknown", "", "competition status", nil, false},
+				{"unavailable", "OUTCOME_UNKNOWN", "unknown", "unavailable", checkPreview, prefix + "UNAVAILABLE", false},
+				{"unspecified", "OUTCOME_UNKNOWN", "unknown", "unknown", checkPreview, 0, false},
+				{"unrecognized", "OUTCOME_UNKNOWN", "unknown", "999", checkPreview, 999, false},
+				{"missing", "OUTCOME_UNKNOWN", "unknown", "", checkPreview, nil, false},
 				{"other wallet", "REJECTED", "rejected", "registered_with_other_wallet", "another wallet", prefix + "REGISTERED_WITH_OTHER_WALLET", false},
 				{"refused", "REJECTED", "rejected", "refused", "registration refused: fixture message", prefix + "REFUSED", false},
 				{"expired", "REJECTED", "rejected", "expired", "challenge expired", prefix + "EXPIRED", true},
@@ -250,6 +251,9 @@ func TestCompetitionRegisterCompletionOutcomes(t *testing.T) {
 						t.Fatalf("missing fresh approval guidance: %v", env)
 					}
 					if tc.code == "OUTCOME_UNKNOWN" {
+						if strings.Contains(message, "competition status") || !strings.Contains(message, "approve the fresh preview") {
+							t.Fatalf("unsafe recovery guidance: %v", env)
+						}
 						replay := invoke(digest)
 						if err, _ := replay["error"].(map[string]any); err["code"] != "INTENT_STATE" {
 							t.Fatalf("consumed approval was replayed: %v", replay)
@@ -257,6 +261,16 @@ func TestCompetitionRegisterCompletionOutcomes(t *testing.T) {
 					}
 					if reg.starts != starts+1 || reg.completes != completes+1 || len(h.privy.personalMessages) != signed+1 {
 						t.Fatalf("expected one preview, signature and submission, got %d/%d/%d", reg.starts-starts, len(h.privy.personalMessages)-signed, reg.completes-completes)
+					}
+					if tc.name == "missing" {
+						// The provider applied the registration without returning a usable outcome.
+						reg.registered = true
+						recovery := invoke("")
+						reg.registered = false
+						data, _ := recovery["data"].(map[string]any)
+						if recovery["ok"] != true || data["alreadyRegistered"] != true || reg.starts != starts+2 || reg.completes != completes+1 || len(h.privy.personalMessages) != signed+1 {
+							t.Fatalf("preview did not recover registration without signing or resubmitting: %v", recovery)
+						}
 					}
 				})
 			}

@@ -303,7 +303,7 @@ Trading competition leaderboard: one page, or every row with --all; --search fil
 
 ## `oku competition register`
 
-Register the agent wallet for the trading competition: preview the consent message and digest, then sign only with --accept and the matching --digest
+Without --accept, check the agent wallet's registration without using cached status or signing, and preview consent if needed. Sign only with --accept and the matching --digest
 
 ### Options
 
@@ -314,7 +314,7 @@ Register the agent wallet for the trading competition: preview the consent messa
 
 ## `oku competition status`
 
-A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet; read-only)
+A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet). A negative registration result may be cached
 
 ### Options
 

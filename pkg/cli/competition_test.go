@@ -112,6 +112,9 @@ func TestCompetitionStatusDefaultsToAgent(t *testing.T) {
 			return nil, false
 		}
 		asked = append(asked, body["wallet"].(string))
+		if body["wallet"] != strings.ToLower(h.fake.agentAddress) {
+			return map[string]any{"registered": false}, true
+		}
 		return map[string]any{
 			"registered": true, "rank": 3, "countedVolumeUsd": "12000", "potMinimumReached": true, "projectedRewardUsd": "150.25", "provisional": true,
 			"rafflesWon": 1, "raffleWinningsUsd": "300",
@@ -128,7 +131,7 @@ func TestCompetitionStatusDefaultsToAgent(t *testing.T) {
 		t.Fatalf("asked %v, want agent %s", asked, h.fake.agentAddress)
 	}
 	d := r.data()
-	if d["rank"] != float64(3) || d["today"].(map[string]any)["remainingVolumeUsd"] != "249500" {
+	if d["rank"] != float64(3) || d["today"].(map[string]any)["remainingVolumeUsd"] != "249500" || d["registrationNote"] != nil {
 		t.Fatalf("status data: %v", d)
 	}
 	reward := d["rewards"].([]any)[0].(map[string]any)
@@ -136,8 +139,13 @@ func TestCompetitionStatusDefaultsToAgent(t *testing.T) {
 		t.Fatalf("reward: %v", reward)
 	}
 	other := "0x2222222222222222222222222222222222222222"
-	if r := h.run("competition", "status", "--wallet", other, "--json"); r.code != 0 || asked[1] != other {
+	r = h.run("competition", "status", "--wallet", other, "--json")
+	note, _ := r.data()["registrationNote"].(string)
+	if r.code != 0 || asked[1] != other || r.data()["registered"] != false || !strings.Contains(note, "may be cached") || !strings.Contains(note, "without --accept") {
 		t.Fatalf("--wallet: %v %s", asked, r.stdout)
+	}
+	if r := h.run("competition", "status", "--wallet", other); r.code != 0 || !strings.Contains(r.stdout, note) {
+		t.Fatalf("status text lacks registration caveat: %s", r.stdout)
 	}
 	if r := h.run("competition", "status", "--wallet", "nope", "--json"); r.errCode() != "INVALID_ARGUMENT" {
 		t.Fatalf("bad wallet: %s", r.stdout)

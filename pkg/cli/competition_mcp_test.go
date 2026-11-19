@@ -73,6 +73,13 @@ func TestCompetitionMCPDispatchAndMutationGate(t *testing.T) {
 			if (tc.code == "" && (!ok || env["data"] == nil)) || (tc.code != "" && (ok || failure["code"] != tc.code)) {
 				t.Errorf("%s did not reach its handler: %v", name, env)
 			}
+			if tc.path == "competition status" {
+				data, _ := env["data"].(map[string]any)
+				note, _ := data["registrationNote"].(string)
+				if data["registered"] != false || !strings.Contains(note, "may be cached") || !strings.Contains(note, "without --accept") {
+					t.Errorf("negative status lacks recovery guidance: %v", env)
+				}
+			}
 		}
 		if err := cs.Close(); err != nil {
 			t.Fatal(err)

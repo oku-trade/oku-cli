@@ -23,7 +23,7 @@ func competitionRegisterFlags() []urfave.Flag {
 }
 
 func registrationOutcomeUnknown() *output.Error {
-	return output.Errorf(output.CodeOutcomeUnknown, "registration was not confirmed. Check 'oku competition status' before trying again").WithExec(output.ExecUnknown)
+	return output.Errorf(output.CodeOutcomeUnknown, "registration was not confirmed. Do not resubmit. Run 'oku competition register' without --accept on the same profile to check for an existing registration without signing. If another attempt is appropriate, approve the fresh preview before submitting").WithExec(output.ExecUnknown)
 }
 
 // Only explicit refusals confirm that CompleteRegistration did not register the wallet.
