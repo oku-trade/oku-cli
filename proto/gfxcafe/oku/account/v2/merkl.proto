@@ -1,0 +1,137 @@
+syntax = "proto3";
+
+package gfxcafe.oku.account.v2;
+
+import "buf/validate/validate.proto";
+import "gfxcafe/oku/account/v1/validate.proto";
+
+option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v2;accountv2";
+
+// MerklService provides typed access to Merkl rewards data.
+// It fetches and normalizes data from the Merkl API (https://api.merkl.xyz).
+service MerklService {
+  // GetUserRewards returns claimable and pending rewards for a user, grouped by chain.
+  rpc GetUserRewards(GetUserRewardsRequest) returns (GetUserRewardsResponse);
+}
+
+// ===== GetUserRewards =====
+
+message GetUserRewardsRequest {
+  // User wallet address.
+  string address = 1 [
+    (buf.validate.field).string.(gfxcafe.oku.account.v1.eth_address) = true,
+    (buf.validate.field).required = true
+  ];
+
+  // Chain ids to query rewards for. At least one is required.
+  repeated int64 chain_ids = 2 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.items.int64.gte = 0
+  ];
+
+  // If true, only return rewards that are currently claimable.
+  bool claimable_only = 3;
+
+  // Optional reward token type filter ("TOKEN", "PRETGE", "POINT").
+  string type = 4;
+
+  // If true, bypass the cache and fetch fresh data from Merkl.
+  bool fresh = 5;
+}
+
+message GetUserRewardsResponse {
+  repeated UserRewardsByChain chains = 1;
+}
+
+// ===== Shared types =====
+
+// Chain describes a blockchain network as reported by Merkl.
+message Chain {
+  int64 id = 1;
+  string name = 2;
+  string icon = 3;
+  int64 live_campaigns = 4;
+  int64 end_of_dispute_period = 5;
+  // explorers (6) is trimmed from the vendored subset.
+  reserved 6;
+  string last_claims_onchain_fetch_timestamp = 7;
+}
+
+// Token describes a reward token as reported by Merkl.
+message Token {
+  string id = 1;
+  string name = 2;
+  int64 chain_id = 3;
+  string address = 4;
+  int32 decimals = 5;
+  string symbol = 6;
+  string icon = 7;
+  bool verified = 8;
+  bool is_native = 9;
+  bool is_test = 10;
+  string type = 11;
+  double price = 12;
+  string display_symbol = 13;
+}
+
+// CampaignStatus describes the processing status of a campaign.
+message CampaignStatus {
+  string campaign_id = 1;
+  string status = 2;
+  string pre_compute_status = 3;
+  string error = 4;
+  string computed_until = 5;
+}
+
+// UserRewardsByChain groups a user's rewards by chain.
+message UserRewardsByChain {
+  Chain chain = 1;
+  repeated UserReward rewards = 2;
+
+  // Address of the Merkl Distributor contract for this chain, used to submit
+  // claims. Sourced from Merkl's per-chain campaign-status data. May be empty
+  // if Merkl does not report a distributor for the chain. Not necessarily an
+  // EVM address (e.g. Starknet chains use a felt-encoded address).
+  string distributor_address = 3;
+}
+
+// UserReward is a single reward entry for a user on a chain.
+message UserReward {
+  // Merkle root the proofs correspond to.
+  string root = 1;
+
+  // Chain id where the reward is distributed.
+  int64 distribution_chain_id = 2;
+
+  // Reward recipient address.
+  string recipient = 3;
+
+  // Total accrued amount in raw token units.
+  string amount = 4;
+
+  // Amount already claimed in raw token units.
+  string claimed = 5;
+
+  // Amount pending (not yet claimable) in raw token units.
+  string pending = 6;
+
+  // Merkle proofs needed to claim.
+  repeated string proofs = 7;
+
+  // The reward token.
+  Token token = 8;
+
+  // Per-campaign breakdown of this reward.
+  repeated UserRewardBreakdown breakdowns = 9;
+}
+
+// UserRewardBreakdown attributes a portion of a reward to a campaign.
+message UserRewardBreakdown {
+  string reason = 1;
+  string amount = 2;
+  string claimed = 3;
+  string pending = 4;
+  string campaign_id = 5;
+  string opportunity_id = 6;
+  CampaignStatus campaign_status = 7;
+}

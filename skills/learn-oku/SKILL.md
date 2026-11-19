@@ -51,6 +51,8 @@ The error object has `code`, `message`, `retryable` and sometimes `execution_sta
 | Unknown Hyperliquid outcomes, recovery | reconcile-hyperliquid-actions |
 | Unknown onchain send/swap/deposit outcomes, recovery | move-agent-funds |
 | Uniswap v3/v4 liquidity positions, ranges, fees, LP intent recovery | provide-uniswap-liquidity |
+| Trading competition: rules, leaderboard, own standing, registration, reported awards | no skill: `oku competition info`, `leaderboard`, `status`. `register` previews the consent message and digest. After the user approves that message, use `register --accept --digest SHA` with the preview digest. If registration returns `OUTCOME_UNKNOWN`, do not resubmit. A negative `status` may be cached. Run `oku competition register` without `--accept` on the same profile to check for `alreadyRegistered` without signing or relying on cached status. If another attempt is appropriate, get user approval of the fresh preview before submitting. On `PAYLOAD_MISMATCH`, run `register` without `--accept` and ask the user to review the new preview. `status` shows Voltrade's reported award and points to the Merkl flow when applicable. A Merkl claim does not verify a payout for that specific award. |
+| Claim Merkl USDC on Base and recover claim intents | no skill: `oku merkl claim prepare` previews the enrolled agent wallet's whole unclaimed USDC balance across every Merkl campaign. Explain that scope and the previewed amount. Use `oku merkl claim submit --intent ID --digest SHA` only after the user approves the whole-balance preview. For an unknown outcome, never resubmit. Check `oku merkl claim status --intent ID` and reconcile only with a recovered matching transaction hash. See `oku docs show usage`. |
 
 ## Agent integration
 

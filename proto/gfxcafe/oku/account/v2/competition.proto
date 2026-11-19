@@ -1,0 +1,329 @@
+syntax = "proto3";
+
+package gfxcafe.oku.account.v2;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "gfx.cafe/oku/account/gen/go/gfxcafe/oku/account/v2;accountv2";
+
+// CompetitionService serves the Oku trading competition page. Voltrade scores
+// the competition; the server reads it with Oku's partner key and answers in
+// the page's own shapes. Only the configured competition is served, and every
+// RPC is public (no sign-in).
+//
+// Money and volume are decimal strings in USD unless a field says otherwise.
+service CompetitionService {
+  // GetCompetition returns the competition: phase, schedule, pool, rules,
+  // eligible stocks and one raffle day per competition day.
+  rpc GetCompetition(GetCompetitionRequest) returns (GetCompetitionResponse);
+
+  // ListLeaderboard returns one page of traders with counted volume, ranked.
+  // Traders with no counted volume are left out.
+  rpc ListLeaderboard(ListLeaderboardRequest) returns (ListLeaderboardResponse);
+
+  // GetParticipant returns one wallet's registration, standing, today's
+  // volume and rewards.
+  rpc GetParticipant(GetParticipantRequest) returns (GetParticipantResponse);
+
+  // StartRegistration returns the message the wallet signs to join, or says
+  // the wallet is already registered.
+  rpc StartRegistration(StartRegistrationRequest) returns (StartRegistrationResponse);
+
+  // CompleteRegistration registers the wallet with its signature of the
+  // message from StartRegistration.
+  rpc CompleteRegistration(CompleteRegistrationRequest) returns (CompleteRegistrationResponse);
+}
+
+// CompetitionPhase is worked out on the server from the start, the end and
+// whether results are final.
+enum CompetitionPhase {
+  COMPETITION_PHASE_UNSPECIFIED = 0;
+  // Before the start.
+  COMPETITION_PHASE_UPCOMING = 1;
+  // Between the start and the end.
+  COMPETITION_PHASE_LIVE = 2;
+  // After the end, with results still provisional.
+  COMPETITION_PHASE_ENDED = 3;
+  // Results are final.
+  COMPETITION_PHASE_FINAL = 4;
+}
+
+// CompetitionRaffleDayStatus is the state of one day's raffle draw.
+enum CompetitionRaffleDayStatus {
+  COMPETITION_RAFFLE_DAY_STATUS_UNSPECIFIED = 0;
+  // The day has not started.
+  COMPETITION_RAFFLE_DAY_STATUS_UPCOMING = 1;
+  // The day is running: volume traded now counts toward its draw.
+  COMPETITION_RAFFLE_DAY_STATUS_OPEN = 2;
+  // The day has ended and its winners are not published yet.
+  COMPETITION_RAFFLE_DAY_STATUS_DRAWING = 3;
+  // Winners are published.
+  COMPETITION_RAFFLE_DAY_STATUS_DRAWN = 4;
+}
+
+// CompetitionRewardState is the payout state of an awarded reward.
+enum CompetitionRewardState {
+  COMPETITION_REWARD_STATE_UNSPECIFIED = 0;
+  // Awarded, not yet published for claiming.
+  COMPETITION_REWARD_STATE_FINAL = 1;
+  // In a live Merkl distribution: the wallet can claim it.
+  COMPETITION_REWARD_STATE_CLAIMABLE = 2;
+  // Sent to the wallet directly (see tx_hash).
+  COMPETITION_REWARD_STATE_PAID = 3;
+  // Claimed by the wallet.
+  COMPETITION_REWARD_STATE_CLAIMED = 4;
+}
+
+// CompetitionRegistrationFailure says why a registration was refused.
+enum CompetitionRegistrationFailure {
+  COMPETITION_REGISTRATION_FAILURE_UNSPECIFIED = 0;
+  // The challenge is older than its expiry. Start again.
+  COMPETITION_REGISTRATION_FAILURE_EXPIRED = 1;
+  // The challenge was already redeemed. Start again.
+  COMPETITION_REGISTRATION_FAILURE_USED = 2;
+  // The signature is not this wallet's signature of the message.
+  COMPETITION_REGISTRATION_FAILURE_INVALID_SIGNATURE = 3;
+  // The challenge token is unknown, belongs to another wallet, or is missing.
+  // Start again.
+  COMPETITION_REGISTRATION_FAILURE_INVALID_CHALLENGE = 4;
+  // Registration is closed.
+  COMPETITION_REGISTRATION_FAILURE_REGISTRATION_CLOSED = 5;
+  // The wallet's Voltrade account already entered with another wallet.
+  COMPETITION_REGISTRATION_FAILURE_REGISTERED_WITH_OTHER_WALLET = 6;
+  // The wallet's Voltrade account is banned from competitions.
+  COMPETITION_REGISTRATION_FAILURE_BANNED = 7;
+  // The wallet cannot join through Oku and must register on Voltrade.
+  COMPETITION_REGISTRATION_FAILURE_UNSUPPORTED = 8;
+  // Too many attempts. Retry shortly.
+  COMPETITION_REGISTRATION_FAILURE_RATE_LIMITED = 9;
+  // Registration is unavailable right now. Retry shortly.
+  COMPETITION_REGISTRATION_FAILURE_UNAVAILABLE = 10;
+  // Refused for another reason; message explains.
+  COMPETITION_REGISTRATION_FAILURE_REFUSED = 11;
+}
+
+message GetCompetitionRequest {}
+
+message GetCompetitionResponse {
+  CompetitionPhase phase = 1;
+  google.protobuf.Timestamp start_time = 2;
+  google.protobuf.Timestamp end_time = 3;
+  // When the running day ends and the daily cap resets. Days are 24 hours
+  // from start_time, not UTC days. Before the start this is the end of day 1;
+  // unset after the end.
+  google.protobuf.Timestamp next_daily_reset_time = 4;
+
+  // The full prize pool.
+  string prize_pool_usd = 5;
+  // The part of the pool unlocked so far. Unset when the pool unlocks by
+  // volume milestones, which Voltrade does not report for the competition.
+  optional string unlocked_pool_usd = 6;
+  int64 participant_count = 7;
+  // Counted volume of every participant.
+  string total_volume_usd = 8;
+  // When the standings were last scored. Unset before the first scoring.
+  google.protobuf.Timestamp data_as_of = 9;
+
+  CompetitionRules rules = 10;
+  // The consent the wallet signs when registering. Show it by the join button.
+  string consent_text = 11;
+  // Stocks whose trades count.
+  repeated CompetitionStock eligible_stocks = 12;
+  // One entry per competition day, day 1 first.
+  repeated CompetitionRaffleDay raffle_days = 13;
+}
+
+message CompetitionRules {
+  // Counted volume a wallet needs in total to share the volume pot.
+  string pot_minimum_usd = 1;
+  // The most volume that counts per wallet per day.
+  string daily_volume_cap_usd = 2;
+  // Volume a wallet needs on a day to enter that day's raffle.
+  string raffle_minimum_usd = 3;
+  // Prize per raffle winner.
+  string raffle_prize_usd = 4;
+  int32 raffle_winners_per_day = 5;
+  int32 raffle_day_count = 6;
+  // The prize pool less what the raffles reserve. Shared pro rata by counted
+  // volume among wallets over the pot minimum.
+  string volume_pot_usd = 7;
+}
+
+message CompetitionStock {
+  // Token address on Base, lowercase.
+  string address = 1;
+  string symbol = 2;
+  string name = 3;
+  // Unset when there is no logo.
+  optional string logo_url = 4;
+}
+
+message CompetitionRaffleDay {
+  int32 day_number = 1;
+  // The end of the day, when its draw closes.
+  google.protobuf.Timestamp draw_time = 2;
+  CompetitionRaffleDayStatus status = 3;
+  // Every winner of the day's draw, in slot order.
+  repeated CompetitionRaffleWinner winners = 4;
+}
+
+message CompetitionRaffleWinner {
+  // Display name, or the short wallet when the trader has none.
+  string name = 1;
+  // Shortened wallet, like 0x1234...abcd.
+  string short_wallet = 2;
+  // Unset when the prize is not paid in USD.
+  optional string prize_usd = 3;
+}
+
+message ListLeaderboardRequest {
+  // 1-based page. Defaults to 1.
+  int32 page = 1 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 10000
+  }];
+  // Defaults to 25.
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 100
+  }];
+}
+
+message ListLeaderboardResponse {
+  repeated CompetitionLeaderboardRow rows = 1;
+  // Traders with counted volume, across every page.
+  int64 total_count = 2;
+  // When the standings were last scored. Unset before the first scoring.
+  google.protobuf.Timestamp data_as_of = 3;
+}
+
+message CompetitionLeaderboardRow {
+  // Traders with equal standing share a rank.
+  int32 rank = 1;
+  // Display name, or the short wallet when the trader has none.
+  string display_name = 2;
+  string short_wallet = 3;
+  string counted_volume_usd = 4;
+  // Unset until a projection exists.
+  optional string projected_reward_usd = 5;
+  // Raffle prizes won so far.
+  string raffle_winnings_usd = 6;
+}
+
+message GetParticipantRequest {
+  // EVM wallet address.
+  string wallet = 1 [(buf.validate.field).string.pattern = "^0x[0-9a-fA-F]{40}$"];
+}
+
+message GetParticipantResponse {
+  bool registered = 1;
+  // Unset when the wallet has no standing.
+  optional int32 rank = 2;
+  string counted_volume_usd = 3;
+  // Whether counted volume has reached the pot minimum.
+  bool pot_minimum_reached = 4;
+  // Unset until a projection exists.
+  optional string projected_reward_usd = 5;
+  // True until results are final.
+  bool provisional = 6;
+  // Number of raffle draws the wallet won.
+  int32 raffles_won = 7;
+  // Total raffle prizes the wallet won.
+  string raffle_winnings_usd = 8;
+  // Unset outside the live window.
+  CompetitionParticipantToday today = 9;
+  repeated CompetitionReward rewards = 10;
+  // Unset unless rewards are claimed through Merkl.
+  CompetitionMerklClaim claim = 11;
+}
+
+message CompetitionParticipantToday {
+  string counted_volume_usd = 1;
+  string daily_cap_usd = 2;
+  string remaining_volume_usd = 3;
+  // Whether the wallet is in today's raffle.
+  bool raffle_eligible = 4;
+  string raffle_minimum_usd = 5;
+  google.protobuf.Timestamp resets_at = 6;
+}
+
+message CompetitionReward {
+  CompetitionRewardState state = 1;
+  // Amount as awarded, in units of token.
+  string amount = 2;
+  CompetitionRewardToken token = 3;
+  // Set when the reward was paid or claimed onchain.
+  optional string tx_hash = 4;
+}
+
+message CompetitionRewardToken {
+  // Lowercase token address.
+  string address = 1;
+  // CAIP-2 chain identifier, like eip155:8453.
+  string chain = 2;
+  int32 decimals = 3;
+  // Unset when Voltrade does not name the token.
+  optional string symbol = 4;
+}
+
+message CompetitionMerklClaim {
+  // CAIP-2 chain identifier of the Merkl distributor, like eip155:8453.
+  string chain = 1;
+  // Merkl distributor contract address.
+  string distributor = 2;
+}
+
+message StartRegistrationRequest {
+  // EVM wallet address.
+  string wallet = 1 [(buf.validate.field).string.pattern = "^0x[0-9a-fA-F]{40}$"];
+}
+
+message StartRegistrationResponse {
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // The wallet is already in: no signature is needed.
+    CompetitionAlreadyRegistered already_registered = 1;
+    // Sign message with the wallet (personal_sign) and pass the signature
+    // and challenge_token to CompleteRegistration.
+    CompetitionRegistrationChallenge challenge = 2;
+  }
+}
+
+message CompetitionAlreadyRegistered {}
+
+message CompetitionRegistrationChallenge {
+  // The exact text the wallet signs. It names the competition, Oku and the
+  // consent.
+  string message = 1;
+  string challenge_token = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message CompleteRegistrationRequest {
+  // EVM wallet address that signed the message.
+  string wallet = 1 [(buf.validate.field).string.pattern = "^0x[0-9a-fA-F]{40}$"];
+  string challenge_token = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 4096
+  }];
+  // Hex signature. Smart wallet (ERC-1271 and ERC-6492) signatures are accepted.
+  string signature = 3 [
+    (buf.validate.field).string.pattern = "^0x[0-9a-fA-F]+$",
+    (buf.validate.field).string.max_len = 20000
+  ];
+}
+
+message CompleteRegistrationResponse {
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // The wallet is registered.
+    CompetitionRegistered registered = 1;
+    // Why the registration was refused.
+    CompetitionRegistrationFailure failure = 2;
+  }
+  // Explains a REFUSED failure. Empty otherwise.
+  string failure_message = 3;
+}
+
+message CompetitionRegistered {}

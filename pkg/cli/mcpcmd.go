@@ -32,12 +32,11 @@ func (b MCPBackend) Commands() []mcp.Command {
 	out := []mcp.Command{}
 	for path, h := range b.S.app.commands() {
 		// Every command is listed so its input schema can be published as a
-		// resource. Tool exposure is decided by mcp.NewServer, and Service.Call
-		// independently refuses anything outside the Service allowlist.
+		// resource. Tool exposure and dispatch honor explicit command access.
 		if path == "auth login" || path == "auth logout" || path == "auth migrate" {
 			continue
 		}
-		c := mcp.Command{Path: path, Summary: h.summary}
+		c := mcp.Command{Path: path, Summary: h.summary, Access: h.access}
 		if h.flags != nil {
 			c.Schema, _ = InputSchema(path)
 		}

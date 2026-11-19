@@ -3,10 +3,11 @@ package journal
 import (
 	"context"
 	"errors"
-	"github.com/pressly/goose/v3"
 	"io/fs"
 	"strings"
 	"testing"
+
+	"github.com/pressly/goose/v3"
 )
 
 func TestClaimMigrationPreservesExistingIntents(t *testing.T) {
@@ -17,6 +18,10 @@ func TestClaimMigrationPreservesExistingIntents(t *testing.T) {
 	}
 	in := OnchainIntent{ID: "legacy-bridge", Kind: "bridge", ChainID: 42161, Sender: "0x1111111111111111111111111111111111111111", Recipient: "0x2222222222222222222222222222222222222222", Token: "native", Amount: "1", Templates: []OnchainTemplate{{ChainID: 42161, To: "0x2222222222222222222222222222222222222222", Value: "0x0"}}}
 	if _, err = j.CreateOnchain(in); err != nil {
+		t.Fatal(err)
+	}
+	merkl := OnchainIntent{ID: "merkl-preview", Kind: "merkl-claim", ChainID: 8453, Amount: "300000000", ClaimableAmount: "200000000", Templates: []OnchainTemplate{{ChainID: 8453}}}
+	if _, err := j.CreateOnchain(merkl); err != nil {
 		t.Fatal(err)
 	}
 	providerFS, err := fs.Sub(migrations, "migrations")
@@ -40,6 +45,15 @@ func TestClaimMigrationPreservesExistingIntents(t *testing.T) {
 	defer func() { _ = j.Close() }()
 	if _, err = j.GetOnchain(in.ID); err != nil {
 		t.Fatalf("lost existing intent: %v", err)
+	}
+	if _, err := j.GetOnchain(merkl.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Merkl intent survived down migration: %v", err)
+	}
+	if _, err := j.CreateOnchain(merkl); err != nil {
+		t.Fatalf("Merkl claim constraint not migrated: %v", err)
+	}
+	if r, err := j.GetOnchain(merkl.ID); err != nil || r.Digest != merkl.Digest() || r.ClaimableAmount != merkl.ClaimableAmount {
+		t.Fatalf("Merkl claim preview: %v, %v", r, err)
 	}
 	in.ID = "new-claim"
 	in.Kind = "claim"

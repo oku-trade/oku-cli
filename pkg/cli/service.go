@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/oku-trade/oku-cli/pkg/mcp"
 	"github.com/oku-trade/oku-cli/pkg/output"
 	urfave "github.com/urfave/cli/v3"
 )
@@ -32,6 +33,8 @@ type Service struct {
 // ServiceReads are commands a Service runs by default. Prepare commands may
 // create backend orders and journal records, but never sign or broadcast.
 // They do not submit onchain transactions or change user configuration.
+// Commands with explicit access metadata, such as Merkl claims, use that
+// classification for both in-process dispatch and MCP instead of these maps.
 var ServiceReads = map[string]bool{
 	"wallet address": true, "wallet balances": true, "wallet fund": true, "deposit address": true,
 	"send prepare": true, "send status": true, "deposit prepare": true, "deposit status": true,
@@ -93,7 +96,7 @@ func NewService(version string, stderr io.Writer, getenv func(string) string) *S
 func (s *Service) Commands() map[string]string {
 	out := map[string]string{}
 	for k, h := range s.app.commands() {
-		if !s.allowed(k) {
+		if !s.allowed(k, h) {
 			continue
 		}
 		out[k] = h.summary
@@ -109,8 +112,8 @@ func (s *Service) Call(ctx context.Context, path string, g Globals, flags map[st
 	defer s.mu.Unlock()
 	s.app.rpc = nil
 	h, ok := s.app.commands()[path]
-	if ok && !s.allowed(path) {
-		if ServiceMutations[path] {
+	if ok && !s.allowed(path, h) {
+		if h.access == mcp.AccessMutation || h.access == mcp.AccessUnspecified && ServiceMutations[path] {
 			return nil, output.Errorf(output.CodeUsage, "%q is a mutation and this server was not started with mutations enabled", path)
 		}
 		return nil, output.Errorf(output.CodeUsage, "%q is not available in-process; run it interactively with Oku Agent", path)
@@ -147,8 +150,17 @@ func (s *Service) Call(ctx context.Context, path string, g Globals, flags map[st
 	return res.data, nil
 }
 
-func (s *Service) allowed(path string) bool {
-	return ServiceReads[path] || (s.allowMutations && ServiceMutations[path])
+func (s *Service) allowed(path string, h *handler) bool {
+	switch h.access {
+	case mcp.AccessRead:
+		return true
+	case mcp.AccessMutation:
+		return s.allowMutations
+	case mcp.AccessUnspecified:
+		return ServiceReads[path] || (s.allowMutations && ServiceMutations[path])
+	default:
+		return false
+	}
 }
 
 // mapFlags implements flagSource from values already validated against the

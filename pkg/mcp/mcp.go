@@ -32,7 +32,18 @@ type Command struct {
 	Summary string
 	Options []Option
 	Schema  map[string]any
+	Access  Access
 }
+
+// Access allows a backend command to declare its policy for both exposure and
+// dispatch. Unspecified access uses the server's legacy tool allowlists.
+type Access uint8
+
+const (
+	AccessUnspecified Access = iota
+	AccessRead
+	AccessMutation
+)
 
 // Globals mirrors the CLI global options accepted by every tool.
 type Globals struct {
@@ -124,8 +135,11 @@ func NewServer(b Backend, cfg Config) *sdk.Server {
 				return &sdk.ReadResourceResult{Contents: []*sdk.ResourceContents{{URI: uri, MIMEType: "application/schema+json", Text: string(data)}}}, nil
 			})
 		}
-		mut := mutationTools[c.Path]
-		if !readTools[c.Path] && !(mut && cfg.AllowMutations) {
+		read, mut := c.Access == AccessRead, c.Access == AccessMutation
+		if c.Access == AccessUnspecified {
+			read, mut = readTools[c.Path], mutationTools[c.Path]
+		}
+		if !read && !(mut && cfg.AllowMutations) {
 			continue
 		}
 		addCommandTool(s, b, c, mut)

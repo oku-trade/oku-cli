@@ -474,16 +474,40 @@ func (s *Session) SignTypedData(ctx context.Context, walletID string, typedData 
 	if value == "" {
 		value = result.Signature
 	}
+	return parseEthereumSignature(value, "typed data")
+}
+
+// PersonalSign signs message exactly as given with EIP-191 personal_sign
+// (UTF-8 encoding) from the Privy wallet.
+func (s *Session) PersonalSign(ctx context.Context, walletID, message string) ([65]byte, error) {
+	var result struct {
+		Data struct {
+			Signature string `json:"signature"`
+		} `json:"data"`
+		Signature string `json:"signature"`
+	}
+	if err := s.SignedRPC(ctx, walletID, map[string]any{"method": "personal_sign", "params": map[string]any{"message": message, "encoding": "utf-8"}}, &result); err != nil {
+		return [65]byte{}, err
+	}
+	value := result.Data.Signature
+	if value == "" {
+		value = result.Signature
+	}
+	return parseEthereumSignature(value, "personal_sign")
+}
+
+func parseEthereumSignature(value, what string) ([65]byte, error) {
+	var signature [65]byte
 	raw, err := hex.DecodeString(strings.TrimPrefix(value, "0x"))
 	if err != nil || len(raw) != 65 {
-		return signature, errors.New("invalid typed data signature")
+		return signature, errors.New("invalid " + what + " signature")
 	}
 	copy(signature[:], raw)
 	if signature[64] < 2 {
 		signature[64] += 27
 	}
 	if signature[64] != 27 && signature[64] != 28 {
-		return [65]byte{}, errors.New("invalid typed data recovery ID")
+		return [65]byte{}, errors.New("invalid " + what + " recovery ID")
 	}
 	return signature, nil
 }

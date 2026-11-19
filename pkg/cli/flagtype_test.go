@@ -137,7 +137,7 @@ func TestEveryFlagExecutableAndServiceParity(t *testing.T) {
 		if !reflect.DeepEqual(exe[path], want) {
 			t.Errorf("executable %s: got %v want %v", path, exe[path], want)
 		}
-		if !svc.allowed(path) {
+		if !svc.allowed(path, h) {
 			continue
 		}
 		if _, err := svc.Call(context.Background(), path, Globals{}, given, nil); err != nil {

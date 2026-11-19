@@ -15,6 +15,7 @@ import (
 
 	"github.com/cli/browser"
 	"github.com/oku-trade/oku-cli/pkg/api"
+	"github.com/oku-trade/oku-cli/pkg/mcp"
 	"github.com/oku-trade/oku-cli/pkg/onchain"
 	"github.com/oku-trade/oku-cli/pkg/output"
 	urfave "github.com/urfave/cli/v3"
@@ -152,6 +153,7 @@ type handler struct {
 	run      func(e *env) (*result, error)
 	required map[string]bool
 	enums    map[string][]string
+	access   mcp.Access
 	// stream marks a command whose --json output is newline-delimited events,
 	// ending in doneEvent on success or an "error"/"expired" event on failure.
 	stream    bool
@@ -260,6 +262,12 @@ func (a *App) commandTable() map[string]*handler {
 		m[path] = h
 	}
 	for path, h := range a.lpCommands() {
+		m[path] = h
+	}
+	for path, h := range a.competitionCommands() {
+		m[path] = h
+	}
+	for path, h := range a.merklClaimCommands() {
 		m[path] = h
 	}
 	return m

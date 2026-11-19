@@ -332,6 +332,29 @@ oku pnl [--range 1d|7d|30d|all] [--chain 42161] [--json]
 
 JSON `data` fields: `range`, `agent`, `chain` (when set), `chain_scope`, `read_only`, `fetched_at`, `sources[]` (`source`, `label`, `status`, `error`, `range`, `in_total`, `address`, `pnl_usd`, and per source: `change_usd`, `start_value_usd`, `end_value_usd`, `value_usd`, `points`, `excludes`, `warnings` for net worth, `as_of_ms` for perps, `realized_usd`, `unrealized_usd`, `chains[]` for agent swaps) and `total` (`status`, `pnl_usd`, `included`, `omitted[]` with `source` and `reason`, `note`). Over MCP, `pnl` is a read tool.
 
+## Trading competition
+
+The Oku trading competition is scored by Voltrade and served by the account `CompetitionService`. Info, leaderboard and status with `--wallet` are public. Commands that use the agent wallet require an enrolled profile.
+
+- `oku competition info`: phase, start and end, next daily reset, prize pool, participants, total volume, rules (pot minimum, daily cap, raffle), eligible stocks on Base and each raffle day with its winners.
+- `oku competition leaderboard [--page N] [--page-size N]`: one ranked page (max 100 rows). `--all` pages through the leaderboard and `--search TEXT` filters those rows by display name or short wallet. Neither can be combined with `--page` or `--page-size`.
+- `oku competition status [--wallet 0x..]`: registration, rank, counted volume, pot minimum, projected reward, raffle wins, today's counted volume against the daily cap and raffle eligibility, rewards and the Merkl claim distributor. The default is the enrolled agent wallet. A negative registration result may be cached and is not proof an attempt failed. JSON and MCP include this caveat in `registrationNote` when `registered` is `false`.
+- `oku competition register`: without `--accept`, checks registration without using cached status. It returns `alreadyRegistered: true` for an existing registration. Otherwise, it previews the consent message and its SHA-256 hex `digest` without signing and saves the challenge locally for the selected profile and **agent wallet**. After reviewing the message, use the printed `--accept --digest SHA` command. The CLI signs only that exact, unexpired challenge through Privy with EIP-191 `personal_sign`. A mismatched digest is refused without signing. If the preview expired or was used, run `competition register` without `--accept` and review the new message. Successful registration echoes the signed `digest`. Definite refusals map to `REJECTED` or `RATE_LIMITED` with `details.failure`. If a definite refusal allows another attempt, wait if rate limited, then request and approve a fresh preview. Over MCP, both forms of `competition register` require `--allow-mutations` on the server.
+
+If registration returns `OUTCOME_UNKNOWN`, do not resubmit or rely on a negative `competition status` result. Run `oku competition register` without `--accept` on the same profile to check for `alreadyRegistered` without signing. If you get a new consent preview and another attempt is appropriate, approve the fresh preview before submitting.
+
+When Voltrade reports a claimable Base USDC award with the expected Merkl distributor, `status` explains how to claim (`claimNote` in JSON and MCP). It prints a [Merkl claim command](#merkl-usdc-claims) (`next`) only if the reported wallet is the selected profile's enrolled agent, and includes `--profile` in that command. With `--wallet`, the lookup never prompts for credentials: it only checks enrollment after finding a qualifying award and leaves out `next` if enrollment can't be verified without prompting. This includes profiles using the Linux desktop keyring. To get the hint for your enrolled agent wallet, select its profile and omit `--wallet`. For a wallet registered on the competition website, claim there. The CLI claim settles the wallet's whole unclaimed Merkl USDC balance, not a verified payout for the reported award.
+
+## Merkl USDC claims
+
+An `oku merkl claim` settles the enrolled agent wallet's **whole unclaimed Merkl USDC balance on Base across every campaign**. You cannot claim just one campaign. The claim needs a Base RPC (`oku rpc set 8453 URL`) and ETH on Base for gas.
+
+- `oku merkl claim prepare` fetches fresh proofs, builds one `Distributor.claimWithRecipient` call, simulates it when supported, and journals the intent without signing. `NOT_FOUND` means no unclaimed Merkl USDC on Base. If proofs are not yet published, try again later. A mismatched distributor, recipient or chain is refused with `PAYLOAD_MISMATCH`.
+- `oku merkl claim submit --intent ID --digest SHA` requires approval of that exact whole-balance preview. Under the chain lock it checks the digest and verifies the sealed calldata for the canonical distributor (`0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae`), with the agent as both owner and explicit payout recipient, no value and no callback. The intent expires after 10 minutes because Merkl roots rotate. If it expires, prepare and approve a fresh preview.
+- `oku merkl claim status --intent ID` checks the intent and its receipt. Never resubmit an `unknown` claim. Use `oku merkl claim reconcile --intent ID --tx-hash 0x..` if you recover the matching transaction hash.
+
+Every result shows `claim_scope`, `merkl_unclaimed_usdc` (the cumulative entitlement minus the amount already claimed at prepare, not a receipt-confirmed transfer amount), and `cumulative_merkl_usdc` (the entitlement used in calldata). MCP exposes prepare and status by default. Submit and reconcile require `--allow-mutations`.
+
 ## Agent-to-master deposits
 
 `oku deposit prepare --amount N` prepares an Arbitrum USDC transfer **from agent to master EOA**, not a deposit to Hyperliquid. The master then deposits from its own wallet. `oku deposit address --asset ... --source-chain ...` reads a HyperUnit address explicitly bound to the master for external funding. Never send agent-held USDC directly to the HL bridge.
