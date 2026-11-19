@@ -27,7 +27,7 @@ func (a *App) competitionCommands() map[string]*handler {
 	return map[string]*handler{
 		"competition info":        {access: mcp.AccessRead, summary: "Trading competition: phase, schedule, prize pool, rules, eligible stocks and raffle days (read-only)", run: a.cmdCompetitionInfo},
 		"competition leaderboard": {access: mcp.AccessRead, summary: "Trading competition leaderboard: one page, or every row with --all; --search filters by name or wallet (read-only)", flags: competitionLeaderboardFlags, run: a.cmdCompetitionLeaderboard},
-		"competition status":      {access: mcp.AccessRead, summary: "A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet). A negative registration result may be cached", flags: competitionWalletFlags, run: a.cmdCompetitionStatus},
+		"competition status":      {access: mcp.AccessRead, summary: "A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet). A negative registration result may be cached. Claim commands are only shown for the selected profile's agent wallet", flags: competitionWalletFlags, run: a.cmdCompetitionStatus},
 		"competition register":    {access: mcp.AccessMutation, summary: "Without --accept, check the agent wallet's registration without using cached status or signing, and preview consent if needed. Sign only with --accept and the matching --digest", flags: competitionRegisterFlags, run: a.cmdCompetitionRegister},
 	}
 }
@@ -304,21 +304,6 @@ func (a *App) cmdCompetitionLeaderboard(e *env) (*result, error) {
 	}}, nil
 }
 
-// competitionWallet is --wallet, else the enrolled agent wallet.
-func competitionWallet(e *env) (string, error) {
-	if w := strings.TrimSpace(e.cmd.String("wallet")); w != "" {
-		if !config.ValidAddress(w) {
-			return "", output.Errorf(output.CodeInvalidArgument, "--wallet must be a 0x EVM address")
-		}
-		return strings.ToLower(w), nil
-	}
-	w, err := agentWalletMetadata(e)
-	if err != nil {
-		return "", err
-	}
-	return strings.ToLower(w.agent), nil
-}
-
 type competitionToday struct {
 	CountedVolumeUSD   string     `json:"countedVolumeUsd"`
 	DailyCapUSD        string     `json:"dailyCapUsd"`
@@ -361,7 +346,7 @@ type competitionStatus struct {
 	ClaimNote          string              `json:"claimNote,omitempty"`
 }
 
-func toCompetitionStatus(wallet string, r *v2.GetParticipantResponse) competitionStatus {
+func toCompetitionStatus(wallet string, enrolled *resolvedWallet, r *v2.GetParticipantResponse) competitionStatus {
 	s := competitionStatus{Wallet: wallet, Registered: r.Registered, Rank: r.Rank, CountedVolumeUSD: r.CountedVolumeUsd, PotMinimumReached: r.PotMinimumReached, ProjectedRewardUSD: r.ProjectedRewardUsd, Provisional: r.Provisional, RafflesWon: r.RafflesWon, RaffleWinningsUSD: r.RaffleWinningsUsd, Rewards: []competitionReward{}}
 	if !s.Registered {
 		s.RegistrationNote = "This result may be cached and does not confirm a registration attempt failed. For the enrolled agent wallet, run 'oku competition register' without --accept on the same profile to check without signing."
@@ -384,7 +369,7 @@ func toCompetitionStatus(wallet string, r *v2.GetParticipantResponse) competitio
 			out.Token, out.Chain, out.Symbol, out.Decimal = strings.ToLower(tk.Address), tk.Chain, tk.Symbol, tk.Decimals
 		}
 		s.Rewards = append(s.Rewards, out)
-		if !merklRoute || s.Next != "" || rw.GetState() != v2.CompetitionRewardState_COMPETITION_REWARD_STATE_CLAIMABLE ||
+		if !merklRoute || s.ClaimNote != "" || rw.GetState() != v2.CompetitionRewardState_COMPETITION_REWARD_STATE_CLAIMABLE ||
 			out.Chain != base || out.Token != merkl.BaseUSDC || out.Decimal != 6 {
 			continue
 		}
@@ -393,22 +378,41 @@ func toCompetitionStatus(wallet string, r *v2.GetParticipantResponse) competitio
 		if err != nil || amount.Sign() == 0 {
 			continue
 		}
-		s.Next = merklClaimPrepareCommand
-		s.ClaimNote = "The Merkl claim settles the enrolled agent wallet's whole unclaimed USDC balance on Base, which may include other campaigns. Use the profile enrolled for the wallet shown."
+		s.ClaimNote = "The Merkl claim settles the enrolled agent wallet's whole unclaimed USDC balance on Base, which may include other campaigns. Select the profile enrolled for the wallet shown, or claim on the competition website if the wallet registered there."
+		if enrolled != nil && strings.EqualFold(wallet, enrolled.agent) && config.ValidName(enrolled.profile.Name) {
+			// Pin even the default profile so the command can be used from a different shell.
+			s.Next = merklClaimPrepareCommand + " --profile " + enrolled.profile.Name
+		}
 	}
 	return s
 }
 
 func (a *App) cmdCompetitionStatus(e *env) (*result, error) {
-	wallet, err := competitionWallet(e)
-	if err != nil {
-		return nil, err
+	wallet := strings.TrimSpace(e.cmd.String("wallet"))
+	var enrolled *resolvedWallet
+	if wallet == "" {
+		var err error
+		enrolled, err = agentWalletMetadata(e)
+		if err != nil {
+			return nil, err
+		}
+		wallet = enrolled.agent
+	} else {
+		if !config.ValidAddress(wallet) {
+			return nil, output.Errorf(output.CodeInvalidArgument, "--wallet must be a 0x EVM address")
+		}
+		// An explicit wallet is a public read. If enrollment cannot be verified,
+		// report the award without suggesting a command for an unverified profile.
+		if w, err := agentWalletMetadata(e); err == nil {
+			enrolled = w
+		}
 	}
+	wallet = strings.ToLower(wallet)
 	var resp v2.GetParticipantResponse
 	if err := e.competitionCall("GetParticipant", &v2.GetParticipantRequest{Wallet: wallet}, &resp); err != nil {
 		return nil, err
 	}
-	s := toCompetitionStatus(wallet, &resp)
+	s := toCompetitionStatus(wallet, enrolled, &resp)
 	return &result{data: s, human: func(w io.Writer) {
 		fmt.Fprintf(w, "Wallet: %s\nRegistered: %t\n", s.Wallet, s.Registered)
 		if s.RegistrationNote != "" {
@@ -446,7 +450,10 @@ func (a *App) cmdCompetitionStatus(e *env) (*result, error) {
 			tw.Flush()
 		}
 		if s.Next != "" {
-			fmt.Fprintf(w, "Claim with: %s\n%s\n", s.Next, s.ClaimNote)
+			fmt.Fprintf(w, "Claim with: %s\n", s.Next)
+		}
+		if s.ClaimNote != "" {
+			fmt.Fprintln(w, s.ClaimNote)
 		}
 	}}, nil
 }

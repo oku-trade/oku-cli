@@ -343,7 +343,7 @@ The Oku trading competition is scored by Voltrade and served by the account `Com
 
 If registration returns `OUTCOME_UNKNOWN`, do not resubmit or rely on a negative `competition status` result. Run `oku competition register` without `--accept` on the same profile to check for `alreadyRegistered` without signing. If you get a new consent preview and another attempt is appropriate, approve the fresh preview before submitting.
 
-When Voltrade reports a claimable Base USDC award with the expected Merkl distributor, `status` points to [Merkl USDC claims](#merkl-usdc-claims) (`next` and `claimNote` in JSON and MCP). This is a whole-wallet Merkl claim, not a verified payout for that award. Use the profile enrolled for the wallet shown. A wallet registered on the website claims there.
+When Voltrade reports a claimable Base USDC award with the expected Merkl distributor, `status` explains how to claim (`claimNote` in JSON and MCP). It prints a [Merkl claim command](#merkl-usdc-claims) (`next`) only if the reported wallet is the selected profile's enrolled agent, and includes `--profile` in that command. For other wallets, select the profile enrolled for that wallet, or claim on the competition website if the wallet registered there. The CLI claim settles the wallet's whole unclaimed Merkl USDC balance, not a verified payout for the reported award.
 
 ## Merkl USDC claims
 

@@ -278,7 +278,7 @@ Without --accept, check the agent wallet's registration without using cached sta
 
 ## `oku competition status`
 
-A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet). A negative registration result may be cached
+A wallet's competition registration, rank, volume, today's cap and raffle, and rewards (default: the agent wallet). A negative registration result may be cached. Claim commands are only shown for the selected profile's agent wallet
 
 ### Options
 

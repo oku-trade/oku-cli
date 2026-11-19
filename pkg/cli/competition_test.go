@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/oku-trade/oku-cli/pkg/mcp"
+	"github.com/oku-trade/oku-cli/pkg/merkl"
 )
 
 func competitionFixture() map[string]any {
@@ -106,15 +109,23 @@ func TestCompetitionLeaderboardPagesAndSearch(t *testing.T) {
 func TestCompetitionStatusDefaultsToAgent(t *testing.T) {
 	h := newHarness(t)
 	h.enroll()
+	agent := strings.ToLower(h.fake.agentAddress)
 	var asked []string
+	var merklWallet any
+	other := "0x2222222222222222222222222222222222222222"
+	claimableWallet := agent
 	rewardState := "COMPETITION_REWARD_STATE_CLAIMABLE"
-	distributor := "0x3ef3d8ba38ebe18db133cec108f4d14ce00dd9ae"
+	distributor := merkl.Distributor
 	h.fake.routeReply = func(method string, body map[string]any) (any, bool) {
+		if method == "GetUserRewards" {
+			merklWallet = body["address"]
+			return merklRewards(agent, merkl.Distributor, "200000000", "0"), true
+		}
 		if method != "GetParticipant" {
 			return nil, false
 		}
 		asked = append(asked, body["wallet"].(string))
-		if body["wallet"] != strings.ToLower(h.fake.agentAddress) {
+		if body["wallet"] != claimableWallet {
 			return map[string]any{"registered": false}, true
 		}
 		return map[string]any{
@@ -140,7 +151,7 @@ func TestCompetitionStatusDefaultsToAgent(t *testing.T) {
 	if reward["state"] != "claimable" || reward["amount"] != "150.25" || reward["token"] != "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913" {
 		t.Fatalf("reward: %v", reward)
 	}
-	next, claimNote := "oku merkl claim prepare", fmt.Sprint(d["claimNote"])
+	next, claimNote := "oku merkl claim prepare --profile main", fmt.Sprint(d["claimNote"])
 	if d["next"] != next || !strings.Contains(claimNote, "may include other campaigns") {
 		t.Fatalf("claim guidance: %v", d)
 	}
@@ -156,7 +167,6 @@ func TestCompetitionStatusDefaultsToAgent(t *testing.T) {
 	if r := h.run("competition", "status", "--json"); r.code != 0 || r.data()["next"] != nil {
 		t.Fatalf("award with different distributor: %s", r.stdout)
 	}
-	other := "0x2222222222222222222222222222222222222222"
 	r = h.run("competition", "status", "--wallet", other, "--json")
 	note, _ := r.data()["registrationNote"].(string)
 	if r.code != 0 || asked[len(asked)-1] != other || r.data()["registered"] != false || r.data()["next"] != nil || !strings.Contains(note, "may be cached") || !strings.Contains(note, "without --accept") {
@@ -167,5 +177,46 @@ func TestCompetitionStatusDefaultsToAgent(t *testing.T) {
 	}
 	if r := h.run("competition", "status", "--wallet", "nope", "--json"); r.errCode() != "INVALID_ARGUMENT" {
 		t.Fatalf("bad wallet: %s", r.stdout)
+	}
+
+	distributor, claimableWallet = merkl.Distributor, other
+	r = h.run("competition", "status", "--wallet", other, "--json")
+	d = r.data()
+	if r.code != 0 || d["wallet"] != other || d["next"] != nil || !strings.Contains(fmt.Sprint(d["claimNote"]), "Select the profile enrolled for the wallet shown") || !strings.Contains(r.stdout, "150.25") {
+		t.Fatalf("claimable award for another wallet: %s", r.stdout)
+	}
+	if r := h.run("competition", "status", "--wallet", other); r.code != 0 || strings.Contains(r.stdout, "Claim with:") || !strings.Contains(r.stdout, claimNote) || !strings.Contains(r.stdout, "150.25") {
+		t.Fatalf("human claim guidance for another wallet: %s", r.stdout)
+	}
+
+	if r := h.run("profiles", "add", "observer", "--default", "--account", acct, "--api-url", h.srv.URL, "--json"); r.code != 0 {
+		t.Fatalf("change default profile: %s", r.stdout)
+	}
+	claimableWallet = agent
+	if r := h.run("competition", "status", "--wallet", agent, "--json"); r.code != 0 || r.data()["next"] != nil || r.data()["claimNote"] == nil {
+		t.Fatalf("public read from an unenrolled profile: %s", r.stdout)
+	}
+	r = h.run("--profile", "main", "competition", "status", "--wallet", agent, "--json")
+	command, _ := r.data()["next"].(string)
+	if r.code != 0 || command != next {
+		t.Fatalf("non-default profile claim guidance: %s", r.stdout)
+	}
+	h.rpcChain, h.rpcURL = "8453", baseRPC(t, false, nil).URL
+	if r := h.run(append(strings.Fields(command)[1:], "--json")...); r.code != 0 || merklWallet != agent {
+		t.Fatalf("following next queried %v, want %s: %s", merklWallet, agent, r.stdout)
+	}
+
+	cs := mcpSession(t, MCPBackend{S: testService(h)}, false)
+	for _, wallet := range []string{agent, other} {
+		claimableWallet = wallet
+		ok, envelope := callTool(t, cs, mcp.ToolName("competition status"), map[string]any{"profile": "main", "wallet": wallet})
+		data, _ := envelope["data"].(map[string]any)
+		var wantNext any
+		if wallet == agent {
+			wantNext = next
+		}
+		if !ok || data["next"] != wantNext || data["claimNote"] != claimNote {
+			t.Fatalf("MCP claim guidance for %s: %v", wallet, envelope)
+		}
 	}
 }
