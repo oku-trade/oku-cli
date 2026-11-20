@@ -26,12 +26,10 @@ jobs:
       - run: make test
       - run: go build -o /dev/null ./cmd/oku
       # Regenerates pkg/gen from the vendored proto/ closure and fails on drift. Tool versions
-      # pinned: buf v1.73.0; protoc-gen-go via go.mod (go run); protoc-gen-connect-go v1.21.0,
-      # the generator that produced the committed pkg/gen (independent of the connect runtime).
+      # pinned: buf v1.73.0; protoc-gen-go and protoc-gen-connect-go via go.mod (go run).
       - name: install pinned proto generators
         run: |
           go install github.com/bufbuild/buf/cmd/buf@v1.73.0
-          go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.21.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: protos up to date
         run: ./mise-tasks/sync-protos.sh --check

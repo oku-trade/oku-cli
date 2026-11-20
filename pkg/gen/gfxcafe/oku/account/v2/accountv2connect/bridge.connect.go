@@ -5,473 +5,556 @@
 package accountv2connect
 
 import (
-	connect "connectrpc.com/connect"
+	connect "connectrpc.com/connect/v2"
 	context "context"
-	errors "errors"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
-	http "net/http"
-	strings "strings"
+	sync "sync"
 )
-
-// This is a compile-time assertion to ensure that this generated file and the connect package are
-// compatible. If you get a compiler error that this constant is not defined, this code was
-// generated with a version of connect newer than the one compiled into your binary. You can fix the
-// problem by either regenerating this code with an older version of connect or updating the connect
-// version compiled into your binary.
-const _ = connect.IsAtLeastVersion1_13_0
 
 const (
 	// BridgeServiceName is the fully-qualified name of the BridgeService service.
 	BridgeServiceName = "gfxcafe.oku.account.v2.BridgeService"
 )
 
-// These constants are the fully-qualified names of the RPCs defined in this package. They're
-// exposed at runtime as Spec.Procedure and as the final two segments of the HTTP route.
+// These constants are the procedure names of the RPCs defined in this package. They're exposed at
+// runtime as Spec.Procedure and as the final two segments of the HTTP route.
 //
 // Note that these are different from the fully-qualified method names used by
 // google.golang.org/protobuf/reflect/protoreflect. To convert from these constants to
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// BridgeServiceCreateProcedure is the fully-qualified name of the BridgeService's Create RPC.
+	// BridgeServiceCreateProcedure is the procedure name of the BridgeService's Create RPC.
 	BridgeServiceCreateProcedure = "/gfxcafe.oku.account.v2.BridgeService/Create"
-	// BridgeServicePingProcedure is the fully-qualified name of the BridgeService's Ping RPC.
+	// BridgeServicePingProcedure is the procedure name of the BridgeService's Ping RPC.
 	BridgeServicePingProcedure = "/gfxcafe.oku.account.v2.BridgeService/Ping"
-	// BridgeServiceCancelProcedure is the fully-qualified name of the BridgeService's Cancel RPC.
+	// BridgeServiceCancelProcedure is the procedure name of the BridgeService's Cancel RPC.
 	BridgeServiceCancelProcedure = "/gfxcafe.oku.account.v2.BridgeService/Cancel"
-	// BridgeServiceUpdateQuoteParamsProcedure is the fully-qualified name of the BridgeService's
+	// BridgeServiceUpdateQuoteParamsProcedure is the procedure name of the BridgeService's
 	// UpdateQuoteParams RPC.
 	BridgeServiceUpdateQuoteParamsProcedure = "/gfxcafe.oku.account.v2.BridgeService/UpdateQuoteParams"
-	// BridgeServiceGetNewQuotesProcedure is the fully-qualified name of the BridgeService's
-	// GetNewQuotes RPC.
+	// BridgeServiceGetNewQuotesProcedure is the procedure name of the BridgeService's GetNewQuotes RPC.
 	BridgeServiceGetNewQuotesProcedure = "/gfxcafe.oku.account.v2.BridgeService/GetNewQuotes"
-	// BridgeServiceGetQuotesProcedure is the fully-qualified name of the BridgeService's GetQuotes RPC.
+	// BridgeServiceGetQuotesProcedure is the procedure name of the BridgeService's GetQuotes RPC.
 	BridgeServiceGetQuotesProcedure = "/gfxcafe.oku.account.v2.BridgeService/GetQuotes"
-	// BridgeServiceGetQuoteProcedure is the fully-qualified name of the BridgeService's GetQuote RPC.
+	// BridgeServiceGetQuoteProcedure is the procedure name of the BridgeService's GetQuote RPC.
 	BridgeServiceGetQuoteProcedure = "/gfxcafe.oku.account.v2.BridgeService/GetQuote"
-	// BridgeServiceUpdateQuoteSelectProcedure is the fully-qualified name of the BridgeService's
+	// BridgeServiceUpdateQuoteSelectProcedure is the procedure name of the BridgeService's
 	// UpdateQuoteSelect RPC.
 	BridgeServiceUpdateQuoteSelectProcedure = "/gfxcafe.oku.account.v2.BridgeService/UpdateQuoteSelect"
-	// BridgeServiceConfirmQuoteSelectProcedure is the fully-qualified name of the BridgeService's
+	// BridgeServiceConfirmQuoteSelectProcedure is the procedure name of the BridgeService's
 	// ConfirmQuoteSelect RPC.
 	BridgeServiceConfirmQuoteSelectProcedure = "/gfxcafe.oku.account.v2.BridgeService/ConfirmQuoteSelect"
-	// BridgeServiceGetExecutionInfoProcedure is the fully-qualified name of the BridgeService's
+	// BridgeServiceGetExecutionInfoProcedure is the procedure name of the BridgeService's
 	// GetExecutionInfo RPC.
 	BridgeServiceGetExecutionInfoProcedure = "/gfxcafe.oku.account.v2.BridgeService/GetExecutionInfo"
-	// BridgeServiceFinishProcedure is the fully-qualified name of the BridgeService's Finish RPC.
+	// BridgeServiceFinishProcedure is the procedure name of the BridgeService's Finish RPC.
 	BridgeServiceFinishProcedure = "/gfxcafe.oku.account.v2.BridgeService/Finish"
-	// BridgeServiceFinishClaimProcedure is the fully-qualified name of the BridgeService's FinishClaim
-	// RPC.
+	// BridgeServiceFinishClaimProcedure is the procedure name of the BridgeService's FinishClaim RPC.
 	BridgeServiceFinishClaimProcedure = "/gfxcafe.oku.account.v2.BridgeService/FinishClaim"
-	// BridgeServiceGetSupportedBridgesProcedure is the fully-qualified name of the BridgeService's
+	// BridgeServiceGetSupportedBridgesProcedure is the procedure name of the BridgeService's
 	// GetSupportedBridges RPC.
 	BridgeServiceGetSupportedBridgesProcedure = "/gfxcafe.oku.account.v2.BridgeService/GetSupportedBridges"
+)
+
+var (
+	bridgeServiceCreateSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods().ByName("Create"),
+			Procedure:  BridgeServiceCreateProcedure,
+		}
+	})
+	bridgeServicePingSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods().ByName("Ping"),
+			Procedure:  BridgeServicePingProcedure,
+		}
+	})
+	bridgeServiceCancelSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods().ByName("Cancel"),
+			Procedure:  BridgeServiceCancelProcedure,
+		}
+	})
+	bridgeServiceUpdateQuoteParamsSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods().ByName("UpdateQuoteParams"),
+			Procedure:  BridgeServiceUpdateQuoteParamsProcedure,
+		}
+	})
+	bridgeServiceGetNewQuotesSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods().ByName("GetNewQuotes"),
+			Procedure:  BridgeServiceGetNewQuotesProcedure,
+		}
+	})
+	bridgeServiceGetQuotesSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods().ByName("GetQuotes"),
+			Procedure:  BridgeServiceGetQuotesProcedure,
+		}
+	})
+	bridgeServiceGetQuoteSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods().ByName("GetQuote"),
+			Procedure:  BridgeServiceGetQuoteProcedure,
+		}
+	})
+	bridgeServiceUpdateQuoteSelectSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods().ByName("UpdateQuoteSelect"),
+			Procedure:  BridgeServiceUpdateQuoteSelectProcedure,
+		}
+	})
+	bridgeServiceConfirmQuoteSelectSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods().ByName("ConfirmQuoteSelect"),
+			Procedure:  BridgeServiceConfirmQuoteSelectProcedure,
+		}
+	})
+	bridgeServiceGetExecutionInfoSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods().ByName("GetExecutionInfo"),
+			Procedure:  BridgeServiceGetExecutionInfoProcedure,
+		}
+	})
+	bridgeServiceFinishSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods().ByName("Finish"),
+			Procedure:  BridgeServiceFinishProcedure,
+		}
+	})
+	bridgeServiceFinishClaimSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods().ByName("FinishClaim"),
+			Procedure:  BridgeServiceFinishClaimProcedure,
+		}
+	})
+	bridgeServiceGetSupportedBridgesSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods().ByName("GetSupportedBridges"),
+			Procedure:  BridgeServiceGetSupportedBridgesProcedure,
+		}
+	})
 )
 
 // BridgeServiceClient is a client for the gfxcafe.oku.account.v2.BridgeService service.
 type BridgeServiceClient interface {
 	// Create creates a new bridge order
-	Create(context.Context, *connect.Request[v2.BridgeCreateRequest]) (*connect.Response[v2.BridgeCreateResponse], error)
+	Create(context.Context, *v2.BridgeCreateRequest) (*v2.BridgeCreateResponse, error)
 	// Ping pings a bridge order and returns its current state
-	Ping(context.Context, *connect.Request[v2.PingRequest]) (*connect.Response[v2.PingResponse], error)
+	Ping(context.Context, *v2.PingRequest) (*v2.PingResponse, error)
 	// Cancel cancels a bridge order
-	Cancel(context.Context, *connect.Request[v2.CancelRequest]) (*connect.Response[v2.CancelResponse], error)
+	Cancel(context.Context, *v2.CancelRequest) (*v2.CancelResponse, error)
 	// UpdateQuoteParams updates quote parameters
-	UpdateQuoteParams(context.Context, *connect.Request[v2.BridgeUpdateQuoteParamsRequest]) (*connect.Response[v2.BridgeUpdateQuoteParamsResponse], error)
+	UpdateQuoteParams(context.Context, *v2.BridgeUpdateQuoteParamsRequest) (*v2.BridgeUpdateQuoteParamsResponse, error)
 	// GetNewQuotes gets new quotes that have become available since last fetch
-	GetNewQuotes(context.Context, *connect.Request[v2.BridgeGetNewQuotesRequest]) (*connect.Response[v2.BridgeGetQuotesResponse], error)
+	GetNewQuotes(context.Context, *v2.BridgeGetNewQuotesRequest) (*v2.BridgeGetQuotesResponse, error)
 	// GetQuotes gets all quotes for a bridge order
-	GetQuotes(context.Context, *connect.Request[v2.BridgeGetQuotesRequest]) (*connect.Response[v2.BridgeGetQuotesResponse], error)
+	GetQuotes(context.Context, *v2.BridgeGetQuotesRequest) (*v2.BridgeGetQuotesResponse, error)
 	// GetQuote gets a specific quote for a bridge
-	GetQuote(context.Context, *connect.Request[v2.BridgeGetQuoteRequest]) (*connect.Response[v2.BridgeGetQuoteResponse], error)
+	GetQuote(context.Context, *v2.BridgeGetQuoteRequest) (*v2.BridgeGetQuoteResponse, error)
 	// UpdateQuoteSelect selects a quote
-	UpdateQuoteSelect(context.Context, *connect.Request[v2.BridgeUpdateQuoteSelectRequest]) (*connect.Response[v2.BridgeUpdateQuoteSelectResponse], error)
+	UpdateQuoteSelect(context.Context, *v2.BridgeUpdateQuoteSelectRequest) (*v2.BridgeUpdateQuoteSelectResponse, error)
 	// ConfirmQuoteSelect confirms quote selection
-	ConfirmQuoteSelect(context.Context, *connect.Request[v2.BridgeConfirmQuoteSelectRequest]) (*connect.Response[v2.BridgeConfirmQuoteSelectResponse], error)
+	ConfirmQuoteSelect(context.Context, *v2.BridgeConfirmQuoteSelectRequest) (*v2.BridgeConfirmQuoteSelectResponse, error)
 	// GetExecutionInfo gets execution information
-	GetExecutionInfo(context.Context, *connect.Request[v2.GetExecutionInfoRequest]) (*connect.Response[v2.GetExecutionInfoResponse], error)
+	GetExecutionInfo(context.Context, *v2.GetExecutionInfoRequest) (*v2.GetExecutionInfoResponse, error)
 	// Finish finishes the order with transaction details
-	Finish(context.Context, *connect.Request[v2.FinishRequest]) (*connect.Response[v2.FinishResponse], error)
+	Finish(context.Context, *v2.FinishRequest) (*v2.FinishResponse, error)
 	// FinishClaim finishes a bridge claim with the destination transaction hash
-	FinishClaim(context.Context, *connect.Request[v2.FinishClaimRequest]) (*connect.Response[v2.FinishClaimResponse], error)
+	FinishClaim(context.Context, *v2.FinishClaimRequest) (*v2.FinishClaimResponse, error)
 	// GetSupportedBridges returns active bridges and their supported chains.
-	GetSupportedBridges(context.Context, *connect.Request[v2.GetSupportedBridgesRequest]) (*connect.Response[v2.GetSupportedBridgesResponse], error)
+	GetSupportedBridges(context.Context, *v2.GetSupportedBridgesRequest) (*v2.GetSupportedBridgesResponse, error)
 }
 
 // NewBridgeServiceClient constructs a client for the gfxcafe.oku.account.v2.BridgeService service.
-// By default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped
-// responses, and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
-// connect.WithGRPC() or connect.WithGRPCWeb() options.
-//
-// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
-// http://api.acme.com or https://acme.com/grpc).
-func NewBridgeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) BridgeServiceClient {
-	baseURL = strings.TrimRight(baseURL, "/")
-	bridgeServiceMethods := v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods()
-	return &bridgeServiceClient{
-		create: connect.NewClient[v2.BridgeCreateRequest, v2.BridgeCreateResponse](
-			httpClient,
-			baseURL+BridgeServiceCreateProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("Create")),
-			connect.WithClientOptions(opts...),
-		),
-		ping: connect.NewClient[v2.PingRequest, v2.PingResponse](
-			httpClient,
-			baseURL+BridgeServicePingProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("Ping")),
-			connect.WithClientOptions(opts...),
-		),
-		cancel: connect.NewClient[v2.CancelRequest, v2.CancelResponse](
-			httpClient,
-			baseURL+BridgeServiceCancelProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("Cancel")),
-			connect.WithClientOptions(opts...),
-		),
-		updateQuoteParams: connect.NewClient[v2.BridgeUpdateQuoteParamsRequest, v2.BridgeUpdateQuoteParamsResponse](
-			httpClient,
-			baseURL+BridgeServiceUpdateQuoteParamsProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("UpdateQuoteParams")),
-			connect.WithClientOptions(opts...),
-		),
-		getNewQuotes: connect.NewClient[v2.BridgeGetNewQuotesRequest, v2.BridgeGetQuotesResponse](
-			httpClient,
-			baseURL+BridgeServiceGetNewQuotesProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("GetNewQuotes")),
-			connect.WithClientOptions(opts...),
-		),
-		getQuotes: connect.NewClient[v2.BridgeGetQuotesRequest, v2.BridgeGetQuotesResponse](
-			httpClient,
-			baseURL+BridgeServiceGetQuotesProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("GetQuotes")),
-			connect.WithClientOptions(opts...),
-		),
-		getQuote: connect.NewClient[v2.BridgeGetQuoteRequest, v2.BridgeGetQuoteResponse](
-			httpClient,
-			baseURL+BridgeServiceGetQuoteProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("GetQuote")),
-			connect.WithClientOptions(opts...),
-		),
-		updateQuoteSelect: connect.NewClient[v2.BridgeUpdateQuoteSelectRequest, v2.BridgeUpdateQuoteSelectResponse](
-			httpClient,
-			baseURL+BridgeServiceUpdateQuoteSelectProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("UpdateQuoteSelect")),
-			connect.WithClientOptions(opts...),
-		),
-		confirmQuoteSelect: connect.NewClient[v2.BridgeConfirmQuoteSelectRequest, v2.BridgeConfirmQuoteSelectResponse](
-			httpClient,
-			baseURL+BridgeServiceConfirmQuoteSelectProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("ConfirmQuoteSelect")),
-			connect.WithClientOptions(opts...),
-		),
-		getExecutionInfo: connect.NewClient[v2.GetExecutionInfoRequest, v2.GetExecutionInfoResponse](
-			httpClient,
-			baseURL+BridgeServiceGetExecutionInfoProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("GetExecutionInfo")),
-			connect.WithClientOptions(opts...),
-		),
-		finish: connect.NewClient[v2.FinishRequest, v2.FinishResponse](
-			httpClient,
-			baseURL+BridgeServiceFinishProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("Finish")),
-			connect.WithClientOptions(opts...),
-		),
-		finishClaim: connect.NewClient[v2.FinishClaimRequest, v2.FinishClaimResponse](
-			httpClient,
-			baseURL+BridgeServiceFinishClaimProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("FinishClaim")),
-			connect.WithClientOptions(opts...),
-		),
-		getSupportedBridges: connect.NewClient[v2.GetSupportedBridgesRequest, v2.GetSupportedBridgesResponse](
-			httpClient,
-			baseURL+BridgeServiceGetSupportedBridgesProcedure,
-			connect.WithSchema(bridgeServiceMethods.ByName("GetSupportedBridges")),
-			connect.WithClientOptions(opts...),
-		),
-	}
-}
-
-// bridgeServiceClient implements BridgeServiceClient.
-type bridgeServiceClient struct {
-	create              *connect.Client[v2.BridgeCreateRequest, v2.BridgeCreateResponse]
-	ping                *connect.Client[v2.PingRequest, v2.PingResponse]
-	cancel              *connect.Client[v2.CancelRequest, v2.CancelResponse]
-	updateQuoteParams   *connect.Client[v2.BridgeUpdateQuoteParamsRequest, v2.BridgeUpdateQuoteParamsResponse]
-	getNewQuotes        *connect.Client[v2.BridgeGetNewQuotesRequest, v2.BridgeGetQuotesResponse]
-	getQuotes           *connect.Client[v2.BridgeGetQuotesRequest, v2.BridgeGetQuotesResponse]
-	getQuote            *connect.Client[v2.BridgeGetQuoteRequest, v2.BridgeGetQuoteResponse]
-	updateQuoteSelect   *connect.Client[v2.BridgeUpdateQuoteSelectRequest, v2.BridgeUpdateQuoteSelectResponse]
-	confirmQuoteSelect  *connect.Client[v2.BridgeConfirmQuoteSelectRequest, v2.BridgeConfirmQuoteSelectResponse]
-	getExecutionInfo    *connect.Client[v2.GetExecutionInfoRequest, v2.GetExecutionInfoResponse]
-	finish              *connect.Client[v2.FinishRequest, v2.FinishResponse]
-	finishClaim         *connect.Client[v2.FinishClaimRequest, v2.FinishClaimResponse]
-	getSupportedBridges *connect.Client[v2.GetSupportedBridgesRequest, v2.GetSupportedBridgesResponse]
-}
-
-// Create calls gfxcafe.oku.account.v2.BridgeService.Create.
-func (c *bridgeServiceClient) Create(ctx context.Context, req *connect.Request[v2.BridgeCreateRequest]) (*connect.Response[v2.BridgeCreateResponse], error) {
-	return c.create.CallUnary(ctx, req)
-}
-
-// Ping calls gfxcafe.oku.account.v2.BridgeService.Ping.
-func (c *bridgeServiceClient) Ping(ctx context.Context, req *connect.Request[v2.PingRequest]) (*connect.Response[v2.PingResponse], error) {
-	return c.ping.CallUnary(ctx, req)
-}
-
-// Cancel calls gfxcafe.oku.account.v2.BridgeService.Cancel.
-func (c *bridgeServiceClient) Cancel(ctx context.Context, req *connect.Request[v2.CancelRequest]) (*connect.Response[v2.CancelResponse], error) {
-	return c.cancel.CallUnary(ctx, req)
-}
-
-// UpdateQuoteParams calls gfxcafe.oku.account.v2.BridgeService.UpdateQuoteParams.
-func (c *bridgeServiceClient) UpdateQuoteParams(ctx context.Context, req *connect.Request[v2.BridgeUpdateQuoteParamsRequest]) (*connect.Response[v2.BridgeUpdateQuoteParamsResponse], error) {
-	return c.updateQuoteParams.CallUnary(ctx, req)
-}
-
-// GetNewQuotes calls gfxcafe.oku.account.v2.BridgeService.GetNewQuotes.
-func (c *bridgeServiceClient) GetNewQuotes(ctx context.Context, req *connect.Request[v2.BridgeGetNewQuotesRequest]) (*connect.Response[v2.BridgeGetQuotesResponse], error) {
-	return c.getNewQuotes.CallUnary(ctx, req)
-}
-
-// GetQuotes calls gfxcafe.oku.account.v2.BridgeService.GetQuotes.
-func (c *bridgeServiceClient) GetQuotes(ctx context.Context, req *connect.Request[v2.BridgeGetQuotesRequest]) (*connect.Response[v2.BridgeGetQuotesResponse], error) {
-	return c.getQuotes.CallUnary(ctx, req)
-}
-
-// GetQuote calls gfxcafe.oku.account.v2.BridgeService.GetQuote.
-func (c *bridgeServiceClient) GetQuote(ctx context.Context, req *connect.Request[v2.BridgeGetQuoteRequest]) (*connect.Response[v2.BridgeGetQuoteResponse], error) {
-	return c.getQuote.CallUnary(ctx, req)
-}
-
-// UpdateQuoteSelect calls gfxcafe.oku.account.v2.BridgeService.UpdateQuoteSelect.
-func (c *bridgeServiceClient) UpdateQuoteSelect(ctx context.Context, req *connect.Request[v2.BridgeUpdateQuoteSelectRequest]) (*connect.Response[v2.BridgeUpdateQuoteSelectResponse], error) {
-	return c.updateQuoteSelect.CallUnary(ctx, req)
-}
-
-// ConfirmQuoteSelect calls gfxcafe.oku.account.v2.BridgeService.ConfirmQuoteSelect.
-func (c *bridgeServiceClient) ConfirmQuoteSelect(ctx context.Context, req *connect.Request[v2.BridgeConfirmQuoteSelectRequest]) (*connect.Response[v2.BridgeConfirmQuoteSelectResponse], error) {
-	return c.confirmQuoteSelect.CallUnary(ctx, req)
-}
-
-// GetExecutionInfo calls gfxcafe.oku.account.v2.BridgeService.GetExecutionInfo.
-func (c *bridgeServiceClient) GetExecutionInfo(ctx context.Context, req *connect.Request[v2.GetExecutionInfoRequest]) (*connect.Response[v2.GetExecutionInfoResponse], error) {
-	return c.getExecutionInfo.CallUnary(ctx, req)
-}
-
-// Finish calls gfxcafe.oku.account.v2.BridgeService.Finish.
-func (c *bridgeServiceClient) Finish(ctx context.Context, req *connect.Request[v2.FinishRequest]) (*connect.Response[v2.FinishResponse], error) {
-	return c.finish.CallUnary(ctx, req)
-}
-
-// FinishClaim calls gfxcafe.oku.account.v2.BridgeService.FinishClaim.
-func (c *bridgeServiceClient) FinishClaim(ctx context.Context, req *connect.Request[v2.FinishClaimRequest]) (*connect.Response[v2.FinishClaimResponse], error) {
-	return c.finishClaim.CallUnary(ctx, req)
-}
-
-// GetSupportedBridges calls gfxcafe.oku.account.v2.BridgeService.GetSupportedBridges.
-func (c *bridgeServiceClient) GetSupportedBridges(ctx context.Context, req *connect.Request[v2.GetSupportedBridgesRequest]) (*connect.Response[v2.GetSupportedBridgesResponse], error) {
-	return c.getSupportedBridges.CallUnary(ctx, req)
+// Multiple service clients may share a single connect.Client.
+func NewBridgeServiceClient(client *connect.Client) BridgeServiceClient {
+	return &bridgeServiceClient{client: client}
 }
 
 // BridgeServiceHandler is an implementation of the gfxcafe.oku.account.v2.BridgeService service.
 type BridgeServiceHandler interface {
 	// Create creates a new bridge order
-	Create(context.Context, *connect.Request[v2.BridgeCreateRequest]) (*connect.Response[v2.BridgeCreateResponse], error)
+	Create(context.Context, *v2.BridgeCreateRequest) (*v2.BridgeCreateResponse, error)
 	// Ping pings a bridge order and returns its current state
-	Ping(context.Context, *connect.Request[v2.PingRequest]) (*connect.Response[v2.PingResponse], error)
+	Ping(context.Context, *v2.PingRequest) (*v2.PingResponse, error)
 	// Cancel cancels a bridge order
-	Cancel(context.Context, *connect.Request[v2.CancelRequest]) (*connect.Response[v2.CancelResponse], error)
+	Cancel(context.Context, *v2.CancelRequest) (*v2.CancelResponse, error)
 	// UpdateQuoteParams updates quote parameters
-	UpdateQuoteParams(context.Context, *connect.Request[v2.BridgeUpdateQuoteParamsRequest]) (*connect.Response[v2.BridgeUpdateQuoteParamsResponse], error)
+	UpdateQuoteParams(context.Context, *v2.BridgeUpdateQuoteParamsRequest) (*v2.BridgeUpdateQuoteParamsResponse, error)
 	// GetNewQuotes gets new quotes that have become available since last fetch
-	GetNewQuotes(context.Context, *connect.Request[v2.BridgeGetNewQuotesRequest]) (*connect.Response[v2.BridgeGetQuotesResponse], error)
+	GetNewQuotes(context.Context, *v2.BridgeGetNewQuotesRequest) (*v2.BridgeGetQuotesResponse, error)
 	// GetQuotes gets all quotes for a bridge order
-	GetQuotes(context.Context, *connect.Request[v2.BridgeGetQuotesRequest]) (*connect.Response[v2.BridgeGetQuotesResponse], error)
+	GetQuotes(context.Context, *v2.BridgeGetQuotesRequest) (*v2.BridgeGetQuotesResponse, error)
 	// GetQuote gets a specific quote for a bridge
-	GetQuote(context.Context, *connect.Request[v2.BridgeGetQuoteRequest]) (*connect.Response[v2.BridgeGetQuoteResponse], error)
+	GetQuote(context.Context, *v2.BridgeGetQuoteRequest) (*v2.BridgeGetQuoteResponse, error)
 	// UpdateQuoteSelect selects a quote
-	UpdateQuoteSelect(context.Context, *connect.Request[v2.BridgeUpdateQuoteSelectRequest]) (*connect.Response[v2.BridgeUpdateQuoteSelectResponse], error)
+	UpdateQuoteSelect(context.Context, *v2.BridgeUpdateQuoteSelectRequest) (*v2.BridgeUpdateQuoteSelectResponse, error)
 	// ConfirmQuoteSelect confirms quote selection
-	ConfirmQuoteSelect(context.Context, *connect.Request[v2.BridgeConfirmQuoteSelectRequest]) (*connect.Response[v2.BridgeConfirmQuoteSelectResponse], error)
+	ConfirmQuoteSelect(context.Context, *v2.BridgeConfirmQuoteSelectRequest) (*v2.BridgeConfirmQuoteSelectResponse, error)
 	// GetExecutionInfo gets execution information
-	GetExecutionInfo(context.Context, *connect.Request[v2.GetExecutionInfoRequest]) (*connect.Response[v2.GetExecutionInfoResponse], error)
+	GetExecutionInfo(context.Context, *v2.GetExecutionInfoRequest) (*v2.GetExecutionInfoResponse, error)
 	// Finish finishes the order with transaction details
-	Finish(context.Context, *connect.Request[v2.FinishRequest]) (*connect.Response[v2.FinishResponse], error)
+	Finish(context.Context, *v2.FinishRequest) (*v2.FinishResponse, error)
 	// FinishClaim finishes a bridge claim with the destination transaction hash
-	FinishClaim(context.Context, *connect.Request[v2.FinishClaimRequest]) (*connect.Response[v2.FinishClaimResponse], error)
+	FinishClaim(context.Context, *v2.FinishClaimRequest) (*v2.FinishClaimResponse, error)
 	// GetSupportedBridges returns active bridges and their supported chains.
-	GetSupportedBridges(context.Context, *connect.Request[v2.GetSupportedBridgesRequest]) (*connect.Response[v2.GetSupportedBridgesResponse], error)
+	GetSupportedBridges(context.Context, *v2.GetSupportedBridgesRequest) (*v2.GetSupportedBridgesResponse, error)
 }
 
-// NewBridgeServiceHandler builds an HTTP handler from the service implementation. It returns the
-// path on which to mount the handler and the handler itself.
-//
-// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
-// and JSON codecs. They also support gzip compression.
-func NewBridgeServiceHandler(svc BridgeServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	bridgeServiceMethods := v2.File_gfxcafe_oku_account_v2_bridge_proto.Services().ByName("BridgeService").Methods()
-	bridgeServiceCreateHandler := connect.NewUnaryHandler(
-		BridgeServiceCreateProcedure,
-		svc.Create,
-		connect.WithSchema(bridgeServiceMethods.ByName("Create")),
-		connect.WithHandlerOptions(opts...),
+// RegisterBridgeServiceHandler registers svc as the gfxcafe.oku.account.v2.BridgeService
+// implementation on server.
+func RegisterBridgeServiceHandler(server *connect.Server, svc BridgeServiceHandler) {
+	adapter := bridgeServiceHandler{svc: svc}
+	server.Register(
+		connect.Method{Spec: bridgeServiceCreateSpec(), Handler: adapter.create},
+		connect.Method{Spec: bridgeServicePingSpec(), Handler: adapter.ping},
+		connect.Method{Spec: bridgeServiceCancelSpec(), Handler: adapter.cancel},
+		connect.Method{Spec: bridgeServiceUpdateQuoteParamsSpec(), Handler: adapter.updateQuoteParams},
+		connect.Method{Spec: bridgeServiceGetNewQuotesSpec(), Handler: adapter.getNewQuotes},
+		connect.Method{Spec: bridgeServiceGetQuotesSpec(), Handler: adapter.getQuotes},
+		connect.Method{Spec: bridgeServiceGetQuoteSpec(), Handler: adapter.getQuote},
+		connect.Method{Spec: bridgeServiceUpdateQuoteSelectSpec(), Handler: adapter.updateQuoteSelect},
+		connect.Method{Spec: bridgeServiceConfirmQuoteSelectSpec(), Handler: adapter.confirmQuoteSelect},
+		connect.Method{Spec: bridgeServiceGetExecutionInfoSpec(), Handler: adapter.getExecutionInfo},
+		connect.Method{Spec: bridgeServiceFinishSpec(), Handler: adapter.finish},
+		connect.Method{Spec: bridgeServiceFinishClaimSpec(), Handler: adapter.finishClaim},
+		connect.Method{Spec: bridgeServiceGetSupportedBridgesSpec(), Handler: adapter.getSupportedBridges},
 	)
-	bridgeServicePingHandler := connect.NewUnaryHandler(
-		BridgeServicePingProcedure,
-		svc.Ping,
-		connect.WithSchema(bridgeServiceMethods.ByName("Ping")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceCancelHandler := connect.NewUnaryHandler(
-		BridgeServiceCancelProcedure,
-		svc.Cancel,
-		connect.WithSchema(bridgeServiceMethods.ByName("Cancel")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceUpdateQuoteParamsHandler := connect.NewUnaryHandler(
-		BridgeServiceUpdateQuoteParamsProcedure,
-		svc.UpdateQuoteParams,
-		connect.WithSchema(bridgeServiceMethods.ByName("UpdateQuoteParams")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceGetNewQuotesHandler := connect.NewUnaryHandler(
-		BridgeServiceGetNewQuotesProcedure,
-		svc.GetNewQuotes,
-		connect.WithSchema(bridgeServiceMethods.ByName("GetNewQuotes")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceGetQuotesHandler := connect.NewUnaryHandler(
-		BridgeServiceGetQuotesProcedure,
-		svc.GetQuotes,
-		connect.WithSchema(bridgeServiceMethods.ByName("GetQuotes")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceGetQuoteHandler := connect.NewUnaryHandler(
-		BridgeServiceGetQuoteProcedure,
-		svc.GetQuote,
-		connect.WithSchema(bridgeServiceMethods.ByName("GetQuote")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceUpdateQuoteSelectHandler := connect.NewUnaryHandler(
-		BridgeServiceUpdateQuoteSelectProcedure,
-		svc.UpdateQuoteSelect,
-		connect.WithSchema(bridgeServiceMethods.ByName("UpdateQuoteSelect")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceConfirmQuoteSelectHandler := connect.NewUnaryHandler(
-		BridgeServiceConfirmQuoteSelectProcedure,
-		svc.ConfirmQuoteSelect,
-		connect.WithSchema(bridgeServiceMethods.ByName("ConfirmQuoteSelect")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceGetExecutionInfoHandler := connect.NewUnaryHandler(
-		BridgeServiceGetExecutionInfoProcedure,
-		svc.GetExecutionInfo,
-		connect.WithSchema(bridgeServiceMethods.ByName("GetExecutionInfo")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceFinishHandler := connect.NewUnaryHandler(
-		BridgeServiceFinishProcedure,
-		svc.Finish,
-		connect.WithSchema(bridgeServiceMethods.ByName("Finish")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceFinishClaimHandler := connect.NewUnaryHandler(
-		BridgeServiceFinishClaimProcedure,
-		svc.FinishClaim,
-		connect.WithSchema(bridgeServiceMethods.ByName("FinishClaim")),
-		connect.WithHandlerOptions(opts...),
-	)
-	bridgeServiceGetSupportedBridgesHandler := connect.NewUnaryHandler(
-		BridgeServiceGetSupportedBridgesProcedure,
-		svc.GetSupportedBridges,
-		connect.WithSchema(bridgeServiceMethods.ByName("GetSupportedBridges")),
-		connect.WithHandlerOptions(opts...),
-	)
-	return "/gfxcafe.oku.account.v2.BridgeService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case BridgeServiceCreateProcedure:
-			bridgeServiceCreateHandler.ServeHTTP(w, r)
-		case BridgeServicePingProcedure:
-			bridgeServicePingHandler.ServeHTTP(w, r)
-		case BridgeServiceCancelProcedure:
-			bridgeServiceCancelHandler.ServeHTTP(w, r)
-		case BridgeServiceUpdateQuoteParamsProcedure:
-			bridgeServiceUpdateQuoteParamsHandler.ServeHTTP(w, r)
-		case BridgeServiceGetNewQuotesProcedure:
-			bridgeServiceGetNewQuotesHandler.ServeHTTP(w, r)
-		case BridgeServiceGetQuotesProcedure:
-			bridgeServiceGetQuotesHandler.ServeHTTP(w, r)
-		case BridgeServiceGetQuoteProcedure:
-			bridgeServiceGetQuoteHandler.ServeHTTP(w, r)
-		case BridgeServiceUpdateQuoteSelectProcedure:
-			bridgeServiceUpdateQuoteSelectHandler.ServeHTTP(w, r)
-		case BridgeServiceConfirmQuoteSelectProcedure:
-			bridgeServiceConfirmQuoteSelectHandler.ServeHTTP(w, r)
-		case BridgeServiceGetExecutionInfoProcedure:
-			bridgeServiceGetExecutionInfoHandler.ServeHTTP(w, r)
-		case BridgeServiceFinishProcedure:
-			bridgeServiceFinishHandler.ServeHTTP(w, r)
-		case BridgeServiceFinishClaimProcedure:
-			bridgeServiceFinishClaimHandler.ServeHTTP(w, r)
-		case BridgeServiceGetSupportedBridgesProcedure:
-			bridgeServiceGetSupportedBridgesHandler.ServeHTTP(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	})
 }
 
 // UnimplementedBridgeServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedBridgeServiceHandler struct{}
 
-func (UnimplementedBridgeServiceHandler) Create(context.Context, *connect.Request[v2.BridgeCreateRequest]) (*connect.Response[v2.BridgeCreateResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.Create is not implemented"))
+func (UnimplementedBridgeServiceHandler) Create(context.Context, *v2.BridgeCreateRequest) (*v2.BridgeCreateResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.BridgeService.Create is not implemented")
 }
 
-func (UnimplementedBridgeServiceHandler) Ping(context.Context, *connect.Request[v2.PingRequest]) (*connect.Response[v2.PingResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.Ping is not implemented"))
+func (UnimplementedBridgeServiceHandler) Ping(context.Context, *v2.PingRequest) (*v2.PingResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.BridgeService.Ping is not implemented")
 }
 
-func (UnimplementedBridgeServiceHandler) Cancel(context.Context, *connect.Request[v2.CancelRequest]) (*connect.Response[v2.CancelResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.Cancel is not implemented"))
+func (UnimplementedBridgeServiceHandler) Cancel(context.Context, *v2.CancelRequest) (*v2.CancelResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.BridgeService.Cancel is not implemented")
 }
 
-func (UnimplementedBridgeServiceHandler) UpdateQuoteParams(context.Context, *connect.Request[v2.BridgeUpdateQuoteParamsRequest]) (*connect.Response[v2.BridgeUpdateQuoteParamsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.UpdateQuoteParams is not implemented"))
+func (UnimplementedBridgeServiceHandler) UpdateQuoteParams(context.Context, *v2.BridgeUpdateQuoteParamsRequest) (*v2.BridgeUpdateQuoteParamsResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.BridgeService.UpdateQuoteParams is not implemented")
 }
 
-func (UnimplementedBridgeServiceHandler) GetNewQuotes(context.Context, *connect.Request[v2.BridgeGetNewQuotesRequest]) (*connect.Response[v2.BridgeGetQuotesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.GetNewQuotes is not implemented"))
+func (UnimplementedBridgeServiceHandler) GetNewQuotes(context.Context, *v2.BridgeGetNewQuotesRequest) (*v2.BridgeGetQuotesResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.BridgeService.GetNewQuotes is not implemented")
 }
 
-func (UnimplementedBridgeServiceHandler) GetQuotes(context.Context, *connect.Request[v2.BridgeGetQuotesRequest]) (*connect.Response[v2.BridgeGetQuotesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.GetQuotes is not implemented"))
+func (UnimplementedBridgeServiceHandler) GetQuotes(context.Context, *v2.BridgeGetQuotesRequest) (*v2.BridgeGetQuotesResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.BridgeService.GetQuotes is not implemented")
 }
 
-func (UnimplementedBridgeServiceHandler) GetQuote(context.Context, *connect.Request[v2.BridgeGetQuoteRequest]) (*connect.Response[v2.BridgeGetQuoteResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.GetQuote is not implemented"))
+func (UnimplementedBridgeServiceHandler) GetQuote(context.Context, *v2.BridgeGetQuoteRequest) (*v2.BridgeGetQuoteResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.BridgeService.GetQuote is not implemented")
 }
 
-func (UnimplementedBridgeServiceHandler) UpdateQuoteSelect(context.Context, *connect.Request[v2.BridgeUpdateQuoteSelectRequest]) (*connect.Response[v2.BridgeUpdateQuoteSelectResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.UpdateQuoteSelect is not implemented"))
+func (UnimplementedBridgeServiceHandler) UpdateQuoteSelect(context.Context, *v2.BridgeUpdateQuoteSelectRequest) (*v2.BridgeUpdateQuoteSelectResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.BridgeService.UpdateQuoteSelect is not implemented")
 }
 
-func (UnimplementedBridgeServiceHandler) ConfirmQuoteSelect(context.Context, *connect.Request[v2.BridgeConfirmQuoteSelectRequest]) (*connect.Response[v2.BridgeConfirmQuoteSelectResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.ConfirmQuoteSelect is not implemented"))
+func (UnimplementedBridgeServiceHandler) ConfirmQuoteSelect(context.Context, *v2.BridgeConfirmQuoteSelectRequest) (*v2.BridgeConfirmQuoteSelectResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.BridgeService.ConfirmQuoteSelect is not implemented")
 }
 
-func (UnimplementedBridgeServiceHandler) GetExecutionInfo(context.Context, *connect.Request[v2.GetExecutionInfoRequest]) (*connect.Response[v2.GetExecutionInfoResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.GetExecutionInfo is not implemented"))
+func (UnimplementedBridgeServiceHandler) GetExecutionInfo(context.Context, *v2.GetExecutionInfoRequest) (*v2.GetExecutionInfoResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.BridgeService.GetExecutionInfo is not implemented")
 }
 
-func (UnimplementedBridgeServiceHandler) Finish(context.Context, *connect.Request[v2.FinishRequest]) (*connect.Response[v2.FinishResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.Finish is not implemented"))
+func (UnimplementedBridgeServiceHandler) Finish(context.Context, *v2.FinishRequest) (*v2.FinishResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.BridgeService.Finish is not implemented")
 }
 
-func (UnimplementedBridgeServiceHandler) FinishClaim(context.Context, *connect.Request[v2.FinishClaimRequest]) (*connect.Response[v2.FinishClaimResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.FinishClaim is not implemented"))
+func (UnimplementedBridgeServiceHandler) FinishClaim(context.Context, *v2.FinishClaimRequest) (*v2.FinishClaimResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.BridgeService.FinishClaim is not implemented")
 }
 
-func (UnimplementedBridgeServiceHandler) GetSupportedBridges(context.Context, *connect.Request[v2.GetSupportedBridgesRequest]) (*connect.Response[v2.GetSupportedBridgesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.BridgeService.GetSupportedBridges is not implemented"))
+func (UnimplementedBridgeServiceHandler) GetSupportedBridges(context.Context, *v2.GetSupportedBridgesRequest) (*v2.GetSupportedBridgesResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.BridgeService.GetSupportedBridges is not implemented")
+}
+
+type bridgeServiceClient struct {
+	client *connect.Client
+}
+
+func (c *bridgeServiceClient) Create(ctx context.Context, req *v2.BridgeCreateRequest) (*v2.BridgeCreateResponse, error) {
+	var res v2.BridgeCreateResponse
+	if err := c.client.CallUnary(ctx, bridgeServiceCreateSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *bridgeServiceClient) Ping(ctx context.Context, req *v2.PingRequest) (*v2.PingResponse, error) {
+	var res v2.PingResponse
+	if err := c.client.CallUnary(ctx, bridgeServicePingSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *bridgeServiceClient) Cancel(ctx context.Context, req *v2.CancelRequest) (*v2.CancelResponse, error) {
+	var res v2.CancelResponse
+	if err := c.client.CallUnary(ctx, bridgeServiceCancelSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *bridgeServiceClient) UpdateQuoteParams(ctx context.Context, req *v2.BridgeUpdateQuoteParamsRequest) (*v2.BridgeUpdateQuoteParamsResponse, error) {
+	var res v2.BridgeUpdateQuoteParamsResponse
+	if err := c.client.CallUnary(ctx, bridgeServiceUpdateQuoteParamsSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *bridgeServiceClient) GetNewQuotes(ctx context.Context, req *v2.BridgeGetNewQuotesRequest) (*v2.BridgeGetQuotesResponse, error) {
+	var res v2.BridgeGetQuotesResponse
+	if err := c.client.CallUnary(ctx, bridgeServiceGetNewQuotesSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *bridgeServiceClient) GetQuotes(ctx context.Context, req *v2.BridgeGetQuotesRequest) (*v2.BridgeGetQuotesResponse, error) {
+	var res v2.BridgeGetQuotesResponse
+	if err := c.client.CallUnary(ctx, bridgeServiceGetQuotesSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *bridgeServiceClient) GetQuote(ctx context.Context, req *v2.BridgeGetQuoteRequest) (*v2.BridgeGetQuoteResponse, error) {
+	var res v2.BridgeGetQuoteResponse
+	if err := c.client.CallUnary(ctx, bridgeServiceGetQuoteSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *bridgeServiceClient) UpdateQuoteSelect(ctx context.Context, req *v2.BridgeUpdateQuoteSelectRequest) (*v2.BridgeUpdateQuoteSelectResponse, error) {
+	var res v2.BridgeUpdateQuoteSelectResponse
+	if err := c.client.CallUnary(ctx, bridgeServiceUpdateQuoteSelectSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *bridgeServiceClient) ConfirmQuoteSelect(ctx context.Context, req *v2.BridgeConfirmQuoteSelectRequest) (*v2.BridgeConfirmQuoteSelectResponse, error) {
+	var res v2.BridgeConfirmQuoteSelectResponse
+	if err := c.client.CallUnary(ctx, bridgeServiceConfirmQuoteSelectSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *bridgeServiceClient) GetExecutionInfo(ctx context.Context, req *v2.GetExecutionInfoRequest) (*v2.GetExecutionInfoResponse, error) {
+	var res v2.GetExecutionInfoResponse
+	if err := c.client.CallUnary(ctx, bridgeServiceGetExecutionInfoSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *bridgeServiceClient) Finish(ctx context.Context, req *v2.FinishRequest) (*v2.FinishResponse, error) {
+	var res v2.FinishResponse
+	if err := c.client.CallUnary(ctx, bridgeServiceFinishSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *bridgeServiceClient) FinishClaim(ctx context.Context, req *v2.FinishClaimRequest) (*v2.FinishClaimResponse, error) {
+	var res v2.FinishClaimResponse
+	if err := c.client.CallUnary(ctx, bridgeServiceFinishClaimSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *bridgeServiceClient) GetSupportedBridges(ctx context.Context, req *v2.GetSupportedBridgesRequest) (*v2.GetSupportedBridgesResponse, error) {
+	var res v2.GetSupportedBridgesResponse
+	if err := c.client.CallUnary(ctx, bridgeServiceGetSupportedBridgesSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type bridgeServiceHandler struct{ svc BridgeServiceHandler }
+
+func (h bridgeServiceHandler) create(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.BridgeCreateRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Create(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h bridgeServiceHandler) ping(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.PingRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Ping(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h bridgeServiceHandler) cancel(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.CancelRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Cancel(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h bridgeServiceHandler) updateQuoteParams(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.BridgeUpdateQuoteParamsRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.UpdateQuoteParams(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h bridgeServiceHandler) getNewQuotes(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.BridgeGetNewQuotesRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetNewQuotes(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h bridgeServiceHandler) getQuotes(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.BridgeGetQuotesRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetQuotes(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h bridgeServiceHandler) getQuote(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.BridgeGetQuoteRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetQuote(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h bridgeServiceHandler) updateQuoteSelect(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.BridgeUpdateQuoteSelectRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.UpdateQuoteSelect(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h bridgeServiceHandler) confirmQuoteSelect(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.BridgeConfirmQuoteSelectRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ConfirmQuoteSelect(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h bridgeServiceHandler) getExecutionInfo(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetExecutionInfoRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetExecutionInfo(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h bridgeServiceHandler) finish(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.FinishRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Finish(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h bridgeServiceHandler) finishClaim(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.FinishClaimRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.FinishClaim(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h bridgeServiceHandler) getSupportedBridges(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetSupportedBridgesRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetSupportedBridges(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
 }

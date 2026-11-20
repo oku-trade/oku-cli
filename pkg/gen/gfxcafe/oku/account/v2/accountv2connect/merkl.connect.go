@@ -5,107 +5,96 @@
 package accountv2connect
 
 import (
-	connect "connectrpc.com/connect"
+	connect "connectrpc.com/connect/v2"
 	context "context"
-	errors "errors"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
-	http "net/http"
-	strings "strings"
+	sync "sync"
 )
-
-// This is a compile-time assertion to ensure that this generated file and the connect package are
-// compatible. If you get a compiler error that this constant is not defined, this code was
-// generated with a version of connect newer than the one compiled into your binary. You can fix the
-// problem by either regenerating this code with an older version of connect or updating the connect
-// version compiled into your binary.
-const _ = connect.IsAtLeastVersion1_13_0
 
 const (
 	// MerklServiceName is the fully-qualified name of the MerklService service.
 	MerklServiceName = "gfxcafe.oku.account.v2.MerklService"
 )
 
-// These constants are the fully-qualified names of the RPCs defined in this package. They're
-// exposed at runtime as Spec.Procedure and as the final two segments of the HTTP route.
+// These constants are the procedure names of the RPCs defined in this package. They're exposed at
+// runtime as Spec.Procedure and as the final two segments of the HTTP route.
 //
 // Note that these are different from the fully-qualified method names used by
 // google.golang.org/protobuf/reflect/protoreflect. To convert from these constants to
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// MerklServiceGetUserRewardsProcedure is the fully-qualified name of the MerklService's
-	// GetUserRewards RPC.
+	// MerklServiceGetUserRewardsProcedure is the procedure name of the MerklService's GetUserRewards
+	// RPC.
 	MerklServiceGetUserRewardsProcedure = "/gfxcafe.oku.account.v2.MerklService/GetUserRewards"
+)
+
+var (
+	merklServiceGetUserRewardsSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_merkl_proto.Services().ByName("MerklService").Methods().ByName("GetUserRewards"),
+			Procedure:  MerklServiceGetUserRewardsProcedure,
+		}
+	})
 )
 
 // MerklServiceClient is a client for the gfxcafe.oku.account.v2.MerklService service.
 type MerklServiceClient interface {
 	// GetUserRewards returns claimable and pending rewards for a user, grouped by chain.
-	GetUserRewards(context.Context, *connect.Request[v2.GetUserRewardsRequest]) (*connect.Response[v2.GetUserRewardsResponse], error)
+	GetUserRewards(context.Context, *v2.GetUserRewardsRequest) (*v2.GetUserRewardsResponse, error)
 }
 
-// NewMerklServiceClient constructs a client for the gfxcafe.oku.account.v2.MerklService service. By
-// default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses,
-// and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
-// connect.WithGRPC() or connect.WithGRPCWeb() options.
-//
-// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
-// http://api.acme.com or https://acme.com/grpc).
-func NewMerklServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) MerklServiceClient {
-	baseURL = strings.TrimRight(baseURL, "/")
-	merklServiceMethods := v2.File_gfxcafe_oku_account_v2_merkl_proto.Services().ByName("MerklService").Methods()
-	return &merklServiceClient{
-		getUserRewards: connect.NewClient[v2.GetUserRewardsRequest, v2.GetUserRewardsResponse](
-			httpClient,
-			baseURL+MerklServiceGetUserRewardsProcedure,
-			connect.WithSchema(merklServiceMethods.ByName("GetUserRewards")),
-			connect.WithClientOptions(opts...),
-		),
-	}
-}
-
-// merklServiceClient implements MerklServiceClient.
-type merklServiceClient struct {
-	getUserRewards *connect.Client[v2.GetUserRewardsRequest, v2.GetUserRewardsResponse]
-}
-
-// GetUserRewards calls gfxcafe.oku.account.v2.MerklService.GetUserRewards.
-func (c *merklServiceClient) GetUserRewards(ctx context.Context, req *connect.Request[v2.GetUserRewardsRequest]) (*connect.Response[v2.GetUserRewardsResponse], error) {
-	return c.getUserRewards.CallUnary(ctx, req)
+// NewMerklServiceClient constructs a client for the gfxcafe.oku.account.v2.MerklService service.
+// Multiple service clients may share a single connect.Client.
+func NewMerklServiceClient(client *connect.Client) MerklServiceClient {
+	return &merklServiceClient{client: client}
 }
 
 // MerklServiceHandler is an implementation of the gfxcafe.oku.account.v2.MerklService service.
 type MerklServiceHandler interface {
 	// GetUserRewards returns claimable and pending rewards for a user, grouped by chain.
-	GetUserRewards(context.Context, *connect.Request[v2.GetUserRewardsRequest]) (*connect.Response[v2.GetUserRewardsResponse], error)
+	GetUserRewards(context.Context, *v2.GetUserRewardsRequest) (*v2.GetUserRewardsResponse, error)
 }
 
-// NewMerklServiceHandler builds an HTTP handler from the service implementation. It returns the
-// path on which to mount the handler and the handler itself.
-//
-// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
-// and JSON codecs. They also support gzip compression.
-func NewMerklServiceHandler(svc MerklServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	merklServiceMethods := v2.File_gfxcafe_oku_account_v2_merkl_proto.Services().ByName("MerklService").Methods()
-	merklServiceGetUserRewardsHandler := connect.NewUnaryHandler(
-		MerklServiceGetUserRewardsProcedure,
-		svc.GetUserRewards,
-		connect.WithSchema(merklServiceMethods.ByName("GetUserRewards")),
-		connect.WithHandlerOptions(opts...),
+// RegisterMerklServiceHandler registers svc as the gfxcafe.oku.account.v2.MerklService
+// implementation on server.
+func RegisterMerklServiceHandler(server *connect.Server, svc MerklServiceHandler) {
+	adapter := merklServiceHandler{svc: svc}
+	server.Register(
+		connect.Method{Spec: merklServiceGetUserRewardsSpec(), Handler: adapter.getUserRewards},
 	)
-	return "/gfxcafe.oku.account.v2.MerklService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case MerklServiceGetUserRewardsProcedure:
-			merklServiceGetUserRewardsHandler.ServeHTTP(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	})
 }
 
 // UnimplementedMerklServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedMerklServiceHandler struct{}
 
-func (UnimplementedMerklServiceHandler) GetUserRewards(context.Context, *connect.Request[v2.GetUserRewardsRequest]) (*connect.Response[v2.GetUserRewardsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.MerklService.GetUserRewards is not implemented"))
+func (UnimplementedMerklServiceHandler) GetUserRewards(context.Context, *v2.GetUserRewardsRequest) (*v2.GetUserRewardsResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.MerklService.GetUserRewards is not implemented")
+}
+
+type merklServiceClient struct {
+	client *connect.Client
+}
+
+func (c *merklServiceClient) GetUserRewards(ctx context.Context, req *v2.GetUserRewardsRequest) (*v2.GetUserRewardsResponse, error) {
+	var res v2.GetUserRewardsResponse
+	if err := c.client.CallUnary(ctx, merklServiceGetUserRewardsSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type merklServiceHandler struct{ svc MerklServiceHandler }
+
+func (h merklServiceHandler) getUserRewards(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetUserRewardsRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetUserRewards(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
 }

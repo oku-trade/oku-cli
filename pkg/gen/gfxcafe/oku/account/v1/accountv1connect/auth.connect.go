@@ -5,162 +5,166 @@
 package accountv1connect
 
 import (
-	connect "connectrpc.com/connect"
+	connect "connectrpc.com/connect/v2"
 	context "context"
-	errors "errors"
 	v1 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v1"
-	http "net/http"
-	strings "strings"
+	sync "sync"
 )
-
-// This is a compile-time assertion to ensure that this generated file and the connect package are
-// compatible. If you get a compiler error that this constant is not defined, this code was
-// generated with a version of connect newer than the one compiled into your binary. You can fix the
-// problem by either regenerating this code with an older version of connect or updating the connect
-// version compiled into your binary.
-const _ = connect.IsAtLeastVersion1_13_0
 
 const (
 	// AuthServiceName is the fully-qualified name of the AuthService service.
 	AuthServiceName = "gfxcafe.oku.account.v1.AuthService"
 )
 
-// These constants are the fully-qualified names of the RPCs defined in this package. They're
-// exposed at runtime as Spec.Procedure and as the final two segments of the HTTP route.
+// These constants are the procedure names of the RPCs defined in this package. They're exposed at
+// runtime as Spec.Procedure and as the final two segments of the HTTP route.
 //
 // Note that these are different from the fully-qualified method names used by
 // google.golang.org/protobuf/reflect/protoreflect. To convert from these constants to
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// AuthServicePrivySessionExchangeProcedure is the fully-qualified name of the AuthService's
+	// AuthServicePrivySessionExchangeProcedure is the procedure name of the AuthService's
 	// PrivySessionExchange RPC.
 	AuthServicePrivySessionExchangeProcedure = "/gfxcafe.oku.account.v1.AuthService/PrivySessionExchange"
-	// AuthServiceLogoutProcedure is the fully-qualified name of the AuthService's Logout RPC.
+	// AuthServiceLogoutProcedure is the procedure name of the AuthService's Logout RPC.
 	AuthServiceLogoutProcedure = "/gfxcafe.oku.account.v1.AuthService/Logout"
-	// AuthServiceExtendSessionProcedure is the fully-qualified name of the AuthService's ExtendSession
-	// RPC.
+	// AuthServiceExtendSessionProcedure is the procedure name of the AuthService's ExtendSession RPC.
 	AuthServiceExtendSessionProcedure = "/gfxcafe.oku.account.v1.AuthService/ExtendSession"
+)
+
+var (
+	authServicePrivySessionExchangeSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_gfxcafe_oku_account_v1_auth_proto.Services().ByName("AuthService").Methods().ByName("PrivySessionExchange"),
+			Procedure:  AuthServicePrivySessionExchangeProcedure,
+		}
+	})
+	authServiceLogoutSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_gfxcafe_oku_account_v1_auth_proto.Services().ByName("AuthService").Methods().ByName("Logout"),
+			Procedure:  AuthServiceLogoutProcedure,
+		}
+	})
+	authServiceExtendSessionSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_gfxcafe_oku_account_v1_auth_proto.Services().ByName("AuthService").Methods().ByName("ExtendSession"),
+			Procedure:  AuthServiceExtendSessionProcedure,
+		}
+	})
 )
 
 // AuthServiceClient is a client for the gfxcafe.oku.account.v1.AuthService service.
 type AuthServiceClient interface {
-	PrivySessionExchange(context.Context, *connect.Request[v1.PrivySessionExchangeRequest]) (*connect.Response[v1.PrivySessionExchangeResponse], error)
-	Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error)
-	ExtendSession(context.Context, *connect.Request[v1.ExtendSessionRequest]) (*connect.Response[v1.ExtendSessionResponse], error)
+	PrivySessionExchange(context.Context, *v1.PrivySessionExchangeRequest) (*v1.PrivySessionExchangeResponse, error)
+	Logout(context.Context, *v1.LogoutRequest) (*v1.LogoutResponse, error)
+	ExtendSession(context.Context, *v1.ExtendSessionRequest) (*v1.ExtendSessionResponse, error)
 }
 
-// NewAuthServiceClient constructs a client for the gfxcafe.oku.account.v1.AuthService service. By
-// default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses,
-// and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
-// connect.WithGRPC() or connect.WithGRPCWeb() options.
-//
-// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
-// http://api.acme.com or https://acme.com/grpc).
-func NewAuthServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) AuthServiceClient {
-	baseURL = strings.TrimRight(baseURL, "/")
-	authServiceMethods := v1.File_gfxcafe_oku_account_v1_auth_proto.Services().ByName("AuthService").Methods()
-	return &authServiceClient{
-		privySessionExchange: connect.NewClient[v1.PrivySessionExchangeRequest, v1.PrivySessionExchangeResponse](
-			httpClient,
-			baseURL+AuthServicePrivySessionExchangeProcedure,
-			connect.WithSchema(authServiceMethods.ByName("PrivySessionExchange")),
-			connect.WithClientOptions(opts...),
-		),
-		logout: connect.NewClient[v1.LogoutRequest, v1.LogoutResponse](
-			httpClient,
-			baseURL+AuthServiceLogoutProcedure,
-			connect.WithSchema(authServiceMethods.ByName("Logout")),
-			connect.WithClientOptions(opts...),
-		),
-		extendSession: connect.NewClient[v1.ExtendSessionRequest, v1.ExtendSessionResponse](
-			httpClient,
-			baseURL+AuthServiceExtendSessionProcedure,
-			connect.WithSchema(authServiceMethods.ByName("ExtendSession")),
-			connect.WithClientOptions(opts...),
-		),
-	}
-}
-
-// authServiceClient implements AuthServiceClient.
-type authServiceClient struct {
-	privySessionExchange *connect.Client[v1.PrivySessionExchangeRequest, v1.PrivySessionExchangeResponse]
-	logout               *connect.Client[v1.LogoutRequest, v1.LogoutResponse]
-	extendSession        *connect.Client[v1.ExtendSessionRequest, v1.ExtendSessionResponse]
-}
-
-// PrivySessionExchange calls gfxcafe.oku.account.v1.AuthService.PrivySessionExchange.
-func (c *authServiceClient) PrivySessionExchange(ctx context.Context, req *connect.Request[v1.PrivySessionExchangeRequest]) (*connect.Response[v1.PrivySessionExchangeResponse], error) {
-	return c.privySessionExchange.CallUnary(ctx, req)
-}
-
-// Logout calls gfxcafe.oku.account.v1.AuthService.Logout.
-func (c *authServiceClient) Logout(ctx context.Context, req *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error) {
-	return c.logout.CallUnary(ctx, req)
-}
-
-// ExtendSession calls gfxcafe.oku.account.v1.AuthService.ExtendSession.
-func (c *authServiceClient) ExtendSession(ctx context.Context, req *connect.Request[v1.ExtendSessionRequest]) (*connect.Response[v1.ExtendSessionResponse], error) {
-	return c.extendSession.CallUnary(ctx, req)
+// NewAuthServiceClient constructs a client for the gfxcafe.oku.account.v1.AuthService service.
+// Multiple service clients may share a single connect.Client.
+func NewAuthServiceClient(client *connect.Client) AuthServiceClient {
+	return &authServiceClient{client: client}
 }
 
 // AuthServiceHandler is an implementation of the gfxcafe.oku.account.v1.AuthService service.
 type AuthServiceHandler interface {
-	PrivySessionExchange(context.Context, *connect.Request[v1.PrivySessionExchangeRequest]) (*connect.Response[v1.PrivySessionExchangeResponse], error)
-	Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error)
-	ExtendSession(context.Context, *connect.Request[v1.ExtendSessionRequest]) (*connect.Response[v1.ExtendSessionResponse], error)
+	PrivySessionExchange(context.Context, *v1.PrivySessionExchangeRequest) (*v1.PrivySessionExchangeResponse, error)
+	Logout(context.Context, *v1.LogoutRequest) (*v1.LogoutResponse, error)
+	ExtendSession(context.Context, *v1.ExtendSessionRequest) (*v1.ExtendSessionResponse, error)
 }
 
-// NewAuthServiceHandler builds an HTTP handler from the service implementation. It returns the path
-// on which to mount the handler and the handler itself.
-//
-// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
-// and JSON codecs. They also support gzip compression.
-func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	authServiceMethods := v1.File_gfxcafe_oku_account_v1_auth_proto.Services().ByName("AuthService").Methods()
-	authServicePrivySessionExchangeHandler := connect.NewUnaryHandler(
-		AuthServicePrivySessionExchangeProcedure,
-		svc.PrivySessionExchange,
-		connect.WithSchema(authServiceMethods.ByName("PrivySessionExchange")),
-		connect.WithHandlerOptions(opts...),
+// RegisterAuthServiceHandler registers svc as the gfxcafe.oku.account.v1.AuthService implementation
+// on server.
+func RegisterAuthServiceHandler(server *connect.Server, svc AuthServiceHandler) {
+	adapter := authServiceHandler{svc: svc}
+	server.Register(
+		connect.Method{Spec: authServicePrivySessionExchangeSpec(), Handler: adapter.privySessionExchange},
+		connect.Method{Spec: authServiceLogoutSpec(), Handler: adapter.logout},
+		connect.Method{Spec: authServiceExtendSessionSpec(), Handler: adapter.extendSession},
 	)
-	authServiceLogoutHandler := connect.NewUnaryHandler(
-		AuthServiceLogoutProcedure,
-		svc.Logout,
-		connect.WithSchema(authServiceMethods.ByName("Logout")),
-		connect.WithHandlerOptions(opts...),
-	)
-	authServiceExtendSessionHandler := connect.NewUnaryHandler(
-		AuthServiceExtendSessionProcedure,
-		svc.ExtendSession,
-		connect.WithSchema(authServiceMethods.ByName("ExtendSession")),
-		connect.WithHandlerOptions(opts...),
-	)
-	return "/gfxcafe.oku.account.v1.AuthService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case AuthServicePrivySessionExchangeProcedure:
-			authServicePrivySessionExchangeHandler.ServeHTTP(w, r)
-		case AuthServiceLogoutProcedure:
-			authServiceLogoutHandler.ServeHTTP(w, r)
-		case AuthServiceExtendSessionProcedure:
-			authServiceExtendSessionHandler.ServeHTTP(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	})
 }
 
 // UnimplementedAuthServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedAuthServiceHandler struct{}
 
-func (UnimplementedAuthServiceHandler) PrivySessionExchange(context.Context, *connect.Request[v1.PrivySessionExchangeRequest]) (*connect.Response[v1.PrivySessionExchangeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.PrivySessionExchange is not implemented"))
+func (UnimplementedAuthServiceHandler) PrivySessionExchange(context.Context, *v1.PrivySessionExchangeRequest) (*v1.PrivySessionExchangeResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v1.AuthService.PrivySessionExchange is not implemented")
 }
 
-func (UnimplementedAuthServiceHandler) Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.Logout is not implemented"))
+func (UnimplementedAuthServiceHandler) Logout(context.Context, *v1.LogoutRequest) (*v1.LogoutResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v1.AuthService.Logout is not implemented")
 }
 
-func (UnimplementedAuthServiceHandler) ExtendSession(context.Context, *connect.Request[v1.ExtendSessionRequest]) (*connect.Response[v1.ExtendSessionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.AuthService.ExtendSession is not implemented"))
+func (UnimplementedAuthServiceHandler) ExtendSession(context.Context, *v1.ExtendSessionRequest) (*v1.ExtendSessionResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v1.AuthService.ExtendSession is not implemented")
+}
+
+type authServiceClient struct {
+	client *connect.Client
+}
+
+func (c *authServiceClient) PrivySessionExchange(ctx context.Context, req *v1.PrivySessionExchangeRequest) (*v1.PrivySessionExchangeResponse, error) {
+	var res v1.PrivySessionExchangeResponse
+	if err := c.client.CallUnary(ctx, authServicePrivySessionExchangeSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *authServiceClient) Logout(ctx context.Context, req *v1.LogoutRequest) (*v1.LogoutResponse, error) {
+	var res v1.LogoutResponse
+	if err := c.client.CallUnary(ctx, authServiceLogoutSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *authServiceClient) ExtendSession(ctx context.Context, req *v1.ExtendSessionRequest) (*v1.ExtendSessionResponse, error) {
+	var res v1.ExtendSessionResponse
+	if err := c.client.CallUnary(ctx, authServiceExtendSessionSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type authServiceHandler struct{ svc AuthServiceHandler }
+
+func (h authServiceHandler) privySessionExchange(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.PrivySessionExchangeRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.PrivySessionExchange(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h authServiceHandler) logout(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.LogoutRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Logout(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h authServiceHandler) extendSession(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ExtendSessionRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ExtendSession(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
 }

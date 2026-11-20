@@ -5,108 +5,98 @@
 package accountv1connect
 
 import (
-	connect "connectrpc.com/connect"
+	connect "connectrpc.com/connect/v2"
 	context "context"
-	errors "errors"
 	v1 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v1"
-	http "net/http"
-	strings "strings"
+	sync "sync"
 )
-
-// This is a compile-time assertion to ensure that this generated file and the connect package are
-// compatible. If you get a compiler error that this constant is not defined, this code was
-// generated with a version of connect newer than the one compiled into your binary. You can fix the
-// problem by either regenerating this code with an older version of connect or updating the connect
-// version compiled into your binary.
-const _ = connect.IsAtLeastVersion1_13_0
 
 const (
 	// OrderHistoryServiceName is the fully-qualified name of the OrderHistoryService service.
 	OrderHistoryServiceName = "gfxcafe.oku.account.v1.OrderHistoryService"
 )
 
-// These constants are the fully-qualified names of the RPCs defined in this package. They're
-// exposed at runtime as Spec.Procedure and as the final two segments of the HTTP route.
+// These constants are the procedure names of the RPCs defined in this package. They're exposed at
+// runtime as Spec.Procedure and as the final two segments of the HTTP route.
 //
 // Note that these are different from the fully-qualified method names used by
 // google.golang.org/protobuf/reflect/protoreflect. To convert from these constants to
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// OrderHistoryServiceHistoryProcedure is the fully-qualified name of the OrderHistoryService's
-	// History RPC.
+	// OrderHistoryServiceHistoryProcedure is the procedure name of the OrderHistoryService's History
+	// RPC.
 	OrderHistoryServiceHistoryProcedure = "/gfxcafe.oku.account.v1.OrderHistoryService/History"
+)
+
+var (
+	orderHistoryServiceHistorySpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_gfxcafe_oku_account_v1_orderhistory_proto.Services().ByName("OrderHistoryService").Methods().ByName("History"),
+			Procedure:  OrderHistoryServiceHistoryProcedure,
+		}
+	})
 )
 
 // OrderHistoryServiceClient is a client for the gfxcafe.oku.account.v1.OrderHistoryService service.
 type OrderHistoryServiceClient interface {
 	// Get order history for addresses (/orders/history)
-	History(context.Context, *connect.Request[v1.OrderHistoryRequest]) (*connect.Response[v1.OrderHistoryResponse], error)
+	History(context.Context, *v1.OrderHistoryRequest) (*v1.OrderHistoryResponse, error)
 }
 
 // NewOrderHistoryServiceClient constructs a client for the
-// gfxcafe.oku.account.v1.OrderHistoryService service. By default, it uses the Connect protocol with
-// the binary Protobuf Codec, asks for gzipped responses, and sends uncompressed requests. To use
-// the gRPC or gRPC-Web protocols, supply the connect.WithGRPC() or connect.WithGRPCWeb() options.
-//
-// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
-// http://api.acme.com or https://acme.com/grpc).
-func NewOrderHistoryServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) OrderHistoryServiceClient {
-	baseURL = strings.TrimRight(baseURL, "/")
-	orderHistoryServiceMethods := v1.File_gfxcafe_oku_account_v1_orderhistory_proto.Services().ByName("OrderHistoryService").Methods()
-	return &orderHistoryServiceClient{
-		history: connect.NewClient[v1.OrderHistoryRequest, v1.OrderHistoryResponse](
-			httpClient,
-			baseURL+OrderHistoryServiceHistoryProcedure,
-			connect.WithSchema(orderHistoryServiceMethods.ByName("History")),
-			connect.WithClientOptions(opts...),
-		),
-	}
-}
-
-// orderHistoryServiceClient implements OrderHistoryServiceClient.
-type orderHistoryServiceClient struct {
-	history *connect.Client[v1.OrderHistoryRequest, v1.OrderHistoryResponse]
-}
-
-// History calls gfxcafe.oku.account.v1.OrderHistoryService.History.
-func (c *orderHistoryServiceClient) History(ctx context.Context, req *connect.Request[v1.OrderHistoryRequest]) (*connect.Response[v1.OrderHistoryResponse], error) {
-	return c.history.CallUnary(ctx, req)
+// gfxcafe.oku.account.v1.OrderHistoryService service. Multiple service clients may share a single
+// connect.Client.
+func NewOrderHistoryServiceClient(client *connect.Client) OrderHistoryServiceClient {
+	return &orderHistoryServiceClient{client: client}
 }
 
 // OrderHistoryServiceHandler is an implementation of the gfxcafe.oku.account.v1.OrderHistoryService
 // service.
 type OrderHistoryServiceHandler interface {
 	// Get order history for addresses (/orders/history)
-	History(context.Context, *connect.Request[v1.OrderHistoryRequest]) (*connect.Response[v1.OrderHistoryResponse], error)
+	History(context.Context, *v1.OrderHistoryRequest) (*v1.OrderHistoryResponse, error)
 }
 
-// NewOrderHistoryServiceHandler builds an HTTP handler from the service implementation. It returns
-// the path on which to mount the handler and the handler itself.
-//
-// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
-// and JSON codecs. They also support gzip compression.
-func NewOrderHistoryServiceHandler(svc OrderHistoryServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	orderHistoryServiceMethods := v1.File_gfxcafe_oku_account_v1_orderhistory_proto.Services().ByName("OrderHistoryService").Methods()
-	orderHistoryServiceHistoryHandler := connect.NewUnaryHandler(
-		OrderHistoryServiceHistoryProcedure,
-		svc.History,
-		connect.WithSchema(orderHistoryServiceMethods.ByName("History")),
-		connect.WithHandlerOptions(opts...),
+// RegisterOrderHistoryServiceHandler registers svc as the
+// gfxcafe.oku.account.v1.OrderHistoryService implementation on server.
+func RegisterOrderHistoryServiceHandler(server *connect.Server, svc OrderHistoryServiceHandler) {
+	adapter := orderHistoryServiceHandler{svc: svc}
+	server.Register(
+		connect.Method{Spec: orderHistoryServiceHistorySpec(), Handler: adapter.history},
 	)
-	return "/gfxcafe.oku.account.v1.OrderHistoryService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case OrderHistoryServiceHistoryProcedure:
-			orderHistoryServiceHistoryHandler.ServeHTTP(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	})
 }
 
 // UnimplementedOrderHistoryServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedOrderHistoryServiceHandler struct{}
 
-func (UnimplementedOrderHistoryServiceHandler) History(context.Context, *connect.Request[v1.OrderHistoryRequest]) (*connect.Response[v1.OrderHistoryResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v1.OrderHistoryService.History is not implemented"))
+func (UnimplementedOrderHistoryServiceHandler) History(context.Context, *v1.OrderHistoryRequest) (*v1.OrderHistoryResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v1.OrderHistoryService.History is not implemented")
+}
+
+type orderHistoryServiceClient struct {
+	client *connect.Client
+}
+
+func (c *orderHistoryServiceClient) History(ctx context.Context, req *v1.OrderHistoryRequest) (*v1.OrderHistoryResponse, error) {
+	var res v1.OrderHistoryResponse
+	if err := c.client.CallUnary(ctx, orderHistoryServiceHistorySpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type orderHistoryServiceHandler struct{ svc OrderHistoryServiceHandler }
+
+func (h orderHistoryServiceHandler) history(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.OrderHistoryRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.History(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
 }

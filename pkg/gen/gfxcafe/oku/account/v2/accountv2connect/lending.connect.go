@@ -5,423 +5,497 @@
 package accountv2connect
 
 import (
-	connect "connectrpc.com/connect"
+	connect "connectrpc.com/connect/v2"
 	context "context"
-	errors "errors"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
-	http "net/http"
-	strings "strings"
+	sync "sync"
 )
-
-// This is a compile-time assertion to ensure that this generated file and the connect package are
-// compatible. If you get a compiler error that this constant is not defined, this code was
-// generated with a version of connect newer than the one compiled into your binary. You can fix the
-// problem by either regenerating this code with an older version of connect or updating the connect
-// version compiled into your binary.
-const _ = connect.IsAtLeastVersion1_13_0
 
 const (
 	// LendingServiceName is the fully-qualified name of the LendingService service.
 	LendingServiceName = "gfxcafe.oku.account.v2.LendingService"
 )
 
-// These constants are the fully-qualified names of the RPCs defined in this package. They're
-// exposed at runtime as Spec.Procedure and as the final two segments of the HTTP route.
+// These constants are the procedure names of the RPCs defined in this package. They're exposed at
+// runtime as Spec.Procedure and as the final two segments of the HTTP route.
 //
 // Note that these are different from the fully-qualified method names used by
 // google.golang.org/protobuf/reflect/protoreflect. To convert from these constants to
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// LendingServiceGetLendingVaultsProcedure is the fully-qualified name of the LendingService's
+	// LendingServiceGetLendingVaultsProcedure is the procedure name of the LendingService's
 	// GetLendingVaults RPC.
 	LendingServiceGetLendingVaultsProcedure = "/gfxcafe.oku.account.v2.LendingService/GetLendingVaults"
-	// LendingServiceGetLendingMarketsProcedure is the fully-qualified name of the LendingService's
+	// LendingServiceGetLendingMarketsProcedure is the procedure name of the LendingService's
 	// GetLendingMarkets RPC.
 	LendingServiceGetLendingMarketsProcedure = "/gfxcafe.oku.account.v2.LendingService/GetLendingMarkets"
-	// LendingServiceGetLendingPositionProcedure is the fully-qualified name of the LendingService's
+	// LendingServiceGetLendingPositionProcedure is the procedure name of the LendingService's
 	// GetLendingPosition RPC.
 	LendingServiceGetLendingPositionProcedure = "/gfxcafe.oku.account.v2.LendingService/GetLendingPosition"
-	// LendingServiceGetLendingUserPositionsProcedure is the fully-qualified name of the
-	// LendingService's GetLendingUserPositions RPC.
+	// LendingServiceGetLendingUserPositionsProcedure is the procedure name of the LendingService's
+	// GetLendingUserPositions RPC.
 	LendingServiceGetLendingUserPositionsProcedure = "/gfxcafe.oku.account.v2.LendingService/GetLendingUserPositions"
-	// LendingServiceBuildLendingDepositProcedure is the fully-qualified name of the LendingService's
+	// LendingServiceBuildLendingDepositProcedure is the procedure name of the LendingService's
 	// BuildLendingDeposit RPC.
 	LendingServiceBuildLendingDepositProcedure = "/gfxcafe.oku.account.v2.LendingService/BuildLendingDeposit"
-	// LendingServiceBuildLendingWithdrawProcedure is the fully-qualified name of the LendingService's
+	// LendingServiceBuildLendingWithdrawProcedure is the procedure name of the LendingService's
 	// BuildLendingWithdraw RPC.
 	LendingServiceBuildLendingWithdrawProcedure = "/gfxcafe.oku.account.v2.LendingService/BuildLendingWithdraw"
-	// LendingServiceBuildLendingBorrowProcedure is the fully-qualified name of the LendingService's
+	// LendingServiceBuildLendingBorrowProcedure is the procedure name of the LendingService's
 	// BuildLendingBorrow RPC.
 	LendingServiceBuildLendingBorrowProcedure = "/gfxcafe.oku.account.v2.LendingService/BuildLendingBorrow"
-	// LendingServiceBuildLendingRepayProcedure is the fully-qualified name of the LendingService's
+	// LendingServiceBuildLendingRepayProcedure is the procedure name of the LendingService's
 	// BuildLendingRepay RPC.
 	LendingServiceBuildLendingRepayProcedure = "/gfxcafe.oku.account.v2.LendingService/BuildLendingRepay"
-	// LendingServiceQuoteLoopProcedure is the fully-qualified name of the LendingService's QuoteLoop
-	// RPC.
+	// LendingServiceQuoteLoopProcedure is the procedure name of the LendingService's QuoteLoop RPC.
 	LendingServiceQuoteLoopProcedure = "/gfxcafe.oku.account.v2.LendingService/QuoteLoop"
-	// LendingServiceConfirmLoopProcedure is the fully-qualified name of the LendingService's
-	// ConfirmLoop RPC.
+	// LendingServiceConfirmLoopProcedure is the procedure name of the LendingService's ConfirmLoop RPC.
 	LendingServiceConfirmLoopProcedure = "/gfxcafe.oku.account.v2.LendingService/ConfirmLoop"
-	// LendingServiceSubmitLoopProcedure is the fully-qualified name of the LendingService's SubmitLoop
-	// RPC.
+	// LendingServiceSubmitLoopProcedure is the procedure name of the LendingService's SubmitLoop RPC.
 	LendingServiceSubmitLoopProcedure = "/gfxcafe.oku.account.v2.LendingService/SubmitLoop"
-	// LendingServiceGetLoopProcedure is the fully-qualified name of the LendingService's GetLoop RPC.
+	// LendingServiceGetLoopProcedure is the procedure name of the LendingService's GetLoop RPC.
 	LendingServiceGetLoopProcedure = "/gfxcafe.oku.account.v2.LendingService/GetLoop"
+)
+
+var (
+	lendingServiceGetLendingVaultsSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_lending_proto.Services().ByName("LendingService").Methods().ByName("GetLendingVaults"),
+			Procedure:  LendingServiceGetLendingVaultsProcedure,
+		}
+	})
+	lendingServiceGetLendingMarketsSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_lending_proto.Services().ByName("LendingService").Methods().ByName("GetLendingMarkets"),
+			Procedure:  LendingServiceGetLendingMarketsProcedure,
+		}
+	})
+	lendingServiceGetLendingPositionSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_lending_proto.Services().ByName("LendingService").Methods().ByName("GetLendingPosition"),
+			Procedure:  LendingServiceGetLendingPositionProcedure,
+		}
+	})
+	lendingServiceGetLendingUserPositionsSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_lending_proto.Services().ByName("LendingService").Methods().ByName("GetLendingUserPositions"),
+			Procedure:  LendingServiceGetLendingUserPositionsProcedure,
+		}
+	})
+	lendingServiceBuildLendingDepositSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_lending_proto.Services().ByName("LendingService").Methods().ByName("BuildLendingDeposit"),
+			Procedure:  LendingServiceBuildLendingDepositProcedure,
+		}
+	})
+	lendingServiceBuildLendingWithdrawSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_lending_proto.Services().ByName("LendingService").Methods().ByName("BuildLendingWithdraw"),
+			Procedure:  LendingServiceBuildLendingWithdrawProcedure,
+		}
+	})
+	lendingServiceBuildLendingBorrowSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_lending_proto.Services().ByName("LendingService").Methods().ByName("BuildLendingBorrow"),
+			Procedure:  LendingServiceBuildLendingBorrowProcedure,
+		}
+	})
+	lendingServiceBuildLendingRepaySpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_lending_proto.Services().ByName("LendingService").Methods().ByName("BuildLendingRepay"),
+			Procedure:  LendingServiceBuildLendingRepayProcedure,
+		}
+	})
+	lendingServiceQuoteLoopSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_lending_proto.Services().ByName("LendingService").Methods().ByName("QuoteLoop"),
+			Procedure:  LendingServiceQuoteLoopProcedure,
+		}
+	})
+	lendingServiceConfirmLoopSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_lending_proto.Services().ByName("LendingService").Methods().ByName("ConfirmLoop"),
+			Procedure:  LendingServiceConfirmLoopProcedure,
+		}
+	})
+	lendingServiceSubmitLoopSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_lending_proto.Services().ByName("LendingService").Methods().ByName("SubmitLoop"),
+			Procedure:  LendingServiceSubmitLoopProcedure,
+		}
+	})
+	lendingServiceGetLoopSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_lending_proto.Services().ByName("LendingService").Methods().ByName("GetLoop"),
+			Procedure:  LendingServiceGetLoopProcedure,
+		}
+	})
 )
 
 // LendingServiceClient is a client for the gfxcafe.oku.account.v2.LendingService service.
 type LendingServiceClient interface {
-	GetLendingVaults(context.Context, *connect.Request[v2.GetLendingVaultsRequest]) (*connect.Response[v2.GetLendingVaultsResponse], error)
-	GetLendingMarkets(context.Context, *connect.Request[v2.GetLendingMarketsRequest]) (*connect.Response[v2.GetLendingMarketsResponse], error)
-	GetLendingPosition(context.Context, *connect.Request[v2.GetLendingPositionRequest]) (*connect.Response[v2.GetLendingPositionResponse], error)
-	GetLendingUserPositions(context.Context, *connect.Request[v2.GetLendingUserPositionsRequest]) (*connect.Response[v2.GetLendingUserPositionsResponse], error)
-	BuildLendingDeposit(context.Context, *connect.Request[v2.BuildLendingDepositRequest]) (*connect.Response[v2.BuildLendingDepositResponse], error)
-	BuildLendingWithdraw(context.Context, *connect.Request[v2.BuildLendingWithdrawRequest]) (*connect.Response[v2.BuildLendingWithdrawResponse], error)
-	BuildLendingBorrow(context.Context, *connect.Request[v2.BuildLendingBorrowRequest]) (*connect.Response[v2.BuildLendingBorrowResponse], error)
-	BuildLendingRepay(context.Context, *connect.Request[v2.BuildLendingRepayRequest]) (*connect.Response[v2.BuildLendingRepayResponse], error)
-	QuoteLoop(context.Context, *connect.Request[v2.QuoteLoopRequest]) (*connect.Response[v2.LoopStatus], error)
-	ConfirmLoop(context.Context, *connect.Request[v2.LoopOrderRequest]) (*connect.Response[v2.ConfirmLoopResponse], error)
-	SubmitLoop(context.Context, *connect.Request[v2.SubmitLoopRequest]) (*connect.Response[v2.SubmitLoopResponse], error)
-	GetLoop(context.Context, *connect.Request[v2.LoopOrderRequest]) (*connect.Response[v2.LoopStatus], error)
+	GetLendingVaults(context.Context, *v2.GetLendingVaultsRequest) (*v2.GetLendingVaultsResponse, error)
+	GetLendingMarkets(context.Context, *v2.GetLendingMarketsRequest) (*v2.GetLendingMarketsResponse, error)
+	GetLendingPosition(context.Context, *v2.GetLendingPositionRequest) (*v2.GetLendingPositionResponse, error)
+	GetLendingUserPositions(context.Context, *v2.GetLendingUserPositionsRequest) (*v2.GetLendingUserPositionsResponse, error)
+	BuildLendingDeposit(context.Context, *v2.BuildLendingDepositRequest) (*v2.BuildLendingDepositResponse, error)
+	BuildLendingWithdraw(context.Context, *v2.BuildLendingWithdrawRequest) (*v2.BuildLendingWithdrawResponse, error)
+	BuildLendingBorrow(context.Context, *v2.BuildLendingBorrowRequest) (*v2.BuildLendingBorrowResponse, error)
+	BuildLendingRepay(context.Context, *v2.BuildLendingRepayRequest) (*v2.BuildLendingRepayResponse, error)
+	QuoteLoop(context.Context, *v2.QuoteLoopRequest) (*v2.LoopStatus, error)
+	ConfirmLoop(context.Context, *v2.LoopOrderRequest) (*v2.ConfirmLoopResponse, error)
+	SubmitLoop(context.Context, *v2.SubmitLoopRequest) (*v2.SubmitLoopResponse, error)
+	GetLoop(context.Context, *v2.LoopOrderRequest) (*v2.LoopStatus, error)
 }
 
 // NewLendingServiceClient constructs a client for the gfxcafe.oku.account.v2.LendingService
-// service. By default, it uses the Connect protocol with the binary Protobuf Codec, asks for
-// gzipped responses, and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply
-// the connect.WithGRPC() or connect.WithGRPCWeb() options.
-//
-// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
-// http://api.acme.com or https://acme.com/grpc).
-func NewLendingServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) LendingServiceClient {
-	baseURL = strings.TrimRight(baseURL, "/")
-	lendingServiceMethods := v2.File_gfxcafe_oku_account_v2_lending_proto.Services().ByName("LendingService").Methods()
-	return &lendingServiceClient{
-		getLendingVaults: connect.NewClient[v2.GetLendingVaultsRequest, v2.GetLendingVaultsResponse](
-			httpClient,
-			baseURL+LendingServiceGetLendingVaultsProcedure,
-			connect.WithSchema(lendingServiceMethods.ByName("GetLendingVaults")),
-			connect.WithClientOptions(opts...),
-		),
-		getLendingMarkets: connect.NewClient[v2.GetLendingMarketsRequest, v2.GetLendingMarketsResponse](
-			httpClient,
-			baseURL+LendingServiceGetLendingMarketsProcedure,
-			connect.WithSchema(lendingServiceMethods.ByName("GetLendingMarkets")),
-			connect.WithClientOptions(opts...),
-		),
-		getLendingPosition: connect.NewClient[v2.GetLendingPositionRequest, v2.GetLendingPositionResponse](
-			httpClient,
-			baseURL+LendingServiceGetLendingPositionProcedure,
-			connect.WithSchema(lendingServiceMethods.ByName("GetLendingPosition")),
-			connect.WithClientOptions(opts...),
-		),
-		getLendingUserPositions: connect.NewClient[v2.GetLendingUserPositionsRequest, v2.GetLendingUserPositionsResponse](
-			httpClient,
-			baseURL+LendingServiceGetLendingUserPositionsProcedure,
-			connect.WithSchema(lendingServiceMethods.ByName("GetLendingUserPositions")),
-			connect.WithClientOptions(opts...),
-		),
-		buildLendingDeposit: connect.NewClient[v2.BuildLendingDepositRequest, v2.BuildLendingDepositResponse](
-			httpClient,
-			baseURL+LendingServiceBuildLendingDepositProcedure,
-			connect.WithSchema(lendingServiceMethods.ByName("BuildLendingDeposit")),
-			connect.WithClientOptions(opts...),
-		),
-		buildLendingWithdraw: connect.NewClient[v2.BuildLendingWithdrawRequest, v2.BuildLendingWithdrawResponse](
-			httpClient,
-			baseURL+LendingServiceBuildLendingWithdrawProcedure,
-			connect.WithSchema(lendingServiceMethods.ByName("BuildLendingWithdraw")),
-			connect.WithClientOptions(opts...),
-		),
-		buildLendingBorrow: connect.NewClient[v2.BuildLendingBorrowRequest, v2.BuildLendingBorrowResponse](
-			httpClient,
-			baseURL+LendingServiceBuildLendingBorrowProcedure,
-			connect.WithSchema(lendingServiceMethods.ByName("BuildLendingBorrow")),
-			connect.WithClientOptions(opts...),
-		),
-		buildLendingRepay: connect.NewClient[v2.BuildLendingRepayRequest, v2.BuildLendingRepayResponse](
-			httpClient,
-			baseURL+LendingServiceBuildLendingRepayProcedure,
-			connect.WithSchema(lendingServiceMethods.ByName("BuildLendingRepay")),
-			connect.WithClientOptions(opts...),
-		),
-		quoteLoop: connect.NewClient[v2.QuoteLoopRequest, v2.LoopStatus](
-			httpClient,
-			baseURL+LendingServiceQuoteLoopProcedure,
-			connect.WithSchema(lendingServiceMethods.ByName("QuoteLoop")),
-			connect.WithClientOptions(opts...),
-		),
-		confirmLoop: connect.NewClient[v2.LoopOrderRequest, v2.ConfirmLoopResponse](
-			httpClient,
-			baseURL+LendingServiceConfirmLoopProcedure,
-			connect.WithSchema(lendingServiceMethods.ByName("ConfirmLoop")),
-			connect.WithClientOptions(opts...),
-		),
-		submitLoop: connect.NewClient[v2.SubmitLoopRequest, v2.SubmitLoopResponse](
-			httpClient,
-			baseURL+LendingServiceSubmitLoopProcedure,
-			connect.WithSchema(lendingServiceMethods.ByName("SubmitLoop")),
-			connect.WithClientOptions(opts...),
-		),
-		getLoop: connect.NewClient[v2.LoopOrderRequest, v2.LoopStatus](
-			httpClient,
-			baseURL+LendingServiceGetLoopProcedure,
-			connect.WithSchema(lendingServiceMethods.ByName("GetLoop")),
-			connect.WithClientOptions(opts...),
-		),
-	}
-}
-
-// lendingServiceClient implements LendingServiceClient.
-type lendingServiceClient struct {
-	getLendingVaults        *connect.Client[v2.GetLendingVaultsRequest, v2.GetLendingVaultsResponse]
-	getLendingMarkets       *connect.Client[v2.GetLendingMarketsRequest, v2.GetLendingMarketsResponse]
-	getLendingPosition      *connect.Client[v2.GetLendingPositionRequest, v2.GetLendingPositionResponse]
-	getLendingUserPositions *connect.Client[v2.GetLendingUserPositionsRequest, v2.GetLendingUserPositionsResponse]
-	buildLendingDeposit     *connect.Client[v2.BuildLendingDepositRequest, v2.BuildLendingDepositResponse]
-	buildLendingWithdraw    *connect.Client[v2.BuildLendingWithdrawRequest, v2.BuildLendingWithdrawResponse]
-	buildLendingBorrow      *connect.Client[v2.BuildLendingBorrowRequest, v2.BuildLendingBorrowResponse]
-	buildLendingRepay       *connect.Client[v2.BuildLendingRepayRequest, v2.BuildLendingRepayResponse]
-	quoteLoop               *connect.Client[v2.QuoteLoopRequest, v2.LoopStatus]
-	confirmLoop             *connect.Client[v2.LoopOrderRequest, v2.ConfirmLoopResponse]
-	submitLoop              *connect.Client[v2.SubmitLoopRequest, v2.SubmitLoopResponse]
-	getLoop                 *connect.Client[v2.LoopOrderRequest, v2.LoopStatus]
-}
-
-// GetLendingVaults calls gfxcafe.oku.account.v2.LendingService.GetLendingVaults.
-func (c *lendingServiceClient) GetLendingVaults(ctx context.Context, req *connect.Request[v2.GetLendingVaultsRequest]) (*connect.Response[v2.GetLendingVaultsResponse], error) {
-	return c.getLendingVaults.CallUnary(ctx, req)
-}
-
-// GetLendingMarkets calls gfxcafe.oku.account.v2.LendingService.GetLendingMarkets.
-func (c *lendingServiceClient) GetLendingMarkets(ctx context.Context, req *connect.Request[v2.GetLendingMarketsRequest]) (*connect.Response[v2.GetLendingMarketsResponse], error) {
-	return c.getLendingMarkets.CallUnary(ctx, req)
-}
-
-// GetLendingPosition calls gfxcafe.oku.account.v2.LendingService.GetLendingPosition.
-func (c *lendingServiceClient) GetLendingPosition(ctx context.Context, req *connect.Request[v2.GetLendingPositionRequest]) (*connect.Response[v2.GetLendingPositionResponse], error) {
-	return c.getLendingPosition.CallUnary(ctx, req)
-}
-
-// GetLendingUserPositions calls gfxcafe.oku.account.v2.LendingService.GetLendingUserPositions.
-func (c *lendingServiceClient) GetLendingUserPositions(ctx context.Context, req *connect.Request[v2.GetLendingUserPositionsRequest]) (*connect.Response[v2.GetLendingUserPositionsResponse], error) {
-	return c.getLendingUserPositions.CallUnary(ctx, req)
-}
-
-// BuildLendingDeposit calls gfxcafe.oku.account.v2.LendingService.BuildLendingDeposit.
-func (c *lendingServiceClient) BuildLendingDeposit(ctx context.Context, req *connect.Request[v2.BuildLendingDepositRequest]) (*connect.Response[v2.BuildLendingDepositResponse], error) {
-	return c.buildLendingDeposit.CallUnary(ctx, req)
-}
-
-// BuildLendingWithdraw calls gfxcafe.oku.account.v2.LendingService.BuildLendingWithdraw.
-func (c *lendingServiceClient) BuildLendingWithdraw(ctx context.Context, req *connect.Request[v2.BuildLendingWithdrawRequest]) (*connect.Response[v2.BuildLendingWithdrawResponse], error) {
-	return c.buildLendingWithdraw.CallUnary(ctx, req)
-}
-
-// BuildLendingBorrow calls gfxcafe.oku.account.v2.LendingService.BuildLendingBorrow.
-func (c *lendingServiceClient) BuildLendingBorrow(ctx context.Context, req *connect.Request[v2.BuildLendingBorrowRequest]) (*connect.Response[v2.BuildLendingBorrowResponse], error) {
-	return c.buildLendingBorrow.CallUnary(ctx, req)
-}
-
-// BuildLendingRepay calls gfxcafe.oku.account.v2.LendingService.BuildLendingRepay.
-func (c *lendingServiceClient) BuildLendingRepay(ctx context.Context, req *connect.Request[v2.BuildLendingRepayRequest]) (*connect.Response[v2.BuildLendingRepayResponse], error) {
-	return c.buildLendingRepay.CallUnary(ctx, req)
-}
-
-// QuoteLoop calls gfxcafe.oku.account.v2.LendingService.QuoteLoop.
-func (c *lendingServiceClient) QuoteLoop(ctx context.Context, req *connect.Request[v2.QuoteLoopRequest]) (*connect.Response[v2.LoopStatus], error) {
-	return c.quoteLoop.CallUnary(ctx, req)
-}
-
-// ConfirmLoop calls gfxcafe.oku.account.v2.LendingService.ConfirmLoop.
-func (c *lendingServiceClient) ConfirmLoop(ctx context.Context, req *connect.Request[v2.LoopOrderRequest]) (*connect.Response[v2.ConfirmLoopResponse], error) {
-	return c.confirmLoop.CallUnary(ctx, req)
-}
-
-// SubmitLoop calls gfxcafe.oku.account.v2.LendingService.SubmitLoop.
-func (c *lendingServiceClient) SubmitLoop(ctx context.Context, req *connect.Request[v2.SubmitLoopRequest]) (*connect.Response[v2.SubmitLoopResponse], error) {
-	return c.submitLoop.CallUnary(ctx, req)
-}
-
-// GetLoop calls gfxcafe.oku.account.v2.LendingService.GetLoop.
-func (c *lendingServiceClient) GetLoop(ctx context.Context, req *connect.Request[v2.LoopOrderRequest]) (*connect.Response[v2.LoopStatus], error) {
-	return c.getLoop.CallUnary(ctx, req)
+// service. Multiple service clients may share a single connect.Client.
+func NewLendingServiceClient(client *connect.Client) LendingServiceClient {
+	return &lendingServiceClient{client: client}
 }
 
 // LendingServiceHandler is an implementation of the gfxcafe.oku.account.v2.LendingService service.
 type LendingServiceHandler interface {
-	GetLendingVaults(context.Context, *connect.Request[v2.GetLendingVaultsRequest]) (*connect.Response[v2.GetLendingVaultsResponse], error)
-	GetLendingMarkets(context.Context, *connect.Request[v2.GetLendingMarketsRequest]) (*connect.Response[v2.GetLendingMarketsResponse], error)
-	GetLendingPosition(context.Context, *connect.Request[v2.GetLendingPositionRequest]) (*connect.Response[v2.GetLendingPositionResponse], error)
-	GetLendingUserPositions(context.Context, *connect.Request[v2.GetLendingUserPositionsRequest]) (*connect.Response[v2.GetLendingUserPositionsResponse], error)
-	BuildLendingDeposit(context.Context, *connect.Request[v2.BuildLendingDepositRequest]) (*connect.Response[v2.BuildLendingDepositResponse], error)
-	BuildLendingWithdraw(context.Context, *connect.Request[v2.BuildLendingWithdrawRequest]) (*connect.Response[v2.BuildLendingWithdrawResponse], error)
-	BuildLendingBorrow(context.Context, *connect.Request[v2.BuildLendingBorrowRequest]) (*connect.Response[v2.BuildLendingBorrowResponse], error)
-	BuildLendingRepay(context.Context, *connect.Request[v2.BuildLendingRepayRequest]) (*connect.Response[v2.BuildLendingRepayResponse], error)
-	QuoteLoop(context.Context, *connect.Request[v2.QuoteLoopRequest]) (*connect.Response[v2.LoopStatus], error)
-	ConfirmLoop(context.Context, *connect.Request[v2.LoopOrderRequest]) (*connect.Response[v2.ConfirmLoopResponse], error)
-	SubmitLoop(context.Context, *connect.Request[v2.SubmitLoopRequest]) (*connect.Response[v2.SubmitLoopResponse], error)
-	GetLoop(context.Context, *connect.Request[v2.LoopOrderRequest]) (*connect.Response[v2.LoopStatus], error)
+	GetLendingVaults(context.Context, *v2.GetLendingVaultsRequest) (*v2.GetLendingVaultsResponse, error)
+	GetLendingMarkets(context.Context, *v2.GetLendingMarketsRequest) (*v2.GetLendingMarketsResponse, error)
+	GetLendingPosition(context.Context, *v2.GetLendingPositionRequest) (*v2.GetLendingPositionResponse, error)
+	GetLendingUserPositions(context.Context, *v2.GetLendingUserPositionsRequest) (*v2.GetLendingUserPositionsResponse, error)
+	BuildLendingDeposit(context.Context, *v2.BuildLendingDepositRequest) (*v2.BuildLendingDepositResponse, error)
+	BuildLendingWithdraw(context.Context, *v2.BuildLendingWithdrawRequest) (*v2.BuildLendingWithdrawResponse, error)
+	BuildLendingBorrow(context.Context, *v2.BuildLendingBorrowRequest) (*v2.BuildLendingBorrowResponse, error)
+	BuildLendingRepay(context.Context, *v2.BuildLendingRepayRequest) (*v2.BuildLendingRepayResponse, error)
+	QuoteLoop(context.Context, *v2.QuoteLoopRequest) (*v2.LoopStatus, error)
+	ConfirmLoop(context.Context, *v2.LoopOrderRequest) (*v2.ConfirmLoopResponse, error)
+	SubmitLoop(context.Context, *v2.SubmitLoopRequest) (*v2.SubmitLoopResponse, error)
+	GetLoop(context.Context, *v2.LoopOrderRequest) (*v2.LoopStatus, error)
 }
 
-// NewLendingServiceHandler builds an HTTP handler from the service implementation. It returns the
-// path on which to mount the handler and the handler itself.
-//
-// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
-// and JSON codecs. They also support gzip compression.
-func NewLendingServiceHandler(svc LendingServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	lendingServiceMethods := v2.File_gfxcafe_oku_account_v2_lending_proto.Services().ByName("LendingService").Methods()
-	lendingServiceGetLendingVaultsHandler := connect.NewUnaryHandler(
-		LendingServiceGetLendingVaultsProcedure,
-		svc.GetLendingVaults,
-		connect.WithSchema(lendingServiceMethods.ByName("GetLendingVaults")),
-		connect.WithHandlerOptions(opts...),
+// RegisterLendingServiceHandler registers svc as the gfxcafe.oku.account.v2.LendingService
+// implementation on server.
+func RegisterLendingServiceHandler(server *connect.Server, svc LendingServiceHandler) {
+	adapter := lendingServiceHandler{svc: svc}
+	server.Register(
+		connect.Method{Spec: lendingServiceGetLendingVaultsSpec(), Handler: adapter.getLendingVaults},
+		connect.Method{Spec: lendingServiceGetLendingMarketsSpec(), Handler: adapter.getLendingMarkets},
+		connect.Method{Spec: lendingServiceGetLendingPositionSpec(), Handler: adapter.getLendingPosition},
+		connect.Method{Spec: lendingServiceGetLendingUserPositionsSpec(), Handler: adapter.getLendingUserPositions},
+		connect.Method{Spec: lendingServiceBuildLendingDepositSpec(), Handler: adapter.buildLendingDeposit},
+		connect.Method{Spec: lendingServiceBuildLendingWithdrawSpec(), Handler: adapter.buildLendingWithdraw},
+		connect.Method{Spec: lendingServiceBuildLendingBorrowSpec(), Handler: adapter.buildLendingBorrow},
+		connect.Method{Spec: lendingServiceBuildLendingRepaySpec(), Handler: adapter.buildLendingRepay},
+		connect.Method{Spec: lendingServiceQuoteLoopSpec(), Handler: adapter.quoteLoop},
+		connect.Method{Spec: lendingServiceConfirmLoopSpec(), Handler: adapter.confirmLoop},
+		connect.Method{Spec: lendingServiceSubmitLoopSpec(), Handler: adapter.submitLoop},
+		connect.Method{Spec: lendingServiceGetLoopSpec(), Handler: adapter.getLoop},
 	)
-	lendingServiceGetLendingMarketsHandler := connect.NewUnaryHandler(
-		LendingServiceGetLendingMarketsProcedure,
-		svc.GetLendingMarkets,
-		connect.WithSchema(lendingServiceMethods.ByName("GetLendingMarkets")),
-		connect.WithHandlerOptions(opts...),
-	)
-	lendingServiceGetLendingPositionHandler := connect.NewUnaryHandler(
-		LendingServiceGetLendingPositionProcedure,
-		svc.GetLendingPosition,
-		connect.WithSchema(lendingServiceMethods.ByName("GetLendingPosition")),
-		connect.WithHandlerOptions(opts...),
-	)
-	lendingServiceGetLendingUserPositionsHandler := connect.NewUnaryHandler(
-		LendingServiceGetLendingUserPositionsProcedure,
-		svc.GetLendingUserPositions,
-		connect.WithSchema(lendingServiceMethods.ByName("GetLendingUserPositions")),
-		connect.WithHandlerOptions(opts...),
-	)
-	lendingServiceBuildLendingDepositHandler := connect.NewUnaryHandler(
-		LendingServiceBuildLendingDepositProcedure,
-		svc.BuildLendingDeposit,
-		connect.WithSchema(lendingServiceMethods.ByName("BuildLendingDeposit")),
-		connect.WithHandlerOptions(opts...),
-	)
-	lendingServiceBuildLendingWithdrawHandler := connect.NewUnaryHandler(
-		LendingServiceBuildLendingWithdrawProcedure,
-		svc.BuildLendingWithdraw,
-		connect.WithSchema(lendingServiceMethods.ByName("BuildLendingWithdraw")),
-		connect.WithHandlerOptions(opts...),
-	)
-	lendingServiceBuildLendingBorrowHandler := connect.NewUnaryHandler(
-		LendingServiceBuildLendingBorrowProcedure,
-		svc.BuildLendingBorrow,
-		connect.WithSchema(lendingServiceMethods.ByName("BuildLendingBorrow")),
-		connect.WithHandlerOptions(opts...),
-	)
-	lendingServiceBuildLendingRepayHandler := connect.NewUnaryHandler(
-		LendingServiceBuildLendingRepayProcedure,
-		svc.BuildLendingRepay,
-		connect.WithSchema(lendingServiceMethods.ByName("BuildLendingRepay")),
-		connect.WithHandlerOptions(opts...),
-	)
-	lendingServiceQuoteLoopHandler := connect.NewUnaryHandler(
-		LendingServiceQuoteLoopProcedure,
-		svc.QuoteLoop,
-		connect.WithSchema(lendingServiceMethods.ByName("QuoteLoop")),
-		connect.WithHandlerOptions(opts...),
-	)
-	lendingServiceConfirmLoopHandler := connect.NewUnaryHandler(
-		LendingServiceConfirmLoopProcedure,
-		svc.ConfirmLoop,
-		connect.WithSchema(lendingServiceMethods.ByName("ConfirmLoop")),
-		connect.WithHandlerOptions(opts...),
-	)
-	lendingServiceSubmitLoopHandler := connect.NewUnaryHandler(
-		LendingServiceSubmitLoopProcedure,
-		svc.SubmitLoop,
-		connect.WithSchema(lendingServiceMethods.ByName("SubmitLoop")),
-		connect.WithHandlerOptions(opts...),
-	)
-	lendingServiceGetLoopHandler := connect.NewUnaryHandler(
-		LendingServiceGetLoopProcedure,
-		svc.GetLoop,
-		connect.WithSchema(lendingServiceMethods.ByName("GetLoop")),
-		connect.WithHandlerOptions(opts...),
-	)
-	return "/gfxcafe.oku.account.v2.LendingService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case LendingServiceGetLendingVaultsProcedure:
-			lendingServiceGetLendingVaultsHandler.ServeHTTP(w, r)
-		case LendingServiceGetLendingMarketsProcedure:
-			lendingServiceGetLendingMarketsHandler.ServeHTTP(w, r)
-		case LendingServiceGetLendingPositionProcedure:
-			lendingServiceGetLendingPositionHandler.ServeHTTP(w, r)
-		case LendingServiceGetLendingUserPositionsProcedure:
-			lendingServiceGetLendingUserPositionsHandler.ServeHTTP(w, r)
-		case LendingServiceBuildLendingDepositProcedure:
-			lendingServiceBuildLendingDepositHandler.ServeHTTP(w, r)
-		case LendingServiceBuildLendingWithdrawProcedure:
-			lendingServiceBuildLendingWithdrawHandler.ServeHTTP(w, r)
-		case LendingServiceBuildLendingBorrowProcedure:
-			lendingServiceBuildLendingBorrowHandler.ServeHTTP(w, r)
-		case LendingServiceBuildLendingRepayProcedure:
-			lendingServiceBuildLendingRepayHandler.ServeHTTP(w, r)
-		case LendingServiceQuoteLoopProcedure:
-			lendingServiceQuoteLoopHandler.ServeHTTP(w, r)
-		case LendingServiceConfirmLoopProcedure:
-			lendingServiceConfirmLoopHandler.ServeHTTP(w, r)
-		case LendingServiceSubmitLoopProcedure:
-			lendingServiceSubmitLoopHandler.ServeHTTP(w, r)
-		case LendingServiceGetLoopProcedure:
-			lendingServiceGetLoopHandler.ServeHTTP(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	})
 }
 
 // UnimplementedLendingServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedLendingServiceHandler struct{}
 
-func (UnimplementedLendingServiceHandler) GetLendingVaults(context.Context, *connect.Request[v2.GetLendingVaultsRequest]) (*connect.Response[v2.GetLendingVaultsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.LendingService.GetLendingVaults is not implemented"))
+func (UnimplementedLendingServiceHandler) GetLendingVaults(context.Context, *v2.GetLendingVaultsRequest) (*v2.GetLendingVaultsResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.LendingService.GetLendingVaults is not implemented")
 }
 
-func (UnimplementedLendingServiceHandler) GetLendingMarkets(context.Context, *connect.Request[v2.GetLendingMarketsRequest]) (*connect.Response[v2.GetLendingMarketsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.LendingService.GetLendingMarkets is not implemented"))
+func (UnimplementedLendingServiceHandler) GetLendingMarkets(context.Context, *v2.GetLendingMarketsRequest) (*v2.GetLendingMarketsResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.LendingService.GetLendingMarkets is not implemented")
 }
 
-func (UnimplementedLendingServiceHandler) GetLendingPosition(context.Context, *connect.Request[v2.GetLendingPositionRequest]) (*connect.Response[v2.GetLendingPositionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.LendingService.GetLendingPosition is not implemented"))
+func (UnimplementedLendingServiceHandler) GetLendingPosition(context.Context, *v2.GetLendingPositionRequest) (*v2.GetLendingPositionResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.LendingService.GetLendingPosition is not implemented")
 }
 
-func (UnimplementedLendingServiceHandler) GetLendingUserPositions(context.Context, *connect.Request[v2.GetLendingUserPositionsRequest]) (*connect.Response[v2.GetLendingUserPositionsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.LendingService.GetLendingUserPositions is not implemented"))
+func (UnimplementedLendingServiceHandler) GetLendingUserPositions(context.Context, *v2.GetLendingUserPositionsRequest) (*v2.GetLendingUserPositionsResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.LendingService.GetLendingUserPositions is not implemented")
 }
 
-func (UnimplementedLendingServiceHandler) BuildLendingDeposit(context.Context, *connect.Request[v2.BuildLendingDepositRequest]) (*connect.Response[v2.BuildLendingDepositResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.LendingService.BuildLendingDeposit is not implemented"))
+func (UnimplementedLendingServiceHandler) BuildLendingDeposit(context.Context, *v2.BuildLendingDepositRequest) (*v2.BuildLendingDepositResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.LendingService.BuildLendingDeposit is not implemented")
 }
 
-func (UnimplementedLendingServiceHandler) BuildLendingWithdraw(context.Context, *connect.Request[v2.BuildLendingWithdrawRequest]) (*connect.Response[v2.BuildLendingWithdrawResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.LendingService.BuildLendingWithdraw is not implemented"))
+func (UnimplementedLendingServiceHandler) BuildLendingWithdraw(context.Context, *v2.BuildLendingWithdrawRequest) (*v2.BuildLendingWithdrawResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.LendingService.BuildLendingWithdraw is not implemented")
 }
 
-func (UnimplementedLendingServiceHandler) BuildLendingBorrow(context.Context, *connect.Request[v2.BuildLendingBorrowRequest]) (*connect.Response[v2.BuildLendingBorrowResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.LendingService.BuildLendingBorrow is not implemented"))
+func (UnimplementedLendingServiceHandler) BuildLendingBorrow(context.Context, *v2.BuildLendingBorrowRequest) (*v2.BuildLendingBorrowResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.LendingService.BuildLendingBorrow is not implemented")
 }
 
-func (UnimplementedLendingServiceHandler) BuildLendingRepay(context.Context, *connect.Request[v2.BuildLendingRepayRequest]) (*connect.Response[v2.BuildLendingRepayResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.LendingService.BuildLendingRepay is not implemented"))
+func (UnimplementedLendingServiceHandler) BuildLendingRepay(context.Context, *v2.BuildLendingRepayRequest) (*v2.BuildLendingRepayResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.LendingService.BuildLendingRepay is not implemented")
 }
 
-func (UnimplementedLendingServiceHandler) QuoteLoop(context.Context, *connect.Request[v2.QuoteLoopRequest]) (*connect.Response[v2.LoopStatus], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.LendingService.QuoteLoop is not implemented"))
+func (UnimplementedLendingServiceHandler) QuoteLoop(context.Context, *v2.QuoteLoopRequest) (*v2.LoopStatus, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.LendingService.QuoteLoop is not implemented")
 }
 
-func (UnimplementedLendingServiceHandler) ConfirmLoop(context.Context, *connect.Request[v2.LoopOrderRequest]) (*connect.Response[v2.ConfirmLoopResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.LendingService.ConfirmLoop is not implemented"))
+func (UnimplementedLendingServiceHandler) ConfirmLoop(context.Context, *v2.LoopOrderRequest) (*v2.ConfirmLoopResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.LendingService.ConfirmLoop is not implemented")
 }
 
-func (UnimplementedLendingServiceHandler) SubmitLoop(context.Context, *connect.Request[v2.SubmitLoopRequest]) (*connect.Response[v2.SubmitLoopResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.LendingService.SubmitLoop is not implemented"))
+func (UnimplementedLendingServiceHandler) SubmitLoop(context.Context, *v2.SubmitLoopRequest) (*v2.SubmitLoopResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.LendingService.SubmitLoop is not implemented")
 }
 
-func (UnimplementedLendingServiceHandler) GetLoop(context.Context, *connect.Request[v2.LoopOrderRequest]) (*connect.Response[v2.LoopStatus], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.LendingService.GetLoop is not implemented"))
+func (UnimplementedLendingServiceHandler) GetLoop(context.Context, *v2.LoopOrderRequest) (*v2.LoopStatus, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.LendingService.GetLoop is not implemented")
+}
+
+type lendingServiceClient struct {
+	client *connect.Client
+}
+
+func (c *lendingServiceClient) GetLendingVaults(ctx context.Context, req *v2.GetLendingVaultsRequest) (*v2.GetLendingVaultsResponse, error) {
+	var res v2.GetLendingVaultsResponse
+	if err := c.client.CallUnary(ctx, lendingServiceGetLendingVaultsSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *lendingServiceClient) GetLendingMarkets(ctx context.Context, req *v2.GetLendingMarketsRequest) (*v2.GetLendingMarketsResponse, error) {
+	var res v2.GetLendingMarketsResponse
+	if err := c.client.CallUnary(ctx, lendingServiceGetLendingMarketsSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *lendingServiceClient) GetLendingPosition(ctx context.Context, req *v2.GetLendingPositionRequest) (*v2.GetLendingPositionResponse, error) {
+	var res v2.GetLendingPositionResponse
+	if err := c.client.CallUnary(ctx, lendingServiceGetLendingPositionSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *lendingServiceClient) GetLendingUserPositions(ctx context.Context, req *v2.GetLendingUserPositionsRequest) (*v2.GetLendingUserPositionsResponse, error) {
+	var res v2.GetLendingUserPositionsResponse
+	if err := c.client.CallUnary(ctx, lendingServiceGetLendingUserPositionsSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *lendingServiceClient) BuildLendingDeposit(ctx context.Context, req *v2.BuildLendingDepositRequest) (*v2.BuildLendingDepositResponse, error) {
+	var res v2.BuildLendingDepositResponse
+	if err := c.client.CallUnary(ctx, lendingServiceBuildLendingDepositSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *lendingServiceClient) BuildLendingWithdraw(ctx context.Context, req *v2.BuildLendingWithdrawRequest) (*v2.BuildLendingWithdrawResponse, error) {
+	var res v2.BuildLendingWithdrawResponse
+	if err := c.client.CallUnary(ctx, lendingServiceBuildLendingWithdrawSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *lendingServiceClient) BuildLendingBorrow(ctx context.Context, req *v2.BuildLendingBorrowRequest) (*v2.BuildLendingBorrowResponse, error) {
+	var res v2.BuildLendingBorrowResponse
+	if err := c.client.CallUnary(ctx, lendingServiceBuildLendingBorrowSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *lendingServiceClient) BuildLendingRepay(ctx context.Context, req *v2.BuildLendingRepayRequest) (*v2.BuildLendingRepayResponse, error) {
+	var res v2.BuildLendingRepayResponse
+	if err := c.client.CallUnary(ctx, lendingServiceBuildLendingRepaySpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *lendingServiceClient) QuoteLoop(ctx context.Context, req *v2.QuoteLoopRequest) (*v2.LoopStatus, error) {
+	var res v2.LoopStatus
+	if err := c.client.CallUnary(ctx, lendingServiceQuoteLoopSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *lendingServiceClient) ConfirmLoop(ctx context.Context, req *v2.LoopOrderRequest) (*v2.ConfirmLoopResponse, error) {
+	var res v2.ConfirmLoopResponse
+	if err := c.client.CallUnary(ctx, lendingServiceConfirmLoopSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *lendingServiceClient) SubmitLoop(ctx context.Context, req *v2.SubmitLoopRequest) (*v2.SubmitLoopResponse, error) {
+	var res v2.SubmitLoopResponse
+	if err := c.client.CallUnary(ctx, lendingServiceSubmitLoopSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *lendingServiceClient) GetLoop(ctx context.Context, req *v2.LoopOrderRequest) (*v2.LoopStatus, error) {
+	var res v2.LoopStatus
+	if err := c.client.CallUnary(ctx, lendingServiceGetLoopSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type lendingServiceHandler struct{ svc LendingServiceHandler }
+
+func (h lendingServiceHandler) getLendingVaults(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetLendingVaultsRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetLendingVaults(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h lendingServiceHandler) getLendingMarkets(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetLendingMarketsRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetLendingMarkets(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h lendingServiceHandler) getLendingPosition(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetLendingPositionRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetLendingPosition(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h lendingServiceHandler) getLendingUserPositions(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetLendingUserPositionsRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetLendingUserPositions(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h lendingServiceHandler) buildLendingDeposit(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.BuildLendingDepositRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.BuildLendingDeposit(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h lendingServiceHandler) buildLendingWithdraw(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.BuildLendingWithdrawRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.BuildLendingWithdraw(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h lendingServiceHandler) buildLendingBorrow(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.BuildLendingBorrowRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.BuildLendingBorrow(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h lendingServiceHandler) buildLendingRepay(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.BuildLendingRepayRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.BuildLendingRepay(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h lendingServiceHandler) quoteLoop(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.QuoteLoopRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.QuoteLoop(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h lendingServiceHandler) confirmLoop(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.LoopOrderRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ConfirmLoop(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h lendingServiceHandler) submitLoop(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.SubmitLoopRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.SubmitLoop(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h lendingServiceHandler) getLoop(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.LoopOrderRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetLoop(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
 }

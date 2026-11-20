@@ -5,135 +5,132 @@
 package accountv2connect
 
 import (
-	connect "connectrpc.com/connect"
+	connect "connectrpc.com/connect/v2"
 	context "context"
-	errors "errors"
 	v2 "github.com/oku-trade/oku-cli/pkg/gen/gfxcafe/oku/account/v2"
-	http "net/http"
-	strings "strings"
+	sync "sync"
 )
-
-// This is a compile-time assertion to ensure that this generated file and the connect package are
-// compatible. If you get a compiler error that this constant is not defined, this code was
-// generated with a version of connect newer than the one compiled into your binary. You can fix the
-// problem by either regenerating this code with an older version of connect or updating the connect
-// version compiled into your binary.
-const _ = connect.IsAtLeastVersion1_13_0
 
 const (
 	// PortfolioServiceName is the fully-qualified name of the PortfolioService service.
 	PortfolioServiceName = "gfxcafe.oku.account.v2.PortfolioService"
 )
 
-// These constants are the fully-qualified names of the RPCs defined in this package. They're
-// exposed at runtime as Spec.Procedure and as the final two segments of the HTTP route.
+// These constants are the procedure names of the RPCs defined in this package. They're exposed at
+// runtime as Spec.Procedure and as the final two segments of the HTTP route.
 //
 // Note that these are different from the fully-qualified method names used by
 // google.golang.org/protobuf/reflect/protoreflect. To convert from these constants to
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// PortfolioServiceGetHoldingsAndPositionsProcedure is the fully-qualified name of the
-	// PortfolioService's GetHoldingsAndPositions RPC.
+	// PortfolioServiceGetHoldingsAndPositionsProcedure is the procedure name of the PortfolioService's
+	// GetHoldingsAndPositions RPC.
 	PortfolioServiceGetHoldingsAndPositionsProcedure = "/gfxcafe.oku.account.v2.PortfolioService/GetHoldingsAndPositions"
-	// PortfolioServiceGetNetWorthChartProcedure is the fully-qualified name of the PortfolioService's
+	// PortfolioServiceGetNetWorthChartProcedure is the procedure name of the PortfolioService's
 	// GetNetWorthChart RPC.
 	PortfolioServiceGetNetWorthChartProcedure = "/gfxcafe.oku.account.v2.PortfolioService/GetNetWorthChart"
 )
 
+var (
+	portfolioServiceGetHoldingsAndPositionsSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_portfolio_proto.Services().ByName("PortfolioService").Methods().ByName("GetHoldingsAndPositions"),
+			Procedure:  PortfolioServiceGetHoldingsAndPositionsProcedure,
+		}
+	})
+	portfolioServiceGetNetWorthChartSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v2.File_gfxcafe_oku_account_v2_portfolio_proto.Services().ByName("PortfolioService").Methods().ByName("GetNetWorthChart"),
+			Procedure:  PortfolioServiceGetNetWorthChartProcedure,
+		}
+	})
+)
+
 // PortfolioServiceClient is a client for the gfxcafe.oku.account.v2.PortfolioService service.
 type PortfolioServiceClient interface {
-	GetHoldingsAndPositions(context.Context, *connect.Request[v2.GetHoldingsAndPositionsRequest]) (*connect.Response[v2.GetHoldingsAndPositionsResponse], error)
-	GetNetWorthChart(context.Context, *connect.Request[v2.GetNetWorthChartRequest]) (*connect.Response[v2.GetNetWorthChartResponse], error)
+	GetHoldingsAndPositions(context.Context, *v2.GetHoldingsAndPositionsRequest) (*v2.GetHoldingsAndPositionsResponse, error)
+	GetNetWorthChart(context.Context, *v2.GetNetWorthChartRequest) (*v2.GetNetWorthChartResponse, error)
 }
 
 // NewPortfolioServiceClient constructs a client for the gfxcafe.oku.account.v2.PortfolioService
-// service. By default, it uses the Connect protocol with the binary Protobuf Codec, asks for
-// gzipped responses, and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply
-// the connect.WithGRPC() or connect.WithGRPCWeb() options.
-//
-// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
-// http://api.acme.com or https://acme.com/grpc).
-func NewPortfolioServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) PortfolioServiceClient {
-	baseURL = strings.TrimRight(baseURL, "/")
-	portfolioServiceMethods := v2.File_gfxcafe_oku_account_v2_portfolio_proto.Services().ByName("PortfolioService").Methods()
-	return &portfolioServiceClient{
-		getHoldingsAndPositions: connect.NewClient[v2.GetHoldingsAndPositionsRequest, v2.GetHoldingsAndPositionsResponse](
-			httpClient,
-			baseURL+PortfolioServiceGetHoldingsAndPositionsProcedure,
-			connect.WithSchema(portfolioServiceMethods.ByName("GetHoldingsAndPositions")),
-			connect.WithClientOptions(opts...),
-		),
-		getNetWorthChart: connect.NewClient[v2.GetNetWorthChartRequest, v2.GetNetWorthChartResponse](
-			httpClient,
-			baseURL+PortfolioServiceGetNetWorthChartProcedure,
-			connect.WithSchema(portfolioServiceMethods.ByName("GetNetWorthChart")),
-			connect.WithClientOptions(opts...),
-		),
-	}
-}
-
-// portfolioServiceClient implements PortfolioServiceClient.
-type portfolioServiceClient struct {
-	getHoldingsAndPositions *connect.Client[v2.GetHoldingsAndPositionsRequest, v2.GetHoldingsAndPositionsResponse]
-	getNetWorthChart        *connect.Client[v2.GetNetWorthChartRequest, v2.GetNetWorthChartResponse]
-}
-
-// GetHoldingsAndPositions calls gfxcafe.oku.account.v2.PortfolioService.GetHoldingsAndPositions.
-func (c *portfolioServiceClient) GetHoldingsAndPositions(ctx context.Context, req *connect.Request[v2.GetHoldingsAndPositionsRequest]) (*connect.Response[v2.GetHoldingsAndPositionsResponse], error) {
-	return c.getHoldingsAndPositions.CallUnary(ctx, req)
-}
-
-// GetNetWorthChart calls gfxcafe.oku.account.v2.PortfolioService.GetNetWorthChart.
-func (c *portfolioServiceClient) GetNetWorthChart(ctx context.Context, req *connect.Request[v2.GetNetWorthChartRequest]) (*connect.Response[v2.GetNetWorthChartResponse], error) {
-	return c.getNetWorthChart.CallUnary(ctx, req)
+// service. Multiple service clients may share a single connect.Client.
+func NewPortfolioServiceClient(client *connect.Client) PortfolioServiceClient {
+	return &portfolioServiceClient{client: client}
 }
 
 // PortfolioServiceHandler is an implementation of the gfxcafe.oku.account.v2.PortfolioService
 // service.
 type PortfolioServiceHandler interface {
-	GetHoldingsAndPositions(context.Context, *connect.Request[v2.GetHoldingsAndPositionsRequest]) (*connect.Response[v2.GetHoldingsAndPositionsResponse], error)
-	GetNetWorthChart(context.Context, *connect.Request[v2.GetNetWorthChartRequest]) (*connect.Response[v2.GetNetWorthChartResponse], error)
+	GetHoldingsAndPositions(context.Context, *v2.GetHoldingsAndPositionsRequest) (*v2.GetHoldingsAndPositionsResponse, error)
+	GetNetWorthChart(context.Context, *v2.GetNetWorthChartRequest) (*v2.GetNetWorthChartResponse, error)
 }
 
-// NewPortfolioServiceHandler builds an HTTP handler from the service implementation. It returns the
-// path on which to mount the handler and the handler itself.
-//
-// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
-// and JSON codecs. They also support gzip compression.
-func NewPortfolioServiceHandler(svc PortfolioServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	portfolioServiceMethods := v2.File_gfxcafe_oku_account_v2_portfolio_proto.Services().ByName("PortfolioService").Methods()
-	portfolioServiceGetHoldingsAndPositionsHandler := connect.NewUnaryHandler(
-		PortfolioServiceGetHoldingsAndPositionsProcedure,
-		svc.GetHoldingsAndPositions,
-		connect.WithSchema(portfolioServiceMethods.ByName("GetHoldingsAndPositions")),
-		connect.WithHandlerOptions(opts...),
+// RegisterPortfolioServiceHandler registers svc as the gfxcafe.oku.account.v2.PortfolioService
+// implementation on server.
+func RegisterPortfolioServiceHandler(server *connect.Server, svc PortfolioServiceHandler) {
+	adapter := portfolioServiceHandler{svc: svc}
+	server.Register(
+		connect.Method{Spec: portfolioServiceGetHoldingsAndPositionsSpec(), Handler: adapter.getHoldingsAndPositions},
+		connect.Method{Spec: portfolioServiceGetNetWorthChartSpec(), Handler: adapter.getNetWorthChart},
 	)
-	portfolioServiceGetNetWorthChartHandler := connect.NewUnaryHandler(
-		PortfolioServiceGetNetWorthChartProcedure,
-		svc.GetNetWorthChart,
-		connect.WithSchema(portfolioServiceMethods.ByName("GetNetWorthChart")),
-		connect.WithHandlerOptions(opts...),
-	)
-	return "/gfxcafe.oku.account.v2.PortfolioService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case PortfolioServiceGetHoldingsAndPositionsProcedure:
-			portfolioServiceGetHoldingsAndPositionsHandler.ServeHTTP(w, r)
-		case PortfolioServiceGetNetWorthChartProcedure:
-			portfolioServiceGetNetWorthChartHandler.ServeHTTP(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	})
 }
 
 // UnimplementedPortfolioServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedPortfolioServiceHandler struct{}
 
-func (UnimplementedPortfolioServiceHandler) GetHoldingsAndPositions(context.Context, *connect.Request[v2.GetHoldingsAndPositionsRequest]) (*connect.Response[v2.GetHoldingsAndPositionsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PortfolioService.GetHoldingsAndPositions is not implemented"))
+func (UnimplementedPortfolioServiceHandler) GetHoldingsAndPositions(context.Context, *v2.GetHoldingsAndPositionsRequest) (*v2.GetHoldingsAndPositionsResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.PortfolioService.GetHoldingsAndPositions is not implemented")
 }
 
-func (UnimplementedPortfolioServiceHandler) GetNetWorthChart(context.Context, *connect.Request[v2.GetNetWorthChartRequest]) (*connect.Response[v2.GetNetWorthChartResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gfxcafe.oku.account.v2.PortfolioService.GetNetWorthChart is not implemented"))
+func (UnimplementedPortfolioServiceHandler) GetNetWorthChart(context.Context, *v2.GetNetWorthChartRequest) (*v2.GetNetWorthChartResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "gfxcafe.oku.account.v2.PortfolioService.GetNetWorthChart is not implemented")
+}
+
+type portfolioServiceClient struct {
+	client *connect.Client
+}
+
+func (c *portfolioServiceClient) GetHoldingsAndPositions(ctx context.Context, req *v2.GetHoldingsAndPositionsRequest) (*v2.GetHoldingsAndPositionsResponse, error) {
+	var res v2.GetHoldingsAndPositionsResponse
+	if err := c.client.CallUnary(ctx, portfolioServiceGetHoldingsAndPositionsSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *portfolioServiceClient) GetNetWorthChart(ctx context.Context, req *v2.GetNetWorthChartRequest) (*v2.GetNetWorthChartResponse, error) {
+	var res v2.GetNetWorthChartResponse
+	if err := c.client.CallUnary(ctx, portfolioServiceGetNetWorthChartSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type portfolioServiceHandler struct{ svc PortfolioServiceHandler }
+
+func (h portfolioServiceHandler) getHoldingsAndPositions(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetHoldingsAndPositionsRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetHoldingsAndPositions(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h portfolioServiceHandler) getNetWorthChart(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v2.GetNetWorthChartRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetNetWorthChart(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
 }
